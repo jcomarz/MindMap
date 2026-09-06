@@ -28,6 +28,10 @@
 }
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
+/* Chrome on Android reports a layout viewport taller than the visible area
+   when the address bar is showing, so 100% pushes the bottom controls under
+   it. dvh measures what is actually on screen. */
+@supports (height:100dvh){ html,body{height:100dvh} }
 body{
   font-family:var(--sans);
   background:var(--paper-2);
@@ -36,13 +40,18 @@ body{
   line-height:1.4;
   overflow:hidden;
   -webkit-text-size-adjust:100%;
+  display:flex;
+  flex-direction:column;
 }
 button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
 :focus-visible{outline:2px solid var(--blueprint);outline-offset:1px}
 
 /* ---------- shell ---------- */
-#app{display:grid;grid-template-columns:var(--rail) 1fr var(--insp);height:100%}
+/* the mobile bar is a sibling of #app, so #app takes what is left over
+   rather than a full screen height of its own */
+#app{display:grid;grid-template-columns:var(--rail) 1fr var(--insp);
+  flex:1 1 auto;min-height:0;height:auto}
 .rail,.inspector{background:var(--paper);display:flex;flex-direction:column;min-height:0}
 .rail{border-right:1px solid var(--rule)}
 .inspector{border-left:1px solid var(--rule)}
@@ -116,7 +125,7 @@ label.field>span{display:block;font-size:12px;color:var(--graphite-60);margin-bo
 .tagchip i{width:16px;height:0;border-top-width:2px;display:inline-block}
 
 /* ---------- canvas ---------- */
-.stage{position:relative;background:var(--paper-2);min-width:0;overflow:hidden}
+.stage{position:relative;background:var(--paper-2);min-width:0;min-height:0;overflow:hidden}
 #sheet{
   position:absolute;inset:14px;background:var(--paper);
   border:1px solid var(--rule);box-shadow:0 1px 0 rgba(35,40,45,.06);
@@ -183,7 +192,7 @@ label.field>span{display:block;font-size:12px;color:var(--graphite-60);margin-bo
 }
 .toast.on{opacity:1}
 
-.mobile-tabs{display:none}
+.mobile-tabs{display:none;flex:0 0 auto}
 .dirty-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--flag);vertical-align:middle;margin-left:5px;visibility:hidden}
 .dirty .dirty-dot{visibility:visible}
 
@@ -209,16 +218,22 @@ label.field>span{display:block;font-size:12px;color:var(--graphite-60);margin-bo
   .idxlabel{font-family:var(--mono);font-size:9pt;fill:#14549B}
 }
 
+/* A dialog given an explicit display beats the browser rule that hides it
+   when closed, so put that back. */
+dialog:not([open]){display:none !important}
+
 /* ---------- sheets dialog ---------- */
 dialog#connDlg{
   border:1px solid var(--graphite);border-radius:3px;padding:0;background:var(--paper);
-  width:min(620px,94vw);max-height:88vh;color:var(--graphite)
+  width:min(620px,94vw);max-height:88dvh;color:var(--graphite)
 }
+@media (max-width:820px){ dialog#connDlg{width:100vw;height:100dvh;max-height:none;border:0;border-radius:0} }
 dialog#connDlg::backdrop{background:rgba(35,40,45,.42)}
 .dlg-head{display:flex;align-items:center;justify-content:space-between;
   padding:13px 18px;border-bottom:1px solid var(--rule)}
 .dlg-head h2{margin:0;font-size:16px;font-weight:600}
-.dlg-body{padding:16px 18px 20px;overflow-y:auto;max-height:calc(88vh - 56px)}
+.dlg-body{padding:16px 18px 20px;overflow-y:auto;max-height:calc(88dvh - 56px);
+  padding-bottom:calc(20px + env(safe-area-inset-bottom))}
 .setup{margin:0 0 14px;padding-left:20px;font-size:13px;line-height:1.6;color:var(--graphite-60)}
 .setup li{margin-bottom:3px}
 .conn{border:1px solid var(--rule);border-radius:2px;padding:12px;margin-top:12px}
@@ -226,10 +241,11 @@ dialog#connDlg::backdrop{background:rgba(35,40,45,.42)}
 .conn .hdr strong{font-size:13px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
 dialog#snapDlg{border:1px solid var(--graphite);border-radius:3px;padding:0;background:var(--paper);
-  width:min(560px,94vw);max-height:88vh;color:var(--graphite)}
+  width:min(560px,94vw);max-height:88dvh;color:var(--graphite)}
+@media (max-width:820px){ dialog#snapDlg{width:100vw;height:100dvh;max-height:none;border:0;border-radius:0} }
 dialog#snapDlg::backdrop{background:rgba(35,40,45,.42)}
 dialog#histDlg{border:1px solid var(--graphite);border-radius:3px;padding:0;background:var(--paper);
-  width:min(760px,96vw);height:min(88vh,820px);color:var(--graphite);display:flex;flex-direction:column}
+  width:min(760px,96vw);height:min(88dvh,820px);color:var(--graphite);display:flex;flex-direction:column}
 dialog#histDlg::backdrop{background:rgba(35,40,45,.42)}
 dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
 .hist-controls{padding:12px 18px;border-bottom:1px solid var(--rule);background:var(--paper-2)}
@@ -281,7 +297,7 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
 .ent-edit input[type=text]{font-family:var(--mono);font-size:12px}
 .histempty{padding:34px 4px;color:var(--graphite-60);font-size:13px}
 @media (max-width:820px){
-  dialog#histDlg{width:100vw;height:100vh;max-width:none;border:0;border-radius:0}
+  dialog#histDlg{width:100vw;height:100dvh;max-width:none;border:0;border-radius:0}
   .ent>summary{grid-template-columns:46px 12px 1fr;gap:7px}
   .ent-edit{padding-left:0}
 }
@@ -291,7 +307,7 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
 .imgcard strong{display:block;font-size:12px;font-weight:600}
 .imgcard span{font-size:11px;color:var(--graphite-60);font-family:var(--mono);word-break:break-all}
 .fineprint{font-size:12px;color:var(--graphite-60);line-height:1.5;margin:14px 0 0}
-.banner{position:fixed;top:0;left:0;right:0;z-index:70;display:flex;gap:10px;align-items:center;
+.banner{flex:0 0 auto;z-index:70;display:flex;gap:10px;align-items:center;
   background:#5E1F10;color:#FDF3F0;padding:10px 14px;font-size:13px;line-height:1.45;
   padding-top:calc(10px + env(safe-area-inset-top))}
 .banner[hidden]{display:none}
@@ -299,7 +315,6 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
 .banner strong{display:block}
 .banner .btn{background:transparent;border-color:#C9A79E;color:#FDF3F0;flex:0 0 auto;padding:6px 10px}
 .banner .btn[hidden]{display:none}
-body.bannered #app{padding-top:56px}
 .diagbox{border:1px solid var(--rule);border-radius:2px;background:var(--paper-2);padding:11px 13px;
   font-size:12px;line-height:1.7;margin-bottom:14px}
 .diagbox b{font-weight:600}
@@ -312,7 +327,7 @@ body.bannered #app{padding-top:56px}
   :root{--rail:220px;--insp:270px}
 }
 @media (max-width:820px){
-  #app{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+  #app{grid-template-columns:1fr;grid-template-rows:1fr}
 
   .rail{position:fixed;top:0;bottom:0;left:0;width:min(88vw,330px);z-index:40;
     transform:translateX(-102%);transition:transform .22s ease;
@@ -321,7 +336,8 @@ body.bannered #app{padding-top:56px}
 
   /* the inspector reads better as a sheet that rises from the thumb end */
   .inspector{position:fixed;left:0;right:0;bottom:0;top:auto;width:auto;
-    height:min(74vh,620px);z-index:40;border-left:0;border-top:1px solid var(--graphite);
+    height:min(74dvh,620px);max-height:calc(100dvh - 56px);z-index:40;
+    border-left:0;border-top:1px solid var(--graphite);
     border-radius:8px 8px 0 0;transform:translateY(102%);transition:transform .22s ease;
     box-shadow:0 -6px 26px rgba(35,40,45,.18);padding-bottom:env(safe-area-inset-bottom)}
   .inspector.open{transform:none}
@@ -342,7 +358,7 @@ body.bannered #app{padding-top:56px}
     line-height:1;padding:7px 10px;color:var(--graphite)}
   .mobile-tabs .mhits #mCount{font-family:var(--mono);font-size:11px;color:var(--graphite-60);min-width:34px;text-align:center}
   .node-hit{pointer-events:all}
-  .stage{grid-row:2}
+  .stage{grid-row:1}
   #sheet{inset:8px}
   .titleblock{display:none}
 
@@ -352,9 +368,13 @@ body.bannered #app{padding-top:56px}
   .check{padding:5px 0}
   .check input{width:18px;height:18px}
   .tagchip{padding:6px 10px;font-size:13px}
-  .zoombar{left:10px;bottom:calc(10px + env(safe-area-inset-bottom));padding:5px}
-  .zoombar button{padding:8px 13px;font-size:15px}
-  .zoombar .lvl{min-width:42px}
+  /* pinned to the stage, which now ends at the real bottom of the screen */
+  .zoombar{left:8px;right:auto;bottom:calc(8px + env(safe-area-inset-bottom));padding:4px;
+    max-width:calc(100vw - 90px);flex-wrap:nowrap}
+  .zoombar button{padding:9px 12px;font-size:15px}
+  .zoombar .lvl{min-width:40px;font-size:11px}
+  .fab{width:48px;height:48px;border-radius:24px;font-size:24px;
+    right:12px;bottom:calc(12px + env(safe-area-inset-bottom))}
 
   /* one-tap add, reachable without opening a drawer */
   .fab{
