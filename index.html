@@ -200,7 +200,19 @@ label.field>span{display:block;font-size:12px;color:var(--graphite-60);margin-bo
 }
 .toast.on{opacity:1}
 
-.mobile-tabs{display:none;flex:0 0 auto}
+.mobile-tabs{
+  display:flex;gap:8px;align-items:center;padding:7px 12px;background:var(--paper);
+  border-bottom:1px solid var(--rule);flex:0 0 auto;position:relative;z-index:50
+}
+.mobile-tabs .mq{flex:1;min-width:0}
+.mobile-tabs .mhits{display:flex;align-items:center;gap:2px;border:1px solid var(--rule);
+  border-radius:3px;background:var(--paper);flex:0 0 auto}
+.mobile-tabs .mhits[hidden]{display:none}
+.mobile-tabs .mhits button{border:0;background:transparent;font-size:18px;line-height:1;
+  padding:5px 9px;color:var(--graphite)}
+.mobile-tabs .mhits #mCount{font-family:var(--mono);font-size:11px;color:var(--graphite-60);
+  min-width:34px;text-align:center}
+#topAdd{flex:0 0 auto}
 .dirty-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--flag);vertical-align:middle;margin-left:5px;visibility:hidden}
 .dirty .dirty-dot{visibility:visible}
 
@@ -359,12 +371,8 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
     padding-top:calc(8px + env(safe-area-inset-top))
   }
   .mobile-tabs .mq{flex:1;min-width:0;padding:9px 10px;font-size:16px}
-  .mobile-tabs .mhits{display:flex;align-items:center;gap:2px;border:1px solid var(--rule);
-    border-radius:3px;background:var(--paper)}
-  .mobile-tabs .mhits[hidden]{display:none}
-  .mobile-tabs .mhits button{border:0;background:transparent;font-size:19px;
-    line-height:1;padding:7px 10px;color:var(--graphite)}
-  .mobile-tabs .mhits #mCount{font-family:var(--mono);font-size:11px;color:var(--graphite-60);min-width:34px;text-align:center}
+  .mobile-tabs .mhits button{font-size:19px;padding:7px 10px}
+  #topAdd{display:none}
   .node-hit{pointer-events:all}
   .stage{grid-row:1}
   #sheet{inset:8px}
@@ -395,7 +403,13 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
   .fab.loose{background:var(--paper);color:var(--blueprint);border-color:var(--blueprint)}
   .grid2{grid-template-columns:1fr}
 }
-@media (min-width:821px){ .fab{display:none} .mq,.mhits{display:none} }
+@media (min-width:821px){
+  .fab{display:none}
+  /* the panels are already on screen, so their drawer toggles are noise */
+  #mRail,#mInsp{display:none}
+  .mobile-tabs{padding:8px 16px}
+  .mobile-tabs .mq{flex:0 1 520px}
+}
 </style>
 </head>
 <body>
@@ -413,6 +427,7 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
     <span id="mCount">0/0</span>
     <button type="button" id="mNext" aria-label="Next match">&#8250;</button>
   </span>
+  <button class="btn" id="topAdd">Add node</button>
   <button class="btn" id="mInsp">Node</button>
 </div>
 
@@ -445,7 +460,7 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
           <button class="btn" id="btnNew">Start empty</button>
         </div>
         <div class="row" style="margin-top:6px">
-          <button class="btn wide" id="btnSnaps">Recover an earlier version</button>
+          <button class="btn wide" id="btnSnaps">Maps and saved versions</button>
         </div>
         <div class="row" style="margin-top:6px">
           <button class="btn wide" id="btnLinkFile">Keep a live file on disk</button>
@@ -650,7 +665,7 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
 
 <dialog id="snapDlg">
   <div class="dlg-head">
-    <h2>Saved versions</h2>
+    <h2>Maps and versions</h2>
     <button class="btn" id="snapClose">Done</button>
   </div>
   <div class="dlg-body" id="snapBody"></div>
@@ -767,7 +782,8 @@ function writeAll(ss, prefix, tables) {
    app knows lives here; anything here survives a round trip to Excel.
    ===================================================================== */
 const S = {
-  meta:{ title:"Sample accessioning", author:"jerico", created:nowISO() },
+  meta:{ title:"Sample accessioning", author:"jerico", created:nowISO(), key:null,
+         lastEdited:null, lastOpened:null, bytes:0, provisional:false },
   nodes:new Map(),      // id -> node
   areas:new Map(),      // id -> labelled region drawn behind the map
   bookmarks:[],         // saved viewpoints
@@ -891,7 +907,13 @@ function reclassify(rev, cls){
   rev.class = cls;
   markDirty();
 }
-function markDirty(){ S.dirty = true; document.body.classList.add("dirty");
+function markDirty(){
+  S.dirty = true;
+  document.body.classList.add("dirty");
+  S.meta.lastEdited = nowISO();
+  /* an untouched blank map is not written to storage; editing it makes it
+     real, so opening tabs never litters the browser with empty maps */
+  S.meta.provisional = false;
   if(typeof scheduleSave === "function") scheduleSave(); }
 function markClean(){ S.dirty = false; document.body.classList.remove("dirty"); }
 
@@ -938,6 +960,22 @@ function descendants(id, acc=new Set()){
 /* =====================================================================
    SEED — a small accessioning tree so the map is never a blank sheet
    ===================================================================== */
+/* What a fresh tab gets when there is nothing free to resume. Provisional
+   until touched, so it costs nothing in storage. */
+function blankMap(){
+  S.nodes.clear(); S.edges.clear(); S.revisions.length = 0; S.tagStyles.clear();
+  S.areas.clear(); S.bookmarks.length = 0;
+  S.sel = null; S.selArea = null;
+  const n = newNode({label:"Start here", type:"start"});
+  S.nodes.set(n.id, n);
+  S.meta.title = "";
+  S.meta.key = uid("M-");
+  S.meta.lastEdited = nowISO();
+  S.meta.lastOpened = nowISO();
+  S.meta.provisional = true;
+  markClean();
+}
+
 function seed(){
   S.nodes.clear(); S.edges.clear(); S.revisions.length=0; S.tagStyles.clear();
   S.areas.clear(); S.bookmarks.length=0;
@@ -978,6 +1016,7 @@ function seed(){
     x:0, y:0, w:520, h:360, moveContents:true});
   S.areas.set(zone.id, zone);
   S.meta.title="Sample accessioning";
+  if(!S.meta.key) S.meta.key = uid("M-");
   markClean();
   setTimeout(()=>{
     const ns = [bl,sa,ff,dn].map(i=>S.nodes.get(i)).filter(n=>n && n._x != null);
@@ -1979,13 +2018,19 @@ function deselect(){
 /* The button says what it will do, because on a phone the selection is not
    always obvious. */
 function updateFab(){
-  const f = el("fab");
-  if(!f) return;
+  const f = el("fab"), t = el("topAdd");
   const attached = !!(S.sel && S.nodes.has(S.sel));
-  f.textContent = "+";
-  f.title = attached ? "Add a child of the selected node" : "Add a free-standing node";
-  f.setAttribute("aria-label", f.title);
-  f.classList.toggle("loose", !attached);
+  const what = attached ? "Add a child of the selected node" : "Add a free-standing node";
+  if(f){
+    f.textContent = "+";
+    f.title = what;
+    f.setAttribute("aria-label", what);
+    f.classList.toggle("loose", !attached);
+  }
+  if(t){
+    t.textContent = attached ? "Add child" : "Add node";
+    t.title = what;
+  }
 }
 
 function esc(s){ return String(s??"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
@@ -2584,9 +2629,10 @@ window.addEventListener("afterprint", ()=>{ el("printroot").textContent = ""; })
    ===================================================================== */
 /* The storage names stay as they are. Renaming them would point the app at a
    fresh, empty database and orphan every saved version already on the device. */
-const DB_NAME = "branchwork-atlas", DB_VER = 2, LS_KEY = "branchwork:current", LS_SNAPS = "branchwork:snaps";
+const DB_NAME = "branchwork-atlas", DB_VER = 4, LS_KEY = "branchwork:current", LS_SNAPS = "branchwork:snaps";
 const SAVE_DEBOUNCE = 1500, SNAPSHOT_EVERY_MS = 4*60*1000, SNAPSHOT_EVERY_EDITS = 25;
-const MAX_SNAPSHOTS = 20, MIN_SAVE_GAP = 2500, MAX_SNAPSHOT_BYTES = 6*1024*1024;
+const SNAPSHOTS_PER_MAP = 6, MAX_SNAPSHOTS = 150, MIN_SAVE_GAP = 2500;
+const MAX_SNAPSHOT_BYTES = 6*1024*1024, STALE_MAP_DAYS = 60;
 
 const Store = {
   mode:"none", db:null, err:"",
@@ -2607,6 +2653,21 @@ const Store = {
         if(!db.objectStoreNames.contains("snapmeta")){
           const ms = db.createObjectStore("snapmeta", {keyPath:"id"});
           ms.createIndex("savedAt", "savedAt");
+        }
+        /* One live session per map, so two tabs on two maps never write to
+           the same record. Headlines again kept apart from the payloads. */
+        if(!db.objectStoreNames.contains("sessions"))
+          db.createObjectStore("sessions", {keyPath:"key"});
+        if(!db.objectStoreNames.contains("sessmeta")){
+          const sm = db.createObjectStore("sessmeta", {keyPath:"key"});
+          sm.createIndex("savedAt", "savedAt");
+        }
+        /* versions are budgeted per map, so one busy map cannot evict
+           another map's history */
+        const up = e.target.transaction;
+        if(db.objectStoreNames.contains("snapmeta")){
+          const ms = up.objectStore("snapmeta");
+          if(!ms.indexNames.contains("mapKey")) ms.createIndex("mapKey", "mapKey");
         }
       };
       req.onsuccess = ()=>res(req.result);
@@ -2666,6 +2727,68 @@ const Store = {
     return null;
   },
 
+  async putSession(key, rec){
+    if(!key) return;
+    if(this.mode === "idb"){
+      await this.wrap(this.tx("sessions","readwrite").put(Object.assign({key}, rec)));
+      const prev = await this.wrap(this.tx("sessmeta","readonly").get(key)) || {};
+      return this.wrap(this.tx("sessmeta","readwrite").put({
+        key, savedAt:rec.savedAt, title:rec.title,
+        nodeCount:rec.nodeCount, linkCount:rec.linkCount,
+        /* last edited, not last written — an idle tab re-saving itself must
+           not outrank the map you were actually typing in */
+        lastEdited:rec.lastEdited || prev.lastEdited || rec.savedAt,
+        lastOpened:rec.lastOpened || prev.lastOpened || rec.savedAt,
+        bytes:rec.bytes || prev.bytes || 0
+      }));
+    }
+    if(this.mode === "ls") return localStorage.setItem(LS_KEY + ":" + key, JSON.stringify(rec));
+  },
+  async getSession(key){
+    if(!key) return null;
+    if(this.mode === "idb") return await this.wrap(this.tx("sessions","readonly").get(key));
+    if(this.mode === "ls"){
+      const v = localStorage.getItem(LS_KEY + ":" + key);
+      return v ? JSON.parse(v) : null;
+    }
+    return null;
+  },
+  async touchSession(key, patch){
+    if(this.mode !== "idb" || !key) return;
+    const m = await this.wrap(this.tx("sessmeta","readonly").get(key));
+    if(!m) return;
+    return this.wrap(this.tx("sessmeta","readwrite").put(Object.assign(m, patch)));
+  },
+  async listSessions(){
+    if(this.mode === "idb"){
+      const all = await this.wrap(this.tx("sessmeta","readonly").getAll());
+      return all.sort((a,b)=>a.savedAt < b.savedAt ? 1 : -1);
+    }
+    if(this.mode === "ls"){
+      const out = [];
+      for(let i = 0; i < localStorage.length; i++){
+        const k = localStorage.key(i);
+        if(k && k.indexOf(LS_KEY + ":") === 0){
+          try{
+            const r = JSON.parse(localStorage.getItem(k));
+            out.push({key:k.slice((LS_KEY+":").length), savedAt:r.savedAt,
+                      title:r.title, nodeCount:r.nodeCount, linkCount:r.linkCount});
+          }catch(e){}
+        }
+      }
+      return out.sort((a,b)=>a.savedAt < b.savedAt ? 1 : -1);
+    }
+    return [];
+  },
+  async dropSession(key){
+    if(this.mode === "idb"){
+      await this.dropMapSnapshots(key);
+      await this.wrap(this.tx("sessions","readwrite").delete(key));
+      return this.wrap(this.tx("sessmeta","readwrite").delete(key));
+    }
+    if(this.mode === "ls") localStorage.removeItem(LS_KEY + ":" + key);
+  },
+
   async putCurrent(rec){
     if(this.mode === "idb") return this.wrap(this.tx("current","readwrite").put(rec, "session"));
     if(this.mode === "ls")  return localStorage.setItem(LS_KEY, JSON.stringify(rec));
@@ -2678,11 +2801,11 @@ const Store = {
   },
   async addSnapshot(rec){
     if(this.mode === "idb"){
-      const meta = {savedAt:rec.savedAt, title:rec.title,
+      const meta = {savedAt:rec.savedAt, title:rec.title, mapKey:rec.mapKey || "",
                     nodeCount:rec.nodeCount, linkCount:rec.linkCount};
       const id = await this.wrap(this.tx("snapshots","readwrite").add(rec));
       await this.wrap(this.tx("snapmeta","readwrite").put(Object.assign({id}, meta)));
-      await this.prune();
+      await this.prune(rec.mapKey || "");
       return;
     }
     if(this.mode === "ls"){
@@ -2694,26 +2817,52 @@ const Store = {
     }
   },
 
-  /* Walk the index by key only. Values are never materialised. */
-  async prune(){
+  /* Only the small meta rows are read. Payloads are never materialised. */
+  async prune(mapKey){
     if(this.mode !== "idb") return;
-    const ids = await new Promise((res, rej)=>{
-      const out = [];
-      const req = this.tx("snapmeta","readonly").index("savedAt").openKeyCursor(null, "prev");
-      req.onsuccess = e=>{
-        const c = e.target.result;
-        if(!c){ res(out); return; }
-        out.push(c.primaryKey);
-        c.continue();
-      };
-      req.onerror = ()=>rej(req.error);
-    });
-    const doomed = ids.slice(MAX_SNAPSHOTS);
+    const doomed = [];
+
+    if(mapKey){
+      const mine = await this.wrap(this.tx("snapmeta","readonly").index("mapKey").getAll(mapKey));
+      mine.sort((a,b)=>a.savedAt < b.savedAt ? 1 : -1);
+      mine.slice(SNAPSHOTS_PER_MAP).forEach(m=>doomed.push(m.id));
+    }
+    /* backstop across every map, in case old rows predate the mapKey index */
+    const all = await this.wrap(this.tx("snapmeta","readonly").getAll());
+    if(all.length - doomed.length > MAX_SNAPSHOTS){
+      all.sort((a,b)=>a.savedAt < b.savedAt ? 1 : -1);
+      all.slice(MAX_SNAPSHOTS).forEach(m=>{ if(doomed.indexOf(m.id) < 0) doomed.push(m.id); });
+    }
     if(!doomed.length) return;
+    this.deleteSnapIds(doomed);
+  },
+
+  deleteSnapIds(ids){
     const snaps = this.tx("snapshots","readwrite");
-    doomed.forEach(id=>snaps.delete(id));
+    ids.forEach(id=>snaps.delete(id));
     const metas = this.tx("snapmeta","readwrite");
-    doomed.forEach(id=>metas.delete(id));
+    ids.forEach(id=>metas.delete(id));
+  },
+
+  /* Deleting a map takes its versions with it, otherwise they sit in the
+     quota forever with nothing in the interface pointing at them. */
+  async dropMapSnapshots(mapKey){
+    if(this.mode !== "idb" || !mapKey) return 0;
+    let mine = [];
+    try{ mine = await this.wrap(this.tx("snapmeta","readonly").index("mapKey").getAll(mapKey)); }
+    catch(e){ return 0; }
+    if(!mine.length) return 0;
+    this.deleteSnapIds(mine.map(m=>m.id));
+    return mine.length;
+  },
+
+  /* Versions whose map no longer exists. */
+  async orphanSnapshots(){
+    if(this.mode !== "idb") return [];
+    const [metas, sess] = [await this.wrap(this.tx("snapmeta","readonly").getAll()),
+                           await this.wrap(this.tx("sessmeta","readonly").getAll())];
+    const live = new Set(sess.map(x=>x.key));
+    return metas.filter(m=>m.mapKey && !live.has(m.mapKey));
   },
 
   async listSnapshots(){
@@ -2861,6 +3010,10 @@ let saveTimer = null, lastSnapshotAt = 0, editsSinceSnapshot = 0, lastSavedAt = 
 function snapshotPayload(){
   const t = toSheets();
   return {
+    mapKey:S.meta.key || "",
+    lastEdited:S.meta.lastEdited || nowISO(),
+    lastOpened:S.meta.lastOpened || nowISO(),
+    bytes:S.meta.bytes || 0,
     title:S.meta.title || "Untitled map",
     savedAt:new Date().toISOString(),
     nodeCount:S.nodes.size, linkCount:S.edges.size,
@@ -2880,6 +3033,7 @@ let savingNow = false, lastSaveStarted = 0;
 
 async function saveNow(force){
   if(Store.mode === "none") return false;
+  if(S.meta.provisional) return false;
   if(savingNow) return false;
   /* the keyboard opening and closing fires blur repeatedly on a phone, and
      each save serialises the whole map — do not let that pile up */
@@ -2887,7 +3041,7 @@ async function saveNow(force){
   savingNow = true; lastSaveStarted = Date.now();
   try{
     const rec = snapshotPayload();
-    await Store.putCurrent(rec);
+    await Store.putSession(S.meta.key, rec);
     lastSavedAt = new Date();
     saveFailed = "";
     const due = Date.now() - lastSnapshotAt > SNAPSHOT_EVERY_MS ||
@@ -2897,6 +3051,8 @@ async function saveNow(force){
          handful of versions, so past a point only the live session is kept */
       let bytes = 0;
       try{ bytes = JSON.stringify(rec).length; }catch(e){ bytes = 0; }
+      S.meta.bytes = bytes;
+      Store.touchSession(S.meta.key, {bytes});
       if(bytes && bytes > MAX_SNAPSHOT_BYTES){
         saveFailed = "";
         oversized = Math.round(bytes/1048576) + " MB";
@@ -2926,10 +3082,24 @@ function restorePayload(rec){
   if(!M.nodes.size) return false;
   adoptModel(M);
   S.meta.title = rec.title || S.meta.title;
+  if(rec.mapKey) S.meta.key = rec.mapKey;
+  S.meta.lastEdited = rec.lastEdited || rec.savedAt || nowISO();
+  S.meta.lastOpened = nowISO();
+  S.meta.bytes = rec.bytes || 0;
+  S.meta.provisional = false;
   markClean(); rebuild();
   if(rec.view && rec.view.k){ S.view = {x:rec.view.x, y:rec.view.y, k:rec.view.k}; applyView(); }
   else fitView(0.96, 0.6);
   return true;
+}
+
+function daysSince(iso){
+  const ms = Date.now() - new Date(String(iso).replace(" ","T")).getTime();
+  return isFinite(ms) ? ms/86400000 : 0;
+}
+function sizeOf(bytes){
+  if(!bytes) return "";
+  return bytes > 1048576 ? (bytes/1048576).toFixed(1) + " MB" : Math.round(bytes/1024) + " KB";
 }
 
 function ago(iso){
@@ -3001,6 +3171,7 @@ async function storageDiagnostics(){
     ${usage !== "unknown" ? esc(usage) + "<br>" : ""}
     ${launchLine}
     ${fileName ? `<br>Live file: <code>${esc(fileName)}</code>` : ""}
+    <br>This tab holds map <code>${esc(S.meta.key || "unsaved")}</code>
     ${!isWebOrigin() ? `<br><span style="color:var(--flag)">Opened from a folder rather than a web address. Phones in particular give downloaded files a throwaway storage area.</span>` : ""}
   </div>`;
 }
@@ -3011,8 +3182,9 @@ async function openSnapshots(){
   body.innerHTML = `<p class="histempty">Looking for saved versions…</p>`;
   el("snapDlg").showModal();
   const diag = await storageDiagnostics();
-  let cur = null, snaps = [];
-  try{ cur = await Store.getCurrent(); snaps = await Store.listSnapshots(); }
+  let cur = null, snaps = [], maps = [];
+  try{ cur = await Store.getSession(S.meta.key); snaps = await Store.listSnapshots();
+       maps = (await Store.listSessions()).filter(m=>m.key !== S.meta.key); }
   catch(e){ body.innerHTML = diag + `<p class="histempty">Could not read the saved versions: ${esc(String(e.message||e))}</p>`; return; }
 
   const card = (r, label, key)=>`
@@ -3030,13 +3202,106 @@ async function openSnapshots(){
     </div>`;
 
   let html = "";
-  if(cur) html += card(cur, "last session", "current");
-  if(snaps.length) html += `<p class="fineprint" style="margin:18px 0 0">Earlier versions, newest first.</p>`;
-  snaps.forEach(r=>{ html += card(r, "version", "snap:" + r.id); });
-  if(!cur && !snaps.length) html = `<p class="histempty">No saved versions in this browser yet.</p>`;
-  if(snaps.length) html += `<div class="row" style="margin-top:16px">
-    <button class="btn wide" id="wipeSnaps">Delete all saved versions</button></div>`;
+  if(cur) html += card(cur, "this map", "current");
+  const busyNow = await gatherClaims(180);
+  if(maps.length){
+    html += `<p class="fineprint" style="margin:18px 0 0">Other maps saved in this browser,
+      most recently edited first. Opening one here leaves the map you are on saved and untouched.</p>`;
+    const busy = busyNow;
+    maps.forEach(m=>{
+      const stale = daysSince(m.lastEdited || m.savedAt) >= STALE_MAP_DAYS;
+      html += `<div class="conn"${stale?' style="border-style:dashed"':''}>
+        <div class="hdr"><strong>${esc(m.title || "Untitled map")}</strong>
+          <span class="status-pill${stale?" retired":""}">${busy.has(m.key) ? "open in another tab" : stale ? "not touched lately" : "map"}</span></div>
+        <p style="font-size:12px;color:var(--graphite-60);margin:0 0 10px">
+          edited ${esc(ago(m.lastEdited || m.savedAt))} · ${m.nodeCount} nodes · ${m.linkCount} links${m.bytes?" · "+sizeOf(m.bytes):""}</p>
+        <div class="row">
+          <button class="btn primary" data-open-map="${esc(m.key)}">Open in this tab</button>
+          <button class="btn" data-save-map="${esc(m.key)}">Save .xlsx</button>
+          <button class="btn" data-drop-map="${esc(m.key)}">Delete</button>
+        </div>
+      </div>`;
+    });
+  }
+  const mine = snaps.filter(r=>!r.mapKey || r.mapKey === S.meta.key);
+  if(mine.length) html += `<p class="fineprint" style="margin:18px 0 0">Earlier versions of this map, newest first.</p>`;
+  mine.forEach(r=>{ html += card(r, "version", "snap:" + r.id); });
+  if(!cur && !snaps.length && !maps.length) html = `<p class="histempty">No saved versions in this browser yet.</p>`;
+
+  const staleMaps = maps.filter(m=>daysSince(m.lastEdited || m.savedAt) >= STALE_MAP_DAYS && !busyNow.has(m.key));
+  let orphans = [];
+  try{ orphans = await Store.orphanSnapshots(); }catch(e){}
+  html += `<div class="diagbox" style="margin-top:18px">
+      <b>Housekeeping</b><br>
+      ${maps.length + 1} map${maps.length ? "s" : ""} · ${snaps.length} saved version${snaps.length===1?"":"s"} · up to
+      ${SNAPSHOTS_PER_MAP} versions kept per map${orphans.length?`<br>${orphans.length} versions belong to maps that no longer exist`:""}
+      ${staleMaps.length?`<br>${staleMaps.length} map${staleMaps.length===1?"":"s"} untouched for over ${STALE_MAP_DAYS} days`:""}
+    </div>
+    <div class="row">
+      ${staleMaps.length?`<button class="btn" id="purgeStale">Delete the ${staleMaps.length} old map${staleMaps.length===1?"":"s"}</button>`:""}
+      ${orphans.length?`<button class="btn" id="purgeOrphans">Clear ${orphans.length} stranded versions</button>`:""}
+    </div>`;
+  if(snaps.length) html += `<div class="row" style="margin-top:8px">
+    <button class="btn wide" id="wipeSnaps">Delete every saved version, all maps</button></div>`;
   body.innerHTML = diag + html;
+  body.querySelectorAll("[data-open-map]").forEach(b=>{
+    b.onclick = async ()=>{
+      const key = b.dataset.openMap;
+      await saveNow(true);                       // park the current map first
+      const rec = await Store.getSession(key);
+      if(!rec || !restorePayload(rec)){ toast("That map could not be opened"); return; }
+      S.meta.key = key;
+      writeHash(); announceKey();
+      el("snapDlg").close();
+      toast("Opened " + (rec.title || "the map"));
+    };
+  });
+  body.querySelectorAll("[data-save-map]").forEach(b=>{
+    b.onclick = async ()=>{
+      const rec = await Store.getSession(b.dataset.saveMap);
+      if(!rec) return;
+      const keep = {nodes:S.nodes, edges:S.edges, revisions:S.revisions,
+                    tagStyles:S.tagStyles, areas:S.areas, bookmarks:S.bookmarks, title:S.meta.title};
+      adoptModel(tablesToModel(rec.tables || {}), true);
+      S.meta.title = rec.title || "map";
+      exportXlsx();
+      S.nodes = keep.nodes; S.edges = keep.edges; S.revisions = keep.revisions;
+      S.tagStyles = keep.tagStyles; S.areas = keep.areas; S.bookmarks = keep.bookmarks;
+      S.meta.title = keep.title;
+      rebuild();
+    };
+  });
+  body.querySelectorAll("[data-drop-map]").forEach(b=>{
+    b.onclick = async ()=>{
+      const m = maps.find(x=>x.key === b.dataset.dropMap);
+      if(!m) return;
+      if(!confirm("Delete \u201c" + (m.title||"Untitled") + "\u201d and its saved versions?\n\n"
+        + "This cannot be undone. Save it as .xlsx first if you might want it back.")) return;
+      await Store.dropSession(m.key);
+      openSnapshots();
+      toast("Map deleted");
+    };
+  });
+
+  const ps = el("purgeStale");
+  if(ps) ps.onclick = async ()=>{
+    const names = staleMaps.slice(0,6).map(m=>"· " + (m.title||"Untitled")).join("\n");
+    if(!confirm("Delete " + staleMaps.length + " map" + (staleMaps.length===1?"":"s")
+      + " untouched for over " + STALE_MAP_DAYS + " days, and their versions?\n\n" + names
+      + (staleMaps.length > 6 ? "\n· and " + (staleMaps.length-6) + " more" : "")
+      + "\n\nThis cannot be undone.")) return;
+    for(const m of staleMaps) await Store.dropSession(m.key);
+    openSnapshots();
+    toast(staleMaps.length + " old maps deleted");
+  };
+  const po = el("purgeOrphans");
+  if(po) po.onclick = async ()=>{
+    if(!confirm("Clear " + orphans.length + " versions left behind by deleted maps?")) return;
+    Store.deleteSnapIds(orphans.map(o=>o.id));
+    setTimeout(openSnapshots, 150);
+    toast("Stranded versions cleared");
+  };
+
   const wipe = el("wipeSnaps");
   if(wipe) wipe.onclick = async ()=>{
     if(!confirm("Delete every saved version? The map on screen is untouched.")) return;
@@ -3047,6 +3312,7 @@ async function openSnapshots(){
   };
 
   const find = key => key === "current" ? cur : snaps.find(r=>("snap:"+r.id) === key);
+  void mine;
   /* the list holds only headline facts; the payload is fetched on demand */
   const load = async key => key === "current" ? cur : await Store.getSnapshot(find(key).id);
   body.querySelectorAll("[data-restore-snap]").forEach(b=>{
@@ -3249,13 +3515,51 @@ function updateHistNote(){
    token, carried in the page link and in the workbook's Sync tab, so the
    same bookmark opens the same map on any device.
    ===================================================================== */
+/* ---------------------------------------------------------------
+   Map identity and tab claims.
+   Each map has a key. A tab owns exactly one key, announced to the
+   other tabs, so two windows can hold two different maps without
+   their autosaves landing on top of each other.
+   --------------------------------------------------------------- */
+const TAB_ID = uid("T-");
+let tabChannel = null;
+const claimedKeys = new Set();
+
+function initTabChannel(){
+  try{ tabChannel = new BroadcastChannel("mindmap-tabs"); }
+  catch(e){ tabChannel = null; return; }
+  tabChannel.onmessage = ev=>{
+    const d = ev.data || {};
+    if(d.from === TAB_ID) return;
+    if(d.type === "who" && S.meta.key) tabChannel.postMessage({type:"have", from:TAB_ID, key:S.meta.key});
+    if((d.type === "have" || d.type === "claim") && d.key) claimedKeys.add(d.key);
+  };
+}
+function announceKey(){
+  if(tabChannel && S.meta.key) tabChannel.postMessage({type:"claim", from:TAB_ID, key:S.meta.key});
+}
+async function gatherClaims(ms=300){
+  claimedKeys.clear();
+  if(!tabChannel) return claimedKeys;
+  tabChannel.postMessage({type:"who", from:TAB_ID});
+  await new Promise(r=>setTimeout(r, ms));
+  return claimedKeys;
+}
+
 function b64enc(str){ return btoa(unescape(encodeURIComponent(str))).replace(/=+$/,""); }
 function b64dec(str){ return decodeURIComponent(escape(atob(str))); }
 
 function writeHash(){
-  if(!S.connections.length){ history.replaceState(null,"",location.pathname + location.search); return; }
-  const payload = {v:1, a:S.activeConn, c:S.connections};
-  history.replaceState(null, "", location.pathname + location.search + "#s=" + b64enc(JSON.stringify(payload)));
+  const parts = [];
+  if(S.meta.key) parts.push("m=" + encodeURIComponent(S.meta.key));
+  if(S.connections.length)
+    parts.push("s=" + b64enc(JSON.stringify({v:1, a:S.activeConn, c:S.connections})));
+  const h = parts.length ? "#" + parts.join("&") : "";
+  history.replaceState(null, "", location.pathname + location.search + h);
+}
+function readHashKey(){
+  const m = /[#&]m=([^&]+)/.exec(location.hash);
+  return m ? decodeURIComponent(m[1]) : null;
 }
 function readHash(){
   const m = /[#&]s=([^&]+)/.exec(location.hash);
@@ -3443,6 +3747,7 @@ async function boot(){
     S.nodes.clear(); S.edges.clear(); S.revisions.length=0; S.tagStyles.clear();
     S.areas.clear(); S.bookmarks.length = 0;
     S.meta.title = "Untitled map"; S.sel = null; S.selArea = null;
+    S.meta.key = uid("M-"); writeHash(); announceKey();
     const n = newNode({label:"Start here", type:"start"});
     S.nodes.set(n.id, n);
     markClean(); rebuild(); fitView(0.96, 1); select(n.id);
@@ -3567,10 +3872,12 @@ async function boot(){
   el("mRail").onclick = ()=>openSheet("rail");
   el("mInsp").onclick = ()=>openSheet("inspector");
   el("scrim").onclick = closeSheets;
-  el("fab").onclick = ()=>{
+  const addFromToolbar = ()=>{
     if(S.sel && S.nodes.has(S.sel)) addNode("child");
     else { const c = viewCenterWorld(); addLooseNodeAt(c.x, c.y); }
   };
+  el("fab").onclick = addFromToolbar;
+  el("topAdd").onclick = addFromToolbar;
 
 
 
@@ -3607,14 +3914,48 @@ async function boot(){
   await Store.init();
   await Store.requestPersist();
   await Store.checkBeacon();
+  initTabChannel();
   updateSaveNote();
 
-  let restored = false, cur = null;
+  let restored = false, cur = null, forked = false, hadSessions = false;
   try{
-    cur = await Store.getCurrent();
+    /* one-time lift of the old single-slot session into a keyed one */
+    let metas = await Store.listSessions();
+    if(!metas.length){
+      const legacy = await Store.getCurrent();
+      if(legacy && legacy.tables && (legacy.tables.Nodes||[]).length){
+        const key = uid("M-");
+        await Store.putSession(key, Object.assign({}, legacy, {mapKey:key}));
+        metas = await Store.listSessions();
+      }
+    }
+
+    hadSessions = metas.length > 0;
+    const wanted = readHashKey();
+    const busy = await gatherClaims();
+    let key = null;
+
+    if(wanted){
+      key = wanted;
+      /* a duplicated tab would otherwise fight the original for the same
+         record, so this one takes a copy instead */
+      if(busy.has(wanted)) forked = true;
+    } else {
+      const ranked = metas.slice().sort((a,b)=>
+        String(b.lastEdited || b.savedAt).localeCompare(String(a.lastEdited || a.savedAt)));
+      const free = ranked.find(m=>!busy.has(m.key));
+      key = free ? free.key : null;
+    }
+
+    if(key) cur = await Store.getSession(key);
     if(cur && cur.tables && (cur.tables.Nodes||[]).length){
       restored = restorePayload(cur);
-      if(restored) toast("Picked up where you left off — last saved " + ago(cur.savedAt));
+      if(restored && forked){
+        S.meta.key = uid("M-");
+        S.meta.title = (S.meta.title || "Untitled map") + " (copy)";
+        markDirty();
+      }
+      if(restored && !forked) toast("Picked up where you left off — last saved " + ago(cur.savedAt));
     }
   }catch(e){ console.warn("restore failed", e); }
 
@@ -3629,7 +3970,24 @@ async function boot(){
     }
   }catch(e){}
 
-  if(!restored){ seed(); rebuild(); fitView(0.96, 0.6); }
+  if(!restored){
+    S.meta.key = null;
+    /* first ever run gets the sample so the tool explains itself; after that
+       a tab with nothing to resume starts blank */
+    if(hadSessions) blankMap(); else seed();
+    rebuild(); fitView(0.96, hadSessions ? 1 : 0.6);
+  } else {
+    S.meta.lastOpened = nowISO();
+    Store.touchSession(S.meta.key, {lastOpened:S.meta.lastOpened});
+  }
+  if(!S.meta.key) S.meta.key = uid("M-");
+  writeHash();
+  announceKey();
+  if(forked){
+    showBanner(`<strong>Another tab already has this map open.</strong>
+      This tab is working on a separate copy so the two cannot overwrite each other.
+      Rename it in the panel on the left.`, null, null);
+  }
 
   /* Say something out loud when the work is not actually being kept. */
   if(Store.mode === "none"){
@@ -3637,7 +3995,7 @@ async function boot(){
       This browser gives this page no storage. Link a file on disk, connect a Google Sheet,
       or open the tool from a web address instead of a downloaded file.`,
       canLinkFile ? "Link a file" : null, linkFile);
-  } else if(!restored && !cur && Store.beacon && Store.beacon.launches > 1){
+  } else if(!restored && !hadSessions && Store.beacon && Store.beacon.launches > 1){
     showBanner(`<strong>Previous session missing.</strong>
       This browser has opened the tool ${Store.beacon.launches} times but kept no map from last time.
       Storage here is being discarded. Keep a live file on disk or use Google Sheets.`,
