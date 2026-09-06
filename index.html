@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Branchwork Atlas</title>
+<title>MindMap</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@400;500;600&display=swap" rel="stylesheet">
@@ -384,6 +384,7 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
     display:flex;align-items:center;justify-content:center;
     box-shadow:0 3px 12px rgba(35,40,45,.28)
   }
+  .fab.loose{background:var(--paper);color:var(--blueprint);border-color:var(--blueprint)}
   .grid2{grid-template-columns:1fr}
 }
 @media (min-width:821px){ .fab{display:none} .mq,.mhits{display:none} }
@@ -412,7 +413,7 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
   <!-- ============ LEFT RAIL ============ -->
   <aside class="rail" id="rail">
     <div class="brand">
-      <h1>Branchwork Atlas<span class="dirty-dot" id="dirtyDot"></span></h1>
+      <h1>MindMap<span class="dirty-dot" id="dirtyDot"></span></h1>
       <p id="mapMeta">0 nodes · 0 links</p>
     </div>
 
@@ -671,7 +672,7 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
 </dialog>
 
 <script type="text/plain" id="gsScript">/**
- * Branchwork Atlas — Google Sheets bridge
+ * MindMap — Google Sheets bridge
  * Paste into Extensions > Apps Script, then deploy as a web app.
  * One deployment can serve any number of spreadsheets: pass ?id=<spreadsheetId>.
  */
@@ -1046,7 +1047,7 @@ function exportXlsx(){
     return;
   }
   const wb = buildWorkbook();
-  const safe = (S.meta.title||"branchwork").replace(/[^\w\- ]+/g,"").trim().replace(/\s+/g,"-");
+  const safe = (S.meta.title||"mindmap").replace(/[^\w\- ]+/g,"").trim().replace(/\s+/g,"-");
   XLSX.writeFile(wb, safe + "-" + new Date().toISOString().slice(0,10) + ".xlsx");
   saveNow(true);
   writeLinkedFile(true);
@@ -1198,7 +1199,7 @@ function importXlsx(file){
       toast(S.nodes.size + " nodes loaded");
     }catch(err){
       console.error(err);
-      toast("That file could not be read as a Branchwork workbook");
+      toast("That file could not be read as a MindMap workbook");
     }
   };
   rd.readAsArrayBuffer(file);
@@ -1465,7 +1466,7 @@ function applyView(){
   el("zLvl").textContent = Math.round(S.view.k*100) + "%";
 }
 
-function rebuild(){ layout(); buildTagFilters(); render(); renderInspector(); renderContents(); }
+function rebuild(){ layout(); buildTagFilters(); render(); renderInspector(); renderContents(); updateFab(); }
 
 /* =====================================================================
    CONTENTS — bookmarks, areas and an outline of the whole map
@@ -1873,7 +1874,11 @@ const MIN_K = 0.05, MAX_K = 6;
       select(dragNode.id);
     } else if(mode === "pan" && wasTap){
       const now = Date.now();
-      if(lastTapId === "__bg" && now - lastTapTime < 340) zoomAt(1.7, ev.clientX, ev.clientY);
+      if(lastTapId === "__bg" && now - lastTapTime < 340){
+        zoomAt(1.7, ev.clientX, ev.clientY);
+      } else if(S.sel || S.selArea){
+        deselect();
+      }
       lastTapId = "__bg"; lastTapTime = now;
     }
 
@@ -1935,13 +1940,40 @@ function select(id){
   const prev = S.sel;
   const hadArea = S.selArea;
   S.sel = id; S.selArea = null;
-  if(hadArea){ render(); renderInspector(); return; }
+  if(hadArea){ render(); renderInspector(); updateFab(); return; }
   /* swap two classes instead of rebuilding the drawing — a full render on
      every tap is what makes a big map feel sticky on a phone */
   const g = el("gNodes");
   if(prev){ const p = g.querySelector(`.node-g[data-id="${CSS.escape(prev)}"]`); if(p) p.classList.remove("sel"); }
   if(id){ const c = g.querySelector(`.node-g[data-id="${CSS.escape(id)}"]`); if(c) c.classList.add("sel"); }
   renderInspector();
+  updateFab();
+}
+
+/* Clearing the selection turns the + button back into "make a loose node". */
+function deselect(){
+  const prev = S.sel, prevArea = S.selArea;
+  S.sel = null; S.selArea = null;
+  if(prevArea){ render(); }
+  else if(prev){
+    const g = el("gNodes").querySelector(`.node-g[data-id="${CSS.escape(prev)}"]`);
+    if(g) g.classList.remove("sel");
+  }
+  renderInspector();
+  renderContents();
+  updateFab();
+}
+
+/* The button says what it will do, because on a phone the selection is not
+   always obvious. */
+function updateFab(){
+  const f = el("fab");
+  if(!f) return;
+  const attached = !!(S.sel && S.nodes.has(S.sel));
+  f.textContent = "+";
+  f.title = attached ? "Add a child of the selected node" : "Add a free-standing node";
+  f.setAttribute("aria-label", f.title);
+  f.classList.toggle("loose", !attached);
 }
 
 function esc(s){ return String(s??"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
@@ -2232,7 +2264,7 @@ function zoomToArea(id){
 }
 function selectArea(id){
   S.selArea = id; S.sel = null;
-  render(); renderInspector();
+  render(); renderInspector(); updateFab();
 }
 
 function pinAt(n, x, y){ n.pinned = true; n.x = n._x = Math.round(x); n.y = n._y = Math.round(y); }
@@ -2538,8 +2570,11 @@ window.addEventListener("afterprint", ()=>{ el("printroot").textContent = ""; })
    possible. Saves are debounced; snapshots are kept on a rolling window
    so you can go back to a point in time, not just the last keystroke.
    ===================================================================== */
-const DB_NAME = "branchwork-atlas", DB_VER = 1, LS_KEY = "branchwork:current", LS_SNAPS = "branchwork:snaps";
-const SAVE_DEBOUNCE = 1500, SNAPSHOT_EVERY_MS = 4*60*1000, SNAPSHOT_EVERY_EDITS = 25, MAX_SNAPSHOTS = 30;
+/* The storage names stay as they are. Renaming them would point the app at a
+   fresh, empty database and orphan every saved version already on the device. */
+const DB_NAME = "branchwork-atlas", DB_VER = 2, LS_KEY = "branchwork:current", LS_SNAPS = "branchwork:snaps";
+const SAVE_DEBOUNCE = 1500, SNAPSHOT_EVERY_MS = 4*60*1000, SNAPSHOT_EVERY_EDITS = 25;
+const MAX_SNAPSHOTS = 20, MIN_SAVE_GAP = 2500, MAX_SNAPSHOT_BYTES = 6*1024*1024;
 
 const Store = {
   mode:"none", db:null, err:"",
@@ -2554,6 +2589,12 @@ const Store = {
         if(!db.objectStoreNames.contains("snapshots")){
           const os = db.createObjectStore("snapshots", {keyPath:"id", autoIncrement:true});
           os.createIndex("savedAt", "savedAt");
+        }
+        /* Headline facts live apart from the payload. Listing or pruning
+           must never pull whole maps, images and all, into memory. */
+        if(!db.objectStoreNames.contains("snapmeta")){
+          const ms = db.createObjectStore("snapmeta", {keyPath:"id"});
+          ms.createIndex("savedAt", "savedAt");
         }
       };
       req.onsuccess = ()=>res(req.result);
@@ -2625,36 +2666,104 @@ const Store = {
   },
   async addSnapshot(rec){
     if(this.mode === "idb"){
-      await this.wrap(this.tx("snapshots","readwrite").add(rec));
-      const all = await this.wrap(this.tx("snapshots","readonly").getAll());
-      if(all.length > MAX_SNAPSHOTS){
-        all.sort((a,b)=>a.savedAt < b.savedAt ? -1 : 1);
-        const store = this.tx("snapshots","readwrite");
-        all.slice(0, all.length - MAX_SNAPSHOTS).forEach(r=>store.delete(r.id));
-      }
+      const meta = {savedAt:rec.savedAt, title:rec.title,
+                    nodeCount:rec.nodeCount, linkCount:rec.linkCount};
+      const id = await this.wrap(this.tx("snapshots","readwrite").add(rec));
+      await this.wrap(this.tx("snapmeta","readwrite").put(Object.assign({id}, meta)));
+      await this.prune();
       return;
     }
     if(this.mode === "ls"){
-      /* localStorage is small, so snapshots there are shallow and few */
       let list = [];
       try{ list = JSON.parse(localStorage.getItem(LS_SNAPS) || "[]"); }catch(e){}
       list.push(Object.assign({id:Date.now()}, rec));
-      while(list.length > 5) list.shift();
+      while(list.length > 4) list.shift();
       localStorage.setItem(LS_SNAPS, JSON.stringify(list));
     }
   },
+
+  /* Walk the index by key only. Values are never materialised. */
+  async prune(){
+    if(this.mode !== "idb") return;
+    const ids = await new Promise((res, rej)=>{
+      const out = [];
+      const req = this.tx("snapmeta","readonly").index("savedAt").openKeyCursor(null, "prev");
+      req.onsuccess = e=>{
+        const c = e.target.result;
+        if(!c){ res(out); return; }
+        out.push(c.primaryKey);
+        c.continue();
+      };
+      req.onerror = ()=>rej(req.error);
+    });
+    const doomed = ids.slice(MAX_SNAPSHOTS);
+    if(!doomed.length) return;
+    const snaps = this.tx("snapshots","readwrite");
+    doomed.forEach(id=>snaps.delete(id));
+    const metas = this.tx("snapmeta","readwrite");
+    doomed.forEach(id=>metas.delete(id));
+  },
+
   async listSnapshots(){
     if(this.mode === "idb"){
-      const all = await this.wrap(this.tx("snapshots","readonly").getAll());
-      return all.sort((a,b)=>a.savedAt < b.savedAt ? 1 : -1);
+      let metas = await this.wrap(this.tx("snapmeta","readonly").getAll());
+      if(!metas.length){
+        /* first run after the upgrade: build the index once, one record at a
+           time, then never touch the payloads again */
+        metas = await this.rebuildMeta();
+      }
+      return metas.sort((a,b)=>a.savedAt < b.savedAt ? 1 : -1);
     }
     if(this.mode === "ls"){
       try{ return JSON.parse(localStorage.getItem(LS_SNAPS) || "[]").reverse(); }catch(e){ return []; }
     }
     return [];
   },
+
+  async rebuildMeta(){
+    const out = [];
+    await new Promise((res)=>{
+      const req = this.tx("snapshots","readonly").openCursor();
+      req.onsuccess = e=>{
+        const c = e.target.result;
+        if(!c){ res(); return; }
+        const v = c.value;
+        out.push({id:v.id, savedAt:v.savedAt, title:v.title,
+                  nodeCount:v.nodeCount, linkCount:v.linkCount});
+        c.continue();
+      };
+      req.onerror = ()=>res();
+    });
+    if(out.length){
+      const ms = this.tx("snapmeta","readwrite");
+      out.forEach(m=>ms.put(m));
+    }
+    return out;
+  },
+
+  async getSnapshot(id){
+    if(this.mode === "idb") return await this.wrap(this.tx("snapshots","readonly").get(id));
+    if(this.mode === "ls"){
+      try{ return JSON.parse(localStorage.getItem(LS_SNAPS) || "[]").find(r=>r.id === id) || null; }
+      catch(e){ return null; }
+    }
+    return null;
+  },
+
+  async clearSnapshots(){
+    if(this.mode === "idb"){
+      await this.wrap(this.tx("snapshots","readwrite").clear());
+      await this.wrap(this.tx("snapmeta","readwrite").clear());
+      return;
+    }
+    if(this.mode === "ls") localStorage.removeItem(LS_SNAPS);
+  },
+
   async dropSnapshot(id){
-    if(this.mode === "idb") return this.wrap(this.tx("snapshots","readwrite").delete(id));
+    if(this.mode === "idb"){
+      await this.wrap(this.tx("snapshots","readwrite").delete(id));
+      return this.wrap(this.tx("snapmeta","readwrite").delete(id));
+    }
     if(this.mode === "ls"){
       let list = [];
       try{ list = JSON.parse(localStorage.getItem(LS_SNAPS) || "[]"); }catch(e){}
@@ -2696,7 +2805,7 @@ async function linkFile(){
     return;
   }
   try{
-    const safe = (S.meta.title||"branchwork").replace(/[^\w\- ]+/g,"").trim().replace(/\s+/g,"-") || "branchwork";
+    const safe = (S.meta.title||"mindmap").replace(/[^\w\- ]+/g,"").trim().replace(/\s+/g,"-") || "mindmap";
     fileHandle = await window.showSaveFilePicker({
       suggestedName: safe + ".xlsx",
       types:[{description:"Excel workbook", accept:{"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":[".xlsx"]}}]
@@ -2735,7 +2844,7 @@ async function writeLinkedFile(force){
   }catch(e){ console.warn("linked file write failed", e); }
 }
 
-let saveTimer = null, lastSnapshotAt = 0, editsSinceSnapshot = 0, lastSavedAt = null, saveFailed = "";
+let saveTimer = null, lastSnapshotAt = 0, editsSinceSnapshot = 0, lastSavedAt = null, saveFailed = "", oversized = "";
 
 function snapshotPayload(){
   const t = toSheets();
@@ -2755,8 +2864,15 @@ function scheduleSave(){
   saveTimer = setTimeout(()=>saveNow(false), SAVE_DEBOUNCE);
 }
 
+let savingNow = false, lastSaveStarted = 0;
+
 async function saveNow(force){
   if(Store.mode === "none") return false;
+  if(savingNow) return false;
+  /* the keyboard opening and closing fires blur repeatedly on a phone, and
+     each save serialises the whole map — do not let that pile up */
+  if(!force && Date.now() - lastSaveStarted < MIN_SAVE_GAP) return false;
+  savingNow = true; lastSaveStarted = Date.now();
   try{
     const rec = snapshotPayload();
     await Store.putCurrent(rec);
@@ -2765,7 +2881,17 @@ async function saveNow(force){
     const due = Date.now() - lastSnapshotAt > SNAPSHOT_EVERY_MS ||
                 editsSinceSnapshot >= SNAPSHOT_EVERY_EDITS;
     if(force || (due && S.nodes.size)){
-      await Store.addSnapshot(rec);
+      /* a map heavy with embedded photos would fill the browser's quota in a
+         handful of versions, so past a point only the live session is kept */
+      let bytes = 0;
+      try{ bytes = JSON.stringify(rec).length; }catch(e){ bytes = 0; }
+      if(bytes && bytes > MAX_SNAPSHOT_BYTES){
+        saveFailed = "";
+        oversized = Math.round(bytes/1048576) + " MB";
+      } else {
+        oversized = "";
+        await Store.addSnapshot(rec);
+      }
       lastSnapshotAt = Date.now();
       editsSinceSnapshot = 0;
       writeLinkedFile();
@@ -2778,6 +2904,8 @@ async function saveNow(force){
       : (e.message || e));
     updateSaveNote();
     return false;
+  }finally{
+    savingNow = false;
   }
 }
 
@@ -2818,6 +2946,11 @@ function updateSaveNote(){
   const base = lastSavedAt
     ? "Saved in this browser " + ago(lastSavedAt.toISOString())
     : "Autosave is on.";
+  if(oversized){
+    el2.innerHTML = esc(base) + ` <span style="color:var(--flag)">This map is ${esc(oversized)},
+      too big to keep old versions of. Link photos instead of embedding them.</span>` + lf;
+    return;
+  }
   const warn = (Store.beacon && Store.beacon.launches === 1 && !isWebOrigin())
     ? ` <span style="color:var(--flag)">First run here — close and reopen once to confirm it sticks.</span>` : "";
   el2.innerHTML = esc(base) + (Store.mode === "ls" ? " (limited storage)" : "") + warn + lf;
@@ -2889,21 +3022,34 @@ async function openSnapshots(){
   if(snaps.length) html += `<p class="fineprint" style="margin:18px 0 0">Earlier versions, newest first.</p>`;
   snaps.forEach(r=>{ html += card(r, "version", "snap:" + r.id); });
   if(!cur && !snaps.length) html = `<p class="histempty">No saved versions in this browser yet.</p>`;
+  if(snaps.length) html += `<div class="row" style="margin-top:16px">
+    <button class="btn wide" id="wipeSnaps">Delete all saved versions</button></div>`;
   body.innerHTML = diag + html;
+  const wipe = el("wipeSnaps");
+  if(wipe) wipe.onclick = async ()=>{
+    if(!confirm("Delete every saved version? The map on screen is untouched.")) return;
+    await Store.clearSnapshots();
+    await saveNow(true);
+    openSnapshots();
+    toast("Old versions cleared");
+  };
 
   const find = key => key === "current" ? cur : snaps.find(r=>("snap:"+r.id) === key);
+  /* the list holds only headline facts; the payload is fetched on demand */
+  const load = async key => key === "current" ? cur : await Store.getSnapshot(find(key).id);
   body.querySelectorAll("[data-restore-snap]").forEach(b=>{
-    b.onclick = ()=>{
-      const r = find(b.dataset.restoreSnap);
-      if(!r) return;
+    b.onclick = async ()=>{
+      const meta = find(b.dataset.restoreSnap);
+      if(!meta) return;
       if(S.dirty && !confirm("Replace what is on screen with this version?")) return;
-      if(restorePayload(r)){ el("snapDlg").close(); toast("Opened the version from " + ago(r.savedAt)); }
-      else toast("That version had no nodes in it");
+      const r = await load(b.dataset.restoreSnap);
+      if(r && restorePayload(r)){ el("snapDlg").close(); toast("Opened the version from " + ago(meta.savedAt)); }
+      else toast("That version could not be opened");
     };
   });
   body.querySelectorAll("[data-xlsx-snap]").forEach(b=>{
-    b.onclick = ()=>{
-      const r = find(b.dataset.xlsxSnap);
+    b.onclick = async ()=>{
+      const r = await load(b.dataset.xlsxSnap);
       if(!r) return;
       const keep = {nodes:S.nodes, edges:S.edges, revisions:S.revisions, tagStyles:S.tagStyles, title:S.meta.title};
       const M = tablesToModel(r.tables || {});
@@ -3399,7 +3545,10 @@ async function boot(){
   el("mRail").onclick = ()=>openSheet("rail");
   el("mInsp").onclick = ()=>openSheet("inspector");
   el("scrim").onclick = closeSheets;
-  el("fab").onclick = ()=>addNode(S.sel ? "child" : "root");
+  el("fab").onclick = ()=>{
+    if(S.sel && S.nodes.has(S.sel)) addNode("child");
+    else { const c = viewCenterWorld(); addLooseNodeAt(c.x, c.y); }
+  };
 
 
 
@@ -3407,7 +3556,8 @@ async function boot(){
     const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
     if(ev.key === "/" && !typing){ ev.preventDefault(); el("q").focus(); }
     if(ev.key === "Escape"){ S.linkMode=false; el("btnLink").classList.remove("primary");
-      S.areaMode=false; el("btnArea").classList.remove("primary"); svg().style.cursor=""; el("q").blur(); }
+      S.areaMode=false; el("btnArea").classList.remove("primary"); svg().style.cursor="";
+      el("q").blur(); deselect(); }
     if(typing) return;
     if(ev.key === "Enter" && S.sel) addNode("child");
     if(ev.key === "Tab"   && S.sel){ ev.preventDefault(); addNode("sibling"); }
