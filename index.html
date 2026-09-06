@@ -729,6 +729,7 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
  * One deployment can serve any number of spreadsheets: pass ?id=<spreadsheetId>.
  */
 var TOKEN = 'change-me';                       // must match the token in the app
+var BUILD = 'b3';                              // lets the app confirm which version is deployed
 var TABS  = ['Nodes','Links','Areas','Bookmarks','Revisions','TagStyles'];
 
 function doGet(e)  { return handle(e, null); }
@@ -738,18 +739,22 @@ function handle(e, body) {
   try {
     var p   = (e && e.parameter) ? e.parameter : {};
     var req = body || {};
-    if (TOKEN && (req.token || p.token || '') !== TOKEN) return out({ ok:false, error:'Token does not match' });
-
     var action = req.action || p.action || 'read';
+    if (action === 'ping') return out({ ok:true, build:BUILD, tokenSet:(TOKEN !== 'change-me') });
+    if (TOKEN && (req.token || p.token || '') !== TOKEN)
+      return out({ ok:false, error:'Token does not match', build:BUILD,
+                   deployed:(TOKEN === 'change-me' ? 'placeholder' : 'custom') });
+
     var id     = req.id     || p.id     || '';
     var prefix = req.prefix || p.prefix || '';
     var ss     = id ? SpreadsheetApp.openById(id) : SpreadsheetApp.getActiveSpreadsheet();
 
-    if (action === 'read')  return out({ ok:true, name:ss.getName(), tables:readAll(ss, prefix) });
-    if (action === 'write') { writeAll(ss, prefix, req.tables); return out({ ok:true, at:new Date().toISOString() }); }
-    return out({ ok:false, error:'Unknown action ' + action });
+    if (action === 'read')  return out({ ok:true, build:BUILD, name:ss.getName(), tables:readAll(ss, prefix) });
+    if (action === 'write') { writeAll(ss, prefix, req.tables);
+                              return out({ ok:true, build:BUILD, at:new Date().toISOString() }); }
+    return out({ ok:false, error:'Unknown action ' + action, build:BUILD });
   } catch (err) {
-    return out({ ok:false, error:String(err) });
+    return out({ ok:false, error:String(err), build:BUILD });
   }
 }
 
@@ -1004,6 +1009,7 @@ function blankMap(){
 }
 
 function seed(){
+  S.meta.provisional = true;
   S.nodes.clear(); S.edges.clear(); S.revisions.length=0; S.tagStyles.clear();
   S.areas.clear(); S.bookmarks.length=0;
   const mk=(label,o)=>{ const n=newNode(Object.assign({label},o)); S.nodes.set(n.id,n); return n.id; };
@@ -1045,6 +1051,7 @@ function seed(){
   S.meta.title="Sample accessioning";
   if(!S.meta.key) S.meta.key = uid("M-");
   markClean();
+  S.meta.provisional = true;
   setTimeout(()=>{
     const ns = [bl,sa,ff,dn].map(i=>S.nodes.get(i)).filter(n=>n && n._x != null);
     if(!ns.length) return;
@@ -2757,16 +2764,46 @@ const Store = {
           if(!ms.indexNames.contains("mapKey")) ms.createIndex("mapKey", "mapKey");
         }
       };
-      req.onsuccess = ()=>res(req.result);
-      req.onerror = ()=>rej(req.error || new Error("indexedDB refused to open"));
-      req.onblocked = ()=>rej(new Error("indexedDB is blocked by another tab"));
-      setTimeout(()=>rej(new Error("indexedDB timed out")), 4000);
+      let settled = false;
+      const finish = (fn, v)=>{ if(!settled){ settled = true; fn(v); } };
+      req.onsuccess = ()=>{
+        const db = req.result;
+        /* let another tab upgrade the database instead of blocking it */
+        db.onversionchange = ()=>{ try{ db.close(); }catch(e){} Store.db = null; Store.stale = true; };
+        finish(res, db);
+      };
+      req.onerror = ()=>finish(rej, req.error || new Error("the browser refused to open the database"));
+      req.onblocked = ()=>{
+        /* an older tab is holding the previous version open. Keep waiting —
+           rejecting here used to drop the app onto empty localStorage and make
+           every saved map look deleted. */
+        Store.blocked = true;
+        if(typeof showBanner === "function") showBanner(
+          `<strong>Another MindMap tab is holding storage open.</strong>
+           Close the other MindMap tabs and this one will pick your maps back up.
+           Nothing has been lost.`, "Try again", ()=>location.reload());
+      };
+      setTimeout(()=>finish(rej, new Error(Store.blocked
+        ? "another tab is holding the database open"
+        : "the database did not open in time")), 8000);
     });
   },
 
   async init(){
-    try{ this.db = await this.open(); this.mode = "idb"; return this.mode; }
-    catch(e){ this.err = String(e.message || e); }
+    this.blocked = false;
+    const hasIdb = (function(){ try{ return !!indexedDB; }catch(e){ return false; } })();
+    try{
+      this.db = await this.open();
+      this.mode = "idb"; this.err = "";
+      if(typeof hideBanner === "function" && !this.blocked) hideBanner();
+      return this.mode;
+    }catch(e){ this.err = String(e.message || e); }
+
+    /* Falling back to localStorage when IndexedDB exists but would not open is
+       what wiped the maps: a second store the app then writes to, while the
+       real one sits there full and unread. Refuse to save instead. */
+    if(hasIdb){ this.mode = "blocked"; return this.mode; }
+
     try{
       localStorage.setItem("__bw_probe","1"); localStorage.removeItem("__bw_probe");
       this.mode = "ls"; return this.mode;
@@ -3121,7 +3158,7 @@ function snapshotPayload(){
 }
 
 function scheduleSave(){
-  if(Store.mode === "none") return;
+  if(Store.mode !== "idb" && Store.mode !== "ls") return;
   editsSinceSnapshot++;
   clearTimeout(saveTimer);
   saveTimer = setTimeout(()=>saveNow(false), SAVE_DEBOUNCE);
@@ -3130,7 +3167,7 @@ function scheduleSave(){
 let savingNow = false, lastSaveStarted = 0;
 
 async function saveNow(force){
-  if(Store.mode === "none") return false;
+  if(Store.mode !== "idb" && Store.mode !== "ls") return false;
   if(S.meta.provisional) return false;
   if(savingNow) return false;
   /* the keyboard opening and closing fires blur repeatedly on a phone, and
@@ -3217,6 +3254,11 @@ function updateSaveNote(){
   if(!el2) return;
   const lf = fileName ? (filePending ? ` Linked file <code>${esc(fileName)}</code> needs permission again.`
                                      : ` Also writing to <code>${esc(fileName)}</code>.`) : "";
+  if(Store.mode === "blocked"){
+    el2.innerHTML = `<strong style="color:var(--flag)">Storage is not open, so nothing is being saved.</strong>
+      Your maps are still in this browser. Close any other MindMap tabs and reload.${lf}`;
+    return;
+  }
   if(Store.mode === "none"){
     el2.innerHTML = `<strong style="color:var(--flag)">Nothing is being saved in this browser.</strong>
       Storage is blocked for this page.${lf}`;
@@ -3258,7 +3300,10 @@ async function storageDiagnostics(){
       if(e.usage != null) usage = (e.usage/1048576).toFixed(1) + " MB used";
     }
   }catch(e){}
-  const mode = Store.mode === "idb" ? "IndexedDB" : Store.mode === "ls" ? "localStorage, limited" : "none — nothing is saved";
+  const mode = Store.mode === "idb" ? "IndexedDB"
+             : Store.mode === "ls" ? "localStorage, limited"
+             : Store.mode === "blocked" ? "not open — another tab is holding it"
+             : "none — nothing is saved";
   const beacon = Store.beacon || {launches:0};
   const launchLine = beacon.launches > 1
     ? `<b>Survived ${beacon.launches} launches</b>, first seen ${esc(String(beacon.firstSeen||"").slice(0,10))}.`
@@ -3333,6 +3378,35 @@ async function openSnapshots(){
   if(mine.length) html += `<p class="fineprint" style="margin:18px 0 0">Earlier versions of this map, newest first.</p>`;
   mine.forEach(r=>{ html += card(r, "version", "snap:" + r.id); });
   if(!cur && !snaps.length && !maps.length) html = `<p class="histempty">No saved versions in this browser yet.</p>`;
+
+  /* versions can outlive their session record; offer them back rather than
+     leaving the work stranded */
+  let strandedMaps = [];
+  try{
+    const all = await Store.listSnapshots();
+    const live = new Set([S.meta.key].concat(maps.map(m=>m.key)));
+    const seen = new Map();
+    all.forEach(r=>{
+      if(!r.mapKey || live.has(r.mapKey)) return;
+      const prev = seen.get(r.mapKey);
+      if(!prev || String(r.savedAt) > String(prev.savedAt)) seen.set(r.mapKey, r);
+    });
+    strandedMaps = [...seen.values()];
+  }catch(e){}
+  if(strandedMaps.length){
+    html += `<p class="fineprint" style="margin:18px 0 0">Maps with no session record, recovered
+      from their saved versions.</p>`;
+    strandedMaps.forEach(r=>{
+      html += `<div class="conn" style="border-style:dashed">
+        <div class="hdr"><strong>${esc(r.title || "Untitled map")}</strong>
+          <span class="status-pill">recoverable</span></div>
+        <p style="font-size:12px;color:var(--graphite-60);margin:0 0 10px">
+          ${esc(ago(r.savedAt))} · ${r.nodeCount} nodes · ${r.linkCount} links</p>
+        <div class="row"><button class="btn primary" data-restore-snap="snap:${esc(String(r.id))}">Bring it back</button></div>
+      </div>`;
+    });
+    snaps = snaps.concat(strandedMaps.filter(r=>!snaps.some(x=>x.id === r.id)));
+  }
 
   const staleMaps = maps.filter(m=>daysSince(m.lastEdited || m.savedAt) >= STALE_MAP_DAYS && !busyNow.has(m.key));
   let orphans = [];
@@ -3902,11 +3976,16 @@ async function callBridge(conn, action, tables){
   return await r.json();
 }
 
-function tokenHint(err){
+function tokenHint(err, res){
+  if(res && res.deployed === "placeholder")
+    return "The deployed script still has the placeholder token. Editing the code is not "
+         + "enough — Deploy \u2192 Manage deployments \u2192 edit \u2192 Version: New version.";
+  if(res && res.build && res.build !== "b3")
+    return "An older copy of the script is live. Copy the bridge script again, paste it over, "
+         + "then deploy a New version. Use Test this connection to confirm.";
   if(err && /token/i.test(String(err)))
-    return "The script's TOKEN does not match the Token box. Copy the bridge script again "
-         + "(it now includes your token), paste it over the old one, then Deploy \u2192 "
-         + "Manage deployments \u2192 edit \u2192 New version.";
+    return "The Token box and the script's TOKEN line do not match, or the change has not been "
+         + "deployed yet. Try Test this connection in Manage sheets.";
   return err;
 }
 
@@ -3935,14 +4014,14 @@ async function runSync(kind){
       const t = toSheets();
       delete t.Sync;
       const res = await callBridge(conn, "write", t);
-      if(!res.ok) throw new Error(tokenHint(res.error) || "The sheet refused the write");
+      if(!res.ok) throw new Error(tokenHint(res.error, res) || "The sheet refused the write");
       conn.last_sync = nowISO();
       await Store.claimTarget(targetOf(conn), S.meta.key, S.meta.title);
       markClean();
       toast("Pushed " + S.nodes.size + " nodes to " + (conn.name || "the sheet"));
     } else {
       const res = await callBridge(conn, "read");
-      if(!res.ok) throw new Error(tokenHint(res.error) || "The sheet refused the read");
+      if(!res.ok) throw new Error(tokenHint(res.error, res) || "The sheet refused the read");
       if(kind === "pull" && S.nodes.size) await saveNow(true);
       const M = tablesToModel(res.tables || {});
       if(!M.nodes.size){ toast("That sheet has no rows on a Nodes tab yet. Push first."); }
@@ -4010,6 +4089,10 @@ function renderConnList(){
           <input type="text" data-i="${i}" data-f="prefix" value="${esc(c.prefix||"")}" placeholder="optional"></label>
       </div>
       <label class="check"><input type="checkbox" data-i="${i}" data-f="auto"${c.auto?" checked":""}> Pull automatically when this link is opened</label>
+      <div class="row" style="margin-top:8px">
+        <button class="btn" data-test="${i}">Test this connection</button>
+      </div>
+      <p class="fineprint diag" data-diag="${i}" style="margin-top:6px"></p>
       <p class="fineprint owner" data-owner="${i}" style="margin-top:6px"></p>`;
     box.appendChild(d);
   });
@@ -4041,6 +4124,55 @@ function renderConnList(){
       markDirty(); refreshSyncUI();
     };
   });
+  box.querySelectorAll("[data-test]").forEach(b=>{
+    b.onclick = async ()=>{
+      const c = S.connections[Number(b.dataset.test)];
+      const slot = box.querySelector(`[data-diag="${b.dataset.test}"]`);
+      const say = (html)=>{ slot.innerHTML = html; };
+      if(!(c.endpoint||"").trim()){ say("Paste the web app URL first."); return; }
+      b.disabled = true; say("Testing…");
+      try{
+        /* ping needs no token, so it can tell a stale deployment apart from a
+           genuine token mismatch */
+        const u = new URL(c.endpoint.trim());
+        u.searchParams.set("action", "ping");
+        const r = await fetch(u.toString(), {method:"GET", redirect:"follow"});
+        const text = await r.text();
+        let res = null;
+        try{ res = JSON.parse(text); }catch(e){}
+        if(!res){
+          say(`<span style="color:var(--flag)">The URL answered with a web page, not data.
+            The deployment is probably set to <em>Only myself</em>. Redeploy with access set to
+            <em>Anyone with the link</em>.</span>`);
+          return;
+        }
+        if(res.build !== "b3"){
+          say(`<span style="color:var(--flag)">An older copy of the script is live${res.build?" (build "+esc(res.build)+")":""}.
+            Apps Script keeps serving the version you deployed, not the code in the editor.
+            Copy the bridge script again, paste it over, then Deploy \u2192 Manage deployments
+            \u2192 edit \u2192 Version: <em>New version</em>.</span>`);
+          return;
+        }
+        if(!res.tokenSet){
+          say(`<span style="color:var(--flag)">The live script still has the placeholder token.
+            Copy the bridge script again — it comes with your token in it — paste it over,
+            then deploy a new version.</span>`);
+          return;
+        }
+        /* the script is current, so try a real authenticated read */
+        const rr = await callBridge(c, "read");
+        if(rr.ok) say(`Working. Connected to <b>${esc(rr.name || "the spreadsheet")}</b>, `
+          + `${((rr.tables && rr.tables.Nodes) || []).length} node rows found.`);
+        else if(/token/i.test(String(rr.error||"")))
+          say(`<span style="color:var(--flag)">The live script has a token, but not this one.
+            Check the Token box matches the TOKEN line, then deploy a new version.</span>`);
+        else say(`<span style="color:var(--flag)">${esc(String(rr.error||"The sheet refused the request."))}</span>`);
+      }catch(e){
+        say(`<span style="color:var(--flag)">${esc(String(e.message || e))}</span>`);
+      }finally{ b.disabled = false; }
+    };
+  });
+
   box.querySelectorAll("[data-del]").forEach(b=>{
     b.onclick = ()=>{
       S.connections.splice(Number(b.dataset.del), 1);
@@ -4268,6 +4400,12 @@ async function boot(){
 
   bootHash = takeHash();
 
+  /* Put a map on screen before touching storage. If the database is slow or
+     held open by another tab, the person sees the app rather than a blank
+     stage, and whatever storage returns replaces this. */
+  seed(); rebuild(); fitView(0.96, 0.6);
+  const preSeeded = true;
+
   await Store.init();
   await Store.requestPersist();
   await Store.checkBeacon();
@@ -4338,11 +4476,13 @@ async function boot(){
   }catch(e){}
 
   if(!restored){
-    S.meta.key = null;
-    /* first ever run gets the sample so the tool explains itself; after that
-       a tab with nothing to resume starts blank */
-    if(hadSessions) blankMap(); else seed();
-    rebuild(); fitView(0.96, hadSessions ? 1 : 0.6);
+    if(hadSessions){
+      /* the sample was only a placeholder while storage opened */
+      S.meta.key = null;
+      blankMap(); rebuild(); fitView(0.96, 1);
+    } else if(!preSeeded){
+      S.meta.key = null; seed(); rebuild(); fitView(0.96, 0.6);
+    }
   } else {
     S.meta.lastOpened = nowISO();
     Store.touchSession(S.meta.key, {lastOpened:S.meta.lastOpened});
@@ -4357,7 +4497,12 @@ async function boot(){
   }
 
   /* Say something out loud when the work is not actually being kept. */
-  if(Store.mode === "none"){
+  if(Store.mode === "blocked"){
+    showBanner(`<strong>Your maps are still here, but storage will not open.</strong>
+      This is usually another MindMap tab holding the previous version open.
+      Close the other tabs, then reload. Nothing is being saved until it opens,
+      so nothing can be overwritten.`, "Reload", ()=>location.reload());
+  } else if(Store.mode === "none"){
     showBanner(`<strong>Your work is not being saved.</strong>
       This browser gives this page no storage. Link a file on disk, connect a Google Sheet,
       or open the tool from a web address instead of a downloaded file.`,
