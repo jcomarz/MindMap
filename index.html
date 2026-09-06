@@ -339,6 +339,15 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
   font-size:12px;line-height:1.7;margin-bottom:14px}
 .diagbox b{font-weight:600}
 .diagbox code{font-family:var(--mono);font-size:11px}
+/* one-tap add, always reachable without opening a panel */
+.fab{
+  position:fixed;right:14px;bottom:16px;z-index:38;
+  width:52px;height:52px;border-radius:26px;border:1px solid var(--graphite);
+  background:var(--blueprint);color:#fff;font-size:26px;line-height:1;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 3px 12px rgba(35,40,45,.28)
+}
+.fab.loose{background:var(--paper);color:var(--blueprint);border-color:var(--blueprint)}
 .scrim{position:fixed;inset:0;background:rgba(35,40,45,.35);z-index:35;display:none}
 .scrim.on{display:block}
 .syncing{opacity:.55;pointer-events:none}
@@ -391,24 +400,16 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
   .zoombar .lvl{min-width:40px;font-size:11px}
   .fab{width:48px;height:48px;border-radius:24px;font-size:24px;
     right:12px;bottom:calc(12px + env(safe-area-inset-bottom))}
-
-  /* one-tap add, reachable without opening a drawer */
-  .fab{
-    position:fixed;right:14px;bottom:calc(16px + env(safe-area-inset-bottom));z-index:38;
-    width:52px;height:52px;border-radius:26px;border:1px solid var(--graphite);
-    background:var(--blueprint);color:#fff;font-size:26px;line-height:1;
-    display:flex;align-items:center;justify-content:center;
-    box-shadow:0 3px 12px rgba(35,40,45,.28)
-  }
-  .fab.loose{background:var(--paper);color:var(--blueprint);border-color:var(--blueprint)}
   .grid2{grid-template-columns:1fr}
 }
 @media (min-width:821px){
-  .fab{display:none}
   /* the panels are already on screen, so their drawer toggles are noise */
   #mRail,#mInsp{display:none}
   .mobile-tabs{padding:8px 16px}
   .mobile-tabs .mq{flex:0 1 520px}
+  /* clear of the inspector column, and above the title block */
+  .fab{right:calc(var(--insp) + 22px);bottom:80px;width:46px;height:46px;
+    border-radius:23px;font-size:23px}
 }
 </style>
 </head>
