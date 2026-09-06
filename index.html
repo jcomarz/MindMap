@@ -1,0 +1,2983 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Branchwork Atlas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+<style>
+:root{
+  --paper:#FCFCFA;
+  --paper-2:#F2F2EE;
+  --graphite:#23282D;
+  --graphite-60:#6E757C;
+  --rule:#C9CCC6;
+  --rule-soft:#E3E5E0;
+  --blueprint:#14549B;
+  --blueprint-soft:#E4EDF7;
+  --highlight:#FBE08A;
+  --retired:#9AA1A8;
+  --flag:#B4472A;
+  --sans:"IBM Plex Sans Condensed", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --rail:264px;
+  --insp:320px;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{
+  font-family:var(--sans);
+  background:var(--paper-2);
+  color:var(--graphite);
+  font-size:14px;
+  line-height:1.4;
+  overflow:hidden;
+  -webkit-text-size-adjust:100%;
+}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--blueprint);outline-offset:1px}
+
+/* ---------- shell ---------- */
+#app{display:grid;grid-template-columns:var(--rail) 1fr var(--insp);height:100%}
+.rail,.inspector{background:var(--paper);display:flex;flex-direction:column;min-height:0}
+.rail{border-right:1px solid var(--rule)}
+.inspector{border-left:1px solid var(--rule)}
+.pane-scroll{overflow-y:auto;flex:1;min-height:0}
+
+.brand{padding:14px 16px 12px;border-bottom:1px solid var(--rule)}
+.brand h1{margin:0;font-size:17px;font-weight:600;letter-spacing:.01em}
+.brand p{margin:2px 0 0;font-size:12px;color:var(--graphite-60)}
+
+.group{padding:14px 16px;border-bottom:1px solid var(--rule-soft)}
+.group h2{margin:0 0 9px;font-size:12px;font-weight:600;color:var(--graphite-60)}
+.row{display:flex;gap:6px;flex-wrap:wrap}
+.row>*{flex:1 1 auto}
+
+.btn{
+  border:1px solid var(--rule);background:var(--paper);border-radius:2px;
+  padding:6px 10px;font-size:13px;white-space:nowrap;
+}
+.btn:hover{background:var(--paper-2)}
+.btn:active{background:var(--rule-soft)}
+.btn.primary{background:var(--blueprint);border-color:var(--blueprint);color:#fff}
+.btn.primary:hover{background:#11487f}
+.btn.wide{width:100%}
+.btn[disabled]{opacity:.45;cursor:default}
+
+input[type=text],input[type=search],select,textarea{
+  width:100%;border:1px solid var(--rule);border-radius:2px;background:var(--paper);
+  padding:6px 8px;
+}
+textarea{resize:vertical;min-height:64px;line-height:1.45}
+label.field{display:block;margin-bottom:10px}
+label.field>span{display:block;font-size:12px;color:var(--graphite-60);margin-bottom:3px}
+
+.check{display:flex;align-items:center;gap:7px;margin:5px 0;font-size:13px}
+.check input{width:auto;margin:0}
+
+.hits{font-family:var(--mono);font-size:11px;color:var(--graphite-60);padding:0 2px}
+
+.taglist{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.tagchip{
+  display:inline-flex;align-items:center;gap:5px;border:1px solid var(--rule);
+  border-radius:2px;padding:2px 7px;font-size:12px;background:var(--paper);
+}
+.tagchip.off{opacity:.4}
+.tagchip i{width:16px;height:0;border-top-width:2px;display:inline-block}
+
+/* ---------- canvas ---------- */
+.stage{position:relative;background:var(--paper-2);min-width:0;overflow:hidden}
+#sheet{
+  position:absolute;inset:14px;background:var(--paper);
+  border:1px solid var(--rule);box-shadow:0 1px 0 rgba(35,40,45,.06);
+  overflow:hidden;
+}
+#svg{width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+#svg.panning{cursor:grabbing}
+
+.titleblock{
+  position:absolute;right:14px;bottom:14px;background:var(--paper);
+  border:1px solid var(--graphite);display:grid;grid-template-columns:auto auto auto;
+  font-family:var(--mono);font-size:11px;line-height:1.25;
+}
+.titleblock div{padding:5px 9px;border-right:1px solid var(--rule)}
+.titleblock div:last-child{border-right:0}
+.titleblock b{display:block;font-weight:500;font-size:9px;color:var(--graphite-60)}
+
+.zoombar{
+  position:absolute;left:14px;bottom:14px;display:flex;gap:4px;
+  background:var(--paper);border:1px solid var(--rule);border-radius:2px;padding:4px;
+}
+.zoombar button{border:0;background:transparent;padding:4px 9px;border-radius:2px;font-size:13px}
+.zoombar button:hover{background:var(--paper-2)}
+.zoombar .lvl{font-family:var(--mono);font-size:11px;padding:4px 6px;color:var(--graphite-60);align-self:center;min-width:46px;text-align:center}
+
+/* ---------- svg content ---------- */
+.node-box{fill:var(--paper);stroke:var(--graphite);stroke-width:1.25}
+.node-label{font-family:var(--sans);font-size:13px;fill:var(--graphite)}
+.node-id{font-family:var(--mono);font-size:9px;fill:var(--graphite-60)}
+.node-g.retired .node-box{stroke:var(--retired);stroke-dasharray:5 3;fill:#F7F7F5}
+.node-g.retired .node-label{fill:var(--retired)}
+.node-g.sel .node-box{stroke:var(--blueprint);stroke-width:2.25}
+.node-g.hit .node-box{fill:var(--highlight)}
+.node-g.dim{opacity:.16}
+.node-g{cursor:pointer}
+.node-g.pinned .pin{fill:var(--blueprint)}
+.edge{fill:none}
+.edge.dim{opacity:.1}
+.edge-label{font-family:var(--sans);font-size:10.5px;fill:var(--graphite-60)}
+.flagmark{fill:var(--flag)}
+
+/* ---------- inspector ---------- */
+.insp-head{padding:12px 16px;border-bottom:1px solid var(--rule);display:flex;align-items:baseline;gap:8px}
+.insp-head .idtag{font-family:var(--mono);font-size:11px;color:var(--graphite-60)}
+.insp-head h2{margin:0;font-size:14px;font-weight:600}
+.empty{padding:26px 18px;color:var(--graphite-60);font-size:13px}
+.revlog{border-top:1px solid var(--rule-soft);margin-top:4px}
+.rev{display:grid;grid-template-columns:76px 1fr;gap:8px;padding:7px 0;border-bottom:1px solid var(--rule-soft);font-size:12px}
+.rev time{font-family:var(--mono);font-size:10px;color:var(--graphite-60)}
+.rev .chg{word-break:break-word}
+.rev .chg s{color:var(--graphite-60);text-decoration-color:var(--flag)}
+.status-pill{font-family:var(--mono);font-size:10px;border:1px solid var(--rule);border-radius:2px;padding:1px 5px}
+.status-pill.retired{color:var(--retired);border-style:dashed}
+
+.toast{
+  position:fixed;left:50%;bottom:22px;transform:translateX(-50%);
+  background:var(--graphite);color:var(--paper);padding:8px 14px;border-radius:2px;
+  font-size:13px;z-index:60;opacity:0;pointer-events:none;transition:opacity .18s
+}
+.toast.on{opacity:1}
+
+.mobile-tabs{display:none}
+.dirty-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--flag);vertical-align:middle;margin-left:5px;visibility:hidden}
+.dirty .dirty-dot{visibility:visible}
+
+/* ---------- print ---------- */
+#printroot{display:none}
+@media print{
+  @page{margin:0.4in}
+  html,body{height:auto;overflow:visible;background:#fff}
+  #app,.toast{display:none !important}
+  #printroot{display:block}
+  .sheet{page-break-after:always;break-after:page;position:relative}
+  .sheet:last-child{page-break-after:auto;break-after:auto}
+  .sheet svg{display:block}
+  .sheet-tb{
+    position:absolute;right:0;bottom:0;border:1px solid #23282D;background:#fff;
+    display:flex;font-family:var(--mono);font-size:8pt;line-height:1.2;
+  }
+  .sheet-tb div{padding:3px 7px;border-right:1px solid #C9CCC6}
+  .sheet-tb div:last-child{border-right:0}
+  .sheet-tb b{display:block;font-weight:500;font-size:6pt;color:#6E757C}
+  .cont{font-family:var(--mono);font-size:7pt;fill:#6E757C}
+  .idxgrid{stroke:#14549B;stroke-width:.75;fill:none}
+  .idxlabel{font-family:var(--mono);font-size:9pt;fill:#14549B}
+}
+
+/* ---------- sheets dialog ---------- */
+dialog#connDlg{
+  border:1px solid var(--graphite);border-radius:3px;padding:0;background:var(--paper);
+  width:min(620px,94vw);max-height:88vh;color:var(--graphite)
+}
+dialog#connDlg::backdrop{background:rgba(35,40,45,.42)}
+.dlg-head{display:flex;align-items:center;justify-content:space-between;
+  padding:13px 18px;border-bottom:1px solid var(--rule)}
+.dlg-head h2{margin:0;font-size:16px;font-weight:600}
+.dlg-body{padding:16px 18px 20px;overflow-y:auto;max-height:calc(88vh - 56px)}
+.setup{margin:0 0 14px;padding-left:20px;font-size:13px;line-height:1.6;color:var(--graphite-60)}
+.setup li{margin-bottom:3px}
+.conn{border:1px solid var(--rule);border-radius:2px;padding:12px;margin-top:12px}
+.conn .hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}
+.conn .hdr strong{font-size:13px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+dialog#snapDlg{border:1px solid var(--graphite);border-radius:3px;padding:0;background:var(--paper);
+  width:min(560px,94vw);max-height:88vh;color:var(--graphite)}
+dialog#snapDlg::backdrop{background:rgba(35,40,45,.42)}
+dialog#histDlg{border:1px solid var(--graphite);border-radius:3px;padding:0;background:var(--paper);
+  width:min(760px,96vw);height:min(88vh,820px);color:var(--graphite);display:flex;flex-direction:column}
+dialog#histDlg::backdrop{background:rgba(35,40,45,.42)}
+dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
+.hist-controls{padding:12px 18px;border-bottom:1px solid var(--rule);background:var(--paper-2)}
+.cls-chip{opacity:.42}
+.cls-chip.on{opacity:1;border-color:var(--graphite)}
+.cls-chip[data-cls="functional"].on{border-color:var(--blueprint);color:var(--blueprint)}
+.nodehist>summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;
+  align-items:baseline;gap:8px}
+.nodehist>summary::-webkit-details-marker{display:none}
+.nodehist>summary em{font-style:normal;font-size:11px;color:var(--graphite-60);font-family:var(--mono)}
+.rev .chg .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px}
+.rev .chg .dot.functional{background:var(--blueprint)}
+.rev .chg .dot.editorial{background:#AEB4BA}
+.rev .chg .dot.layout{background:transparent;border:1px solid var(--rule)}
+.rev .fold{font-family:var(--mono);font-size:10px;color:var(--graphite-60);
+  border:1px solid var(--rule);border-radius:2px;padding:0 4px;margin-left:5px}
+.day{border-bottom:1px solid var(--rule-soft)}
+.day>summary{cursor:pointer;padding:11px 2px;font-size:13px;font-weight:600;list-style:none;
+  display:flex;justify-content:space-between;align-items:center}
+.day>summary::-webkit-details-marker{display:none}
+.day>summary em{font-style:normal;font-family:var(--mono);font-size:11px;color:var(--graphite-60)}
+.ent{border-top:1px solid var(--rule-soft);margin-left:2px}
+.ent>summary{cursor:pointer;list-style:none;padding:8px 0;display:grid;
+  grid-template-columns:52px 15px 1fr;gap:9px;align-items:baseline;font-size:12.5px}
+.ent>summary::-webkit-details-marker{display:none}
+.ent>summary{position:relative;padding-right:22px}
+.ent>summary::after{content:"";position:absolute;right:6px;top:14px;width:6px;height:6px;
+  border-right:1.5px solid var(--graphite-60);border-bottom:1.5px solid var(--graphite-60);
+  transform:rotate(-45deg);transition:transform .15s}
+.ent[open]>summary::after{transform:rotate(45deg);top:12px}
+.ent[open]>summary{background:var(--paper-2)}
+.day>summary::after{content:"";width:7px;height:7px;border-right:1.5px solid var(--graphite-60);
+  border-bottom:1.5px solid var(--graphite-60);transform:rotate(45deg);margin-left:8px;flex:0 0 auto}
+.day[open]>summary::after{transform:rotate(-135deg)}
+.day>summary em{margin-left:auto;padding-right:4px}
+.ent time{font-family:var(--mono);font-size:10.5px;color:var(--graphite-60)}
+.ent .dot{width:8px;height:8px;border-radius:50%;align-self:center}
+.ent .dot.functional{background:var(--blueprint)}
+.ent .dot.editorial{background:#AEB4BA}
+.ent .dot.layout{background:transparent;border:1px solid var(--rule)}
+.ent .who{font-weight:600}
+.ent .what{color:var(--graphite-60)}
+.ent .delta{display:block;margin-top:2px;word-break:break-word}
+.ent .delta s{color:var(--graphite-60);text-decoration-color:var(--flag)}
+.ent .fold{font-family:var(--mono);font-size:10px;color:var(--graphite-60);border:1px solid var(--rule);
+  border-radius:2px;padding:0 4px;margin-left:5px}
+.ent-edit{padding:4px 0 14px 61px;display:grid;gap:8px}
+.ent-edit .row{gap:7px}
+.ent-edit input[type=text]{font-family:var(--mono);font-size:12px}
+.histempty{padding:34px 4px;color:var(--graphite-60);font-size:13px}
+@media (max-width:820px){
+  dialog#histDlg{width:100vw;height:100vh;max-width:none;border:0;border-radius:0}
+  .ent>summary{grid-template-columns:46px 12px 1fr;gap:7px}
+  .ent-edit{padding-left:0}
+}
+.imgcard{display:flex;gap:10px;align-items:center;border:1px solid var(--rule);
+  border-radius:2px;padding:8px;margin-bottom:10px;background:var(--paper-2)}
+.imgcard img{width:64px;height:48px;object-fit:cover;border:1px solid var(--rule);background:#fff}
+.imgcard strong{display:block;font-size:12px;font-weight:600}
+.imgcard span{font-size:11px;color:var(--graphite-60);font-family:var(--mono);word-break:break-all}
+.fineprint{font-size:12px;color:var(--graphite-60);line-height:1.5;margin:14px 0 0}
+.banner{position:fixed;top:0;left:0;right:0;z-index:70;display:flex;gap:10px;align-items:center;
+  background:#5E1F10;color:#FDF3F0;padding:10px 14px;font-size:13px;line-height:1.45;
+  padding-top:calc(10px + env(safe-area-inset-top))}
+.banner[hidden]{display:none}
+.banner div{flex:1}
+.banner strong{display:block}
+.banner .btn{background:transparent;border-color:#C9A79E;color:#FDF3F0;flex:0 0 auto;padding:6px 10px}
+.banner .btn[hidden]{display:none}
+body.bannered #app{padding-top:56px}
+.diagbox{border:1px solid var(--rule);border-radius:2px;background:var(--paper-2);padding:11px 13px;
+  font-size:12px;line-height:1.7;margin-bottom:14px}
+.diagbox b{font-weight:600}
+.diagbox code{font-family:var(--mono);font-size:11px}
+.scrim{position:fixed;inset:0;background:rgba(35,40,45,.35);z-index:35;display:none}
+.scrim.on{display:block}
+.syncing{opacity:.55;pointer-events:none}
+
+@media (max-width:1100px){
+  :root{--rail:220px;--insp:270px}
+}
+@media (max-width:820px){
+  #app{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+
+  .rail{position:fixed;top:0;bottom:0;left:0;width:min(88vw,330px);z-index:40;
+    transform:translateX(-102%);transition:transform .22s ease;
+    box-shadow:0 0 26px rgba(35,40,45,.18);padding-top:env(safe-area-inset-top)}
+  .rail.open{transform:none}
+
+  /* the inspector reads better as a sheet that rises from the thumb end */
+  .inspector{position:fixed;left:0;right:0;bottom:0;top:auto;width:auto;
+    height:min(74vh,620px);z-index:40;border-left:0;border-top:1px solid var(--graphite);
+    border-radius:8px 8px 0 0;transform:translateY(102%);transition:transform .22s ease;
+    box-shadow:0 -6px 26px rgba(35,40,45,.18);padding-bottom:env(safe-area-inset-bottom)}
+  .inspector.open{transform:none}
+  .inspector::before{content:"";position:absolute;top:7px;left:50%;transform:translateX(-50%);
+    width:38px;height:4px;border-radius:2px;background:var(--rule)}
+  .insp-head{padding-top:18px}
+
+  .mobile-tabs{
+    display:flex;gap:8px;align-items:center;padding:8px 10px;background:var(--paper);
+    border-bottom:1px solid var(--rule);position:relative;z-index:50;
+    padding-top:calc(8px + env(safe-area-inset-top))
+  }
+  .mobile-tabs .mq{flex:1;min-width:0;padding:9px 10px;font-size:16px}
+  .mobile-tabs .mhits{display:flex;align-items:center;gap:2px;border:1px solid var(--rule);
+    border-radius:3px;background:var(--paper)}
+  .mobile-tabs .mhits[hidden]{display:none}
+  .mobile-tabs .mhits button{border:0;background:transparent;font-size:19px;
+    line-height:1;padding:7px 10px;color:var(--graphite)}
+  .mobile-tabs .mhits #mCount{font-family:var(--mono);font-size:11px;color:var(--graphite-60);min-width:34px;text-align:center}
+  .node-hit{pointer-events:all}
+  .stage{grid-row:2}
+  #sheet{inset:8px}
+  .titleblock{display:none}
+
+  /* thumb-sized controls throughout */
+  .btn{padding:10px 13px;font-size:14px;border-radius:3px}
+  input[type=text],input[type=search],select,textarea{padding:10px 10px;font-size:16px}
+  .check{padding:5px 0}
+  .check input{width:18px;height:18px}
+  .tagchip{padding:6px 10px;font-size:13px}
+  .zoombar{left:10px;bottom:calc(10px + env(safe-area-inset-bottom));padding:5px}
+  .zoombar button{padding:8px 13px;font-size:15px}
+  .zoombar .lvl{min-width:42px}
+
+  /* one-tap add, reachable without opening a drawer */
+  .fab{
+    position:fixed;right:14px;bottom:calc(16px + env(safe-area-inset-bottom));z-index:38;
+    width:52px;height:52px;border-radius:26px;border:1px solid var(--graphite);
+    background:var(--blueprint);color:#fff;font-size:26px;line-height:1;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 3px 12px rgba(35,40,45,.28)
+  }
+  .grid2{grid-template-columns:1fr}
+}
+@media (min-width:821px){ .fab{display:none} .mq,.mhits{display:none} }
+</style>
+</head>
+<body>
+<div class="banner" id="storeBanner" hidden>
+  <div id="bannerText"></div>
+  <button class="btn" id="bannerFix" hidden>Fix this</button>
+  <button class="btn" id="bannerHide">Dismiss</button>
+</div>
+
+<div class="mobile-tabs">
+  <button class="btn" id="mRail">Tools</button>
+  <input type="search" id="mq" class="mq" placeholder="Search the map" enterkeyhint="search">
+  <span class="mhits" id="mHits" hidden>
+    <button type="button" id="mPrev" aria-label="Previous match">&#8249;</button>
+    <span id="mCount">0/0</span>
+    <button type="button" id="mNext" aria-label="Next match">&#8250;</button>
+  </span>
+  <button class="btn" id="mInsp">Node</button>
+</div>
+
+<div id="app">
+
+  <!-- ============ LEFT RAIL ============ -->
+  <aside class="rail" id="rail">
+    <div class="brand">
+      <h1>Branchwork Atlas<span class="dirty-dot" id="dirtyDot"></span></h1>
+      <p id="mapMeta">0 nodes · 0 links</p>
+    </div>
+
+    <div class="pane-scroll">
+
+      <div class="group">
+        <h2>Workbook</h2>
+        <div class="row">
+          <button class="btn" id="btnImport">Open .xlsx</button>
+          <button class="btn primary" id="btnExport">Save .xlsx</button>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <button class="btn" id="btnTsv">Copy as TSV</button>
+          <button class="btn" id="btnNew">Start empty</button>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <button class="btn wide" id="btnSnaps">Recover an earlier version</button>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <button class="btn wide" id="btnLinkFile">Keep a live file on disk</button>
+        </div>
+        <input type="file" id="fileIn" accept=".xlsx,.xlsm,.xls" hidden>
+        <p id="saveNote" style="font-size:12px;color:var(--graphite-60);margin:9px 0 0;line-height:1.5">
+          Checking storage…</p>
+      </div>
+
+      <div class="group">
+        <h2>Find</h2>
+        <input type="search" id="q" placeholder="Search labels, notes, tags, IDs">
+        <div class="row" style="margin-top:6px;align-items:center">
+          <button class="btn" id="prevHit">Previous</button>
+          <button class="btn" id="nextHit">Next</button>
+          <span class="hits" id="hitCount">—</span>
+        </div>
+        <label class="check"><input type="checkbox" id="dimOthers" checked> Fade non-matches</label>
+      </div>
+
+      <div class="group">
+        <h2>Show</h2>
+        <label class="field"><span>Nodes</span>
+          <select id="showScope">
+            <option value="all">Everything, retired included</option>
+            <option value="active">Current logic only</option>
+            <option value="retired">Retired only</option>
+          </select></label>
+        <label class="check"><input type="checkbox" id="showCross" checked> Cross-links</label>
+        <label class="check"><input type="checkbox" id="showEdgeLabels" checked> Link labels</label>
+        <div class="taglist" id="tagFilters"></div>
+      </div>
+
+      <div class="group">
+        <h2>Build</h2>
+        <div class="row">
+          <button class="btn" id="btnChild">Add child</button>
+          <button class="btn" id="btnSibling">Add sibling</button>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <button class="btn" id="btnRoot">Add root</button>
+          <button class="btn" id="btnLink">Link to…</button>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <button class="btn wide" id="btnUnpin">Release manual positions</button>
+        </div>
+        <label class="check" style="margin-top:9px"><input type="checkbox" id="draftMode">
+          Draft mode — do not log edits</label>
+      </div>
+
+      <div class="group">
+        <h2>History</h2>
+        <div class="row">
+          <button class="btn wide" id="btnHistory">Open the change log</button>
+        </div>
+        <p style="font-size:12px;color:var(--graphite-60);margin:9px 0 0" id="histNote">—</p>
+      </div>
+
+      <div class="group">
+        <h2>Google Sheets</h2>
+        <label class="field"><span>Connected sheet</span>
+          <select id="connSel"><option value="">No sheets set up</option></select></label>
+        <div class="row">
+          <button class="btn" id="btnPull">Pull</button>
+          <button class="btn" id="btnMerge">Merge</button>
+          <button class="btn" id="btnPush">Push</button>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <button class="btn wide" id="btnConns">Manage sheets</button>
+        </div>
+        <p id="syncNote" style="font-size:12px;color:var(--graphite-60);margin:9px 0 0">
+          Not connected yet. Manage sheets walks you through it.</p>
+      </div>
+
+      <div class="group">
+        <h2>Print</h2>
+        <label class="field"><span>Paper</span>
+          <select id="paper">
+            <option value="letter-l">Letter, landscape</option>
+            <option value="letter-p">Letter, portrait</option>
+            <option value="a4-l">A4, landscape</option>
+            <option value="a4-p">A4, portrait</option>
+            <option value="tabloid-l">Tabloid, landscape</option>
+          </select>
+        </label>
+        <label class="field"><span>Scale</span>
+          <select id="printScale">
+            <option value="1">100% — one sheet per section</option>
+            <option value="0.75">75%</option>
+            <option value="0.5">50%</option>
+            <option value="fit">Fit whole map to one sheet</option>
+          </select>
+        </label>
+        <div class="row">
+          <button class="btn" id="btnPrintView">Print this view</button>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <button class="btn primary wide" id="btnPrintAll">Print full map as collage</button>
+        </div>
+        <p style="font-size:12px;color:var(--graphite-60);margin:9px 0 0">
+          The collage prints a sheet index first, then one sheet per grid square with a
+          half-inch overlap so the tiles butt together on the wall.
+        </p>
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- ============ STAGE ============ -->
+  <main class="stage">
+    <div id="sheet">
+      <svg id="svg" xmlns="http://www.w3.org/2000/svg">
+        <defs id="defs"></defs>
+        <g id="world">
+          <g id="gEdges"></g>
+          <g id="gNodes"></g>
+        </g>
+      </svg>
+    </div>
+
+    <div class="titleblock" id="titleBlock">
+      <div><b>Map</b><span id="tbTitle">Untitled</span></div>
+      <div><b>Nodes</b><span id="tbCount">0</span></div>
+      <div><b>Revised</b><span id="tbDate">—</span></div>
+    </div>
+
+    <div class="zoombar">
+      <button id="zOut" title="Zoom out">−</button>
+      <span class="lvl" id="zLvl">100%</span>
+      <button id="zIn" title="Zoom in">+</button>
+      <button id="zFit" title="Fit map">Fit</button>
+    </div>
+  </main>
+
+  <!-- ============ INSPECTOR ============ -->
+  <aside class="inspector" id="inspector">
+    <div class="insp-head">
+      <h2 id="inspTitle">Nothing selected</h2>
+      <span class="idtag" id="inspId"></span>
+    </div>
+    <div class="pane-scroll" id="inspBody">
+      <div class="empty">Pick a node on the map to edit it, or use Add root to start a new branch.</div>
+    </div>
+  </aside>
+
+</div>
+
+<button class="fab" id="fab" aria-label="Add a child node">+</button>
+<div class="scrim" id="scrim"></div>
+
+<dialog id="connDlg">
+  <div class="dlg-head">
+    <h2>Google Sheets</h2>
+    <button class="btn" id="dlgClose">Done</button>
+  </div>
+  <div class="dlg-body">
+    <ol class="setup">
+      <li>Open the spreadsheet you want this map to live in.</li>
+      <li>Extensions → Apps Script. Delete what is there, paste the bridge script, save.</li>
+      <li>Deploy → New deployment → Web app. Run as yourself, access: anyone with the link.</li>
+      <li>Copy the /exec URL it gives you and paste it below.</li>
+    </ol>
+    <div class="row">
+      <button class="btn" id="copyScript">Copy the bridge script</button>
+      <button class="btn" id="copyLink">Copy a link to this setup</button>
+    </div>
+    <div id="connList"></div>
+    <button class="btn wide" id="addConn" style="margin-top:12px">Add another sheet</button>
+    <p class="fineprint">
+      Sheets are remembered in the page link and in the Sync tab of your workbook, so
+      bookmark this page once a sheet is set up and it opens ready to go on any device.
+    </p>
+  </div>
+</dialog>
+
+<dialog id="snapDlg">
+  <div class="dlg-head">
+    <h2>Saved versions</h2>
+    <button class="btn" id="snapClose">Done</button>
+  </div>
+  <div class="dlg-body" id="snapBody"></div>
+</dialog>
+
+<dialog id="histDlg">
+  <div class="dlg-head">
+    <h2>Change log</h2>
+    <button class="btn" id="histClose">Done</button>
+  </div>
+  <div class="hist-controls">
+    <input type="search" id="histQ" placeholder="Search wording, fields, node names">
+    <div class="row" style="margin-top:8px">
+      <button class="btn cls-chip on" data-cls="functional">Functional</button>
+      <button class="btn cls-chip on" data-cls="editorial">Wording</button>
+      <button class="btn cls-chip" data-cls="layout">Layout</button>
+    </div>
+    <div class="row" style="margin-top:8px;align-items:center">
+      <select id="histScope" style="flex:2">
+        <option value="all">All nodes, retired and deleted included</option>
+        <option value="active">Nodes still in the current logic</option>
+        <option value="retired">Retired nodes only</option>
+        <option value="node">Just the selected node</option>
+      </select>
+      <button class="btn" id="histPurge" style="flex:0 0 auto">Clear layout entries</button>
+    </div>
+  </div>
+  <div class="dlg-body" id="histBody"></div>
+</dialog>
+
+<script type="text/plain" id="gsScript">/**
+ * Branchwork Atlas — Google Sheets bridge
+ * Paste into Extensions > Apps Script, then deploy as a web app.
+ * One deployment can serve any number of spreadsheets: pass ?id=<spreadsheetId>.
+ */
+var TOKEN = 'change-me';                       // must match the token in the app
+var TABS  = ['Nodes','Links','Revisions','TagStyles'];
+
+function doGet(e)  { return handle(e, null); }
+function doPost(e) { return handle(e, JSON.parse((e.postData && e.postData.contents) || '{}')); }
+
+function handle(e, body) {
+  try {
+    var p   = (e && e.parameter) ? e.parameter : {};
+    var req = body || {};
+    if (TOKEN && (req.token || p.token || '') !== TOKEN) return out({ ok:false, error:'Token does not match' });
+
+    var action = req.action || p.action || 'read';
+    var id     = req.id     || p.id     || '';
+    var prefix = req.prefix || p.prefix || '';
+    var ss     = id ? SpreadsheetApp.openById(id) : SpreadsheetApp.getActiveSpreadsheet();
+
+    if (action === 'read')  return out({ ok:true, name:ss.getName(), tables:readAll(ss, prefix) });
+    if (action === 'write') { writeAll(ss, prefix, req.tables); return out({ ok:true, at:new Date().toISOString() }); }
+    return out({ ok:false, error:'Unknown action ' + action });
+  } catch (err) {
+    return out({ ok:false, error:String(err) });
+  }
+}
+
+function out(o) {
+  return ContentService.createTextOutput(JSON.stringify(o))
+                       .setMimeType(ContentService.MimeType.JSON);
+}
+
+function readAll(ss, prefix) {
+  var t = {};
+  TABS.forEach(function (name) {
+    t[name] = [];
+    var sh = ss.getSheetByName(prefix + name);
+    if (!sh) return;
+    var v = sh.getDataRange().getDisplayValues();
+    if (v.length < 2) return;
+    var hdr = v[0];
+    for (var i = 1; i < v.length; i++) {
+      if (v[i].join('') === '') continue;
+      var row = {};
+      for (var j = 0; j < hdr.length; j++) if (hdr[j]) row[hdr[j]] = v[i][j];
+      t[name].push(row);
+    }
+  });
+  return t;
+}
+
+function writeAll(ss, prefix, tables) {
+  TABS.forEach(function (name) {
+    var rows = (tables && tables[name]) || [];
+    var sh = ss.getSheetByName(prefix + name) || ss.insertSheet(prefix + name);
+    sh.clear();
+    if (!rows.length) return;
+    var hdr = Object.keys(rows[0]);
+    var grid = [hdr];
+    rows.forEach(function (r) {
+      grid.push(hdr.map(function (h) {
+        var v = r[h];
+        return (v === null || v === undefined) ? '' : String(v);
+      }));
+    });
+    sh.getRange(1, 1, grid.length, hdr.length).setValues(grid);
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, 1, hdr.length).setFontWeight('bold');
+  });
+}
+</script>
+
+<div id="printroot"></div>
+<div class="toast" id="toast"></div>
+<script>
+"use strict";
+
+/* =====================================================================
+   MODEL
+   Four tables, mirroring the four worksheets exactly. Anything the
+   app knows lives here; anything here survives a round trip to Excel.
+   ===================================================================== */
+const S = {
+  meta:{ title:"Sample accessioning", author:"jerico", created:nowISO() },
+  nodes:new Map(),      // id -> node
+  edges:new Map(),      // id -> edge
+  revisions:[],         // append only
+  tagStyles:new Map(),  // tag -> style
+  sel:null,
+  hits:[], hitIx:-1,
+  view:{x:0,y:0,k:1},
+  dirty:false,
+  linkMode:false,
+  connections:[],
+  activeConn:null,
+  draft:false,
+  hist:{q:"", cls:{functional:true, editorial:true, layout:false}, scope:"all", node:null},
+  syncing:false
+};
+
+function nowISO(){ return new Date().toISOString().replace("T"," ").slice(0,19); }
+function uid(p){ return p + Math.random().toString(36).slice(2,7) + Date.now().toString(36).slice(-3); }
+
+function newNode(o={}){
+  return Object.assign({
+    id:uid("N-"), label:"New node", body:"", type:"step", tags:[],
+    status:"active", flag:"", image:"", imageH:120, edit:0,
+    created:nowISO(), modified:nowISO(),
+    rev:1, author:S.meta.author, x:null, y:null, pinned:false, collapsed:false
+  }, o);
+}
+function newEdge(o={}){
+  return Object.assign({
+    id:uid("E-"), from:"", to:"", link_type:"tree", tag:"", label:"", condition:""
+  }, o);
+}
+
+/* Three kinds of change, because rewording a step is not the same event as
+   rerouting it. functional bumps the major number, editorial the minor,
+   layout neither. */
+const CLASS_OF = {
+  type:"functional", status:"functional", flag:"functional",
+  created:"functional", deleted:"functional",
+  label:"editorial", body:"editorial", tags:"editorial",
+  image:"editorial", imageH:"editorial",
+  position:"layout"
+};
+function classFor(field){
+  if(CLASS_OF[field]) return CLASS_OF[field];
+  if(field === "link tag") return "editorial";          // styling only
+  if(field.indexOf("link") === 0) return "functional";  // rewiring or branch conditions
+  return "editorial";
+}
+const SQUASH_MS = 10 * 60 * 1000;
+function parseTS(t){ const d = new Date(String(t).replace(" ","T")); return isNaN(d) ? 0 : d.getTime(); }
+
+/* Every field change is journalled, but consecutive passes at the same field
+   fold into one entry. Redrafting a sentence six times is one revision, not six. */
+function logRev(nodeId, field, oldV, newV, cls){
+  if(String(oldV??"") === String(newV??"")) return null;
+  if(S.draft) return null;
+  cls = cls || classFor(field);
+  for(let i = S.revisions.length - 1; i >= 0; i--){
+    const r = S.revisions[i];
+    if(r.node_id !== nodeId || r.field !== field) continue;
+    if(r.class === cls && r.author === S.meta.author && Date.now() - parseTS(r.timestamp) < SQUASH_MS){
+      r.new_value = newV??"";
+      r.timestamp = nowISO();
+      r.folded = (Number(r.folded)||1) + 1;
+      if(String(r.old_value??"") === String(r.new_value??"")){ S.revisions.splice(i,1); reindexRevs(); return "cancelled"; }
+      return "folded";
+    }
+    break;
+  }
+  S.revisions.push({
+    rev_id: S.revisions.length+1, node_id:nodeId, timestamp:nowISO(),
+    author:S.meta.author, field, class:cls, note:"", folded:1,
+    old_value:oldV??"", new_value:newV??""
+  });
+  return "new";
+}
+function reindexRevs(){ S.revisions.forEach((r,i)=>r.rev_id = i+1); }
+
+function setField(node, field, value, clsOverride){
+  const old = node[field];
+  if(String(old??"") === String(value??"")) return false;
+  const cls = clsOverride || classFor(field);
+  const result = logRev(node.id, field, Array.isArray(old)?old.join(", "):old,
+                                        Array.isArray(value)?value.join(", "):value, cls);
+  node[field] = value;
+  node.modified = nowISO();
+  if(!S.draft && result === "new"){
+    if(cls === "functional"){ node.rev = (node.rev|0) + 1; node.edit = 0; }
+    else if(cls === "editorial"){ node.edit = (node.edit|0) + 1; }
+  }
+  markDirty();
+  return true;
+}
+function verOf(n){ return "r" + (n.rev|0) + "." + (n.edit|0); }
+
+/* Promote or demote an entry after the fact, and carry the node's version
+   numbers with it. */
+function reclassify(rev, cls){
+  if(rev.class === cls) return;
+  const n = S.nodes.get(rev.node_id);
+  if(n){
+    if(rev.class === "functional" && n.rev > 1){ n.rev--; }
+    if(cls === "functional"){ n.rev = (n.rev|0) + 1; n.edit = 0; }
+    else if(cls === "editorial"){ n.edit = (n.edit|0) + 1; }
+  }
+  rev.class = cls;
+  markDirty();
+}
+function markDirty(){ S.dirty = true; document.body.classList.add("dirty");
+  if(typeof scheduleSave === "function") scheduleSave(); }
+function markClean(){ S.dirty = false; document.body.classList.remove("dirty"); }
+
+function revsFor(id){ return S.revisions.filter(r=>r.node_id===id).slice().reverse(); }
+
+/* --------------------------- tag styles --------------------------- */
+const LINE_DASH = { solid:"", dashed:"7 4", dotted:"1.5 4", "dash-dot":"9 3 2 3", phantom:"14 4 3 4" };
+
+function styleFor(tag){
+  return S.tagStyles.get(tag) || { tag, color:"#23282D", line:"solid", width:1.25, arrow:"yes", applies:"edge" };
+}
+function ensureTagStyle(tag, patch){
+  if(!tag) return;
+  if(!S.tagStyles.has(tag)){
+    const palette = ["#14549B","#B4472A","#2E7D5B","#6C4AB0","#8A6A1F","#1F7A8C"];
+    S.tagStyles.set(tag, Object.assign({
+      tag, color:palette[S.tagStyles.size % palette.length],
+      line:["solid","dashed","dotted","dash-dot"][S.tagStyles.size % 4],
+      width:1.25, arrow:"yes", applies:"edge"
+    }, patch||{}));
+  } else if(patch) Object.assign(S.tagStyles.get(tag), patch);
+}
+
+/* --------------------------- graph helpers --------------------------- */
+function childrenOf(id){
+  const out=[];
+  for(const e of S.edges.values()) if(e.link_type==="tree" && e.from===id) out.push(e.to);
+  return out;
+}
+function parentOf(id){
+  for(const e of S.edges.values()) if(e.link_type==="tree" && e.to===id) return e.from;
+  return null;
+}
+function roots(){
+  const withParent = new Set();
+  for(const e of S.edges.values()) if(e.link_type==="tree") withParent.add(e.to);
+  return [...S.nodes.keys()].filter(id=>!withParent.has(id));
+}
+function descendants(id, acc=new Set()){
+  for(const c of childrenOf(id)){ if(!acc.has(c)){ acc.add(c); descendants(c, acc); } }
+  return acc;
+}
+
+/* =====================================================================
+   SEED — a small accessioning tree so the map is never a blank sheet
+   ===================================================================== */
+function seed(){
+  S.nodes.clear(); S.edges.clear(); S.revisions.length=0; S.tagStyles.clear();
+  const mk=(label,o)=>{ const n=newNode(Object.assign({label},o)); S.nodes.set(n.id,n); return n.id; };
+  const ln=(a,b,o)=>{ const e=newEdge(Object.assign({from:a,to:b},o)); S.edges.set(e.id,e); return e.id; };
+
+  const r  = mk("Specimen arrives at intake",{type:"start",tags:["intake"]});
+  const a  = mk("Container intact and labelled?",{type:"decision",tags:["intake","qc"]});
+  const y1 = mk("Scan requisition into LIMS",{type:"step",tags:["lims"]});
+  const n1 = mk("Hold — photograph and quarantine",{type:"step",tags:["qc","exception"],flag:"attention"});
+  const b  = mk("Two patient identifiers match?",{type:"decision",tags:["qc"]});
+  const y2 = mk("Assign accession number",{type:"step",tags:["lims"]});
+  const n2 = mk("Query referring site",{type:"step",tags:["exception"]});
+  const c  = mk("Specimen type",{type:"decision",tags:["routing"]});
+  const bl = mk("Blood — EDTA tube to extraction queue",{type:"step",tags:["routing"]});
+  const sa = mk("Saliva — log kit lot, extraction queue",{type:"step",tags:["routing"]});
+  const ff = mk("FFPE block — pathology review first",{type:"step",tags:["routing","pathology"]});
+  const dn = mk("DNA already extracted — QC only",{type:"step",tags:["routing"],status:"retired"});
+  const q  = mk("Extraction QC passes?",{type:"decision",tags:["qc"]});
+  const rl = mk("Release to sequencing",{type:"end",tags:["lims"]});
+  const rq = mk("Re-extract from backup aliquot",{type:"step",tags:["exception"]});
+
+  ln(r,a); ln(a,y1,{label:"Yes"}); ln(a,n1,{label:"No",tag:"exception"});
+  ln(y1,b); ln(b,y2,{label:"Match"}); ln(b,n2,{label:"Mismatch",tag:"exception"});
+  ln(y2,c); ln(c,bl,{label:"Blood"}); ln(c,sa,{label:"Saliva"});
+  ln(c,ff,{label:"FFPE"}); ln(c,dn,{label:"gDNA"});
+  ln(bl,q); ln(q,rl,{label:"Pass"}); ln(q,rq,{label:"Fail",tag:"exception"});
+  ln(rq,q,{link_type:"cross",tag:"rework",label:"retry once"});
+  ln(n2,y2,{link_type:"cross",tag:"resolution",label:"after correction"});
+  ln(sa,q,{link_type:"cross",tag:"merge",label:"same queue"});
+
+  ["intake","qc","lims","routing","exception","pathology","rework","resolution","merge"].forEach(t=>ensureTagStyle(t));
+  S.tagStyles.get("exception").color="#B4472A";
+  S.tagStyles.get("exception").line="dashed";
+  S.tagStyles.get("rework").line="dash-dot";
+  S.tagStyles.get("merge").line="dotted";
+  S.meta.title="Sample accessioning";
+  markClean();
+}
+
+/* =====================================================================
+   WORKBOOK IO
+   Header names are the contract between the HTML app and the sheet.
+   Kept human-readable so the workbook stands on its own.
+   ===================================================================== */
+const HDR = {
+  Nodes:["node_id","label","body","type","tags","status","flag","image","image_h","created","modified","rev","edit","author","x","y","pinned","parent_id","depth","path"],
+  Links:["edge_id","from_id","to_id","link_type","tag","label","condition"],
+  Revisions:["rev_id","node_id","timestamp","author","field","class","note","folded","old_value","new_value"],
+  TagStyles:["tag","color","line_style","width","arrow","applies_to"],
+  Sync:["name","endpoint","spreadsheet_id","prefix","token","mode","last_sync"]
+};
+
+function pathOf(id){
+  const parts=[]; let cur=id, guard=0;
+  while(cur && guard++<200){ const n=S.nodes.get(cur); if(!n) break; parts.unshift(n.label); cur=parentOf(cur); }
+  return parts.join(" › ");
+}
+function depthOf(id){
+  let d=0, cur=parentOf(id), guard=0;
+  while(cur && guard++<200){ d++; cur=parentOf(cur); }
+  return d;
+}
+
+function toSheets(){
+  const nodes = [...S.nodes.values()].map(n=>({
+    node_id:n.id, label:n.label, body:n.body, type:n.type,
+    tags:(n.tags||[]).join(", "), status:n.status, flag:n.flag||"",
+    image:n.image||"", image_h:n.image?(n.imageH||120):"",
+    created:n.created, modified:n.modified, rev:n.rev, edit:n.edit|0, author:n.author,
+    x:n.pinned?round(n.x):"", y:n.pinned?round(n.y):"", pinned:n.pinned?"yes":"",
+    parent_id:parentOf(n.id)||"", depth:depthOf(n.id), path:pathOf(n.id)
+  }));
+  const links = [...S.edges.values()].map(e=>({
+    edge_id:e.id, from_id:e.from, to_id:e.to, link_type:e.link_type,
+    tag:e.tag||"", label:e.label||"", condition:e.condition||""
+  }));
+  const styles = [...S.tagStyles.values()].map(t=>({
+    tag:t.tag, color:t.color, line_style:t.line, width:t.width,
+    arrow:t.arrow, applies_to:t.applies
+  }));
+  const sync = S.connections.map(c=>({
+    name:c.name, endpoint:c.endpoint, spreadsheet_id:c.id||"", prefix:c.prefix||"",
+    token:c.token||"", mode:c.mode, last_sync:c.last_sync||""
+  }));
+  return { Nodes:nodes, Links:links, Revisions:S.revisions.slice(), TagStyles:styles, Sync:sync };
+}
+function round(v){ return v==null?"":Math.round(v*10)/10; }
+
+function exportXlsx(){
+  if(typeof XLSX === "undefined"){
+    toast("Excel library did not load. Use Copy as TSV and paste into a sheet.");
+    return;
+  }
+  const wb = buildWorkbook();
+  const safe = (S.meta.title||"branchwork").replace(/[^\w\- ]+/g,"").trim().replace(/\s+/g,"-");
+  XLSX.writeFile(wb, safe + "-" + new Date().toISOString().slice(0,10) + ".xlsx");
+  saveNow(true);
+  writeLinkedFile(true);
+  markClean();
+  toast("Workbook saved");
+}
+
+/* Rows in, model out. Shared by the Excel reader and the Sheets sync so
+   both paths agree on what a workbook means. */
+function tablesToModel(t){
+  const nodes = t.Nodes || [], links = (t.Links && t.Links.length) ? t.Links : (t.Edges || []),
+        revs = t.Revisions || [], styles = t.TagStyles || [];
+  const M = { nodes:new Map(), edges:new Map(), revisions:[], tagStyles:new Map(), connections:[] };
+
+  for(const r of nodes){
+    const n = newNode({
+      id:String(r.node_id||uid("N-")), label:String(r.label??""), body:String(r.body??""),
+      type:String(r.type||"step"),
+      tags:String(r.tags||"").split(",").map(x=>x.trim()).filter(Boolean),
+      status:String(r.status||"active").toLowerCase(), flag:String(r.flag||""),
+      image:String(r.image||"").trim(), imageH:Number(r.image_h)||120,
+      created:String(r.created||nowISO()), modified:String(r.modified||nowISO()),
+      rev:Number(r.rev)||1, edit:Number(r.edit)||0, author:String(r.author||S.meta.author),
+      x:(r.x===""||r.x==null)?null:Number(r.x), y:(r.y===""||r.y==null)?null:Number(r.y),
+      pinned:/^(yes|true|1|y)$/i.test(String(r.pinned||""))
+    });
+    M.nodes.set(n.id, n);
+  }
+  for(const r of links){
+    const e = newEdge({
+      id:String(r.edge_id||uid("E-")), from:String(r.from_id||""), to:String(r.to_id||""),
+      link_type:String(r.link_type||"tree").toLowerCase()==="cross"?"cross":"tree",
+      tag:String(r.tag||""), label:String(r.label||""), condition:String(r.condition||"")
+    });
+    if(M.nodes.has(e.from) && M.nodes.has(e.to)) M.edges.set(e.id, e);
+  }
+  /* parent_id wins over the Links sheet, so the tree can be restructured
+     by typing in a cell without touching link rows. */
+  const parentIn = id => { for(const e of M.edges.values()) if(e.link_type==="tree" && e.to===id) return e.from; return null; };
+  for(const r of nodes){
+    const id = String(r.node_id||""), pid = String(r.parent_id||"").trim();
+    if(!M.nodes.has(id) || !pid || !M.nodes.has(pid) || pid === id) continue;
+    if(parentIn(id) === pid) continue;
+    for(const [k,e] of [...M.edges]) if(e.link_type==="tree" && e.to===id) M.edges.delete(k);
+    const e = newEdge({from:pid, to:id, link_type:"tree"});
+    M.edges.set(e.id, e);
+  }
+  for(const r of revs){
+    M.revisions.push({
+      rev_id:Number(r.rev_id)||M.revisions.length+1, node_id:String(r.node_id||""),
+      timestamp:String(r.timestamp||""), author:String(r.author||""),
+      field:String(r.field||""), class:String(r.class||"").trim() || classFor(String(r.field||"")),
+      note:String(r.note||""), folded:Number(r.folded)||1,
+      old_value:String(r.old_value??""), new_value:String(r.new_value??"")
+    });
+  }
+  for(const r of styles){
+    if(!r.tag) continue;
+    M.tagStyles.set(String(r.tag), {
+      tag:String(r.tag), color:String(r.color||"#23282D"),
+      line:String(r.line_style||"solid"), width:Number(r.width)||1.25,
+      arrow:String(r.arrow||"yes"), applies:String(r.applies_to||"edge")
+    });
+  }
+  for(const r of (t.Sync||[])){
+    if(!r.endpoint) continue;
+    M.connections.push({
+      name:String(r.name||"Sheet"), endpoint:String(r.endpoint), id:String(r.spreadsheet_id||""),
+      prefix:String(r.prefix||""), token:String(r.token||""),
+      mode:String(r.mode||"merge"), last_sync:String(r.last_sync||"")
+    });
+  }
+  return M;
+}
+
+function adoptModel(M, keepConnections){
+  S.nodes = M.nodes; S.edges = M.edges;
+  S.revisions = M.revisions; S.tagStyles = M.tagStyles;
+  if(M.connections.length && !keepConnections) S.connections = M.connections;
+  for(const e of S.edges.values()) ensureTagStyle(e.tag);
+  for(const n of S.nodes.values()) (n.tags||[]).forEach(t=>ensureTagStyle(t));
+  S.sel = null;
+}
+
+/* Two-way merge. Newest modified timestamp wins per node; links and
+   revisions are unioned by id. Nothing is deleted by a merge. */
+function mergeModel(M){
+  let added=0, updated=0, kept=0;
+  for(const [id, rn] of M.nodes){
+    const ln = S.nodes.get(id);
+    if(!ln){ S.nodes.set(id, rn); added++; continue; }
+    if(String(rn.modified) > String(ln.modified)){ S.nodes.set(id, rn); updated++; }
+    else kept++;
+  }
+  let linksAdded=0;
+  for(const [id, re] of M.edges){
+    if(!S.edges.has(id) && S.nodes.has(re.from) && S.nodes.has(re.to)){ S.edges.set(id, re); linksAdded++; }
+  }
+  const seen = new Set(S.revisions.map(r=>r.node_id+"|"+r.timestamp+"|"+r.field));
+  let revsAdded=0;
+  for(const r of M.revisions){
+    const k = r.node_id+"|"+r.timestamp+"|"+r.field;
+    if(!seen.has(k)){ S.revisions.push(r); seen.add(k); revsAdded++; }
+  }
+  S.revisions.sort((a,b)=>String(a.timestamp).localeCompare(String(b.timestamp)));
+  S.revisions.forEach((r,i)=>r.rev_id=i+1);
+  for(const [t, st] of M.tagStyles) if(!S.tagStyles.has(t)) S.tagStyles.set(t, st);
+  for(const e of S.edges.values()) ensureTagStyle(e.tag);
+  return {added, updated, kept, linksAdded, revsAdded};
+}
+
+function importXlsx(file){
+  const rd = new FileReader();
+  rd.onload = ev=>{
+    try{
+      const wb = XLSX.read(new Uint8Array(ev.target.result), {type:"array"});
+      const get = n => wb.Sheets[n] ? XLSX.utils.sheet_to_json(wb.Sheets[n], {defval:""}) : [];
+      const t = {Nodes:get("Nodes"), Links:get("Links"), Edges:get("Edges"),
+                 Revisions:get("Revisions"), TagStyles:get("TagStyles"), Sync:get("Sync")};
+      if(!t.Nodes.length){ toast("No rows found on a sheet named Nodes"); return; }
+      if(S.nodes.size) saveNow(true);
+      adoptModel(tablesToModel(t));
+      S.meta.title = file.name.replace(/\.[^.]+$/,"").replace(/-\d{4}-\d{2}-\d{2}$/,"");
+      markClean(); rebuild(); fitView(0.96, 0.6);
+      toast(S.nodes.size + " nodes loaded");
+    }catch(err){
+      console.error(err);
+      toast("That file could not be read as a Branchwork workbook");
+    }
+  };
+  rd.readAsArrayBuffer(file);
+}
+
+function copyTsv(){
+  const d = toSheets();
+  let out = "";
+  for(const name of ["Nodes","Links","Revisions","TagStyles","Sync"]){
+    if(!d[name].length && name==="Sync") continue;
+    out += "### " + name + "\n" + HDR[name].join("\t") + "\n";
+    for(const row of d[name]) out += HDR[name].map(h=>String(row[h]??"").replace(/[\t\n]/g," ")).join("\t") + "\n";
+    out += "\n";
+  }
+  navigator.clipboard.writeText(out)
+    .then(()=>toast("All four tables copied — paste into Excel"))
+    .catch(()=>toast("Clipboard blocked by the browser"));
+}
+/* =====================================================================
+   LAYOUT — tidy left-to-right tree, with pinned nodes honoured
+   ===================================================================== */
+const NODE_W = 208, COL_GAP = 96, ROW_GAP = 20, LINE_H = 16, PAD_Y = 13;
+const CHAR_W = 6.35;
+
+function wrap(text, widthPx){
+  const max = Math.max(8, Math.floor(widthPx / CHAR_W));
+  const words = String(text||"").split(/\s+/).filter(Boolean);
+  const lines = []; let cur = "";
+  for(const w of words){
+    if(!cur.length) cur = w;
+    else if((cur + " " + w).length <= max) cur += " " + w;
+    else { lines.push(cur); cur = w; }
+  }
+  if(cur.length) lines.push(cur);
+  return lines.length ? lines.slice(0,5) : [""];
+}
+
+function visibleNodes(){
+  const scope = el("showScope").value;
+  const set = new Set();
+  for(const n of S.nodes.values()){
+    const retired = n.status === "retired";
+    if(scope === "active" && retired) continue;
+    if(scope === "retired" && !retired) continue;
+    set.add(n.id);
+  }
+  return set;
+}
+
+function layout(){
+  const vis = visibleNodes();
+  for(const n of S.nodes.values()){
+    n._lines = wrap(n.label, NODE_W - 22);
+    n._imgH = n.image ? Math.max(40, Math.min(400, Number(n.imageH)||120)) : 0;
+    n._h = Math.max(46, n._lines.length * LINE_H + PAD_Y*2 + 9) + (n._imgH ? n._imgH + 8 : 0);
+  }
+  let cursor = 0;
+  const visiting = new Set();
+
+  function place(id, depth){
+    const n = S.nodes.get(id);
+    if(!n || visiting.has(id)) return;
+    visiting.add(id);
+    const kids = childrenOf(id).filter(k=>vis.has(k) && !visiting.has(k));
+    n._depth = depth;
+    if(!kids.length || n.collapsed){
+      n._ly = cursor + n._h/2;
+      cursor += n._h + ROW_GAP;
+    } else {
+      for(const k of kids) place(k, depth+1);
+      const ys = kids.map(k=>S.nodes.get(k)._ly).filter(v=>typeof v === "number");
+      n._ly = ys.length ? (Math.min(...ys) + Math.max(...ys))/2 : cursor;
+    }
+    n._lx = depth * (NODE_W + COL_GAP);
+  }
+
+  const rs = roots().filter(id=>vis.has(id));
+  for(const r of rs){ place(r, 0); cursor += ROW_GAP*2; }
+  for(const id of vis){ const n = S.nodes.get(id); if(n._ly === undefined) place(id, 0); }
+
+  for(const id of vis){
+    const n = S.nodes.get(id);
+    n._x = n.pinned && n.x != null ? n.x : (n._lx||0);
+    n._y = n.pinned && n.y != null ? n.y : (n._ly||0) - n._h/2;
+  }
+}
+
+function worldBBox(pad=48){
+  const vis = visibleNodes();
+  let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
+  for(const id of vis){
+    const n=S.nodes.get(id); if(n._x==null) continue;
+    x0=Math.min(x0,n._x); y0=Math.min(y0,n._y);
+    x1=Math.max(x1,n._x+NODE_W); y1=Math.max(y1,n._y+n._h);
+  }
+  if(!isFinite(x0)) return {x:0,y:0,w:800,h:600};
+  return {x:x0-pad, y:y0-pad, w:(x1-x0)+pad*2, h:(y1-y0)+pad*2};
+}
+
+/* =====================================================================
+   RENDER
+   ===================================================================== */
+const SVGNS = "http://www.w3.org/2000/svg";
+function mk(tag, attrs={}, parent){
+  const e = document.createElementNS(SVGNS, tag);
+  for(const k in attrs) if(attrs[k]!=null) e.setAttribute(k, attrs[k]);
+  if(parent) parent.appendChild(e);
+  return e;
+}
+function el(id){ return document.getElementById(id); }
+
+function arrowId(color){ return "ar-" + color.replace(/[^a-z0-9]/gi,""); }
+function ensureArrow(color){
+  const defs = el("defs"), id = arrowId(color);
+  if(defs.querySelector("#"+id)) return id;
+  const m = mk("marker",{id, viewBox:"0 0 10 10", refX:9, refY:5,
+    markerWidth:6, markerHeight:6, orient:"auto-start-reverse"}, defs);
+  mk("path",{d:"M0,1 L9,5 L0,9 z", fill:color}, m);
+  return id;
+}
+
+function nodePath(n){
+  const w = NODE_W, h = n._h, c = 9;
+  if(n.type === "decision"){
+    return `M0,${c} L${c},0 L${w},0 L${w},${h-c} L${w-c},${h} L0,${h} Z`;
+  }
+  if(n.type === "start" || n.type === "end"){
+    const r = Math.min(h/2, 18);
+    return `M${r},0 L${w-r},0 A${r},${r} 0 0 1 ${w-r},${h} L${r},${h} A${r},${r} 0 0 1 ${r},0 Z`;
+  }
+  return `M0,0 L${w},0 L${w},${h} L0,${h} Z`;
+}
+
+function activeTagFilter(){
+  const off = new Set();
+  document.querySelectorAll("#tagFilters .tagchip.off").forEach(c=>off.add(c.dataset.tag));
+  return off;
+}
+
+function render(){
+  const gE = el("gEdges"), gN = el("gNodes");
+  gE.textContent = ""; gN.textContent = "";
+  el("defs").querySelectorAll("clipPath").forEach(c=>c.remove());
+  const vis = visibleNodes();
+  const offTags = activeTagFilter();
+  const showCross = el("showCross").checked;
+  const showLabels = el("showEdgeLabels").checked;
+  const dimOn = el("dimOthers").checked && S.hits.length > 0;
+  const hitSet = new Set(S.hits);
+
+  /* ---- edges ---- */
+  for(const e of S.edges.values()){
+    if(!vis.has(e.from) || !vis.has(e.to)) continue;
+    if(e.link_type === "cross" && !showCross) continue;
+    if(e.tag && offTags.has(e.tag)) continue;
+    const a = S.nodes.get(e.from), b = S.nodes.get(e.to);
+    const st = e.tag ? styleFor(e.tag) : {color:"#7C848C", line:"solid", width:1.3, arrow:"yes"};
+    const dash = LINE_DASH[st.line] ?? "";
+    let d, ax, ay, bx, by;
+
+    if(e.link_type === "tree"){
+      ax = a._x + NODE_W; ay = a._y + a._h/2;
+      bx = b._x;          by = b._y + b._h/2;
+      const mx = (ax + bx)/2;
+      d = `M${ax},${ay} C${mx},${ay} ${mx},${by} ${bx},${by}`;
+    } else {
+      ax = a._x + NODE_W/2; ay = a._y + a._h;
+      bx = b._x + NODE_W/2; by = b._y + b._h;
+      const bow = 46 + Math.min(120, Math.abs(bx-ax)/4);
+      d = `M${ax},${ay} C${ax},${ay+bow} ${bx},${by+bow} ${bx},${by}`;
+    }
+    const p = mk("path",{
+      d, class:"edge", stroke:st.color, "stroke-width":st.width || 1.3,
+      "stroke-dasharray":dash || null,
+      "marker-end": st.arrow === "no" ? null : "url(#"+ensureArrow(st.color)+")"
+    }, gE);
+    if(dimOn && !(hitSet.has(e.from) && hitSet.has(e.to))) p.classList.add("dim");
+
+    if(showLabels && e.label){
+      const t = mk("text",{
+        class:"edge-label", x:(ax+bx)/2, y:(ay+by)/2 + (e.link_type==="cross"?34:-5),
+        "text-anchor":"middle"
+      }, gE);
+      t.textContent = e.label;
+      const bb = {w: e.label.length*5.6 + 8};
+      const bg = mk("rect",{x:(ax+bx)/2 - bb.w/2, y:(ay+by)/2 + (e.link_type==="cross"?24:-15),
+        width:bb.w, height:13, fill:"#FCFCFA"}, gE);
+      gE.insertBefore(bg, t);
+      if(dimOn && !(hitSet.has(e.from) && hitSet.has(e.to))){ t.classList.add("dim"); bg.classList.add("dim"); }
+    }
+  }
+
+  /* ---- nodes ---- */
+  for(const id of vis){
+    const n = S.nodes.get(id);
+    const g = mk("g",{class:"node-g", transform:`translate(${n._x},${n._y})`, "data-id":id}, gN);
+    if(n.status === "retired") g.classList.add("retired");
+    if(S.sel === id) g.classList.add("sel");
+    if(n.pinned) g.classList.add("pinned");
+    if(hitSet.has(id)) g.classList.add("hit");
+    else if(dimOn) g.classList.add("dim");
+
+    const tagColor = (n.tags||[]).map(t=>S.tagStyles.get(t)).find(Boolean);
+    mk("rect",{x:-10, y:-10, width:NODE_W+20, height:n._h+20,
+      fill:"transparent", class:"node-hit"}, g);
+    mk("path",{d:nodePath(n), class:"node-box"}, g);
+    if(tagColor){
+      const inset = n.type === "decision" ? 9 : (n.type==="start"||n.type==="end") ? 6 : 0;
+      mk("rect",{x:0, y:inset, width:4, height:n._h - inset*2, fill:tagColor.color,
+        opacity: n.status==="retired" ? .35 : 1}, g);
+    }
+
+    if(n._imgH){
+      const clipId = "clip-" + n.id;
+      const cp = mk("clipPath",{id:clipId}, el("defs"));
+      const prev = el("defs").querySelector("#" + CSS.escape(clipId) + " rect");
+      if(prev) prev.remove();
+      mk("rect",{x:0, y:0, width:NODE_W-10, height:n._imgH, rx:2}, cp);
+      const wrapG = mk("g",{transform:`translate(5,5)`, "clip-path":`url(#${clipId})`}, g);
+      mk("rect",{width:NODE_W-10, height:n._imgH, fill:"#EFEFEB"}, wrapG);
+      const im = mk("image",{x:0, y:0, width:NODE_W-10, height:n._imgH,
+        preserveAspectRatio:"xMidYMid slice", opacity: n.status==="retired" ? .45 : 1}, wrapG);
+      im.setAttributeNS("http://www.w3.org/1999/xlink", "href", n.image);
+      im.setAttribute("href", n.image);
+    }
+    const textTop = n._imgH ? n._imgH + 8 : 0;
+    n._lines.forEach((ln,i)=>{
+      const t = mk("text",{class:"node-label", x:13, y:textTop + PAD_Y + 11 + i*LINE_H}, g);
+      t.textContent = ln;
+    });
+    const meta = mk("text",{class:"node-id", x:13, y:n._h - 8}, g);
+    meta.textContent = n.id + "  " + verOf(n) + (n.status==="retired" ? "  retired" : "");
+
+    if(n.flag) mk("path",{d:`M${NODE_W-16},2 L${NODE_W-2},2 L${NODE_W-2},16 Z`, class:"flagmark"}, g);
+    if(n.pinned) mk("circle",{class:"pin", cx:NODE_W-9, cy:n._h-9, r:2.6, fill:"#14549B"}, g);
+
+    const ttl = mk("title",{}, g);
+    ttl.textContent = (n.body ? n.label + "\n\n" + n.body : n.label)
+      + "\n\ntags: " + (n.tags||[]).join(", ") + "\nmodified: " + n.modified;
+  }
+  applyView();
+  updateChrome();
+}
+
+function applyView(){
+  el("world").setAttribute("transform",
+    `translate(${S.view.x},${S.view.y}) scale(${S.view.k})`);
+  el("zLvl").textContent = Math.round(S.view.k*100) + "%";
+}
+
+function rebuild(){ layout(); buildTagFilters(); render(); renderInspector(); }
+
+function updateChrome(){
+  if(el("histNote")) updateHistNote();
+  el("mapMeta").textContent = (S.meta.title ? S.meta.title + " · " : "") +
+    S.nodes.size + " nodes · " + S.edges.size + " links";
+  el("tbTitle").textContent = S.meta.title || "Untitled";
+  el("tbCount").textContent = S.nodes.size;
+  const last = [...S.nodes.values()].map(n=>n.modified).sort().pop();
+  el("tbDate").textContent = (last||nowISO()).slice(0,10);
+}
+
+function buildTagFilters(){
+  const box = el("tagFilters");
+  const prevOff = activeTagFilter();
+  box.textContent = "";
+  const tags = new Set();
+  for(const e of S.edges.values()) if(e.tag) tags.add(e.tag);
+  for(const n of S.nodes.values()) (n.tags||[]).forEach(t=>tags.add(t));
+  [...tags].sort().forEach(t=>{
+    ensureTagStyle(t);
+    const st = styleFor(t);
+    const c = document.createElement("button");
+    c.className = "tagchip" + (prevOff.has(t) ? " off" : "");
+    c.dataset.tag = t;
+    c.innerHTML = `<i style="border-top-style:${st.line==="solid"?"solid":st.line==="dotted"?"dotted":"dashed"};border-color:${st.color}"></i>${t}`;
+    c.onclick = ()=>{ c.classList.toggle("off"); render(); };
+    box.appendChild(c);
+  });
+}
+/* =====================================================================
+   VIEWPORT — pan, zoom, node dragging
+   ===================================================================== */
+const svg = ()=>el("svg");
+function svgSize(){ const r = svg().getBoundingClientRect(); return {w:r.width, h:r.height}; }
+function toWorld(cx, cy){
+  const r = svg().getBoundingClientRect();
+  return { x:(cx - r.left - S.view.x)/S.view.k, y:(cy - r.top - S.view.y)/S.view.k };
+}
+
+/* minK keeps the opening view readable. A map wide enough to need
+   collage printing is unreadable at true fit, so on load we clamp the
+   zoom and anchor to the left edge, where the roots are. */
+function fitView(pad=0.96, minK=0){
+  const b = worldBBox(), s = svgSize();
+  if(!s.w) return;
+  const raw = Math.min(s.w/b.w, s.h/b.h) * pad;
+  const clamped = raw < minK;
+  S.view.k = Math.max(MIN_K, Math.min(2.5, clamped ? minK : raw));
+  if(clamped){
+    S.view.x = 24 - b.x*S.view.k;
+    S.view.y = (s.h - b.h*S.view.k)/2 - b.y*S.view.k;
+  } else {
+    S.view.x = (s.w - b.w*S.view.k)/2 - b.x*S.view.k;
+    S.view.y = (s.h - b.h*S.view.k)/2 - b.y*S.view.k;
+  }
+  applyView();
+}
+function zoomAt(factor, cx, cy){
+  const r = svg().getBoundingClientRect();
+  const px = cx==null ? r.width/2 : cx - r.left;
+  const py = cy==null ? r.height/2 : cy - r.top;
+  const k2 = Math.max(MIN_K, Math.min(MAX_K, S.view.k * factor));
+  S.view.x = px - (px - S.view.x) * (k2/S.view.k);
+  S.view.y = py - (py - S.view.y) * (k2/S.view.k);
+  S.view.k = k2;
+  applyView();
+}
+function centerOn(id, k){
+  const n = S.nodes.get(id); if(!n || n._x==null) return;
+  const s = svgSize();
+  if(k) S.view.k = Math.max(MIN_K, Math.min(MAX_K, k));
+  S.view.x = s.w/2 - (n._x + NODE_W/2) * S.view.k;
+  S.view.y = s.h/2 - (n._y + n._h/2) * S.view.k;
+  applyView();
+}
+
+/* Gestures.
+   One state machine for mouse, pen and touch. The rules that matter:
+   a second finger always cancels whatever the first one started, a tap is
+   only a tap if nothing moved, and no tap is honoured for a moment after a
+   pinch — otherwise two fingers lifting together read as a double tap. */
+const MIN_K = 0.05, MAX_K = 6;
+
+(function bindPointer(){
+  const pts = new Map();
+  let mode = null, panStart = null, dragNode = null, moved = false, pinch = null;
+  let downPt = null, downTime = 0, lastTapTime = 0, lastTapId = null, tapBlockUntil = 0;
+
+  const rect = ()=>svg().getBoundingClientRect();
+  const dist = (a,b)=>Math.hypot(a.x-b.x, a.y-b.y);
+
+  function beginPinch(){
+    const [a,b] = [...pts.values()];
+    pinch = { d:Math.max(1, dist(a,b)), mx:(a.x+b.x)/2, my:(a.y+b.y)/2,
+              k:S.view.k, vx:S.view.x, vy:S.view.y };
+    mode = "pinch";
+    tapBlockUntil = Date.now() + 500;
+  }
+
+  function abortNodeDrag(){
+    if(dragNode && moved){
+      const n = S.nodes.get(dragNode.id);
+      if(n){ n._x = dragNode.ox; n._y = dragNode.oy;
+        const g = svg().querySelector(`.node-g[data-id="${CSS.escape(dragNode.id)}"]`);
+        if(g) g.setAttribute("transform", `translate(${n._x},${n._y})`); }
+    }
+    dragNode = null;
+  }
+
+  svg().addEventListener("pointerdown", ev=>{
+    pts.set(ev.pointerId, {x:ev.clientX, y:ev.clientY});
+    try{ svg().setPointerCapture(ev.pointerId); }catch(e){}
+
+    if(pts.size === 2){ abortNodeDrag(); beginPinch(); return; }
+    if(pts.size > 2) return;
+
+    moved = false;
+    downPt = {x:ev.clientX, y:ev.clientY};
+    downTime = Date.now();
+
+    const g = ev.target.closest(".node-g");
+    if(g && !S.linkMode){
+      const id = g.dataset.id, n = S.nodes.get(id);
+      const w = toWorld(ev.clientX, ev.clientY);
+      dragNode = {id, dx:w.x - n._x, dy:w.y - n._y, ox:n._x, oy:n._y};
+      mode = "node";
+    } else if(g && S.linkMode){
+      mode = "tap-node";
+      dragNode = {id:g.dataset.id};
+    } else {
+      mode = "pan";
+      panStart = {px:ev.clientX, py:ev.clientY, vx:S.view.x, vy:S.view.y};
+      svg().classList.add("panning");
+    }
+  });
+
+  svg().addEventListener("pointermove", ev=>{
+    if(!pts.has(ev.pointerId)) return;
+    pts.set(ev.pointerId, {x:ev.clientX, y:ev.clientY});
+
+    if(mode === "pinch" && pts.size >= 2 && pinch){
+      const [a,b] = [...pts.values()];
+      const d = Math.max(1, dist(a,b));
+      const mx = (a.x+b.x)/2, my = (a.y+b.y)/2;
+      const r = rect();
+      const k2 = Math.max(MIN_K, Math.min(MAX_K, pinch.k * (d/pinch.d)));
+      /* The world point that sat under the midpoint when the pinch began
+         stays under the midpoint as it moves. Absolute, so it cannot drift. */
+      const wx = (pinch.mx - r.left - pinch.vx) / pinch.k;
+      const wy = (pinch.my - r.top  - pinch.vy) / pinch.k;
+      S.view.k = k2;
+      S.view.x = (mx - r.left) - wx*k2;
+      S.view.y = (my - r.top)  - wy*k2;
+      applyView();
+      return;
+    }
+
+    if(downPt && !moved && Math.hypot(ev.clientX-downPt.x, ev.clientY-downPt.y) > 6) moved = true;
+
+    if(mode === "pan" && panStart){
+      S.view.x = panStart.vx + (ev.clientX - panStart.px);
+      S.view.y = panStart.vy + (ev.clientY - panStart.py);
+      applyView();
+    } else if(mode === "node" && dragNode && moved){
+      const w = toWorld(ev.clientX, ev.clientY);
+      const n = S.nodes.get(dragNode.id);
+      n._x = w.x - dragNode.dx; n._y = w.y - dragNode.dy;
+      const g = svg().querySelector(`.node-g[data-id="${CSS.escape(dragNode.id)}"]`);
+      if(g) g.setAttribute("transform", `translate(${n._x},${n._y})`);
+    }
+  });
+
+  function endPointer(ev){
+    pts.delete(ev.pointerId);
+    try{ svg().releasePointerCapture(ev.pointerId); }catch(e){}
+
+    if(mode === "pinch"){
+      tapBlockUntil = Date.now() + 500;
+      if(pts.size === 1){
+        /* one finger left on the glass — carry on panning from where it is */
+        const p = [...pts.values()][0];
+        mode = "pan"; moved = true;
+        panStart = {px:p.x, py:p.y, vx:S.view.x, vy:S.view.y};
+      } else { mode = null; pinch = null; }
+      return;
+    }
+
+    const wasTap = !moved && (Date.now() - downTime) < 400 && Date.now() > tapBlockUntil;
+
+    if(mode === "node" && dragNode){
+      if(moved){
+        const n = S.nodes.get(dragNode.id);
+        n.pinned = true; n.x = n._x; n.y = n._y;
+        logRev(n.id, "position", "auto", Math.round(n.x)+","+Math.round(n.y));
+        n.modified = nowISO(); markDirty();
+        render(); renderInspector();
+      } else if(wasTap){
+        const id = dragNode.id;
+        const now = Date.now();
+        if(lastTapId === id && now - lastTapTime < 340) focusNode(id);
+        else select(id);
+        lastTapId = id; lastTapTime = now;
+      }
+    } else if(mode === "tap-node" && dragNode && wasTap){
+      select(dragNode.id);
+    } else if(mode === "pan" && wasTap){
+      const now = Date.now();
+      if(lastTapId === "__bg" && now - lastTapTime < 340) zoomAt(1.7, ev.clientX, ev.clientY);
+      lastTapId = "__bg"; lastTapTime = now;
+    }
+
+    svg().classList.remove("panning");
+    mode = null; dragNode = null; panStart = null; pinch = null; downPt = null;
+  }
+  svg().addEventListener("pointerup", endPointer);
+  svg().addEventListener("pointercancel", ev=>{
+    pts.delete(ev.pointerId);
+    if(mode === "node") abortNodeDrag();
+    if(pts.size < 2){ mode = null; pinch = null; panStart = null; }
+    svg().classList.remove("panning");
+  });
+
+  svg().addEventListener("wheel", ev=>{
+    ev.preventDefault();
+    zoomAt(ev.deltaY < 0 ? 1.12 : 1/1.12, ev.clientX, ev.clientY);
+  }, {passive:false});
+})();
+
+/* Fill the viewport with one node, which is what "look at this bit" means
+   on a phone. */
+function focusNode(id){
+  const n = S.nodes.get(id);
+  if(!n || n._x == null) return;
+  const s = svgSize();
+  const k = Math.max(0.4, Math.min(MAX_K, Math.min(
+    (s.w * 0.82) / NODE_W,
+    (s.h * 0.72) / Math.max(n._h, 60))));
+  S.view.k = k;
+  S.view.x = s.w/2 - (n._x + NODE_W/2) * k;
+  S.view.y = s.h/2 - (n._y + n._h/2) * k;
+  applyView();
+  select(id);
+}
+
+/* =====================================================================
+   SELECTION + INSPECTOR
+   ===================================================================== */
+function select(id){
+  if(S.linkMode && S.sel && id !== S.sel){
+    const e = newEdge({from:S.sel, to:id, link_type:"cross", tag:"", label:""});
+    S.edges.set(e.id, e);
+    logRev(S.sel, "link", "", "cross → " + id);
+    S.linkMode = false;
+    el("btnLink").classList.remove("primary");
+    markDirty(); rebuild();
+    toast("Cross-link added");
+    return;
+  }
+  const prev = S.sel;
+  S.sel = id;
+  /* swap two classes instead of rebuilding the drawing — a full render on
+     every tap is what makes a big map feel sticky on a phone */
+  const g = el("gNodes");
+  if(prev){ const p = g.querySelector(`.node-g[data-id="${CSS.escape(prev)}"]`); if(p) p.classList.remove("sel"); }
+  if(id){ const c = g.querySelector(`.node-g[data-id="${CSS.escape(id)}"]`); if(c) c.classList.add("sel"); }
+  renderInspector();
+}
+
+function esc(s){ return String(s??"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+function renderInspector(){
+  const body = el("inspBody"), n = S.sel ? S.nodes.get(S.sel) : null;
+  if(!n){
+    el("inspTitle").textContent = "Nothing selected";
+    el("inspId").textContent = "";
+    body.innerHTML = `<div class="empty">Pick a node on the map to edit it, or use Add root to start a new branch.</div>`;
+    return;
+  }
+  el("inspTitle").textContent = n.type.charAt(0).toUpperCase() + n.type.slice(1);
+  el("inspId").textContent = n.id + " · " + verOf(n);
+
+  const inc = [...S.edges.values()].filter(e=>e.to===n.id);
+  const out = [...S.edges.values()].filter(e=>e.from===n.id);
+
+  body.innerHTML = `
+    <div class="group">
+      <label class="field"><span>Label</span><input type="text" id="fLabel" value="${esc(n.label)}"></label>
+      <label class="field"><span>Notes</span><textarea id="fBody">${esc(n.body)}</textarea></label>
+      <label class="field"><span>Type</span>
+        <select id="fType">
+          ${["start","decision","step","end","note"].map(t=>`<option value="${t}"${n.type===t?" selected":""}>${t}</option>`).join("")}
+        </select></label>
+      <label class="field"><span>Tags, comma separated</span><input type="text" id="fTags" value="${esc((n.tags||[]).join(", "))}"></label>
+      ${n.image ? `<div class="imgcard">
+          <img src="${esc(n.image)}" alt="">
+          <div><strong>${n.image.startsWith("data:") ? "Photo stored in the cell" : "Linked image"}</strong>
+            <span>${n.image.startsWith("data:") ? Math.round(n.image.length/1024)+" KB" : esc(n.image.slice(0,44))+(n.image.length>44?"…":"")}</span></div>
+        </div>` : ""}
+      ${n.image && n.image.startsWith("data:") ? "" :
+        `<label class="field"><span>Image link</span>
+          <input type="text" id="fImage" value="${esc(n.image||"")}" placeholder="https://… or a Drive share link"></label>`}
+      <div class="row">
+        <button class="btn" id="fPickImg">${n.image?"Replace photo":"Add photo"}</button>
+        <button class="btn" id="fClearImg"${n.image?"":" disabled"}>Remove</button>
+        <input type="file" id="fImgFile" accept="image/*" hidden>
+      </div>
+      ${n.image?`<label class="field" style="margin-top:10px"><span>Image height ${n.imageH||120}px</span>
+        <input type="range" id="fImgH" min="60" max="360" step="10" value="${n.imageH||120}"></label>`:""}
+      <label class="field" style="margin-top:10px"><span>Flag</span>
+        <select id="fFlag">
+          <option value="">none</option>
+          ${["attention","review","blocked","validated"].map(t=>`<option value="${t}"${n.flag===t?" selected":""}>${t}</option>`).join("")}
+        </select>
+      <div class="row">
+        <button class="btn" id="fRetire">${n.status==="retired"?"Restore node":"Retire node"}</button>
+        <button class="btn" id="fUnpin"${n.pinned?"":" disabled"}>Release position</button>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <button class="btn" id="fZoom">Zoom to node</button>
+        <button class="btn" id="fDelete">Delete outright</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>Connections</h2>
+      ${inc.length? inc.map(e=>connRow(e,"in")).join("") : `<p style="font-size:12px;color:var(--graphite-60);margin:0">No incoming links. This is a root.</p>`}
+      ${out.map(e=>connRow(e,"out")).join("")}
+    </div>
+
+    <div class="group">
+      <details class="nodehist"${revsFor(n.id).length?"":" open"}>
+        <summary><h2 style="display:inline">Revision history</h2>
+          <em>${revsFor(n.id).length} entries · ${revsFor(n.id).filter(r=>r.class==="functional").length} functional</em></summary>
+        <div class="revlog">
+          ${revsFor(n.id).filter(r=>r.class!=="layout").slice(0,25).map(r=>`
+            <div class="rev">
+              <time>${esc(r.timestamp)}</time>
+              <div class="chg"><span class="dot ${esc(r.class||"editorial")}"></span>
+                <strong>${esc(r.field)}</strong>${(r.folded>1)?`<span class="fold">×${r.folded}</span>`:""}<br>
+                ${r.old_value?`<s>${esc(String(r.old_value).slice(0,90))}</s> → `:""}${esc(String(r.new_value).slice(0,90))}</div>
+            </div>`).join("") || `<p style="font-size:12px;color:var(--graphite-60);margin:8px 0 0">Created ${esc(n.created)}. No edits yet.</p>`}
+        </div>
+        <button class="btn wide" id="fHistory" style="margin-top:10px">Open this node in the change log</button>
+      </details>
+    </div>`;
+
+  const commit = (field, val)=>{ if(setField(n, field, val)){ rebuild(); } };
+  el("fLabel").onchange = e=>commit("label", e.target.value);
+  el("fBody").onchange  = e=>commit("body", e.target.value);
+  el("fType").onchange  = e=>commit("type", e.target.value);
+  el("fFlag").onchange  = e=>commit("flag", e.target.value);
+  el("fTags").onchange  = e=>{
+    const tags = e.target.value.split(",").map(s=>s.trim()).filter(Boolean);
+    tags.forEach(t=>ensureTagStyle(t));
+    commit("tags", tags);
+  };
+  if(el("fImage")) el("fImage").onchange = e=>commit("image", e.target.value.trim());
+  el("fPickImg").onclick = ()=>el("fImgFile").click();
+  el("fImgFile").onchange = e=>{ if(e.target.files[0]) attachImage(n, e.target.files[0]); e.target.value=""; };
+  el("fClearImg").onclick = ()=>commit("image", "");
+  if(el("fImgH")) el("fImgH").onchange = e=>commit("imageH", Number(e.target.value));
+  el("fRetire").onclick = ()=>{ commit("status", n.status==="retired" ? "active" : "retired"); };
+  el("fUnpin").onclick  = ()=>{ n.pinned=false; n.x=null; n.y=null;
+    logRev(n.id,"position","manual","auto"); markDirty(); rebuild(); };
+  el("fZoom").onclick   = ()=>focusNode(n.id);
+  el("fHistory").onclick = ()=>{ S.hist.scope = "node"; S.hist.node = n.id;
+    el("histScope").value = "node"; openHistory(); };
+  el("fDelete").onclick = ()=>{
+    if(!confirm("Delete " + n.id + " and its links? Retiring keeps the history instead.")) return;
+    for(const [k,e] of [...S.edges]) if(e.from===n.id||e.to===n.id) S.edges.delete(k);
+    S.nodes.delete(n.id);
+    logRev(n.id, "deleted", n.label, "");
+    S.sel = null; markDirty(); rebuild();
+  };
+  body.querySelectorAll("[data-edge]").forEach(sel=>{
+    sel.onchange = ev=>{
+      const e = S.edges.get(sel.dataset.edge);
+      if(!e) return;
+      const f = sel.dataset.field;
+      logRev(e.from, "link " + f, e[f], ev.target.value);
+      e[f] = ev.target.value;
+      if(f==="tag") ensureTagStyle(ev.target.value);
+      markDirty(); rebuild();
+    };
+  });
+  body.querySelectorAll("[data-cut]").forEach(b=>{
+    b.onclick = ()=>{ const e=S.edges.get(b.dataset.cut);
+      logRev(n.id,"link removed", e.from+" → "+e.to, ""); S.edges.delete(b.dataset.cut);
+      markDirty(); rebuild(); };
+  });
+}
+
+function connRow(e, dir){
+  const other = dir==="in" ? e.from : e.to;
+  const on = S.nodes.get(other);
+  const tags = [...S.tagStyles.keys()].sort();
+  return `<div style="border-top:1px solid var(--rule-soft);padding:8px 0">
+    <div style="font-size:12px;margin-bottom:5px">
+      <span class="status-pill">${dir==="in"?"from":"to"}</span>
+      ${esc(on ? on.label : other)}
+      <button class="btn" style="float:right;padding:1px 6px;font-size:11px" data-cut="${e.id}">Cut</button>
+    </div>
+    <div class="row">
+      <input type="text" value="${esc(e.label)}" placeholder="link label" data-edge="${e.id}" data-field="label">
+      <select data-edge="${e.id}" data-field="tag" style="max-width:110px">
+        <option value="">no tag</option>
+        ${tags.map(t=>`<option value="${esc(t)}"${e.tag===t?" selected":""}>${esc(t)}</option>`).join("")}
+      </select>
+      <select data-edge="${e.id}" data-field="link_type" style="max-width:82px">
+        <option value="tree"${e.link_type==="tree"?" selected":""}>tree</option>
+        <option value="cross"${e.link_type==="cross"?" selected":""}>cross</option>
+      </select>
+    </div>
+  </div>`;
+}
+
+/* =====================================================================
+   SEARCH
+   ===================================================================== */
+function runSearch(){
+  const q = el("q").value.trim().toLowerCase();
+  if(!q){ S.hits = []; S.hitIx = -1; el("hitCount").textContent = "—"; syncHitChrome(); render(); return; }
+  const terms = q.split(/\s+/);
+  S.hits = [...S.nodes.values()].filter(n=>{
+    const hay = [n.label, n.body, n.id, n.type, n.status, (n.tags||[]).join(" "),
+                 (n.image||"").startsWith("data:") ? "photo image" : (n.image||"")].join(" ").toLowerCase();
+    return terms.every(t=>hay.includes(t));
+  }).map(n=>n.id);
+  S.hitIx = S.hits.length ? 0 : -1;
+  el("hitCount").textContent = S.hits.length ? "1 / " + S.hits.length : "no matches";
+  syncHitChrome();
+  render();
+  if(S.hits.length) centerOn(S.hits[0], Math.max(S.view.k, .8));
+}
+function stepHit(d){
+  if(!S.hits.length) return;
+  S.hitIx = (S.hitIx + d + S.hits.length) % S.hits.length;
+  el("hitCount").textContent = (S.hitIx+1) + " / " + S.hits.length;
+  syncHitChrome();
+  if(window.matchMedia("(max-width:820px)").matches) focusNode(S.hits[S.hitIx]);
+  else { centerOn(S.hits[S.hitIx], Math.max(S.view.k, .8)); select(S.hits[S.hitIx]); }
+}
+
+function syncHitChrome(){
+  const box = el("mHits");
+  if(!S.hits.length){ box.hidden = true; return; }
+  box.hidden = false;
+  el("mCount").textContent = (Math.max(S.hitIx,0)+1) + "/" + S.hits.length;
+}
+
+/* =====================================================================
+   BUILD ACTIONS
+   ===================================================================== */
+/* Where the person is looking, in map coordinates. */
+function viewCenterWorld(){
+  const s = svgSize();
+  return { x:(s.w/2 - S.view.x)/S.view.k, y:(s.h/2 - S.view.y)/S.view.k };
+}
+
+/* Nudge the viewport just enough to bring a node into frame. Zoom is never
+   touched — if you are reading at 150% you stay at 150%. */
+function ensureVisible(id, pad=48){
+  const n = S.nodes.get(id);
+  if(!n || n._x == null) return;
+  const s = svgSize(), k = S.view.k;
+  if(NODE_W*k > s.w - pad*2 || n._h*k > s.h - pad*2){ centerOn(id); return; }
+  const left = n._x*k + S.view.x, top = n._y*k + S.view.y;
+  const right = left + NODE_W*k, bottom = top + n._h*k;
+  let dx = 0, dy = 0;
+  if(left < pad) dx = pad - left; else if(right > s.w - pad) dx = (s.w - pad) - right;
+  if(top < pad) dy = pad - top;  else if(bottom > s.h - pad) dy = (s.h - pad) - bottom;
+  if(dx || dy){ S.view.x += dx; S.view.y += dy; applyView(); }
+}
+
+function pinAt(n, x, y){ n.pinned = true; n.x = n._x = Math.round(x); n.y = n._y = Math.round(y); }
+
+/* Slide down the column until the slot is clear, so repeated adds stack
+   instead of landing on top of each other. */
+function freeSlot(x, y, h, skipId){
+  let ty = y;
+  for(let i = 0; i < 60; i++){
+    let clash = false;
+    for(const o of S.nodes.values()){
+      if(o.id === skipId || o._x == null) continue;
+      if(Math.abs(o._x - x) < NODE_W*0.7 && Math.abs(o._y - ty) < Math.max(h, o._h||46)*0.85){ clash = true; break; }
+    }
+    if(!clash) return ty;
+    ty += h + ROW_GAP;
+  }
+  return ty;
+}
+
+function addNode(rel){
+  const anchor = S.sel ? S.nodes.get(S.sel) : null;
+  let parent = null;
+  if(rel === "child" && anchor) parent = anchor.id;
+  else if(rel === "sibling" && anchor) parent = parentOf(anchor.id);
+
+  const n = newNode({label:"New node"});
+  const H = 60;
+
+  if(!parent && !anchor){
+    /* A root would otherwise be laid out below the whole map. Put it where
+       the person is actually looking instead. */
+    const c = viewCenterWorld();
+    pinAt(n, c.x - NODE_W/2, freeSlot(c.x - NODE_W/2, c.y - H/2, H, n.id));
+  } else if(anchor && anchor.pinned){
+    /* The parent has been placed by hand, so the auto grid is meaningless
+       for its children. Keep the branch with it. */
+    if(rel === "child") pinAt(n, anchor.x + NODE_W + COL_GAP,
+                              freeSlot(anchor.x + NODE_W + COL_GAP, anchor.y, H, n.id));
+    else                pinAt(n, anchor.x,
+                              freeSlot(anchor.x, anchor.y + (anchor._h||H) + ROW_GAP, H, n.id));
+  } else if(!parent && anchor){
+    const c = viewCenterWorld();
+    pinAt(n, c.x - NODE_W/2, freeSlot(c.x - NODE_W/2, c.y - H/2, H, n.id));
+  }
+
+  S.nodes.set(n.id, n);
+  if(parent){
+    const e = newEdge({from:parent, to:n.id, link_type:"tree"});
+    S.edges.set(e.id, e);
+  }
+  logRev(n.id, "created", "", n.label);
+  markDirty(); rebuild(); select(n.id);
+  ensureVisible(n.id);
+
+  const phone = window.matchMedia("(max-width:820px)").matches;
+  if(phone){
+    el("inspector").classList.add("open");
+    el("scrim").classList.add("on");
+    el("fab").style.display = "none";
+  }
+  setTimeout(()=>{ const f = el("fLabel"); if(f){ f.focus(); f.select(); } }, 60);
+}
+
+/* Photos are downscaled before they are stored, because the value has to
+   survive a trip through a spreadsheet cell. Sheets caps a cell at 50,000
+   characters, so anything past ~45,000 is refused rather than silently cut. */
+function attachImage(node, file, maxW=380, quality=0.72){
+  const fr = new FileReader();
+  fr.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxW / img.width);
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.width * scale);
+      c.height = Math.round(img.height * scale);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      let data = c.toDataURL("image/jpeg", quality);
+      if(data.length > 45000 && quality > 0.4) return attachImage(node, file, Math.round(maxW*0.75), quality-0.15);
+      if(data.length > 45000){ toast("That photo is too large to store in a cell. Link to it instead."); return; }
+      setField(node, "image", data);
+      rebuild();
+      toast("Photo added, " + Math.round(data.length/1024) + " KB in the cell");
+    };
+    img.onerror = () => toast("That file could not be read as an image");
+    img.src = fr.result;
+  };
+  fr.readAsDataURL(file);
+}
+
+function toast(msg){
+  const t = el("toast"); t.textContent = msg; t.classList.add("on");
+  clearTimeout(t._t); t._t = setTimeout(()=>t.classList.remove("on"), 2600);
+}
+/* =====================================================================
+   PRINTING
+   The map is vector all the way down, so a tile is just a viewBox
+   over the same drawing. One sheet per grid square, half an inch of
+   overlap so the paper can be butted together on a wall.
+   ===================================================================== */
+const PAPERS = {
+  "letter-l":{w:11, h:8.5, name:"Letter"}, "letter-p":{w:8.5, h:11, name:"Letter"},
+  "a4-l":{w:11.69, h:8.27, name:"A4"},     "a4-p":{w:8.27, h:11.69, name:"A4"},
+  "tabloid-l":{w:17, h:11, name:"Tabloid"}
+};
+const MARGIN_IN = 0.4, OVERLAP_IN = 0.5, PX_PER_IN = 96;
+
+function colRef(i){
+  let s = "";
+  do { s = String.fromCharCode(65 + (i % 26)) + s; i = Math.floor(i/26) - 1; } while(i >= 0);
+  return s;
+}
+function setPageStyle(key){
+  const p = PAPERS[key];
+  let st = el("pagestyle");
+  if(!st){ st = document.createElement("style"); st.id = "pagestyle"; document.head.appendChild(st); }
+  const orient = p.w > p.h ? "landscape" : "portrait";
+  st.textContent = `@media print{ @page{ size:${p.name} ${orient}; margin:${MARGIN_IN}in } }`;
+}
+
+function cleanWorldClone(){
+  const g = el("world").cloneNode(true);
+  g.removeAttribute("transform");
+  g.querySelectorAll("title").forEach(t=>t.remove());
+  g.querySelectorAll(".dim").forEach(n=>n.classList.remove("dim"));
+  return g;
+}
+
+let SHEET_SEQ = 0;
+function sheetSvg(rect, pw, ph){
+  const s = document.createElementNS(SVGNS, "svg");
+  s.setAttribute("viewBox", `${rect.x} ${rect.y} ${rect.w} ${rect.h}`);
+  s.setAttribute("preserveAspectRatio", "xMidYMid meet");
+  s.style.width = pw + "in";
+  s.style.height = ph + "in";
+  /* Each sheet carries its own arrow markers. Sharing ids across sheets
+     breaks once the live app is hidden for printing. */
+  const suffix = "-p" + (++SHEET_SEQ);
+  const defs = el("defs").cloneNode(true);
+  const remap = new Map();
+  defs.querySelectorAll("[id]").forEach(d=>{
+    remap.set(d.id, d.id + suffix);
+    d.id = d.id + suffix;
+  });
+  const world = cleanWorldClone();
+  world.querySelectorAll("[marker-end]").forEach(p=>{
+    const m = /url\(#(.+?)\)/.exec(p.getAttribute("marker-end"));
+    if(m && remap.has(m[1])) p.setAttribute("marker-end", "url(#" + remap.get(m[1]) + ")");
+  });
+  s.appendChild(defs);
+  s.appendChild(world);
+  return s;
+}
+
+function titleBlockEl(ref, of){
+  const d = document.createElement("div");
+  d.className = "sheet-tb";
+  d.innerHTML =
+    `<div><b>Map</b>${esc(S.meta.title||"Untitled")}</div>` +
+    `<div><b>Sheet</b>${esc(ref)}${of?" of "+of:""}</div>` +
+    `<div><b>Nodes</b>${S.nodes.size}</div>` +
+    `<div><b>Printed</b>${new Date().toISOString().slice(0,10)}</div>`;
+  return d;
+}
+
+function printRects(){
+  const key = el("paper").value, p = PAPERS[key];
+  const pw = p.w - MARGIN_IN*2, ph = p.h - MARGIN_IN*2;
+  setPageStyle(key);
+  return {pw, ph, scaleSel: el("printScale").value};
+}
+
+function printCurrentView(){
+  const {pw, ph} = printRects();
+  SHEET_SEQ = 0;
+  const s = svgSize();
+  const rect = { x:-S.view.x/S.view.k, y:-S.view.y/S.view.k, w:s.w/S.view.k, h:s.h/S.view.k };
+  /* stretch the shorter side so the tile matches the paper's shape */
+  const want = pw/ph, have = rect.w/rect.h;
+  if(have < want){ const nw = rect.h*want; rect.x -= (nw-rect.w)/2; rect.w = nw; }
+  else{ const nh = rect.w/want; rect.y -= (nh-rect.h)/2; rect.h = nh; }
+
+  const root = el("printroot"); root.textContent = "";
+  const sheet = document.createElement("div"); sheet.className = "sheet";
+  sheet.appendChild(sheetSvg(rect, pw, ph));
+  sheet.appendChild(titleBlockEl("current view", null));
+  root.appendChild(sheet);
+  window.print();
+}
+
+function printCollage(){
+  const {pw, ph, scaleSel} = printRects();
+  const b = worldBBox(30);
+
+  let tileW, tileH;
+  if(scaleSel === "fit"){
+    const want = pw/ph;
+    tileW = b.w; tileH = b.h;
+    if(tileW/tileH < want) tileW = tileH*want; else tileH = tileW/want;
+    tileW += 1; tileH += 1;
+  } else {
+    const sc = parseFloat(scaleSel) || 1;
+    tileW = (pw * PX_PER_IN) / sc;
+    tileH = (ph * PX_PER_IN) / sc;
+  }
+  const fitOne = scaleSel === "fit";
+  const ov = fitOne ? 0 : (OVERLAP_IN * PX_PER_IN) / (parseFloat(scaleSel) || 1);
+  const stepX = fitOne ? tileW : Math.max(40, tileW - ov);
+  const stepY = fitOne ? tileH : Math.max(40, tileH - ov);
+  const cols = fitOne ? 1 : Math.max(1, Math.ceil(b.w / stepX));
+  const rows = fitOne ? 1 : Math.max(1, Math.ceil(b.h / stepY));
+  const total = cols * rows;
+
+  if(total > 60 && !confirm(total + " sheets at this scale. Print anyway?")) return;
+
+  const root = el("printroot"); root.textContent = "";
+  SHEET_SEQ = 0;
+
+  /* ---- sheet 1: the index, only worth a page when there is a grid ---- */
+  if(total > 1){
+  const idx = document.createElement("div"); idx.className = "sheet";
+  const iw = pw/ph < b.w/b.h ? b.w : b.h*(pw/ph);
+  const ih = iw/(pw/ph);
+  const isvg = sheetSvg({x:b.x-(iw-b.w)/2, y:b.y-(ih-b.h)/2, w:iw, h:ih}, pw, ph);
+  const gGrid = mk("g", {}, isvg);
+  for(let r=0; r<rows; r++) for(let c=0; c<cols; c++){
+    const x = b.x + c*stepX, y = b.y + r*stepY;
+    mk("rect", {x, y, width:tileW, height:tileH, class:"idxgrid",
+      stroke:"#14549B", "stroke-width":Math.max(1, b.w/500), fill:"none",
+      "stroke-dasharray":`${b.w/90} ${b.w/140}`}, gGrid);
+    const t = mk("text", {x:x + tileW/2, y:y + tileH/2, "text-anchor":"middle",
+      class:"idxlabel", fill:"#14549B", "font-size":Math.max(12, b.w/38),
+      "font-family":"IBM Plex Mono, monospace", opacity:.75}, gGrid);
+    t.textContent = colRef(c) + (r+1);
+  }
+  idx.appendChild(isvg);
+  idx.appendChild(titleBlockEl("index — " + cols + "×" + rows, total));
+  root.appendChild(idx);
+  }
+
+  /* ---- one sheet per grid square ---- */
+  for(let r=0; r<rows; r++) for(let c=0; c<cols; c++){
+    const rect = { x:b.x + c*stepX, y:b.y + r*stepY, w:tileW, h:tileH };
+    const ref = colRef(c) + (r+1);
+    const sheet = document.createElement("div"); sheet.className = "sheet";
+    const s = sheetSvg(rect, pw, ph);
+    const fs = Math.max(9, tileW/70);
+    const mark = (x,y,txt,anchor)=>{
+      const t = mk("text",{x, y, "text-anchor":anchor, class:"cont", fill:"#6E757C",
+        "font-family":"IBM Plex Mono, monospace", "font-size":fs}, s);
+      t.textContent = txt;
+    };
+    if(c > 0)        mark(rect.x + fs*0.8, rect.y + rect.h/2, "◀ " + colRef(c-1) + (r+1), "start");
+    if(c < cols-1)   mark(rect.x + rect.w - fs*0.8, rect.y + rect.h/2, colRef(c+1) + (r+1) + " ▶", "end");
+    if(r > 0)        mark(rect.x + rect.w/2, rect.y + fs*1.4, "▲ " + colRef(c) + r, "middle");
+    if(r < rows-1)   mark(rect.x + rect.w/2, rect.y + rect.h - fs*0.6, "▼ " + colRef(c) + (r+2), "middle");
+    sheet.appendChild(s);
+    sheet.appendChild(titleBlockEl(ref, total));
+    root.appendChild(sheet);
+  }
+  window.print();
+}
+
+window.addEventListener("afterprint", ()=>{ el("printroot").textContent = ""; });
+
+/* =====================================================================
+   AUTOSAVE
+   IndexedDB first, localStorage as a fallback, and a loud warning if
+   neither is available — losing a session to a closed tab should not be
+   possible. Saves are debounced; snapshots are kept on a rolling window
+   so you can go back to a point in time, not just the last keystroke.
+   ===================================================================== */
+const DB_NAME = "branchwork-atlas", DB_VER = 1, LS_KEY = "branchwork:current", LS_SNAPS = "branchwork:snaps";
+const SAVE_DEBOUNCE = 1500, SNAPSHOT_EVERY_MS = 4*60*1000, SNAPSHOT_EVERY_EDITS = 25, MAX_SNAPSHOTS = 30;
+
+const Store = {
+  mode:"none", db:null, err:"",
+
+  open(){
+    return new Promise((res, rej)=>{
+      let req;
+      try{ req = indexedDB.open(DB_NAME, DB_VER); }catch(e){ return rej(e); }
+      req.onupgradeneeded = e=>{
+        const db = e.target.result;
+        if(!db.objectStoreNames.contains("current")) db.createObjectStore("current");
+        if(!db.objectStoreNames.contains("snapshots")){
+          const os = db.createObjectStore("snapshots", {keyPath:"id", autoIncrement:true});
+          os.createIndex("savedAt", "savedAt");
+        }
+      };
+      req.onsuccess = ()=>res(req.result);
+      req.onerror = ()=>rej(req.error || new Error("indexedDB refused to open"));
+      req.onblocked = ()=>rej(new Error("indexedDB is blocked by another tab"));
+      setTimeout(()=>rej(new Error("indexedDB timed out")), 4000);
+    });
+  },
+
+  async init(){
+    try{ this.db = await this.open(); this.mode = "idb"; return this.mode; }
+    catch(e){ this.err = String(e.message || e); }
+    try{
+      localStorage.setItem("__bw_probe","1"); localStorage.removeItem("__bw_probe");
+      this.mode = "ls"; return this.mode;
+    }catch(e){ this.err = String(e.message || e); }
+    this.mode = "none";
+    return this.mode;
+  },
+
+  /* Ask the browser to stop treating this as throwaway cache. */
+  async requestPersist(){
+    try{
+      if(navigator.storage && navigator.storage.persisted){
+        this.persisted = await navigator.storage.persisted();
+        if(!this.persisted && navigator.storage.persist) this.persisted = await navigator.storage.persist();
+      }
+    }catch(e){ this.persisted = false; }
+    return this.persisted;
+  },
+
+  /* A marker written on every launch. If it keeps coming back missing, the
+     browser is throwing storage away between sessions and the person needs
+     to know before they lose an afternoon. */
+  async checkBeacon(){
+    if(this.mode === "none"){ this.beacon = {launches:0, wiped:true}; return this.beacon; }
+    let b = null;
+    try{ b = await this.getKey("beacon"); }catch(e){}
+    const now = new Date().toISOString();
+    if(b && b.launches){ b.launches++; b.lastSeen = now; b.wiped = false; }
+    else b = {firstSeen:now, lastSeen:now, launches:1, wiped:false};
+    try{ await this.putKey("beacon", b); }catch(e){}
+    this.beacon = b;
+    return b;
+  },
+
+  tx(store, mode){ return this.db.transaction(store, mode).objectStore(store); },
+  wrap(req){ return new Promise((res, rej)=>{ req.onsuccess = ()=>res(req.result); req.onerror = ()=>rej(req.error); }); },
+
+  async putKey(k, v){
+    if(this.mode === "idb") return this.wrap(this.tx("current","readwrite").put(v, k));
+    if(this.mode === "ls")  return localStorage.setItem("branchwork:" + k, JSON.stringify(v));
+  },
+  async getKey(k){
+    if(this.mode === "idb") return await this.wrap(this.tx("current","readonly").get(k));
+    if(this.mode === "ls"){ const v = localStorage.getItem("branchwork:" + k); return v ? JSON.parse(v) : null; }
+    return null;
+  },
+
+  async putCurrent(rec){
+    if(this.mode === "idb") return this.wrap(this.tx("current","readwrite").put(rec, "session"));
+    if(this.mode === "ls")  return localStorage.setItem(LS_KEY, JSON.stringify(rec));
+    throw new Error("no storage");
+  },
+  async getCurrent(){
+    if(this.mode === "idb") return await this.wrap(this.tx("current","readonly").get("session"));
+    if(this.mode === "ls"){ const v = localStorage.getItem(LS_KEY); return v ? JSON.parse(v) : null; }
+    return null;
+  },
+  async addSnapshot(rec){
+    if(this.mode === "idb"){
+      await this.wrap(this.tx("snapshots","readwrite").add(rec));
+      const all = await this.wrap(this.tx("snapshots","readonly").getAll());
+      if(all.length > MAX_SNAPSHOTS){
+        all.sort((a,b)=>a.savedAt < b.savedAt ? -1 : 1);
+        const store = this.tx("snapshots","readwrite");
+        all.slice(0, all.length - MAX_SNAPSHOTS).forEach(r=>store.delete(r.id));
+      }
+      return;
+    }
+    if(this.mode === "ls"){
+      /* localStorage is small, so snapshots there are shallow and few */
+      let list = [];
+      try{ list = JSON.parse(localStorage.getItem(LS_SNAPS) || "[]"); }catch(e){}
+      list.push(Object.assign({id:Date.now()}, rec));
+      while(list.length > 5) list.shift();
+      localStorage.setItem(LS_SNAPS, JSON.stringify(list));
+    }
+  },
+  async listSnapshots(){
+    if(this.mode === "idb"){
+      const all = await this.wrap(this.tx("snapshots","readonly").getAll());
+      return all.sort((a,b)=>a.savedAt < b.savedAt ? 1 : -1);
+    }
+    if(this.mode === "ls"){
+      try{ return JSON.parse(localStorage.getItem(LS_SNAPS) || "[]").reverse(); }catch(e){ return []; }
+    }
+    return [];
+  },
+  async dropSnapshot(id){
+    if(this.mode === "idb") return this.wrap(this.tx("snapshots","readwrite").delete(id));
+    if(this.mode === "ls"){
+      let list = [];
+      try{ list = JSON.parse(localStorage.getItem(LS_SNAPS) || "[]"); }catch(e){}
+      localStorage.setItem(LS_SNAPS, JSON.stringify(list.filter(r=>r.id !== id)));
+    }
+  }
+};
+
+/* A copy kept on the actual disk, for when browser storage cannot be
+   trusted. Chrome on a desktop supports this; a phone will not offer it. */
+let fileHandle = null, fileName = "", filePending = false;
+const canLinkFile = typeof window.showSaveFilePicker === "function";
+
+function buildWorkbook(){
+  const data = toSheets();
+  const wb = XLSX.utils.book_new();
+  const widths = {
+    Nodes:[14,34,44,11,20,9,10,40,8,19,19,6,6,10,8,8,8,14,7,60],
+    Links:[14,14,14,10,14,20,24],
+    Revisions:[8,14,19,10,14,11,26,7,30,30],
+    TagStyles:[16,10,11,7,7,10],
+    Sync:[18,54,44,14,14,10,19]
+  };
+  for(const name of ["Nodes","Links","Revisions","TagStyles","Sync"]){
+    if(name === "Sync" && !data.Sync.length) continue;
+    const ws = XLSX.utils.json_to_sheet(data[name], {header:HDR[name]});
+    ws["!cols"] = widths[name].map(w=>({wch:w}));
+    ws["!autofilter"] = {ref: XLSX.utils.encode_range({s:{r:0,c:0},e:{r:Math.max(data[name].length,1), c:HDR[name].length-1}})};
+    XLSX.utils.book_append_sheet(wb, ws, name);
+  }
+  return wb;
+}
+
+async function linkFile(){
+  if(!canLinkFile){
+    toast("This browser cannot write straight to a file. Use Save .xlsx, or set up Google Sheets.");
+    return;
+  }
+  try{
+    const safe = (S.meta.title||"branchwork").replace(/[^\w\- ]+/g,"").trim().replace(/\s+/g,"-") || "branchwork";
+    fileHandle = await window.showSaveFilePicker({
+      suggestedName: safe + ".xlsx",
+      types:[{description:"Excel workbook", accept:{"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":[".xlsx"]}}]
+    });
+    fileName = fileHandle.name;
+    try{ await Store.putKey("fileHandle", fileHandle); }catch(e){}
+    await writeLinkedFile(true);
+    updateSaveNote();
+    toast("Linked to " + fileName + ". It is rewritten as you work.");
+  }catch(e){ if(e.name !== "AbortError") toast(String(e.message||e)); }
+}
+
+async function reconnectFile(){
+  if(!fileHandle) return false;
+  try{
+    let perm = await fileHandle.queryPermission({mode:"readwrite"});
+    if(perm !== "granted") perm = await fileHandle.requestPermission({mode:"readwrite"});
+    if(perm !== "granted") return false;
+    fileName = fileHandle.name;
+    updateSaveNote();
+    toast("Reconnected to " + fileName);
+    return true;
+  }catch(e){ return false; }
+}
+
+async function writeLinkedFile(force){
+  if(!fileHandle || typeof XLSX === "undefined" || filePending) return;
+  try{
+    const perm = await fileHandle.queryPermission({mode:"readwrite"});
+    if(perm !== "granted"){ filePending = true; updateSaveNote(); return; }
+    filePending = false;
+    const out = XLSX.write(buildWorkbook(), {bookType:"xlsx", type:"array"});
+    const w = await fileHandle.createWritable();
+    await w.write(new Blob([out]));
+    await w.close();
+  }catch(e){ console.warn("linked file write failed", e); }
+}
+
+let saveTimer = null, lastSnapshotAt = 0, editsSinceSnapshot = 0, lastSavedAt = null, saveFailed = "";
+
+function snapshotPayload(){
+  const t = toSheets();
+  return {
+    title:S.meta.title || "Untitled map",
+    savedAt:new Date().toISOString(),
+    nodeCount:S.nodes.size, linkCount:S.edges.size,
+    view:{x:S.view.x, y:S.view.y, k:S.view.k},
+    tables:t
+  };
+}
+
+function scheduleSave(){
+  if(Store.mode === "none") return;
+  editsSinceSnapshot++;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(()=>saveNow(false), SAVE_DEBOUNCE);
+}
+
+async function saveNow(force){
+  if(Store.mode === "none") return false;
+  try{
+    const rec = snapshotPayload();
+    await Store.putCurrent(rec);
+    lastSavedAt = new Date();
+    saveFailed = "";
+    const due = Date.now() - lastSnapshotAt > SNAPSHOT_EVERY_MS ||
+                editsSinceSnapshot >= SNAPSHOT_EVERY_EDITS;
+    if(force || (due && S.nodes.size)){
+      await Store.addSnapshot(rec);
+      lastSnapshotAt = Date.now();
+      editsSinceSnapshot = 0;
+      writeLinkedFile();
+    }
+    updateSaveNote();
+    return true;
+  }catch(e){
+    saveFailed = String(e.name === "QuotaExceededError"
+      ? "the browser storage is full — export the workbook and clear old versions"
+      : (e.message || e));
+    updateSaveNote();
+    return false;
+  }
+}
+
+function restorePayload(rec){
+  const M = tablesToModel(rec.tables || {});
+  if(!M.nodes.size) return false;
+  adoptModel(M);
+  S.meta.title = rec.title || S.meta.title;
+  markClean(); rebuild();
+  if(rec.view && rec.view.k){ S.view = {x:rec.view.x, y:rec.view.y, k:rec.view.k}; applyView(); }
+  else fitView(0.96, 0.6);
+  return true;
+}
+
+function ago(iso){
+  const ms = Date.now() - new Date(iso).getTime();
+  if(!isFinite(ms) || ms < 0) return "just now";
+  const m = Math.round(ms/60000);
+  if(m < 1) return "seconds ago";
+  if(m < 60) return m + (m===1?" minute ago":" minutes ago");
+  const h = Math.round(m/60);
+  if(h < 24) return h + (h===1?" hour ago":" hours ago");
+  const d = Math.round(h/24);
+  return d + (d===1?" day ago":" days ago");
+}
+
+function updateSaveNote(){
+  const el2 = el("saveNote");
+  if(!el2) return;
+  const lf = fileName ? (filePending ? ` Linked file <code>${esc(fileName)}</code> needs permission again.`
+                                     : ` Also writing to <code>${esc(fileName)}</code>.`) : "";
+  if(Store.mode === "none"){
+    el2.innerHTML = `<strong style="color:var(--flag)">Nothing is being saved in this browser.</strong>
+      Storage is blocked for this page.${lf}`;
+    return;
+  }
+  if(saveFailed){ el2.innerHTML = `<strong style="color:var(--flag)">Autosave failed</strong> — ${esc(saveFailed)}.${lf}`; return; }
+  const base = lastSavedAt
+    ? "Saved in this browser " + ago(lastSavedAt.toISOString())
+    : "Autosave is on.";
+  const warn = (Store.beacon && Store.beacon.launches === 1 && !isWebOrigin())
+    ? ` <span style="color:var(--flag)">First run here — close and reopen once to confirm it sticks.</span>` : "";
+  el2.innerHTML = esc(base) + (Store.mode === "ls" ? " (limited storage)" : "") + warn + lf;
+}
+
+function isWebOrigin(){ return location.protocol === "http:" || location.protocol === "https:"; }
+
+function showBanner(html, fixLabel, fixFn){
+  const b = el("storeBanner");
+  el("bannerText").innerHTML = html;
+  const fix = el("bannerFix");
+  if(fixLabel){ fix.hidden = false; fix.textContent = fixLabel; fix.onclick = fixFn; }
+  else fix.hidden = true;
+  b.hidden = false;
+  document.body.classList.add("bannered");
+}
+function hideBanner(){ el("storeBanner").hidden = true; document.body.classList.remove("bannered"); }
+
+/* Everything the person needs to tell whether their work is actually safe. */
+async function storageDiagnostics(){
+  let usage = "unknown";
+  try{
+    if(navigator.storage && navigator.storage.estimate){
+      const e = await navigator.storage.estimate();
+      if(e.usage != null) usage = (e.usage/1048576).toFixed(1) + " MB used";
+    }
+  }catch(e){}
+  const mode = Store.mode === "idb" ? "IndexedDB" : Store.mode === "ls" ? "localStorage, limited" : "none — nothing is saved";
+  const beacon = Store.beacon || {launches:0};
+  const launchLine = beacon.launches > 1
+    ? `<b>Survived ${beacon.launches} launches</b>, first seen ${esc(String(beacon.firstSeen||"").slice(0,10))}.`
+    : `<b>This is launch 1.</b> Reopen the page once — if it still says launch 1, this browser is discarding storage between sessions.`;
+  return `<div class="diagbox">
+    Address: <code>${esc(location.protocol + "//" + (location.host || "(local file)"))}</code><br>
+    Storage: <b>${esc(mode)}</b>${Store.persisted ? ", marked persistent" : ", best effort only"}<br>
+    ${usage !== "unknown" ? esc(usage) + "<br>" : ""}
+    ${launchLine}
+    ${fileName ? `<br>Live file: <code>${esc(fileName)}</code>` : ""}
+    ${!isWebOrigin() ? `<br><span style="color:var(--flag)">Opened from a folder rather than a web address. Phones in particular give downloaded files a throwaway storage area.</span>` : ""}
+  </div>`;
+}
+
+/* --------------------------- recovery dialog --------------------------- */
+async function openSnapshots(){
+  const body = el("snapBody");
+  body.innerHTML = `<p class="histempty">Looking for saved versions…</p>`;
+  el("snapDlg").showModal();
+  const diag = await storageDiagnostics();
+  let cur = null, snaps = [];
+  try{ cur = await Store.getCurrent(); snaps = await Store.listSnapshots(); }
+  catch(e){ body.innerHTML = diag + `<p class="histempty">Could not read the saved versions: ${esc(String(e.message||e))}</p>`; return; }
+
+  const card = (r, label, key)=>`
+    <div class="conn">
+      <div class="hdr"><strong>${esc(r.title || "Untitled map")}</strong>
+        <span class="status-pill">${esc(label)}</span></div>
+      <p style="font-size:12px;color:var(--graphite-60);margin:0 0 10px">
+        ${esc(ago(r.savedAt))} · ${r.nodeCount} nodes · ${r.linkCount} links
+        <br><span style="font-family:var(--mono);font-size:11px">${esc(String(r.savedAt).replace("T"," ").slice(0,19))}</span></p>
+      <div class="row">
+        <button class="btn primary" data-restore-snap="${esc(key)}">Open this version</button>
+        <button class="btn" data-xlsx-snap="${esc(key)}">Save it as .xlsx</button>
+        ${key.indexOf("snap:") === 0 ? `<button class="btn" data-drop-snap="${esc(key)}">Delete</button>` : ""}
+      </div>
+    </div>`;
+
+  let html = "";
+  if(cur) html += card(cur, "last session", "current");
+  if(snaps.length) html += `<p class="fineprint" style="margin:18px 0 0">Earlier versions, newest first.</p>`;
+  snaps.forEach(r=>{ html += card(r, "version", "snap:" + r.id); });
+  if(!cur && !snaps.length) html = `<p class="histempty">No saved versions in this browser yet.</p>`;
+  body.innerHTML = diag + html;
+
+  const find = key => key === "current" ? cur : snaps.find(r=>("snap:"+r.id) === key);
+  body.querySelectorAll("[data-restore-snap]").forEach(b=>{
+    b.onclick = ()=>{
+      const r = find(b.dataset.restoreSnap);
+      if(!r) return;
+      if(S.dirty && !confirm("Replace what is on screen with this version?")) return;
+      if(restorePayload(r)){ el("snapDlg").close(); toast("Opened the version from " + ago(r.savedAt)); }
+      else toast("That version had no nodes in it");
+    };
+  });
+  body.querySelectorAll("[data-xlsx-snap]").forEach(b=>{
+    b.onclick = ()=>{
+      const r = find(b.dataset.xlsxSnap);
+      if(!r) return;
+      const keep = {nodes:S.nodes, edges:S.edges, revisions:S.revisions, tagStyles:S.tagStyles, title:S.meta.title};
+      const M = tablesToModel(r.tables || {});
+      adoptModel(M, true); S.meta.title = r.title || S.meta.title;
+      exportXlsx();
+      S.nodes = keep.nodes; S.edges = keep.edges; S.revisions = keep.revisions;
+      S.tagStyles = keep.tagStyles; S.meta.title = keep.title;
+      rebuild();
+    };
+  });
+  body.querySelectorAll("[data-drop-snap]").forEach(b=>{
+    b.onclick = async ()=>{
+      const r = find(b.dataset.dropSnap);
+      if(!r || !confirm("Delete this saved version?")) return;
+      await Store.dropSnapshot(r.id);
+      openSnapshots();
+    };
+  });
+}
+
+/* =====================================================================
+   CHANGE LOG
+   The whole journal in one place: chronological, searchable, filtered by
+   what kind of change it was and whether the node still exists.
+   ===================================================================== */
+const RESTORABLE = {label:"text", body:"text", type:"text", status:"text",
+                    tags:"list", flag:"text", image:"text", imageH:"number"};
+
+function nodeLabelFor(id){
+  const n = S.nodes.get(id);
+  if(n) return n.label || id;
+  return id + " (deleted)";
+}
+function nodeStatusFor(id){
+  const n = S.nodes.get(id);
+  if(!n) return "gone";
+  return n.status === "retired" ? "retired" : "active";
+}
+
+function histFiltered(){
+  const f = S.hist, q = f.q.trim().toLowerCase();
+  const terms = q ? q.split(/\s+/) : [];
+  return S.revisions.filter(r=>{
+    if(!f.cls[r.class || "editorial"]) return false;
+    const st = nodeStatusFor(r.node_id);
+    if(f.scope === "active"  && st !== "active") return false;
+    if(f.scope === "retired" && st !== "retired") return false;
+    if(f.scope === "node"    && r.node_id !== f.node) return false;
+    if(!terms.length) return true;
+    const hay = [r.field, r.old_value, r.new_value, r.note, r.author,
+                 nodeLabelFor(r.node_id), r.node_id].join(" ").toLowerCase();
+    return terms.every(t=>hay.includes(t));
+  }).sort((a,b)=>String(b.timestamp).localeCompare(String(a.timestamp)));
+}
+
+function openHistory(){
+  el("histQ").value = S.hist.q;
+  el("histScope").value = S.hist.scope;
+  document.querySelectorAll(".cls-chip").forEach(c=>
+    c.classList.toggle("on", !!S.hist.cls[c.dataset.cls]));
+  renderHistory();
+  el("histDlg").showModal();
+}
+
+function renderHistory(){
+  const body = el("histBody");
+  const rows = histFiltered();
+  if(!rows.length){
+    body.innerHTML = `<p class="histempty">Nothing matches. Widen the filters, or turn on
+      Layout to see position changes.</p>`;
+    return;
+  }
+  const capped = rows.slice(0, 400);
+  const days = new Map();
+  for(const r of capped){
+    const d = String(r.timestamp).slice(0,10) || "undated";
+    if(!days.has(d)) days.set(d, []);
+    days.get(d).push(r);
+  }
+  let html = "", i = 0;
+  for(const [day, list] of days){
+    const fn = list.filter(r=>r.class === "functional").length;
+    html += `<details class="day"${i < 2 ? " open" : ""}>
+      <summary>${esc(day)}<em>${list.length} change${list.length===1?"":"s"}${fn?" · "+fn+" functional":""}</em></summary>`;
+    for(const r of list){
+      const ix = S.revisions.indexOf(r);
+      const cls = r.class || "editorial";
+      html += `<details class="ent" data-ix="${ix}">
+        <summary>
+          <time>${esc(String(r.timestamp).slice(11,16) || "—")}</time>
+          <span class="dot ${esc(cls)}"></span>
+          <span>
+            <span class="who">${esc(nodeLabelFor(r.node_id))}</span>
+            <span class="what"> — ${esc(r.field)}</span>${(r.folded>1)?`<span class="fold">×${r.folded}</span>`:""}
+            ${nodeStatusFor(r.node_id)!=="active"?`<span class="fold">${nodeStatusFor(r.node_id)}</span>`:""}
+            <span class="delta">${r.old_value?`<s>${esc(String(r.old_value).slice(0,140))}</s> → `:""}${esc(String(r.new_value).slice(0,140)) || "—"}</span>
+            ${r.note?`<span class="delta" style="color:var(--graphite-60)">${esc(r.note)}</span>`:""}
+          </span>
+        </summary>
+        <div class="ent-edit">
+          <div class="row">
+            <label class="field" style="margin:0"><span>When</span>
+              <input type="text" data-h="timestamp" value="${esc(r.timestamp)}"></label>
+            <label class="field" style="margin:0"><span>Kind of change</span>
+              <select data-h="class">
+                ${["functional","editorial","layout"].map(c=>`<option value="${c}"${cls===c?" selected":""}>${c==="editorial"?"wording":c}</option>`).join("")}
+              </select></label>
+          </div>
+          <label class="field" style="margin:0"><span>Why</span>
+            <input type="text" data-h="note" value="${esc(r.note||"")}" placeholder="optional reason for the change"></label>
+          <div class="row">
+            <button class="btn" data-goto="${esc(r.node_id)}">Go to node</button>
+            ${(RESTORABLE[r.field] && S.nodes.has(r.node_id) && r.old_value !== "")
+              ? `<button class="btn" data-restore="${ix}">Put the old value back</button>` : ""}
+            <button class="btn" data-drop="${ix}">Delete entry</button>
+          </div>
+        </div>
+      </details>`;
+    }
+    html += `</details>`;
+    i++;
+  }
+  if(rows.length > capped.length)
+    html += `<p class="histempty">Showing the newest 400 of ${rows.length}. Narrow the search to see the rest.</p>`;
+  body.innerHTML = html;
+
+  body.querySelectorAll("[data-h]").forEach(inp=>{
+    inp.onchange = ev=>{
+      const r = S.revisions[Number(inp.closest(".ent").dataset.ix)];
+      if(!r) return;
+      const f = inp.dataset.h;
+      if(f === "class") reclassify(r, ev.target.value);
+      else r[f] = ev.target.value;
+      if(f === "timestamp"){
+        S.revisions.sort((a,b)=>String(a.timestamp).localeCompare(String(b.timestamp)));
+        reindexRevs();
+      }
+      markDirty(); renderHistory(); renderInspector(); updateHistNote();
+    };
+  });
+  body.querySelectorAll("[data-goto]").forEach(b=>{
+    b.onclick = ()=>{
+      const id = b.dataset.goto;
+      if(!S.nodes.has(id)){ toast("That node no longer exists"); return; }
+      el("histDlg").close();
+      if(S.nodes.get(id).status === "retired" && el("showScope").value === "active"){
+        el("showScope").value = "all"; rebuild();
+      }
+      focusNode(id);
+    };
+  });
+  body.querySelectorAll("[data-restore]").forEach(b=>{
+    b.onclick = ()=>{
+      const r = S.revisions[Number(b.dataset.restore)];
+      const n = S.nodes.get(r.node_id);
+      if(!r || !n) return;
+      let v = r.old_value;
+      if(RESTORABLE[r.field] === "list") v = String(v).split(",").map(x=>x.trim()).filter(Boolean);
+      if(RESTORABLE[r.field] === "number") v = Number(v) || 0;
+      setField(n, r.field, v);
+      rebuild(); renderHistory(); updateHistNote();
+      toast("Restored " + r.field + " on " + (n.label||n.id));
+    };
+  });
+  body.querySelectorAll("[data-drop]").forEach(b=>{
+    b.onclick = ()=>{
+      if(!confirm("Delete this log entry? The change itself stays, only the record of it goes.")) return;
+      S.revisions.splice(Number(b.dataset.drop), 1);
+      reindexRevs(); markDirty(); renderHistory(); renderInspector(); updateHistNote();
+    };
+  });
+}
+
+function updateHistNote(){
+  const fn = S.revisions.filter(r=>r.class === "functional").length;
+  const ed = S.revisions.filter(r=>r.class === "editorial").length;
+  el("histNote").textContent = S.draft
+    ? "Draft mode is on. Edits are not being logged."
+    : `${S.revisions.length} entries — ${fn} functional, ${ed} wording.`;
+}
+
+/* =====================================================================
+   GOOGLE SHEETS BRIDGE
+   The page holds no server state. A connection is a web app URL plus a
+   token, carried in the page link and in the workbook's Sync tab, so the
+   same bookmark opens the same map on any device.
+   ===================================================================== */
+function b64enc(str){ return btoa(unescape(encodeURIComponent(str))).replace(/=+$/,""); }
+function b64dec(str){ return decodeURIComponent(escape(atob(str))); }
+
+function writeHash(){
+  if(!S.connections.length){ history.replaceState(null,"",location.pathname + location.search); return; }
+  const payload = {v:1, a:S.activeConn, c:S.connections};
+  history.replaceState(null, "", location.pathname + location.search + "#s=" + b64enc(JSON.stringify(payload)));
+}
+function readHash(){
+  const m = /[#&]s=([^&]+)/.exec(location.hash);
+  if(!m) return false;
+  try{
+    const p = JSON.parse(b64dec(m[1]));
+    if(!Array.isArray(p.c)) return false;
+    S.connections = p.c;
+    S.activeConn = (p.a != null && p.c[p.a]) ? p.a : 0;
+    return true;
+  }catch(e){ return false; }
+}
+
+function activeConnection(){
+  return (S.activeConn != null) ? S.connections[S.activeConn] : null;
+}
+
+function refreshSyncUI(){
+  const sel = el("connSel"), note = el("syncNote");
+  sel.textContent = "";
+  if(!S.connections.length){
+    sel.appendChild(new Option("No sheets set up", ""));
+    note.textContent = "Not connected yet. Manage sheets walks you through it.";
+  } else {
+    S.connections.forEach((c,i)=>{
+      const o = new Option(c.name || ("Sheet " + (i+1)), String(i));
+      if(i === S.activeConn) o.selected = true;
+      sel.appendChild(o);
+    });
+    const c = activeConnection();
+    note.textContent = c
+      ? (c.last_sync ? "Last synced " + c.last_sync : "Ready. Pull brings the sheet down, Push sends this map up.")
+      : "Pick a sheet.";
+  }
+  ["btnPull","btnPush","btnMerge"].forEach(id=>el(id).disabled = !activeConnection());
+}
+
+async function callBridge(conn, action, tables){
+  const base = (conn.endpoint||"").trim();
+  if(!/^https:\/\/script\.google(usercontent)?\.com\//.test(base))
+    throw new Error("That does not look like an Apps Script /exec URL");
+  if(action === "read"){
+    const u = new URL(base);
+    u.searchParams.set("action","read");
+    if(conn.token) u.searchParams.set("token", conn.token);
+    if(conn.id) u.searchParams.set("id", conn.id);
+    if(conn.prefix) u.searchParams.set("prefix", conn.prefix);
+    const r = await fetch(u.toString(), {method:"GET", redirect:"follow"});
+    if(!r.ok) throw new Error("The sheet replied " + r.status);
+    return await r.json();
+  }
+  /* No custom headers, so the browser sends a simple request and Apps
+     Script never has to answer a preflight it cannot answer. */
+  const r = await fetch(base, {
+    method:"POST", redirect:"follow",
+    body: JSON.stringify({action:"write", token:conn.token||"", id:conn.id||"",
+                          prefix:conn.prefix||"", tables})
+  });
+  if(!r.ok) throw new Error("The sheet replied " + r.status);
+  return await r.json();
+}
+
+async function runSync(kind){
+  const conn = activeConnection();
+  if(!conn){ toast("Set up a sheet first"); return; }
+  if(S.syncing) return;
+  if(kind === "pull" && S.dirty &&
+     !confirm("Pull replaces this map with what is in the sheet. Unsaved local edits are lost. Continue?")) return;
+
+  S.syncing = true;
+  document.querySelector(".rail").classList.add("syncing");
+  el("syncNote").textContent = kind === "push" ? "Sending…" : "Fetching…";
+  try{
+    if(kind === "push"){
+      const t = toSheets();
+      delete t.Sync;
+      const res = await callBridge(conn, "write", t);
+      if(!res.ok) throw new Error(res.error || "The sheet refused the write");
+      conn.last_sync = nowISO();
+      markClean();
+      toast("Pushed " + S.nodes.size + " nodes to " + (conn.name || "the sheet"));
+    } else {
+      const res = await callBridge(conn, "read");
+      if(!res.ok) throw new Error(res.error || "The sheet refused the read");
+      if(kind === "pull" && S.nodes.size) await saveNow(true);
+      const M = tablesToModel(res.tables || {});
+      if(!M.nodes.size){ toast("That sheet has no rows on a Nodes tab yet. Push first."); }
+      else if(kind === "pull"){
+        adoptModel(M, true);
+        if(res.name) S.meta.title = res.name;
+        markClean(); rebuild(); fitView(0.96, 0.6);
+        toast("Pulled " + S.nodes.size + " nodes");
+      } else {
+        const r = mergeModel(M);
+        markDirty(); rebuild();
+        toast(`Merged — ${r.added} new, ${r.updated} updated, ${r.kept} kept local`);
+      }
+      conn.last_sync = nowISO();
+    }
+    writeHash();
+  }catch(err){
+    console.error(err);
+    toast(String(err.message || err));
+  }finally{
+    S.syncing = false;
+    document.querySelector(".rail").classList.remove("syncing");
+    refreshSyncUI();
+  }
+}
+
+/* --------------------------- connection editor --------------------------- */
+function renderConnList(){
+  const box = el("connList");
+  box.textContent = "";
+  if(!S.connections.length){
+    box.innerHTML = `<p class="fineprint" style="margin-top:14px">No sheets yet. Add one below.</p>`;
+  }
+  S.connections.forEach((c,i)=>{
+    const d = document.createElement("div");
+    d.className = "conn";
+    d.innerHTML = `
+      <div class="hdr">
+        <strong>${esc(c.name || "Sheet " + (i+1))}</strong>
+        <button class="btn" data-del="${i}" style="padding:3px 9px;font-size:12px">Remove</button>
+      </div>
+      <label class="field"><span>What to call it</span>
+        <input type="text" data-i="${i}" data-f="name" value="${esc(c.name||"")}" placeholder="Lab protocols"></label>
+      <label class="field"><span>Web app URL, ending in /exec</span>
+        <input type="text" data-i="${i}" data-f="endpoint" value="${esc(c.endpoint||"")}" placeholder="https://script.google.com/macros/s/…/exec"></label>
+      <div class="grid2">
+        <label class="field"><span>Token</span>
+          <input type="text" data-i="${i}" data-f="token" value="${esc(c.token||"")}" placeholder="change-me"></label>
+        <label class="field"><span>Default sync</span>
+          <select data-i="${i}" data-f="mode">
+            ${["merge","pull","push"].map(m=>`<option value="${m}"${c.mode===m?" selected":""}>${m}</option>`).join("")}
+          </select></label>
+      </div>
+      <div class="grid2">
+        <label class="field"><span>Spreadsheet ID, if not the bound one</span>
+          <input type="text" data-i="${i}" data-f="id" value="${esc(c.id||"")}" placeholder="optional"></label>
+        <label class="field"><span>Tab prefix, for several maps in one file</span>
+          <input type="text" data-i="${i}" data-f="prefix" value="${esc(c.prefix||"")}" placeholder="optional"></label>
+      </div>
+      <label class="check"><input type="checkbox" data-i="${i}" data-f="auto"${c.auto?" checked":""}> Pull automatically when this link is opened</label>`;
+    box.appendChild(d);
+  });
+  box.querySelectorAll("[data-f]").forEach(inp=>{
+    inp.onchange = ev=>{
+      const c = S.connections[Number(inp.dataset.i)];
+      c[inp.dataset.f] = inp.type === "checkbox" ? inp.checked : ev.target.value.trim();
+      if(inp.dataset.f === "name") renderConnList();
+      markDirty(); writeHash(); refreshSyncUI();
+    };
+  });
+  box.querySelectorAll("[data-del]").forEach(b=>{
+    b.onclick = ()=>{
+      S.connections.splice(Number(b.dataset.del), 1);
+      S.activeConn = S.connections.length ? 0 : null;
+      renderConnList(); writeHash(); refreshSyncUI();
+    };
+  });
+}
+
+/* =====================================================================
+   WIRING
+   ===================================================================== */
+async function boot(){
+  el("btnImport").onclick = ()=>el("fileIn").click();
+  el("fileIn").onchange = e=>{ if(e.target.files[0]) importXlsx(e.target.files[0]); e.target.value=""; };
+  el("btnExport").onclick = exportXlsx;
+  el("btnTsv").onclick = copyTsv;
+  el("btnNew").onclick = async ()=>{
+    if(S.nodes.size && !confirm("Start an empty map? The current one is kept under Recover an earlier version.")) return;
+    if(S.nodes.size) await saveNow(true);
+    S.nodes.clear(); S.edges.clear(); S.revisions.length=0; S.tagStyles.clear();
+    S.meta.title = "Untitled map"; S.sel = null;
+    const n = newNode({label:"Start here", type:"start"});
+    S.nodes.set(n.id, n);
+    markClean(); rebuild(); fitView(0.96, 1); select(n.id);
+  };
+
+  const searchNow = debounce(runSearch, 200);
+  el("q").addEventListener("input", ()=>{ el("mq").value = el("q").value; searchNow(); });
+  el("mq").addEventListener("input", ()=>{ el("q").value = el("mq").value; searchNow(); });
+  el("mq").addEventListener("keydown", ev=>{ if(ev.key === "Enter"){ ev.preventDefault(); el("mq").blur(); stepHit(1); } });
+  el("mNext").onclick = ()=>stepHit(1);
+  el("mPrev").onclick = ()=>stepHit(-1);
+  el("nextHit").onclick = ()=>stepHit(1);
+  el("prevHit").onclick = ()=>stepHit(-1);
+  el("dimOthers").onchange = render;
+  el("showScope").onchange = ()=>rebuild();
+  el("showCross").onchange = render;
+  el("showEdgeLabels").onchange = render;
+
+  el("btnChild").onclick = ()=>addNode("child");
+  el("btnSibling").onclick = ()=>addNode("sibling");
+  el("btnRoot").onclick = ()=>{ S.sel = null; addNode("root"); };
+  el("btnLink").onclick = ()=>{
+    if(!S.sel){ toast("Select the starting node first"); return; }
+    S.linkMode = !S.linkMode;
+    el("btnLink").classList.toggle("primary", S.linkMode);
+    toast(S.linkMode ? "Now click the node to link to" : "Link cancelled");
+  };
+  el("btnUnpin").onclick = ()=>{
+    let k=0;
+    for(const n of S.nodes.values()) if(n.pinned){ n.pinned=false; n.x=null; n.y=null; k++; }
+    if(k){ markDirty(); rebuild(); fitView(0.96, 0.6); }
+    toast(k ? k + " nodes back on auto layout" : "Nothing was pinned");
+  };
+
+  el("btnHistory").onclick = ()=>{ if(S.hist.scope === "node" && !S.sel) S.hist.scope = "all"; openHistory(); };
+  el("histClose").onclick = ()=>el("histDlg").close();
+  el("histQ").addEventListener("input", debounce(()=>{ S.hist.q = el("histQ").value; renderHistory(); }, 200));
+  el("histScope").onchange = e=>{ S.hist.scope = e.target.value;
+    if(e.target.value === "node") S.hist.node = S.sel; renderHistory(); };
+  document.querySelectorAll(".cls-chip").forEach(c=>{
+    c.onclick = ()=>{ S.hist.cls[c.dataset.cls] = !S.hist.cls[c.dataset.cls];
+      c.classList.toggle("on", S.hist.cls[c.dataset.cls]); renderHistory(); };
+  });
+  el("histPurge").onclick = ()=>{
+    const n = S.revisions.filter(r=>r.class === "layout").length;
+    if(!n){ toast("No layout entries to clear"); return; }
+    if(!confirm("Remove " + n + " layout entries? Node positions are unaffected.")) return;
+    S.revisions = S.revisions.filter(r=>r.class !== "layout");
+    S.revisions.push({rev_id:0, node_id:"", timestamp:nowISO(), author:S.meta.author,
+      field:"log tidied", class:"functional", note:"removed " + n + " layout entries",
+      folded:1, old_value:"", new_value:""});
+    reindexRevs(); markDirty(); renderHistory(); updateHistNote();
+  };
+  el("draftMode").onchange = e=>{
+    S.draft = e.target.checked;
+    updateHistNote();
+    toast(S.draft ? "Draft mode on — edits will not be logged" : "Draft mode off — edits are logged again");
+  };
+
+  el("connSel").onchange = e=>{ S.activeConn = e.target.value === "" ? null : Number(e.target.value);
+    writeHash(); refreshSyncUI(); };
+  el("btnPull").onclick  = ()=>runSync("pull");
+  el("btnMerge").onclick = ()=>runSync("merge");
+  el("btnPush").onclick  = ()=>runSync("push");
+  el("btnConns").onclick = ()=>{ renderConnList(); el("connDlg").showModal(); };
+  el("dlgClose").onclick = ()=>el("connDlg").close();
+  el("addConn").onclick = ()=>{
+    S.connections.push({name:"New sheet", endpoint:"", id:"", prefix:"", token:"change-me", mode:"merge", auto:false, last_sync:""});
+    S.activeConn = S.connections.length - 1;
+    renderConnList(); writeHash(); refreshSyncUI();
+  };
+  el("copyScript").onclick = ()=>{
+    navigator.clipboard.writeText(el("gsScript").textContent.trim())
+      .then(()=>toast("Bridge script copied. Paste it into Apps Script."))
+      .catch(()=>toast("Clipboard blocked. Select the script from the page source instead."));
+  };
+  el("copyLink").onclick = ()=>{
+    writeHash();
+    navigator.clipboard.writeText(location.href)
+      .then(()=>toast("Link copied. Bookmark it and this map opens ready to sync."))
+      .catch(()=>toast("Clipboard blocked by the browser"));
+  };
+
+  el("zIn").onclick = ()=>zoomAt(1.25);
+  el("zOut").onclick = ()=>zoomAt(1/1.25);
+  el("zFit").onclick = ()=>fitView();
+  el("btnPrintView").onclick = printCurrentView;
+  el("btnPrintAll").onclick = printCollage;
+
+  const closeSheets = ()=>{
+    el("rail").classList.remove("open"); el("inspector").classList.remove("open");
+    el("scrim").classList.remove("on");
+    el("fab").style.display = "";
+  };
+  const openSheet = which=>{
+    const wasOpen = el(which).classList.contains("open");
+    closeSheets();
+    if(!wasOpen){ el(which).classList.add("open"); el("scrim").classList.add("on");
+      if(which === "inspector") el("fab").style.display = "none"; }
+  };
+  el("mRail").onclick = ()=>openSheet("rail");
+  el("mInsp").onclick = ()=>openSheet("inspector");
+  el("scrim").onclick = closeSheets;
+  el("fab").onclick = ()=>addNode(S.sel ? "child" : "root");
+
+
+
+  document.addEventListener("keydown", ev=>{
+    const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
+    if(ev.key === "/" && !typing){ ev.preventDefault(); el("q").focus(); }
+    if(ev.key === "Escape"){ S.linkMode=false; el("btnLink").classList.remove("primary"); el("q").blur(); }
+    if(typing) return;
+    if(ev.key === "Enter" && S.sel) addNode("child");
+    if(ev.key === "Tab"   && S.sel){ ev.preventDefault(); addNode("sibling"); }
+    if((ev.ctrlKey||ev.metaKey) && ev.key.toLowerCase() === "s"){ ev.preventDefault(); exportXlsx(); }
+    if((ev.ctrlKey||ev.metaKey) && ev.key.toLowerCase() === "p"){ ev.preventDefault(); printCurrentView(); }
+    if(ev.key === "f" ) fitView();
+  });
+
+  window.addEventListener("beforeunload", e=>{
+    if(!S.dirty || Store.mode !== "none") return;
+    e.preventDefault(); e.returnValue = "";
+  });
+  window.addEventListener("resize", debounce(()=>applyView(), 120));
+
+  el("btnSnaps").onclick = openSnapshots;
+  el("snapClose").onclick = ()=>el("snapDlg").close();
+
+  const fromLink = readHash();
+  refreshSyncUI();
+  updateHistNote();
+
+  el("btnLinkFile").onclick = ()=>{ if(fileHandle && filePending) reconnectFile(); else linkFile(); };
+  el("bannerHide").onclick = hideBanner;
+
+  await Store.init();
+  await Store.requestPersist();
+  await Store.checkBeacon();
+  updateSaveNote();
+
+  let restored = false, cur = null;
+  try{
+    cur = await Store.getCurrent();
+    if(cur && cur.tables && (cur.tables.Nodes||[]).length){
+      restored = restorePayload(cur);
+      if(restored) toast("Picked up where you left off — last saved " + ago(cur.savedAt));
+    }
+  }catch(e){ console.warn("restore failed", e); }
+
+  /* pick the linked file back up if one was bound before */
+  try{
+    const h = await Store.getKey("fileHandle");
+    if(h && h.queryPermission){
+      fileHandle = h; fileName = h.name;
+      const perm = await h.queryPermission({mode:"readwrite"});
+      filePending = perm !== "granted";
+      updateSaveNote();
+    }
+  }catch(e){}
+
+  if(!restored){ seed(); rebuild(); fitView(0.96, 0.6); }
+
+  /* Say something out loud when the work is not actually being kept. */
+  if(Store.mode === "none"){
+    showBanner(`<strong>Your work is not being saved.</strong>
+      This browser gives this page no storage. Link a file on disk, connect a Google Sheet,
+      or open the tool from a web address instead of a downloaded file.`,
+      canLinkFile ? "Link a file" : null, linkFile);
+  } else if(!restored && !cur && Store.beacon && Store.beacon.launches > 1){
+    showBanner(`<strong>Previous session missing.</strong>
+      This browser has opened the tool ${Store.beacon.launches} times but kept no map from last time.
+      Storage here is being discarded. Keep a live file on disk or use Google Sheets.`,
+      canLinkFile ? "Link a file" : null, linkFile);
+  } else if(!isWebOrigin() && Store.beacon && Store.beacon.launches === 1){
+    showBanner(`<strong>Opened from a folder.</strong>
+      Storage for downloaded files is throwaway on some browsers, phones especially.
+      Close and reopen once to check your work sticks, or host the file at a web address.`, null, null);
+  }
+
+  /* flush on the way out, and whenever the tab is backgrounded, which is
+     when a phone is most likely to kill it */
+  document.addEventListener("visibilitychange", ()=>{ if(document.hidden) saveNow(false); });
+  window.addEventListener("pagehide", ()=>{ saveNow(false); writeLinkedFile(); });
+  window.addEventListener("blur", ()=>{ if(S.dirty) saveNow(false); });
+  setInterval(()=>{ if(S.dirty) saveNow(false); }, 45000);
+  setInterval(updateSaveNote, 30000);
+
+  if(fromLink){
+    const c = activeConnection();
+    if(c && c.auto) runSync("pull");
+    else toast("Sheet “" + ((c&&c.name)||"") + "” is set up. Pull when ready.");
+  }
+}
+function debounce(fn, ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
+
+document.addEventListener("DOMContentLoaded", boot);
+</script>
+</body>
+</html>
