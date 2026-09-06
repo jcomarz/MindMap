@@ -213,6 +213,16 @@ label.field>span{display:block;font-size:12px;color:var(--graphite-60);margin-bo
 .mobile-tabs .mhits #mCount{font-family:var(--mono);font-size:11px;color:var(--graphite-60);
   min-width:34px;text-align:center}
 #topAdd{flex:0 0 auto}
+.modebtn{opacity:.5}
+.modebtn.on{opacity:1;border-color:var(--blueprint);color:var(--blueprint);font-weight:600}
+body.viewing .brand h1::after{content:" · viewing";font-size:12px;font-weight:400;color:var(--graphite-60)}
+body.viewing #buildGroup{display:none}
+body.viewing .fab,
+body.viewing #topAdd,
+body.viewing #btnArea,
+body.viewing #btnNew,
+body.viewing #btnImport{display:none}
+body.viewing .titleinput{pointer-events:none;color:var(--graphite-60)}
 .dirty-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--flag);vertical-align:middle;margin-left:5px;visibility:hidden}
 .dirty .dirty-dot{visibility:visible}
 
@@ -453,6 +463,21 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
 
     <div class="pane-scroll" id="paneTools">
 
+      <div class="group" id="modeGroup">
+        <h2>Mode</h2>
+        <div class="row">
+          <button class="btn modebtn" id="modeRoot">Editing</button>
+          <button class="btn modebtn" id="modeViewer">Viewing</button>
+        </div>
+        <p id="modeNote" style="font-size:12px;color:var(--graphite-60);margin:9px 0 0;line-height:1.5">—</p>
+        <div class="row" style="margin-top:8px">
+          <button class="btn wide" id="btnLockMap">Lock this map</button>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <button class="btn wide" id="btnWho">Set your name</button>
+        </div>
+      </div>
+
       <div class="group">
         <h2>Workbook</h2>
         <div class="row">
@@ -498,7 +523,7 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
         <div class="taglist" id="tagFilters"></div>
       </div>
 
-      <div class="group">
+      <div class="group" id="buildGroup">
         <h2>Build</h2>
         <div class="row">
           <button class="btn" id="btnChild">Add child</button>
@@ -605,6 +630,16 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
         <h2>Bookmarks</h2>
         <div id="tocBookmarks"></div>
         <button class="btn wide" id="btnBookmark" style="margin-top:8px">Bookmark this view</button>
+        <div class="row" style="margin-top:6px">
+          <button class="btn" id="btnBmExport">Export mine</button>
+          <button class="btn" id="btnBmImport">Import</button>
+          <input type="file" id="bmFile" accept=".json" hidden>
+        </div>
+      </div>
+
+      <div class="group">
+        <h2>Recent searches</h2>
+        <div id="tocSearches"></div>
       </div>
 
       <div class="group">
@@ -680,6 +715,7 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
     <div class="row">
       <button class="btn" id="copyScript">Copy the bridge script</button>
       <button class="btn" id="copyLink">Copy a link to this setup</button>
+      <button class="btn" id="copyViewerLink">Copy a viewer link</button>
     </div>
     <div id="connList"></div>
     <button class="btn wide" id="addConn" style="margin-top:12px">Add another sheet</button>
@@ -728,9 +764,10 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
  * Paste into Extensions > Apps Script, then deploy as a web app.
  * One deployment can serve any number of spreadsheets: pass ?id=<spreadsheetId>.
  */
-var TOKEN = 'change-me';                       // must match the token in the app
-var BUILD = 'b3';                              // lets the app confirm which version is deployed
-var TABS  = ['Nodes','Links','Areas','Bookmarks','Revisions','TagStyles'];
+var TOKEN        = 'change-me';                // full access: reads and rewrites the map
+var VIEWER_TOKEN = '';                         // hand this one out: read, and add suggestions only
+var BUILD = 'b4';                              // lets the app confirm which version is deployed
+var TABS  = ['Nodes','Links','Areas','Bookmarks','Suggestions','CheckItems','Checkoffs','Revisions','TagStyles','Settings'];
 
 function doGet(e)  { return handle(e, null); }
 function doPost(e) { return handle(e, JSON.parse((e.postData && e.postData.contents) || '{}')); }
@@ -740,8 +777,12 @@ function handle(e, body) {
     var p   = (e && e.parameter) ? e.parameter : {};
     var req = body || {};
     var action = req.action || p.action || 'read';
-    if (action === 'ping') return out({ ok:true, build:BUILD, tokenSet:(TOKEN !== 'change-me') });
-    if (TOKEN && (req.token || p.token || '') !== TOKEN)
+    if (action === 'ping') return out({ ok:true, build:BUILD, tokenSet:(TOKEN !== 'change-me'),
+                                        viewerSet:!!VIEWER_TOKEN });
+    var tok = req.token || p.token || '';
+    var asRoot   = (tok === TOKEN);
+    var asViewer = (!!VIEWER_TOKEN && tok === VIEWER_TOKEN);
+    if (!asRoot && !asViewer)
       return out({ ok:false, error:'Token does not match', build:BUILD,
                    deployed:(TOKEN === 'change-me' ? 'placeholder' : 'custom') });
 
@@ -749,9 +790,21 @@ function handle(e, body) {
     var prefix = req.prefix || p.prefix || '';
     var ss     = id ? SpreadsheetApp.openById(id) : SpreadsheetApp.getActiveSpreadsheet();
 
-    if (action === 'read')  return out({ ok:true, build:BUILD, name:ss.getName(), tables:readAll(ss, prefix) });
-    if (action === 'write') { writeAll(ss, prefix, req.tables);
-                              return out({ ok:true, build:BUILD, at:new Date().toISOString() }); }
+    if (action === 'read')
+      return out({ ok:true, build:BUILD, role:(asRoot?'root':'viewer'),
+                   name:ss.getName(), tables:readAll(ss, prefix) });
+
+    if (action === 'contribute') {
+      contribute(ss, prefix, req.tables);
+      return out({ ok:true, build:BUILD, at:new Date().toISOString() });
+    }
+
+    if (action === 'write') {
+      if (!asRoot) return out({ ok:false, build:BUILD,
+        error:'This token can add suggestions but cannot change the map.' });
+      writeAll(ss, prefix, req.tables);
+      return out({ ok:true, build:BUILD, at:new Date().toISOString() });
+    }
     return out({ ok:false, error:'Unknown action ' + action, build:BUILD });
   } catch (err) {
     return out({ ok:false, error:String(err), build:BUILD });
@@ -780,6 +833,34 @@ function readAll(ss, prefix) {
     }
   });
   return t;
+}
+
+/* Adds or updates rows on the two contribution tabs and touches nothing else,
+   so a viewer token cannot damage the map however it is used. */
+function contribute(ss, prefix, tables) {
+  ['Suggestions', 'Checkoffs'].forEach(function (name) {
+    var rows = (tables && tables[name]) || [];
+    if (!rows.length) return;
+    var sh = ss.getSheetByName(prefix + name) || ss.insertSheet(prefix + name);
+    var hdr;
+    if (sh.getLastRow() === 0) {
+      hdr = Object.keys(rows[0]);
+      sh.appendRow(hdr);
+      sh.setFrozenRows(1);
+      sh.getRange(1, 1, 1, hdr.length).setFontWeight('bold');
+    } else {
+      hdr = sh.getRange(1, 1, 1, sh.getLastColumn()).getDisplayValues()[0];
+    }
+    var ids = sh.getLastRow() > 1
+      ? sh.getRange(2, 1, sh.getLastRow() - 1, 1).getDisplayValues().map(function (r) { return r[0]; })
+      : [];
+    rows.forEach(function (r) {
+      var vals = hdr.map(function (h) { var v = r[h]; return (v === null || v === undefined) ? '' : String(v); });
+      var ix = ids.indexOf(String(r[hdr[0]]));
+      if (ix >= 0) sh.getRange(ix + 2, 1, 1, hdr.length).setValues([vals]);
+      else { sh.appendRow(vals); ids.push(String(r[hdr[0]])); }
+    });
+  });
 }
 
 function writeAll(ss, prefix, tables) {
@@ -815,7 +896,8 @@ function writeAll(ss, prefix, tables) {
    ===================================================================== */
 const S = {
   meta:{ title:"Sample accessioning", author:"jerico", created:nowISO(), key:null,
-         lastEdited:null, lastOpened:null, bytes:0, provisional:false },
+         lastEdited:null, lastOpened:null, bytes:0, provisional:false,
+         locked:false, rootHash:"" },
   nodes:new Map(),      // id -> node
   areas:new Map(),      // id -> labelled region drawn behind the map
   bookmarks:[],         // saved viewpoints
@@ -830,6 +912,12 @@ const S = {
   linkMode:false,
   connections:[],
   activeConn:null,
+  mode:"root",                 // root edits the map, viewer contributes to it
+  suggestions:[],              // proposed changes, written to the sheet
+  checkItems:[],               // things the host asks people to confirm
+  checkoffs:[],                // who confirmed what
+  personal:{bookmarks:[], searches:[]},   // per device, never part of the map
+  who:"",
   draft:false,
   hist:{q:"", cls:{functional:true, editorial:true, layout:false}, scope:"all", node:null},
   syncing:false
@@ -846,6 +934,24 @@ function newNode(o={}){
     rev:1, author:S.meta.author, x:null, y:null, pinned:false, collapsed:false
   }, o);
 }
+function newSuggestion(o={}){
+  return Object.assign({
+    id:uid("S-"), node:"", person:S.who || "anonymous", timestamp:nowISO(),
+    text:"", kind:"reword", status:"open", resolved_by:"", resolved_at:""
+  }, o);
+}
+function newCheckItem(o={}){
+  return Object.assign({
+    id:uid("C-"), node:"", label:"Read and understood", created:nowISO(), author:S.meta.author
+  }, o);
+}
+function newCheckoff(o={}){
+  return Object.assign({
+    id:uid("X-"), item:"", node:"", person:S.who || "anonymous",
+    checked:"yes", timestamp:nowISO(), note:""
+  }, o);
+}
+
 const AREA_COLORS = ["#14549B","#B4472A","#2E7D5B","#6C4AB0","#8A6A1F","#1F7A8C","#7A4E7E"];
 function newArea(o={}){
   return Object.assign({
@@ -910,6 +1016,7 @@ function logRev(nodeId, field, oldV, newV, cls){
 function reindexRevs(){ S.revisions.forEach((r,i)=>r.rev_id = i+1); }
 
 function setField(node, field, value, clsOverride){
+  if(!canEdit()) return false;
   const old = node[field];
   if(String(old??"") === String(value??"")) return false;
   const cls = clsOverride || classFor(field);
@@ -948,6 +1055,33 @@ function markDirty(){
   S.meta.provisional = false;
   if(typeof scheduleSave === "function") scheduleSave(); }
 function markClean(){ S.dirty = false; document.body.classList.remove("dirty"); }
+
+function isRoot(){ return S.mode === "root"; }
+function canEdit(){ return S.mode === "root"; }
+function suggestionsFor(id){ return S.suggestions.filter(x=>x.node === id); }
+function itemsFor(id){ return S.checkItems.filter(x=>x.node === id); }
+function checkoffFor(itemId, person){
+  return S.checkoffs.find(x=>x.item === itemId && x.person === (person || S.who));
+}
+function checkCount(itemId){ return S.checkoffs.filter(x=>x.item === itemId && x.checked === "yes").length; }
+
+async function hashOf(text){
+  try{
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("mindmap:" + text));
+    return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,"0")).join("").slice(0,32);
+  }catch(e){ return "plain:" + text; }
+}
+
+/* Who is contributing. Kept per device, never part of the map. */
+function whoAmI(force){
+  if(S.who && !force) return S.who;
+  const name = prompt("Your name, so suggestions and check-offs can be attributed",
+                      S.who || "");
+  if(name == null) return S.who || "";
+  S.who = name.trim() || "anonymous";
+  savePersonal();
+  return S.who;
+}
 
 function revsFor(id){ return S.revisions.filter(r=>r.node_id===id).slice().reverse(); }
 
@@ -997,6 +1131,8 @@ function descendants(id, acc=new Set()){
 function blankMap(){
   S.nodes.clear(); S.edges.clear(); S.revisions.length = 0; S.tagStyles.clear();
   S.areas.clear(); S.bookmarks.length = 0;
+  S.suggestions.length = 0; S.checkItems.length = 0; S.checkoffs.length = 0;
+  S.meta.locked = false; S.meta.rootHash = ""; S.mode = "root";
   S.sel = null; S.selArea = null;
   const n = newNode({label:"Start here", type:"start"});
   S.nodes.set(n.id, n);
@@ -1012,6 +1148,8 @@ function seed(){
   S.meta.provisional = true;
   S.nodes.clear(); S.edges.clear(); S.revisions.length=0; S.tagStyles.clear();
   S.areas.clear(); S.bookmarks.length=0;
+  S.suggestions.length=0; S.checkItems.length=0; S.checkoffs.length=0;
+  S.meta.locked=false; S.meta.rootHash=""; S.mode="root";
   const mk=(label,o)=>{ const n=newNode(Object.assign({label},o)); S.nodes.set(n.id,n); return n.id; };
   const ln=(a,b,o)=>{ const e=newEdge(Object.assign({from:a,to:b},o)); S.edges.set(e.id,e); return e.id; };
 
@@ -1074,9 +1212,13 @@ const HDR = {
   Links:["edge_id","from_id","to_id","link_type","tag","label","condition"],
   Revisions:["rev_id","node_id","timestamp","author","field","class","note","folded","old_value","new_value"],
   TagStyles:["tag","color","line_style","width","arrow","applies_to"],
-  Sync:["name","endpoint","spreadsheet_id","prefix","token","mode","last_sync"],
+  Sync:["name","endpoint","spreadsheet_id","prefix","token","viewer_token","mode","last_sync"],
   Areas:["area_id","label","x","y","w","h","color","move_contents","note"],
-  Bookmarks:["bookmark_id","label","node_id","x","y","zoom"]
+  Bookmarks:["bookmark_id","label","node_id","x","y","zoom"],
+  Suggestions:["suggestion_id","node_id","person","timestamp","kind","text","status","resolved_by","resolved_at"],
+  CheckItems:["item_id","node_id","label","created","author"],
+  Checkoffs:["check_id","item_id","node_id","person","checked","timestamp","note"],
+  Settings:["key","value"]
 };
 
 function pathOf(id){
@@ -1115,12 +1257,29 @@ function toSheets(){
     bookmark_id:b.id, label:b.label, node_id:b.node||"",
     x:round(b.x), y:round(b.y), zoom:Math.round(b.k*1000)/1000
   }));
+  const suggestions = S.suggestions.map(x=>({
+    suggestion_id:x.id, node_id:x.node, person:x.person, timestamp:x.timestamp,
+    kind:x.kind, text:x.text, status:x.status,
+    resolved_by:x.resolved_by||"", resolved_at:x.resolved_at||""
+  }));
+  const checkItems = S.checkItems.map(x=>({
+    item_id:x.id, node_id:x.node, label:x.label, created:x.created, author:x.author
+  }));
+  const checkoffs = S.checkoffs.map(x=>({
+    check_id:x.id, item_id:x.item, node_id:x.node, person:x.person,
+    checked:x.checked, timestamp:x.timestamp, note:x.note||""
+  }));
+  const settings = [
+    {key:"locked", value:S.meta.locked ? "yes" : ""},
+    {key:"root_hash", value:S.meta.rootHash || ""}
+  ];
   const sync = S.connections.filter(c=>(c.endpoint||"").trim()).map(c=>({
     name:c.name, endpoint:c.endpoint, spreadsheet_id:c.id||"", prefix:c.prefix||"",
-    token:c.token||"", mode:c.mode, last_sync:c.last_sync||""
+    token:c.token||"", viewer_token:c.viewerToken||"", mode:c.mode, last_sync:c.last_sync||""
   }));
   return { Nodes:nodes, Links:links, Revisions:S.revisions.slice(), TagStyles:styles,
-           Areas:areas, Bookmarks:bookmarks, Sync:sync };
+           Areas:areas, Bookmarks:bookmarks, Suggestions:suggestions,
+           CheckItems:checkItems, Checkoffs:checkoffs, Settings:settings, Sync:sync };
 }
 function round(v){ return v==null?"":Math.round(v*10)/10; }
 
@@ -1144,7 +1303,8 @@ function tablesToModel(t){
   const nodes = t.Nodes || [], links = (t.Links && t.Links.length) ? t.Links : (t.Edges || []),
         revs = t.Revisions || [], styles = t.TagStyles || [];
   const M = { nodes:new Map(), edges:new Map(), revisions:[], tagStyles:new Map(),
-              connections:[], areas:new Map(), bookmarks:[] };
+              connections:[], areas:new Map(), bookmarks:[],
+              suggestions:[], checkItems:[], checkoffs:[], settings:{} };
 
   for(const r of nodes){
     const n = newNode({
@@ -1214,11 +1374,42 @@ function tablesToModel(t){
       node:String(r.node_id||""), x:Number(r.x)||0, y:Number(r.y)||0, k:Number(r.zoom)||1
     }));
   }
+  for(const r of (t.Suggestions||[])){
+    if(!r.suggestion_id && !r.text) continue;
+    M.suggestions.push(newSuggestion({
+      id:String(r.suggestion_id||uid("S-")), node:String(r.node_id||""),
+      person:String(r.person||"anonymous"), timestamp:String(r.timestamp||nowISO()),
+      kind:String(r.kind||"reword"), text:String(r.text||""),
+      status:String(r.status||"open").toLowerCase(),
+      resolved_by:String(r.resolved_by||""), resolved_at:String(r.resolved_at||"")
+    }));
+  }
+  for(const r of (t.CheckItems||[])){
+    if(!r.item_id && !r.label) continue;
+    M.checkItems.push(newCheckItem({
+      id:String(r.item_id||uid("C-")), node:String(r.node_id||""),
+      label:String(r.label||"Read and understood"),
+      created:String(r.created||nowISO()), author:String(r.author||"")
+    }));
+  }
+  for(const r of (t.Checkoffs||[])){
+    if(!r.check_id && !r.item_id) continue;
+    M.checkoffs.push(newCheckoff({
+      id:String(r.check_id||uid("X-")), item:String(r.item_id||""),
+      node:String(r.node_id||""), person:String(r.person||"anonymous"),
+      checked:/^(yes|true|1|y)$/i.test(String(r.checked||"yes")) ? "yes" : "",
+      timestamp:String(r.timestamp||nowISO()), note:String(r.note||"")
+    }));
+  }
+  for(const r of (t.Settings||[])){
+    if(r.key) M.settings[String(r.key)] = String(r.value||"");
+  }
   for(const r of (t.Sync||[])){
     if(!r.endpoint) continue;
     M.connections.push({
       name:String(r.name||"Sheet"), endpoint:String(r.endpoint), id:String(r.spreadsheet_id||""),
       prefix:String(r.prefix||""), token:String(r.token||""),
+      viewerToken:String(r.viewer_token||""),
       mode:String(r.mode||"merge"), last_sync:String(r.last_sync||"")
     });
   }
@@ -1229,6 +1420,10 @@ function adoptModel(M, keepConnections){
   S.nodes = M.nodes; S.edges = M.edges;
   S.revisions = M.revisions; S.tagStyles = M.tagStyles;
   S.areas = M.areas; S.bookmarks = M.bookmarks;
+  S.suggestions = M.suggestions; S.checkItems = M.checkItems; S.checkoffs = M.checkoffs;
+  S.meta.locked = M.settings.locked === "yes";
+  S.meta.rootHash = M.settings.root_hash || "";
+  S.mode = S.meta.locked ? "viewer" : "root";
   S.selArea = null;
   if(M.connections.length && !keepConnections) S.connections = M.connections;
   for(const e of S.edges.values()) ensureTagStyle(e.tag);
@@ -1260,6 +1455,21 @@ function mergeModel(M){
   S.revisions.forEach((r,i)=>r.rev_id=i+1);
   for(const [t, st] of M.tagStyles) if(!S.tagStyles.has(t)) S.tagStyles.set(t, st);
   for(const [id, a] of M.areas) if(!S.areas.has(id)) S.areas.set(id, a);
+  const sIds = new Set(S.suggestions.map(x=>x.id));
+  M.suggestions.forEach(x=>{
+    const mine = S.suggestions.find(y=>y.id === x.id);
+    if(!mine) S.suggestions.push(x);
+    else if(String(x.resolved_at||"") > String(mine.resolved_at||"")) Object.assign(mine, x);
+  });
+  void sIds;
+  const cIds = new Set(S.checkItems.map(x=>x.id));
+  M.checkItems.forEach(x=>{ if(!cIds.has(x.id)) S.checkItems.push(x); });
+  /* one row per person per item; the newer timestamp wins */
+  M.checkoffs.forEach(x=>{
+    const mine = S.checkoffs.find(y=>y.item === x.item && y.person === x.person);
+    if(!mine) S.checkoffs.push(x);
+    else if(String(x.timestamp) > String(mine.timestamp)) Object.assign(mine, x);
+  });
   const bmIds = new Set(S.bookmarks.map(b=>b.id));
   for(const b of M.bookmarks) if(!bmIds.has(b.id)) S.bookmarks.push(b);
   for(const e of S.edges.values()) ensureTagStyle(e.tag);
@@ -1291,8 +1501,8 @@ function importXlsx(file){
 function copyTsv(){
   const d = toSheets();
   let out = "";
-  for(const name of ["Nodes","Links","Areas","Bookmarks","Revisions","TagStyles","Sync"]){
-    if(!d[name].length && (name==="Sync"||name==="Areas"||name==="Bookmarks")) continue;
+  for(const name of ["Nodes","Links","Areas","Bookmarks","Suggestions","CheckItems","Checkoffs","Revisions","TagStyles","Settings","Sync"]){
+    if(!d[name].length && name!=="Nodes" && name!=="Links") continue;
     out += "### " + name + "\n" + HDR[name].join("\t") + "\n";
     for(const row of d[name]) out += HDR[name].map(h=>String(row[h]??"").replace(/[\t\n]/g," ")).join("\t") + "\n";
     out += "\n";
@@ -1549,7 +1759,7 @@ function applyView(){
   el("zLvl").textContent = Math.round(S.view.k*100) + "%";
 }
 
-function rebuild(){ layout(); buildTagFilters(); render(); renderInspector(); renderContents(); updateFab(); }
+function rebuild(){ layout(); buildTagFilters(); render(); renderInspector(); renderContents(); updateFab(); updateModeUI(); }
 
 /* =====================================================================
    CONTENTS — bookmarks, areas and an outline of the whole map
@@ -1559,13 +1769,25 @@ function renderContents(){
 
   /* bookmarks */
   const bm = el("tocBookmarks");
-  bm.innerHTML = S.bookmarks.length
-    ? S.bookmarks.map(b=>`<div class="tocrow" data-bm="${esc(b.id)}">
-        <span class="tocdot filled"></span>
+  const rows = S.bookmarks.map(b=>({b, mine:false})).concat(S.personal.bookmarks.map(b=>({b, mine:true})));
+  bm.innerHTML = rows.length
+    ? rows.map(({b, mine})=>`<div class="tocrow" data-bm="${esc(b.id)}">
+        <span class="tocdot${mine?"":" filled"}"></span>
         <span class="toclabel">${esc(b.label)}</span>
+        ${mine?`<span class="fold">yours</span>`:""}
         <button class="kill" data-killbm="${esc(b.id)}" title="Remove">&times;</button>
       </div>`).join("")
     : `<p class="tocempty">None yet. Line up a view you keep coming back to and save it.</p>`;
+
+  /* recent searches, this device only */
+  const sr = el("tocSearches");
+  if(sr){
+    sr.innerHTML = S.personal.searches.length
+      ? S.personal.searches.map(q=>`<div class="tocrow" data-search="${esc(q)}">
+          <span class="toclabel">${esc(q)}</span>
+          <button class="kill" data-killsearch="${esc(q)}" title="Remove">&times;</button></div>`).join("")
+      : `<p class="tocempty">Searches you run are listed here, on this device only.</p>`;
+  }
 
   /* areas */
   const ar = el("tocAreas");
@@ -1639,9 +1861,56 @@ function renderContents(){
   });
   root.querySelectorAll("[data-killbm]").forEach(e=>{
     e.onclick = ev=>{ ev.stopPropagation();
-      S.bookmarks = S.bookmarks.filter(b=>b.id !== e.dataset.killbm);
-      markDirty(); renderContents(); };
+      const id = e.dataset.killbm;
+      if(S.personal.bookmarks.some(b=>b.id === id)){
+        S.personal.bookmarks = S.personal.bookmarks.filter(b=>b.id !== id);
+        savePersonal();
+      } else if(canEdit()){
+        S.bookmarks = S.bookmarks.filter(b=>b.id !== id);
+        markDirty();
+      } else { toast("That bookmark belongs to the map. Only editing mode can remove it."); return; }
+      renderContents(); };
   });
+  root.querySelectorAll("[data-search]").forEach(e=>{
+    e.onclick = ev=>{ if(ev.target.hasAttribute("data-killsearch")) return;
+      el("q").value = e.dataset.search; el("mq").value = e.dataset.search; runSearch(); };
+  });
+  root.querySelectorAll("[data-killsearch]").forEach(e=>{
+    e.onclick = ev=>{ ev.stopPropagation();
+      S.personal.searches = S.personal.searches.filter(q=>q !== e.dataset.killsearch);
+      savePersonal(); renderContents(); };
+  });
+}
+
+async function setMode(mode){
+  if(mode === "root" && S.meta.locked){
+    const pass = prompt("This map is locked. Enter the editing password.");
+    if(pass == null) return false;
+    const h = await hashOf(pass);
+    if(h !== S.meta.rootHash){ toast("That password does not match."); return false; }
+  }
+  S.mode = mode;
+  S.selArea = null;
+  document.body.classList.toggle("viewing", mode !== "root");
+  savePersonal();
+  rebuild();
+  updateModeUI();
+  return true;
+}
+
+function updateModeUI(){
+  const r = el("modeRoot"), v = el("modeViewer"), note = el("modeNote"), lock = el("btnLockMap");
+  if(!r) return;
+  r.classList.toggle("on", isRoot());
+  v.classList.toggle("on", !isRoot());
+  document.body.classList.toggle("viewing", !isRoot());
+  note.innerHTML = isRoot()
+    ? `You can change the map. ${S.meta.locked ? "It is locked for everyone else." : "It is unlocked, so anyone opening it can edit."}`
+    : `The map is read only here. You can still confirm items, leave suggestions and keep your own bookmarks${S.who ? ", signed " + esc(S.who) : ""}.`;
+  lock.textContent = S.meta.locked ? "Change or remove the lock" : "Lock this map";
+  lock.disabled = !isRoot();
+  const open = S.suggestions.filter(x=>x.status === "open").length;
+  if(isRoot() && open) note.innerHTML += ` <span style="color:var(--flag)">${open} suggestion${open===1?"":"s"} waiting.</span>`;
 }
 
 function updateChrome(){
@@ -1770,7 +2039,7 @@ const MIN_K = 0.05, MAX_K = 6;
     downTime = Date.now();
 
     /* drawing a new area beats everything else */
-    if(S.areaMode){
+    if(S.areaMode && canEdit()){
       drawFrom = toWorld(ev.clientX, ev.clientY);
       drawEl = mk("rect",{x:drawFrom.x, y:drawFrom.y, width:0, height:0, rx:4,
         fill:"#14549B", "fill-opacity":.06, stroke:"#14549B", "stroke-width":1.5,
@@ -1782,7 +2051,10 @@ const MIN_K = 0.05, MAX_K = 6;
     const g = ev.target.closest(".node-g");
     const ag = ev.target.closest(".area-g");
 
-    if(g && !S.linkMode){
+    if(g && !canEdit()){
+      mode = "tap-node";
+      dragNode = {id:g.dataset.id};
+    } else if(g && !S.linkMode){
       const id = g.dataset.id, n = S.nodes.get(id);
       const w = toWorld(ev.clientX, ev.clientY);
       dragNode = {id, dx:w.x - n._x, dy:w.y - n._y, ox:n._x, oy:n._y};
@@ -1790,7 +2062,7 @@ const MIN_K = 0.05, MAX_K = 6;
     } else if(g && S.linkMode){
       mode = "tap-node";
       dragNode = {id:g.dataset.id};
-    } else if(ag){
+    } else if(ag && canEdit()){
       const id = ag.dataset.area, a = S.areas.get(id);
       const w = toWorld(ev.clientX, ev.clientY);
       if(ev.target.hasAttribute("data-resize")){
@@ -1809,7 +2081,7 @@ const MIN_K = 0.05, MAX_K = 6;
       const w = toWorld(ev.clientX, ev.clientY);
       cancelLongPress();
       lpTimer = setTimeout(()=>{
-        if(mode !== "pan" || moved) return;
+        if(mode !== "pan" || moved || !canEdit()) return;
         mode = null; svg().classList.remove("panning");
         tapBlockUntil = Date.now() + 600;
         addLooseNodeAt(w.x, w.y);
@@ -1958,6 +2230,10 @@ const MIN_K = 0.05, MAX_K = 6;
       }
     } else if(mode === "tap-node" && dragNode && wasTap){
       select(dragNode.id);
+      if(!canEdit() && window.matchMedia("(max-width:820px)").matches){
+        el("inspector").classList.add("open"); el("scrim").classList.add("on");
+        el("fab").style.display = "none";
+      }
     } else if(mode === "pan" && wasTap){
       const now = Date.now();
       if(lastTapId === "__bg" && now - lastTapTime < 340){
@@ -2070,6 +2346,35 @@ function updateFab(){
 
 function esc(s){ return String(s??"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 
+function renderViewerInspector(n){
+  const body = el("inspBody");
+  el("inspTitle").textContent = n.type.charAt(0).toUpperCase() + n.type.slice(1);
+  el("inspId").textContent = n.id + " · " + verOf(n);
+  const parent = parentOf(n.id);
+  body.innerHTML = `
+    <div class="group">
+      <h2 style="margin-bottom:6px">${esc(n.label)}</h2>
+      ${n.status === "retired" ? `<span class="status-pill retired">retired</span>` : ""}
+      ${n.image ? `<div class="imgcard" style="margin-top:10px"><img src="${esc(n.image)}" alt="">
+        <div><strong>Image</strong></div></div>` : ""}
+      ${n.body ? `<p style="font-size:13px;line-height:1.5;white-space:pre-wrap;margin:10px 0 0">${esc(n.body)}</p>` : ""}
+      ${(n.tags||[]).length ? `<div class="taglist" style="margin-top:10px">${(n.tags||[]).map(t=>`<span class="tagchip">${esc(t)}</span>`).join("")}</div>` : ""}
+      ${parent ? `<p style="font-size:12px;color:var(--graphite-60);margin:10px 0 0">Follows
+        <a href="#" data-jump="${esc(parent)}" style="color:var(--blueprint)">${esc((S.nodes.get(parent)||{}).label||parent)}</a></p>` : ""}
+      <div class="row" style="margin-top:10px">
+        <button class="btn" id="vZoom">Zoom to it</button>
+        <button class="btn" id="vMark">Bookmark this</button>
+      </div>
+    </div>
+    ${contributionBlock(n)}`;
+  el("vZoom").onclick = ()=>focusNode(n.id);
+  el("vMark").onclick = ()=>addBookmark(n.label);
+  body.querySelectorAll("[data-jump]").forEach(a=>{
+    a.onclick = ev=>{ ev.preventDefault(); focusNode(a.dataset.jump); };
+  });
+  wireContributions(n);
+}
+
 function renderAreaInspector(a){
   const body = el("inspBody");
   el("inspTitle").textContent = "Area";
@@ -2129,9 +2434,127 @@ function renderAreaInspector(a){
   });
 }
 
+/* The panels a viewer gets on a node: what it says, what to confirm, and a
+   way to propose a change without touching it. */
+function contributionBlock(n){
+  const items = itemsFor(n.id);
+  const sugs = suggestionsFor(n.id).slice().reverse();
+  const me = S.who || "";
+  return `
+    <div class="group">
+      <h2>Confirm</h2>
+      ${items.length ? items.map(it=>{
+        const mine = checkoffFor(it.id, me);
+        const done = mine && mine.checked === "yes";
+        return `<label class="check" style="align-items:flex-start">
+          <input type="checkbox" data-check="${esc(it.id)}"${done?" checked":""}>
+          <span>${esc(it.label)}
+            <span class="fold" style="margin-left:6px">${checkCount(it.id)} confirmed</span>
+            ${done && mine.timestamp?`<br><span style="font-family:var(--mono);font-size:10px;color:var(--graphite-60)">you, ${esc(String(mine.timestamp).slice(0,16))}</span>`:""}
+          </span></label>`;
+      }).join("") : `<p class="tocempty">Nothing to confirm on this node.</p>`}
+      ${isRoot() ? `<div class="row" style="margin-top:8px">
+        <button class="btn wide" id="addCheckItem">Add something to confirm</button></div>` : ""}
+    </div>
+
+    <div class="group">
+      <h2>Suggestions</h2>
+      <label class="field"><span>Propose a change — the node itself is not altered</span>
+        <textarea id="sugText" placeholder="What should change, and why?"></textarea></label>
+      <div class="row">
+        <select id="sugKind" style="flex:1">
+          <option value="reword">Wording</option>
+          <option value="logic">Logic or routing</option>
+          <option value="retire">Should be retired</option>
+          <option value="question">Question</option>
+        </select>
+        <button class="btn primary" id="sugSend">Send</button>
+      </div>
+      <div class="revlog" style="margin-top:10px">
+        ${sugs.length ? sugs.map(x=>`
+          <div class="rev">
+            <time>${esc(String(x.timestamp).slice(0,16))}</time>
+            <div class="chg">
+              <strong>${esc(x.person)}</strong>
+              <span class="fold">${esc(x.kind)}</span>
+              <span class="fold">${esc(x.status)}</span><br>
+              ${esc(x.text)}
+              ${isRoot() && x.status === "open" ? `<div class="row" style="margin-top:6px">
+                <button class="btn" data-sug-accept="${esc(x.id)}" style="padding:2px 8px;font-size:11px">Accept</button>
+                <button class="btn" data-sug-decline="${esc(x.id)}" style="padding:2px 8px;font-size:11px">Decline</button>
+              </div>` : ""}
+              ${x.resolved_by?`<br><span style="font-size:11px;color:var(--graphite-60)">${esc(x.status)} by ${esc(x.resolved_by)}</span>`:""}
+            </div>
+          </div>`).join("") : `<p class="tocempty" style="margin-top:8px">No suggestions yet.</p>`}
+      </div>
+    </div>`;
+}
+
+function wireContributions(n){
+  const body = el("inspBody");
+  body.querySelectorAll("[data-check]").forEach(cb=>{
+    cb.onchange = ()=>{
+      if(!whoAmI()){ cb.checked = !cb.checked; return; }
+      const itemId = cb.dataset.check;
+      let row = checkoffFor(itemId, S.who);
+      if(!row){
+        row = newCheckoff({item:itemId, node:n.id, person:S.who, checked:cb.checked ? "yes" : ""});
+        S.checkoffs.push(row);
+      } else {
+        row.checked = cb.checked ? "yes" : "";
+        row.timestamp = nowISO();
+      }
+      markContribution();
+      renderInspector();
+    };
+  });
+  const send = el("sugSend");
+  if(send) send.onclick = ()=>{
+    const text = el("sugText").value.trim();
+    if(!text){ toast("Write the suggestion first"); return; }
+    if(!whoAmI()) return;
+    S.suggestions.push(newSuggestion({
+      node:n.id, person:S.who, text, kind:el("sugKind").value
+    }));
+    markContribution();
+    renderInspector();
+    toast("Suggestion recorded. Push to send it to the sheet.");
+  };
+  const add = el("addCheckItem");
+  if(add) add.onclick = ()=>{
+    const label = prompt("What should people confirm on this node?", "Read and understood");
+    if(label == null) return;
+    S.checkItems.push(newCheckItem({node:n.id, label:label.trim() || "Read and understood"}));
+    markDirty(); renderInspector();
+  };
+  body.querySelectorAll("[data-sug-accept],[data-sug-decline]").forEach(b=>{
+    b.onclick = ()=>{
+      const id = b.dataset.sugAccept || b.dataset.sugDecline;
+      const x = S.suggestions.find(y=>y.id === id);
+      if(!x) return;
+      x.status = b.dataset.sugAccept ? "accepted" : "declined";
+      x.resolved_by = S.meta.author || "root";
+      x.resolved_at = nowISO();
+      markDirty(); renderInspector();
+      if(b.dataset.sugAccept) toast("Marked accepted. Make the edit on the node itself.");
+    };
+  });
+}
+
+/* A contribution is saved locally like any change, but it must not make the
+   map look edited when a viewer cannot edit. */
+function markContribution(){
+  S.meta.lastEdited = nowISO();
+  S.meta.provisional = false;
+  S.dirty = true;
+  document.body.classList.add("dirty");
+  scheduleSave();
+}
+
 function renderInspector(){
   if(S.selArea && S.areas.has(S.selArea)) return renderAreaInspector(S.areas.get(S.selArea));
   const body = el("inspBody"), n = S.sel ? S.nodes.get(S.sel) : null;
+  if(n && !canEdit()) return renderViewerInspector(n);
   if(!n){
     el("inspTitle").textContent = "Nothing selected";
     el("inspId").textContent = "";
@@ -2204,7 +2627,8 @@ function renderInspector(){
         </div>
         <button class="btn wide" id="fHistory" style="margin-top:10px">Open this node in the change log</button>
       </details>
-    </div>`;
+    </div>
+    ${contributionBlock(n)}`;
 
   const commit = (field, val)=>{ if(setField(n, field, val)){ rebuild(); } };
   el("fLabel").onchange = e=>commit("label", e.target.value);
@@ -2245,6 +2669,7 @@ function renderInspector(){
       markDirty(); rebuild();
     };
   });
+  wireContributions(n);
   body.querySelectorAll("[data-cut]").forEach(b=>{
     b.onclick = ()=>{ const e=S.edges.get(b.dataset.cut);
       logRev(n.id,"link removed", e.from+" → "+e.to, ""); S.edges.delete(b.dataset.cut);
@@ -2290,6 +2715,7 @@ function runSearch(){
   }).map(n=>n.id);
   S.hitIx = S.hits.length ? 0 : -1;
   el("hitCount").textContent = S.hits.length ? "1 / " + S.hits.length : "no matches";
+  if(S.hits.length) rememberSearch(q);
   syncHitChrome();
   render();
   if(S.hits.length) centerOn(S.hits[0], Math.max(S.view.k, .8));
@@ -2379,6 +2805,7 @@ function freeSlot(x, y, h, skipId){
 
 /* A node with no parent, dropped exactly where you asked for it. */
 function addLooseNodeAt(wx, wy){
+  if(!canEdit()){ toast("Switch to editing mode to add nodes."); return; }
   const n = newNode({label:"New node"});
   pinAt(n, wx - NODE_W/2, freeSlot(wx - NODE_W/2, wy - 30, 60, n.id));
   S.nodes.set(n.id, n);
@@ -2393,6 +2820,7 @@ function addLooseNodeAt(wx, wy){
 }
 
 function addNode(rel){
+  if(!canEdit()){ toast("Switch to editing mode to add nodes."); return; }
   const anchor = S.sel ? S.nodes.get(S.sel) : null;
   let parent = null;
   if(rel === "child" && anchor) parent = anchor.id;
@@ -2465,15 +2893,18 @@ function attachImage(node, file, maxW=380, quality=0.72){
 function addBookmark(suggested){
   const label = prompt("Name this bookmark", suggested || (S.sel && S.nodes.get(S.sel) ? S.nodes.get(S.sel).label : "Bookmark"));
   if(label == null) return;
-  S.bookmarks.push(newBookmark({
+  const bm = newBookmark({
     label: label.trim() || "Bookmark",
     node: S.sel || "", x:S.view.x, y:S.view.y, k:S.view.k
-  }));
-  markDirty(); renderContents();
-  toast("Bookmarked");
+  });
+  /* a viewer's bookmarks are theirs alone and stay on this device */
+  if(canEdit()){ S.bookmarks.push(bm); markDirty(); }
+  else { S.personal.bookmarks.push(bm); savePersonal(); }
+  renderContents();
+  toast(canEdit() ? "Bookmarked on the map" : "Bookmarked for you on this device");
 }
 function gotoBookmark(id){
-  const b = S.bookmarks.find(x=>x.id === id);
+  const b = S.bookmarks.concat(S.personal.bookmarks).find(x=>x.id === id);
   if(!b) return;
   if(b.node && S.nodes.has(b.node)){ focusNode(b.node); return; }
   S.view = {x:b.x, y:b.y, k:b.k || 1};
@@ -3081,11 +3512,15 @@ function buildWorkbook(){
     Links:[14,14,14,10,14,20,24],
     Revisions:[8,14,19,10,14,11,26,7,30,30],
     TagStyles:[16,10,11,7,7,10],
-    Sync:[18,54,44,14,14,10,19],
+    Sync:[18,54,44,14,14,14,10,19],
     Areas:[14,30,8,8,8,8,10,14,40],
-    Bookmarks:[14,30,14,8,8,7]
+    Bookmarks:[14,30,14,8,8,7],
+    Suggestions:[14,14,16,19,11,52,10,14,19],
+    CheckItems:[14,14,34,19,14],
+    Checkoffs:[14,14,14,16,9,19,30],
+    Settings:[14,44]
   };
-  for(const name of ["Nodes","Links","Areas","Bookmarks","Revisions","TagStyles","Sync"]){
+  for(const name of ["Nodes","Links","Areas","Bookmarks","Suggestions","CheckItems","Checkoffs","Revisions","TagStyles","Settings","Sync"]){
     if(name === "Sync" && !data.Sync.length) continue;
     const ws = XLSX.utils.json_to_sheet(data[name], {header:HDR[name]});
     ws["!cols"] = widths[name].map(w=>({wch:w}));
@@ -3317,6 +3752,69 @@ async function storageDiagnostics(){
     <br>This tab holds map <code>${esc(S.meta.key || "unsaved")}</code>
     ${!isWebOrigin() ? `<br><span style="color:var(--flag)">Opened from a folder rather than a web address. Phones in particular give downloaded files a throwaway storage area.</span>` : ""}
   </div>`;
+}
+
+/* ---------------------------------------------------------------
+   Personal data. Bookmarks and recent searches belong to whoever is
+   sitting here, not to the map, so they live in their own record and
+   never travel in a push.
+   --------------------------------------------------------------- */
+function personalKey(){ return "personal:" + (S.meta.key || "none"); }
+
+async function loadPersonal(){
+  S.personal = {bookmarks:[], searches:[]};
+  try{
+    const rec = await Store.getKey(personalKey());
+    if(rec){
+      S.personal.bookmarks = Array.isArray(rec.bookmarks) ? rec.bookmarks : [];
+      S.personal.searches = Array.isArray(rec.searches) ? rec.searches : [];
+      S.who = rec.who || S.who || "";
+      S.mode = rec.mode === "root" && !S.meta.locked ? "root" : S.mode;
+    }
+  }catch(e){}
+}
+async function savePersonal(){
+  try{
+    await Store.putKey(personalKey(), {
+      bookmarks:S.personal.bookmarks, searches:S.personal.searches,
+      who:S.who, mode:S.mode, at:nowISO()
+    });
+  }catch(e){}
+}
+function rememberSearch(q){
+  q = String(q||"").trim();
+  if(q.length < 2) return;
+  S.personal.searches = [q].concat(S.personal.searches.filter(x=>x !== q)).slice(0, 20);
+  savePersonal();
+}
+function exportPersonal(){
+  const blob = new Blob([JSON.stringify({v:1, map:S.meta.title, who:S.who,
+    bookmarks:S.personal.bookmarks, searches:S.personal.searches}, null, 2)],
+    {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = (S.meta.title || "mindmap").replace(/[^\w\- ]+/g,"").trim().replace(/\s+/g,"-")
+    + "-my-bookmarks.json";
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+}
+function importPersonal(file){
+  const fr = new FileReader();
+  fr.onload = ()=>{
+    try{
+      const d = JSON.parse(fr.result);
+      if(Array.isArray(d.bookmarks)){
+        const have = new Set(S.personal.bookmarks.map(b=>b.id));
+        d.bookmarks.forEach(b=>{ if(!have.has(b.id)) S.personal.bookmarks.push(b); });
+      }
+      if(Array.isArray(d.searches))
+        S.personal.searches = [...new Set(d.searches.concat(S.personal.searches))].slice(0,20);
+      if(d.who && !S.who) S.who = d.who;
+      savePersonal(); renderContents();
+      toast("Your bookmarks were merged in");
+    }catch(e){ toast("That file could not be read"); }
+  };
+  fr.readAsText(file);
 }
 
 /* --------------------------- recovery dialog --------------------------- */
@@ -3969,7 +4467,7 @@ async function callBridge(conn, action, tables){
      Script never has to answer a preflight it cannot answer. */
   const r = await fetch(base, {
     method:"POST", redirect:"follow",
-    body: JSON.stringify({action:"write", token:conn.token||"", id:conn.id||"",
+    body: JSON.stringify({action, token:conn.token||"", id:conn.id||"",
                           prefix:conn.prefix||"", tables})
   });
   if(!r.ok) throw new Error("The sheet replied " + r.status);
@@ -3980,7 +4478,7 @@ function tokenHint(err, res){
   if(res && res.deployed === "placeholder")
     return "The deployed script still has the placeholder token. Editing the code is not "
          + "enough — Deploy \u2192 Manage deployments \u2192 edit \u2192 Version: New version.";
-  if(res && res.build && res.build !== "b3")
+  if(res && res.build && res.build !== "b4")
     return "An older copy of the script is live. Copy the bridge script again, paste it over, "
          + "then deploy a New version. Use Test this connection to confirm.";
   if(err && /token/i.test(String(err)))
@@ -4000,7 +4498,22 @@ async function runSync(kind){
   document.querySelector(".rail").classList.add("syncing");
   el("syncNote").textContent = kind === "push" ? "Sending…" : "Fetching…";
   try{
-    if(kind === "push"){
+    if(kind === "push" && !canEdit()){
+      /* a viewer sends only the two contribution tabs, by a route that
+         cannot touch anything else even if the token were misused */
+      const t = toSheets();
+      const only = {Suggestions:t.Suggestions, Checkoffs:t.Checkoffs};
+      if(!only.Suggestions.length && !only.Checkoffs.length){
+        toast("Nothing to send yet. Tick something or leave a suggestion first.");
+        return;
+      }
+      const res = await callBridge(conn, "contribute", only);
+      if(!res.ok) throw new Error(tokenHint(res.error, res) || "The sheet refused the contribution");
+      conn.last_sync = nowISO();
+      markClean();
+      toast("Sent " + only.Suggestions.length + " suggestion(s) and "
+            + only.Checkoffs.length + " check-off(s)");
+    } else if(kind === "push"){
       const owner = await Store.ownerOfTarget(targetOf(conn));
       if(owner && owner.mapKey && owner.mapKey !== S.meta.key){
         const ok = confirm(
@@ -4032,7 +4545,8 @@ async function runSync(kind){
         toast("Pulled " + S.nodes.size + " nodes");
       } else {
         const r = mergeModel(M);
-        markDirty(); rebuild();
+        if(canEdit()) markDirty(); else markContribution();
+        rebuild();
         toast(`Merged — ${r.added} new, ${r.updated} updated, ${r.kept} kept local`);
       }
       conn.last_sync = nowISO();
@@ -4082,6 +4596,9 @@ function renderConnList(){
             ${["merge","pull","push"].map(m=>`<option value="${m}"${c.mode===m?" selected":""}>${m}</option>`).join("")}
           </select></label>
       </div>
+      <label class="field"><span>Viewer token — optional, for people who may only suggest</span>
+        <input type="text" data-i="${i}" data-f="viewerToken" value="${esc(c.viewerToken||"")}"
+               placeholder="leave blank if nobody else needs access"></label>
       <div class="grid2">
         <label class="field"><span>Spreadsheet ID, if not the bound one</span>
           <input type="text" data-i="${i}" data-f="id" value="${esc(c.id||"")}" placeholder="optional"></label>
@@ -4146,7 +4663,7 @@ function renderConnList(){
             <em>Anyone with the link</em>.</span>`);
           return;
         }
-        if(res.build !== "b3"){
+        if(res.build !== "b4"){
           say(`<span style="color:var(--flag)">An older copy of the script is live${res.build?" (build "+esc(res.build)+")":""}.
             Apps Script keeps serving the version you deployed, not the code in the editor.
             Copy the bridge script again, paste it over, then Deploy \u2192 Manage deployments
@@ -4186,8 +4703,40 @@ function renderConnList(){
    WIRING
    ===================================================================== */
 async function boot(){
+  el("modeRoot").onclick = ()=>setMode("root");
+  el("modeViewer").onclick = ()=>setMode("viewer");
+  el("btnWho").onclick = ()=>{ whoAmI(true); updateModeUI(); renderInspector(); };
+  el("btnLockMap").onclick = async ()=>{
+    if(!isRoot()) return;
+    if(S.meta.locked){
+      const choice = confirm("Remove the lock so anyone opening this map can edit it?\n\n"
+        + "Cancel to set a new password instead.");
+      if(choice){
+        const pass = prompt("Enter the current editing password to remove the lock.");
+        if(pass == null) return;
+        if(await hashOf(pass) !== S.meta.rootHash){ toast("That password does not match."); return; }
+        S.meta.locked = false; S.meta.rootHash = "";
+        markDirty(); updateModeUI(); toast("Lock removed");
+        return;
+      }
+    }
+    const pass = prompt(S.meta.locked ? "New editing password" : "Choose an editing password.\n\n"
+      + "Anyone without it opens the map in viewing mode.");
+    if(pass == null || !pass.trim()) return;
+    S.meta.rootHash = await hashOf(pass.trim());
+    S.meta.locked = true;
+    markDirty(); updateModeUI();
+    alert("Locked.\n\nThis keeps people out of the editor by agreement, not by force — anyone "
+      + "determined can read the page source. Real protection comes from giving viewers the "
+      + "viewer token for your sheet, which cannot overwrite the map.");
+  };
+  el("btnBmExport").onclick = exportPersonal;
+  el("btnBmImport").onclick = ()=>el("bmFile").click();
+  el("bmFile").onchange = e=>{ if(e.target.files[0]) importPersonal(e.target.files[0]); e.target.value=""; };
+
   el("mapTitle").onchange = e=>{
     const v = e.target.value.trim();
+    if(!canEdit()){ e.target.value = S.meta.title || ""; toast("Switch to editing mode to rename the map."); return; }
     if(v === (S.meta.title || "")) return;
     S.meta.title = v;
     markDirty(); updateChrome();
@@ -4205,6 +4754,8 @@ async function boot(){
     if(S.nodes.size) await saveNow(true);
     S.nodes.clear(); S.edges.clear(); S.revisions.length=0; S.tagStyles.clear();
     S.areas.clear(); S.bookmarks.length = 0;
+    S.suggestions.length = 0; S.checkItems.length = 0; S.checkoffs.length = 0;
+    S.meta.locked = false; S.meta.rootHash = ""; S.mode = "root";
     S.meta.title = "Untitled map"; S.sel = null; S.selArea = null;
     S.meta.key = uid("M-"); rememberKey(); announceKey();
     const n = newNode({label:"Start here", type:"start"});
@@ -4306,13 +4857,30 @@ async function boot(){
     el("connDlg").close();
   };
   el("addConn").onclick = ()=>{ blankConnection(); renderConnList(); refreshSyncUI(); };
+  el("copyViewerLink").onclick = ()=>{
+    const c = activeConnection() || S.connections[0];
+    if(!c || !(c.viewerToken||"").trim()){
+      toast("Set a viewer token first, then copy the script again so the script has it too.");
+      return;
+    }
+    const viewerConns = [Object.assign({}, c, {token:c.viewerToken, viewerToken:"",
+                                               name:(c.name||"Sheet") + " (viewing)", auto:true})];
+    const payload = {v:1, a:0, c:viewerConns};
+    const url = location.origin + location.pathname + "#s=" + b64enc(JSON.stringify(payload));
+    navigator.clipboard.writeText(url)
+      .then(()=>toast("Viewer link copied. It pulls the map and can only add suggestions."))
+      .catch(()=>toast("Clipboard blocked by the browser"));
+  };
+
   el("copyScript").onclick = ()=>{
     /* the token is written into the script as it is copied, so the two halves
        cannot drift apart and produce a token mismatch */
     const c = activeConnection() || S.connections[0];
     const tok = (c && (c.token||"").trim()) || "change-me";
+    const vtok = (c && (c.viewerToken||"").trim()) || "";
     const text = el("gsScript").textContent.trim()
-      .replace("var TOKEN = 'change-me';", "var TOKEN = '" + tok.replace(/'/g, "\\'") + "';");
+      .replace("var TOKEN        = 'change-me';", "var TOKEN        = '" + tok.replace(/'/g, "\\'") + "';")
+      .replace("var VIEWER_TOKEN = '';", "var VIEWER_TOKEN = '" + vtok.replace(/'/g, "\\'") + "';");
     navigator.clipboard.writeText(text)
       .then(()=>toast("Script copied with your token (" + tok + ") already filled in."))
       .catch(()=>toast("Clipboard blocked. Select the script from the page source instead."));
@@ -4487,6 +5055,12 @@ async function boot(){
     S.meta.lastOpened = nowISO();
     Store.touchSession(S.meta.key, {lastOpened:S.meta.lastOpened});
   }
+
+  await loadPersonal();
+  document.body.classList.toggle("viewing", !isRoot());
+  updateModeUI();
+  renderContents();
+  renderInspector();
   if(!S.meta.key) S.meta.key = uid("M-");
   rememberKey();
   announceKey();
