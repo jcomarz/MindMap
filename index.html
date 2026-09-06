@@ -3203,7 +3203,11 @@ async function openSnapshots(){
     </div>`;
 
   let html = "";
-  if(cur) html += card(cur, "this map", "current");
+  if(cur){
+    html += card(cur, "this map", "current");
+    html += `<div class="row" style="margin-top:-6px;margin-bottom:4px">
+      <button class="btn wide" id="copyMapLink">Copy a link that opens this map</button></div>`;
+  }
   const busyNow = await gatherClaims(180);
   if(maps.length){
     html += `<p class="fineprint" style="margin:18px 0 0">Other maps saved in this browser,
@@ -3252,7 +3256,7 @@ async function openSnapshots(){
       const rec = await Store.getSession(key);
       if(!rec || !restorePayload(rec)){ toast("That map could not be opened"); return; }
       S.meta.key = key;
-      writeHash(); announceKey();
+      rememberKey(); announceKey();
       el("snapDlg").close();
       toast("Opened " + (rec.title || "the map"));
     };
@@ -3283,6 +3287,13 @@ async function openSnapshots(){
       toast("Map deleted");
     };
   });
+
+  const cml = el("copyMapLink");
+  if(cml) cml.onclick = ()=>{
+    navigator.clipboard.writeText(buildShareLink({map:true}))
+      .then(()=>toast("Link copied. It opens this map directly."))
+      .catch(()=>toast("Clipboard blocked by the browser"));
+  };
 
   const ps = el("purgeStale");
   if(ps) ps.onclick = async ()=>{
@@ -3550,20 +3561,41 @@ async function gatherClaims(ms=300){
 function b64enc(str){ return btoa(unescape(encodeURIComponent(str))).replace(/=+$/,""); }
 function b64dec(str){ return decodeURIComponent(escape(atob(str))); }
 
-function writeHash(){
-  const parts = [];
-  if(S.meta.key) parts.push("m=" + encodeURIComponent(S.meta.key));
-  if(S.connections.length)
-    parts.push("s=" + b64enc(JSON.stringify({v:1, a:S.activeConn, c:S.connections})));
-  const h = parts.length ? "#" + parts.join("&") : "";
-  history.replaceState(null, "", location.pathname + location.search + h);
+/* Which map this tab holds is remembered per tab, not in the address bar.
+   Writing it to the URL meant every map ever opened became its own entry in
+   the browser's history and omnibox suggestions. */
+const TAB_KEY_SLOT = "mindmap:tabkey";
+function rememberKey(){
+  try{ if(S.meta.key) sessionStorage.setItem(TAB_KEY_SLOT, S.meta.key); }catch(e){}
 }
+function recallKey(){
+  try{ return sessionStorage.getItem(TAB_KEY_SLOT) || null; }catch(e){ return null; }
+}
+
+/* A shareable link is built on demand and copied. The address bar is left
+   alone, so nothing accumulates. */
+function buildShareLink(opts){
+  const parts = [];
+  if(opts && opts.map && S.meta.key) parts.push("m=" + encodeURIComponent(S.meta.key));
+  if(opts && opts.sync && S.connections.length)
+    parts.push("s=" + b64enc(JSON.stringify({v:1, a:S.activeConn, c:S.connections})));
+  return location.origin + location.pathname + location.search + (parts.length ? "#" + parts.join("&") : "");
+}
+
+/* Anything handed in through a link is consumed once, then wiped from the
+   address bar so it is not left lying in history. */
+function takeHash(){
+  const h = location.hash;
+  if(h) history.replaceState(null, "", location.pathname + location.search);
+  return h;
+}
+let bootHash = "";
 function readHashKey(){
-  const m = /[#&]m=([^&]+)/.exec(location.hash);
+  const m = /[#&]m=([^&]+)/.exec(bootHash);
   return m ? decodeURIComponent(m[1]) : null;
 }
 function readHash(){
-  const m = /[#&]s=([^&]+)/.exec(location.hash);
+  const m = /[#&]s=([^&]+)/.exec(bootHash);
   if(!m) return false;
   try{
     const p = JSON.parse(b64dec(m[1]));
@@ -3660,7 +3692,6 @@ async function runSync(kind){
       }
       conn.last_sync = nowISO();
     }
-    writeHash();
   }catch(err){
     console.error(err);
     toast(String(err.message || err));
@@ -3712,14 +3743,14 @@ function renderConnList(){
       const c = S.connections[Number(inp.dataset.i)];
       c[inp.dataset.f] = inp.type === "checkbox" ? inp.checked : ev.target.value.trim();
       if(inp.dataset.f === "name") renderConnList();
-      markDirty(); writeHash(); refreshSyncUI();
+      markDirty(); refreshSyncUI();
     };
   });
   box.querySelectorAll("[data-del]").forEach(b=>{
     b.onclick = ()=>{
       S.connections.splice(Number(b.dataset.del), 1);
       S.activeConn = S.connections.length ? 0 : null;
-      renderConnList(); writeHash(); refreshSyncUI();
+      renderConnList(); refreshSyncUI();
     };
   });
 }
@@ -3748,7 +3779,7 @@ async function boot(){
     S.nodes.clear(); S.edges.clear(); S.revisions.length=0; S.tagStyles.clear();
     S.areas.clear(); S.bookmarks.length = 0;
     S.meta.title = "Untitled map"; S.sel = null; S.selArea = null;
-    S.meta.key = uid("M-"); writeHash(); announceKey();
+    S.meta.key = uid("M-"); rememberKey(); announceKey();
     const n = newNode({label:"Start here", type:"start"});
     S.nodes.set(n.id, n);
     markClean(); rebuild(); fitView(0.96, 1); select(n.id);
@@ -3830,7 +3861,7 @@ async function boot(){
   };
 
   el("connSel").onchange = e=>{ S.activeConn = e.target.value === "" ? null : Number(e.target.value);
-    writeHash(); refreshSyncUI(); };
+    refreshSyncUI(); };
   el("btnPull").onclick  = ()=>runSync("pull");
   el("btnMerge").onclick = ()=>runSync("merge");
   el("btnPush").onclick  = ()=>runSync("push");
@@ -3839,7 +3870,7 @@ async function boot(){
   el("addConn").onclick = ()=>{
     S.connections.push({name:"New sheet", endpoint:"", id:"", prefix:"", token:"change-me", mode:"merge", auto:false, last_sync:""});
     S.activeConn = S.connections.length - 1;
-    renderConnList(); writeHash(); refreshSyncUI();
+    renderConnList(); refreshSyncUI();
   };
   el("copyScript").onclick = ()=>{
     navigator.clipboard.writeText(el("gsScript").textContent.trim())
@@ -3847,9 +3878,8 @@ async function boot(){
       .catch(()=>toast("Clipboard blocked. Select the script from the page source instead."));
   };
   el("copyLink").onclick = ()=>{
-    writeHash();
-    navigator.clipboard.writeText(location.href)
-      .then(()=>toast("Link copied. Bookmark it and this map opens ready to sync."))
+    navigator.clipboard.writeText(buildShareLink({sync:true}))
+      .then(()=>toast("Link copied. Opening it sets up this sheet on any device."))
       .catch(()=>toast("Clipboard blocked by the browser"));
   };
 
@@ -3912,6 +3942,8 @@ async function boot(){
   el("btnLinkFile").onclick = ()=>{ if(fileHandle && filePending) reconnectFile(); else linkFile(); };
   el("bannerHide").onclick = hideBanner;
 
+  bootHash = takeHash();
+
   await Store.init();
   await Store.requestPersist();
   await Store.checkBeacon();
@@ -3932,7 +3964,7 @@ async function boot(){
     }
 
     hadSessions = metas.length > 0;
-    const wanted = readHashKey();
+    const wanted = readHashKey() || recallKey();
     const busy = await gatherClaims();
     let key = null;
 
@@ -3982,7 +4014,7 @@ async function boot(){
     Store.touchSession(S.meta.key, {lastOpened:S.meta.lastOpened});
   }
   if(!S.meta.key) S.meta.key = uid("M-");
-  writeHash();
+  rememberKey();
   announceKey();
   if(forked){
     showBanner(`<strong>Another tab already has this map open.</strong>
