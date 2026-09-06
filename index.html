@@ -220,9 +220,10 @@ label.field>span{display:block;font-size:12px;color:var(--graphite-60);margin-bo
 #printroot{display:none}
 @media print{
   @page{margin:0.4in}
-  html,body{height:auto;overflow:visible;background:#fff}
-  #app,.toast{display:none !important}
-  #printroot{display:block}
+  html,body{height:auto;overflow:visible;background:#fff;display:block}
+  /* everything except the sheets, whatever gets added later */
+  body > *{display:none !important}
+  body > #printroot{display:block !important}
   .sheet{page-break-after:always;break-after:page;position:relative}
   .sheet:last-child{page-break-after:auto;break-after:auto}
   .sheet svg{display:block}
@@ -234,6 +235,8 @@ label.field>span{display:block;font-size:12px;color:var(--graphite-60);margin-bo
   .sheet-tb div:last-child{border-right:0}
   .sheet-tb b{display:block;font-weight:500;font-size:6pt;color:#6E757C}
   .cont{font-family:var(--mono);font-size:7pt;fill:#6E757C}
+  .trim{fill:none;stroke:#9AA1A8;stroke-width:.5;stroke-dasharray:4 3}
+  .tick{stroke:#23282D;stroke-width:.75}
   .idxgrid{stroke:#14549B;stroke-width:.75;fill:none}
   .idxlabel{font-family:var(--mono);font-size:9pt;fill:#14549B}
 }
@@ -550,14 +553,34 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
             <option value="tabloid-l">Tabloid, landscape</option>
           </select>
         </label>
-        <label class="field"><span>Scale</span>
-          <select id="printScale">
-            <option value="1">100% — one sheet per section</option>
-            <option value="0.75">75%</option>
-            <option value="0.5">50%</option>
-            <option value="fit">Fit whole map to one sheet</option>
+        <label class="field"><span>Size</span>
+          <select id="printMode">
+            <option value="across">Fit to a number of sheets across</option>
+            <option value="one">Everything on one sheet</option>
+            <option value="mag">Set the magnification</option>
           </select>
         </label>
+        <label class="field" id="acrossBox"><span>Sheets across</span>
+          <input type="number" id="printAcross" min="1" max="12" step="1" value="2"></label>
+        <label class="field" id="magBox" hidden><span>Magnification</span>
+          <select id="printMag">
+            <option value="0.5">50% — small, fits more per sheet</option>
+            <option value="0.75">75%</option>
+            <option value="1" selected>100% — same size as the screen</option>
+            <option value="1.5">150%</option>
+            <option value="2">200% — readable across a room</option>
+            <option value="3">300%</option>
+            <option value="4">400%</option>
+          </select>
+        </label>
+        <label class="field"><span>Seams</span>
+          <select id="printSeam">
+            <option value="0.25">Quarter inch overlap, trim and butt</option>
+            <option value="0.5">Half inch overlap, glue</option>
+            <option value="0">No overlap, edge to edge</option>
+          </select>
+        </label>
+        <p id="printPlan" style="font-size:12px;color:var(--graphite-60);margin:0 0 10px;line-height:1.5">—</p>
         <div class="row">
           <button class="btn" id="btnPrintView">Print this view</button>
         </div>
@@ -565,8 +588,9 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
           <button class="btn primary wide" id="btnPrintAll">Print full map as collage</button>
         </div>
         <p style="font-size:12px;color:var(--graphite-60);margin:9px 0 0">
-          The collage prints a sheet index first, then one sheet per grid square with a
-          half-inch overlap so the tiles butt together on the wall.
+          Sheets carry a grid reference, corner ticks and a dashed trim line. Cut on the
+          dashes and the edges butt together exactly. In Chrome\u2019s print dialog, open
+          More settings and switch off Headers and footers.
         </p>
       </div>
 
@@ -649,7 +673,7 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
       <li>Open the spreadsheet you want this map to live in.</li>
       <li>Extensions → Apps Script. Delete what is there, paste the bridge script, save.</li>
       <li>Deploy → New deployment → Web app. Run as yourself, access: anyone with the link.</li>
-      <li>Copy the /exec URL it gives you and paste it below.</li>
+      <li>Copy the /exec URL it gives you into the first box below, then Done.</li>
     </ol>
     <div class="row">
       <button class="btn" id="copyScript">Copy the bridge script</button>
@@ -658,8 +682,8 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
     <div id="connList"></div>
     <button class="btn wide" id="addConn" style="margin-top:12px">Add another sheet</button>
     <p class="fineprint">
-      Sheets are remembered in the page link and in the Sync tab of your workbook, so
-      bookmark this page once a sheet is set up and it opens ready to go on any device.
+      Sheets are saved with the map and written to the Sync tab of your workbook.
+      Use <em>Copy a link to this setup</em> to carry the same connection to another device.
     </p>
   </div>
 </dialog>
@@ -1082,7 +1106,7 @@ function toSheets(){
     bookmark_id:b.id, label:b.label, node_id:b.node||"",
     x:round(b.x), y:round(b.y), zoom:Math.round(b.k*1000)/1000
   }));
-  const sync = S.connections.map(c=>({
+  const sync = S.connections.filter(c=>(c.endpoint||"").trim()).map(c=>({
     name:c.name, endpoint:c.endpoint, spreadsheet_id:c.id||"", prefix:c.prefix||"",
     token:c.token||"", mode:c.mode, last_sync:c.last_sync||""
   }));
@@ -1613,6 +1637,7 @@ function renderContents(){
 
 function updateChrome(){
   if(el("histNote")) updateHistNote();
+  if(el("printPlan")) describePlan();
   const ti = el("mapTitle");
   /* never overwrite what is being typed */
   if(ti && document.activeElement !== ti) ti.value = S.meta.title || "";
@@ -2523,9 +2548,64 @@ function titleBlockEl(ref, of){
 
 function printRects(){
   const key = el("paper").value, p = PAPERS[key];
-  const pw = p.w - MARGIN_IN*2, ph = p.h - MARGIN_IN*2;
   setPageStyle(key);
-  return {pw, ph, scaleSel: el("printScale").value};
+  return {pw:p.w - MARGIN_IN*2, ph:p.h - MARGIN_IN*2};
+}
+
+/* Work out the tiling for the current settings. Magnification of 1 means a
+   node prints the same size it looks on screen at 100%. */
+function planCollage(){
+  const {pw, ph} = printRects();
+  const b = worldBBox(30);
+  const mode = el("printMode").value;
+  const ovIn = parseFloat(el("printSeam").value) || 0;
+
+  let mag;
+  if(mode === "one"){
+    mag = Math.min(pw * PX_PER_IN / b.w, ph * PX_PER_IN / b.h);
+  } else if(mode === "across"){
+    const n = Math.max(1, Math.min(12, parseInt(el("printAcross").value, 10) || 1));
+    /* n tiles wide: one full tile plus n-1 steps has to cover the map */
+    mag = PX_PER_IN * (pw + (n - 1) * (pw - ovIn)) / b.w;
+    if(n === 1) mag = Math.min(mag, ph * PX_PER_IN / b.h);
+  } else {
+    mag = parseFloat(el("printMag").value) || 1;
+  }
+  mag = Math.max(0.02, Math.min(12, mag));
+
+  const tileW = pw * PX_PER_IN / mag, tileH = ph * PX_PER_IN / mag;
+  const ovW = ovIn * PX_PER_IN / mag;
+  const stepX = Math.max(1, tileW - ovW), stepY = Math.max(1, tileH - ovW);
+  /* the epsilon matters: solving for "2 across" lands on exactly 1.0 steps
+     and float drift would round it up to an extra sheet */
+  const EPS = 1e-6;
+  const cols = b.w <= tileW + EPS ? 1 : Math.ceil((b.w - tileW) / stepX - EPS) + 1;
+  const rows = b.h <= tileH + EPS ? 1 : Math.ceil((b.h - tileH) / stepY - EPS) + 1;
+
+  /* centre the map across the sheets so the outer margins match */
+  const coveredW = tileW + (cols - 1) * stepX;
+  const coveredH = tileH + (rows - 1) * stepY;
+  const originX = b.x - (coveredW - b.w) / 2;
+  const originY = b.y - (coveredH - b.h) / 2;
+
+  return {pw, ph, b, mag, ovIn, tileW, tileH, stepX, stepY, cols, rows,
+          originX, originY, total:cols * rows};
+}
+
+function describePlan(){
+  const note = el("printPlan");
+  if(!note) return;
+  try{
+    const p = planCollage();
+    const sheets = p.total + (p.total > 2 ? 1 : 0);
+    const inches = (LINE_H * p.mag / PX_PER_IN);
+    const wall = p.mag >= 2 ? " Readable from across a room."
+               : p.mag < 0.6 ? " Small print, best for a desk copy." : "";
+    note.textContent = `${p.cols} across × ${p.rows} down = ${p.total} sheet${p.total===1?"":"s"}`
+      + (p.total > 2 ? " plus an index" : "")
+      + ` · ${Math.round(p.mag*100)}% · text about ${inches.toFixed(2)}in tall.`
+      + ` ${sheets} page${sheets===1?"":"s"} in total.` + wall;
+  }catch(e){ note.textContent = "—"; }
 }
 
 function printCurrentView(){
@@ -2533,7 +2613,6 @@ function printCurrentView(){
   SHEET_SEQ = 0;
   const s = svgSize();
   const rect = { x:-S.view.x/S.view.k, y:-S.view.y/S.view.k, w:s.w/S.view.k, h:s.h/S.view.k };
-  /* stretch the shorter side so the tile matches the paper's shape */
   const want = pw/ph, have = rect.w/rect.h;
   if(have < want){ const nw = rect.h*want; rect.x -= (nw-rect.w)/2; rect.w = nw; }
   else{ const nh = rect.w/want; rect.y -= (nh-rect.h)/2; rect.h = nh; }
@@ -2547,73 +2626,75 @@ function printCurrentView(){
 }
 
 function printCollage(){
-  const {pw, ph, scaleSel} = printRects();
-  const b = worldBBox(30);
-
-  let tileW, tileH;
-  if(scaleSel === "fit"){
-    const want = pw/ph;
-    tileW = b.w; tileH = b.h;
-    if(tileW/tileH < want) tileW = tileH*want; else tileH = tileW/want;
-    tileW += 1; tileH += 1;
-  } else {
-    const sc = parseFloat(scaleSel) || 1;
-    tileW = (pw * PX_PER_IN) / sc;
-    tileH = (ph * PX_PER_IN) / sc;
-  }
-  const fitOne = scaleSel === "fit";
-  const ov = fitOne ? 0 : (OVERLAP_IN * PX_PER_IN) / (parseFloat(scaleSel) || 1);
-  const stepX = fitOne ? tileW : Math.max(40, tileW - ov);
-  const stepY = fitOne ? tileH : Math.max(40, tileH - ov);
-  const cols = fitOne ? 1 : Math.max(1, Math.ceil(b.w / stepX));
-  const rows = fitOne ? 1 : Math.max(1, Math.ceil(b.h / stepY));
-  const total = cols * rows;
-
-  if(total > 60 && !confirm(total + " sheets at this scale. Print anyway?")) return;
+  const p = planCollage();
+  if(p.total > 60 && !confirm(p.total + " sheets at this size. Print anyway?")) return;
 
   const root = el("printroot"); root.textContent = "";
   SHEET_SEQ = 0;
 
-  /* ---- sheet 1: the index, only worth a page when there is a grid ---- */
-  if(total > 1){
-  const idx = document.createElement("div"); idx.className = "sheet";
-  const iw = pw/ph < b.w/b.h ? b.w : b.h*(pw/ph);
-  const ih = iw/(pw/ph);
-  const isvg = sheetSvg({x:b.x-(iw-b.w)/2, y:b.y-(ih-b.h)/2, w:iw, h:ih}, pw, ph);
-  const gGrid = mk("g", {}, isvg);
-  for(let r=0; r<rows; r++) for(let c=0; c<cols; c++){
-    const x = b.x + c*stepX, y = b.y + r*stepY;
-    mk("rect", {x, y, width:tileW, height:tileH, class:"idxgrid",
-      stroke:"#14549B", "stroke-width":Math.max(1, b.w/500), fill:"none",
-      "stroke-dasharray":`${b.w/90} ${b.w/140}`}, gGrid);
-    const t = mk("text", {x:x + tileW/2, y:y + tileH/2, "text-anchor":"middle",
-      class:"idxlabel", fill:"#14549B", "font-size":Math.max(12, b.w/38),
-      "font-family":"IBM Plex Mono, monospace", opacity:.75}, gGrid);
-    t.textContent = colRef(c) + (r+1);
-  }
-  idx.appendChild(isvg);
-  idx.appendChild(titleBlockEl("index — " + cols + "×" + rows, total));
-  root.appendChild(idx);
+  /* an index only earns a page once there is a grid worth navigating */
+  if(p.total > 2){
+    const idx = document.createElement("div"); idx.className = "sheet";
+    const coveredW = p.tileW + (p.cols - 1) * p.stepX;
+    const coveredH = p.tileH + (p.rows - 1) * p.stepY;
+    const want = p.pw / p.ph;
+    let iw = coveredW, ih = coveredH;
+    if(iw / ih < want) iw = ih * want; else ih = iw / want;
+    const isvg = sheetSvg({x:p.originX - (iw - coveredW)/2, y:p.originY - (ih - coveredH)/2,
+                           w:iw, h:ih}, p.pw, p.ph);
+    const g = mk("g", {}, isvg);
+    for(let r = 0; r < p.rows; r++) for(let c = 0; c < p.cols; c++){
+      const x = p.originX + c * p.stepX, y = p.originY + r * p.stepY;
+      mk("rect", {x, y, width:p.stepX, height:p.stepY, fill:"none", stroke:"#14549B",
+        "stroke-width":Math.max(1, coveredW/600),
+        "stroke-dasharray":`${coveredW/90} ${coveredW/140}`}, g);
+      const t = mk("text", {x:x + p.stepX/2, y:y + p.stepY/2, "text-anchor":"middle",
+        fill:"#14549B", "font-size":Math.max(12, coveredW/38),
+        "font-family":"IBM Plex Mono, monospace", opacity:.75}, g);
+      t.textContent = colRef(c) + (r + 1);
+    }
+    idx.appendChild(isvg);
+    idx.appendChild(titleBlockEl("index", p.total + "  (" + p.cols + "×" + p.rows + ")"));
+    root.appendChild(idx);
   }
 
-  /* ---- one sheet per grid square ---- */
-  for(let r=0; r<rows; r++) for(let c=0; c<cols; c++){
-    const rect = { x:b.x + c*stepX, y:b.y + r*stepY, w:tileW, h:tileH };
-    const ref = colRef(c) + (r+1);
+  for(let r = 0; r < p.rows; r++) for(let c = 0; c < p.cols; c++){
+    const rect = {x:p.originX + c * p.stepX, y:p.originY + r * p.stepY, w:p.tileW, h:p.tileH};
+    const ref = colRef(c) + (r + 1);
     const sheet = document.createElement("div"); sheet.className = "sheet";
-    const s = sheetSvg(rect, pw, ph);
-    const fs = Math.max(9, tileW/70);
-    const mark = (x,y,txt,anchor)=>{
-      const t = mk("text",{x, y, "text-anchor":anchor, class:"cont", fill:"#6E757C",
-        "font-family":"IBM Plex Mono, monospace", "font-size":fs}, s);
+    const svgEl = sheetSvg(rect, p.pw, p.ph);
+    const unit = p.tileW / 100;
+
+    /* trim line at the step boundary: cut here and the sheets butt exactly */
+    if(p.ovIn > 0){
+      mk("rect", {x:rect.x, y:rect.y, width:p.stepX, height:p.stepY, class:"trim",
+        fill:"none", stroke:"#9AA1A8", "stroke-width":unit*0.12,
+        "stroke-dasharray":`${unit*1.6} ${unit*1.2}`}, svgEl);
+    }
+    /* corner ticks for lining the sheets up */
+    const tick = (x, y, dx, dy)=>{
+      mk("line", {x1:x, y1:y, x2:x + dx, y2:y, stroke:"#23282D", "stroke-width":unit*0.18}, svgEl);
+      mk("line", {x1:x, y1:y, x2:x, y2:y + dy, stroke:"#23282D", "stroke-width":unit*0.18}, svgEl);
+    };
+    const tl = unit * 2.2;
+    tick(rect.x, rect.y, tl, tl);
+    tick(rect.x + p.stepX, rect.y, -tl, tl);
+    tick(rect.x, rect.y + p.stepY, tl, -tl);
+    tick(rect.x + p.stepX, rect.y + p.stepY, -tl, -tl);
+
+    const fs = Math.max(9, p.tileW/70);
+    const mark = (x, y, txt, anchor)=>{
+      const t = mk("text", {x, y, "text-anchor":anchor, class:"cont", fill:"#6E757C",
+        "font-family":"IBM Plex Mono, monospace", "font-size":fs}, svgEl);
       t.textContent = txt;
     };
-    if(c > 0)        mark(rect.x + fs*0.8, rect.y + rect.h/2, "◀ " + colRef(c-1) + (r+1), "start");
-    if(c < cols-1)   mark(rect.x + rect.w - fs*0.8, rect.y + rect.h/2, colRef(c+1) + (r+1) + " ▶", "end");
-    if(r > 0)        mark(rect.x + rect.w/2, rect.y + fs*1.4, "▲ " + colRef(c) + r, "middle");
-    if(r < rows-1)   mark(rect.x + rect.w/2, rect.y + rect.h - fs*0.6, "▼ " + colRef(c) + (r+2), "middle");
-    sheet.appendChild(s);
-    sheet.appendChild(titleBlockEl(ref, total));
+    if(c > 0)          mark(rect.x + fs*0.8, rect.y + rect.h/2, "◀ " + colRef(c-1) + (r+1), "start");
+    if(c < p.cols-1)   mark(rect.x + rect.w - fs*0.8, rect.y + rect.h/2, colRef(c+1) + (r+1) + " ▶", "end");
+    if(r > 0)          mark(rect.x + rect.w/2, rect.y + fs*1.4, "▲ " + colRef(c) + r, "middle");
+    if(r < p.rows-1)   mark(rect.x + rect.w/2, rect.y + rect.h - fs*0.6, "▼ " + colRef(c) + (r+2), "middle");
+
+    sheet.appendChild(svgEl);
+    sheet.appendChild(titleBlockEl(ref, p.total + "  (" + p.cols + "×" + p.rows + ")"));
     root.appendChild(sheet);
   }
   window.print();
@@ -3645,6 +3726,69 @@ async function buildTransferLink(dropImages){
   return {url, chars:url.length, stripped, tooBig:url.length > LINK_LIMIT};
 }
 
+/* Adopt a map that arrived in a link. Whatever is on screen is parked in
+   storage first, so nothing is lost by following one. */
+async function receiveMapData(packed, quiet){
+  let payload;
+  try{ payload = JSON.parse(await ungzipB64(packed)); }
+  catch(e){
+    toast("That link could not be read. It may have been shortened or cut off.");
+    return false;
+  }
+  const M = tablesToModel(payload.tables || {});
+  if(!M.nodes.size){ toast("That link held no nodes."); return false; }
+  if(!quiet && S.nodes.size && !S.meta.provisional) await saveNow(true);
+  adoptModel(M);
+  S.meta.title = payload.title || "Shared map";
+  S.meta.key = uid("M-");
+  S.meta.provisional = false;
+  rebuild(); fitView(0.96, 0.6);
+  markDirty();
+  rememberKey(); announceKey();
+  toast("Map received from the link and saved on this device");
+  return true;
+}
+
+async function switchToMapKey(key){
+  const rec = await Store.getSession(key);
+  if(!rec){
+    showBanner(`<strong>That link points at a map saved in another browser.</strong>
+      A plain map link is a bookmark, not a copy. To move a map between devices use
+      <em>Copy a link with the map inside</em>, a Google Sheet, or a saved .xlsx file.`, null, null);
+    return false;
+  }
+  if(S.nodes.size && !S.meta.provisional) await saveNow(true);
+  if(!restorePayload(rec)) return false;
+  S.meta.key = key;
+  rememberKey(); announceKey();
+  toast("Opened " + (rec.title || "the map"));
+  return true;
+}
+
+/* A link pasted into a tab that is already open only changes the fragment,
+   so there is no page load to hook. Handle it here as well. */
+async function handleHashArrival(){
+  const h = location.hash;
+  if(!h || h.length < 3) return;
+  history.replaceState(null, "", location.pathname + location.search);
+  const d = /[#&]d=([^&]+)/.exec(h);
+  const m = /[#&]m=([^&]+)/.exec(h);
+  const sy = /[#&]s=([^&]+)/.exec(h);
+  if(sy){
+    try{
+      const cfg = JSON.parse(b64dec(sy[1]));
+      if(Array.isArray(cfg.c) && cfg.c.length){
+        S.connections = cfg.c;
+        S.activeConn = (cfg.a != null && cfg.c[cfg.a]) ? cfg.a : 0;
+        refreshSyncUI();
+        if(!d && !m) toast("Sheet settings loaded from the link");
+      }
+    }catch(e){}
+  }
+  if(d) return void await receiveMapData(d[1]);
+  if(m) return void await switchToMapKey(decodeURIComponent(m[1]));
+}
+
 /* A shareable link is built on demand and copied. The address bar is left
    alone, so nothing accumulates. */
 function buildShareLink(opts){
@@ -3704,7 +3848,10 @@ function refreshSyncUI(){
       ? (c.last_sync ? "Last synced " + c.last_sync : "Ready. Pull brings the sheet down, Push sends this map up.")
       : "Pick a sheet.";
   }
-  ["btnPull","btnPush","btnMerge"].forEach(id=>el(id).disabled = !activeConnection());
+  const c2 = activeConnection();
+  const ready = !!(c2 && (c2.endpoint||"").trim());
+  ["btnPull","btnPush","btnMerge"].forEach(id=>el(id).disabled = !ready);
+  if(c2 && !ready) note.textContent = "Paste the web app URL in Manage sheets to finish setting this up.";
 }
 
 async function callBridge(conn, action, tables){
@@ -3780,12 +3927,16 @@ async function runSync(kind){
 }
 
 /* --------------------------- connection editor --------------------------- */
+function blankConnection(){
+  S.connections.push({name:"My sheet", endpoint:"", id:"", prefix:"",
+                      token:"change-me", mode:"merge", auto:false, last_sync:""});
+  S.activeConn = S.connections.length - 1;
+}
+
 function renderConnList(){
   const box = el("connList");
   box.textContent = "";
-  if(!S.connections.length){
-    box.innerHTML = `<p class="fineprint" style="margin-top:14px">No sheets yet. Add one below.</p>`;
-  }
+
   S.connections.forEach((c,i)=>{
     const d = document.createElement("div");
     d.className = "conn";
@@ -3794,10 +3945,11 @@ function renderConnList(){
         <strong>${esc(c.name || "Sheet " + (i+1))}</strong>
         <button class="btn" data-del="${i}" style="padding:3px 9px;font-size:12px">Remove</button>
       </div>
+      <label class="field"><span>Paste the web app URL here, it ends in /exec</span>
+        <input type="text" data-i="${i}" data-f="endpoint" value="${esc(c.endpoint||"")}"
+               placeholder="https://script.google.com/macros/s/…/exec"></label>
       <label class="field"><span>What to call it</span>
         <input type="text" data-i="${i}" data-f="name" value="${esc(c.name||"")}" placeholder="Lab protocols"></label>
-      <label class="field"><span>Web app URL, ending in /exec</span>
-        <input type="text" data-i="${i}" data-f="endpoint" value="${esc(c.endpoint||"")}" placeholder="https://script.google.com/macros/s/…/exec"></label>
       <div class="grid2">
         <label class="field"><span>Token</span>
           <input type="text" data-i="${i}" data-f="token" value="${esc(c.token||"")}" placeholder="change-me"></label>
@@ -3942,13 +4094,20 @@ async function boot(){
   el("btnPull").onclick  = ()=>runSync("pull");
   el("btnMerge").onclick = ()=>runSync("merge");
   el("btnPush").onclick  = ()=>runSync("push");
-  el("btnConns").onclick = ()=>{ renderConnList(); el("connDlg").showModal(); };
-  el("dlgClose").onclick = ()=>el("connDlg").close();
-  el("addConn").onclick = ()=>{
-    S.connections.push({name:"New sheet", endpoint:"", id:"", prefix:"", token:"change-me", mode:"merge", auto:false, last_sync:""});
-    S.activeConn = S.connections.length - 1;
-    renderConnList(); refreshSyncUI();
+  el("btnConns").onclick = ()=>{
+    /* start with an empty form rather than making people find an Add button
+       before step 4 has anywhere to paste into */
+    if(!S.connections.length) blankConnection();
+    renderConnList(); el("connDlg").showModal();
   };
+  el("dlgClose").onclick = ()=>{
+    /* drop a form that was opened and never filled in */
+    S.connections = S.connections.filter(c=>(c.endpoint||"").trim());
+    if(S.activeConn != null && !S.connections[S.activeConn]) S.activeConn = S.connections.length ? 0 : null;
+    refreshSyncUI();
+    el("connDlg").close();
+  };
+  el("addConn").onclick = ()=>{ blankConnection(); renderConnList(); refreshSyncUI(); };
   el("copyScript").onclick = ()=>{
     navigator.clipboard.writeText(el("gsScript").textContent.trim())
       .then(()=>toast("Bridge script copied. Paste it into Apps Script."))
@@ -3965,6 +4124,18 @@ async function boot(){
   el("zFit").onclick = ()=>fitView();
   el("btnPrintView").onclick = printCurrentView;
   el("btnPrintAll").onclick = printCollage;
+  const syncPrintUI = ()=>{
+    const mode = el("printMode").value;
+    el("acrossBox").hidden = mode !== "across";
+    el("magBox").hidden = mode !== "mag";
+    describePlan();
+  };
+  el("printMode").onchange = syncPrintUI;
+  ["printAcross","printMag","printSeam","paper"].forEach(id=>{
+    el(id).addEventListener("change", describePlan);
+    el(id).addEventListener("input", describePlan);
+  });
+  syncPrintUI();
 
   const closeSheets = ()=>{
     el("rail").classList.remove("open"); el("inspector").classList.remove("open");
@@ -4008,6 +4179,10 @@ async function boot(){
     e.preventDefault(); e.returnValue = "";
   });
   window.addEventListener("resize", debounce(()=>applyView(), 120));
+  window.addEventListener("hashchange", handleHashArrival);
+  /* pasting the same link twice leaves the hash unchanged, so no event
+     fires — catch it on the way back to the tab instead */
+  window.addEventListener("focus", ()=>{ if(location.hash.length > 2) handleHashArrival(); });
 
   el("btnSnaps").onclick = openSnapshots;
   el("snapClose").onclick = ()=>el("snapDlg").close();
@@ -4031,25 +4206,7 @@ async function boot(){
 
   /* a link carrying a whole map wins over anything saved here */
   const packed = readHashData();
-  if(packed){
-    try{
-      const payload = JSON.parse(await ungzipB64(packed));
-      const M = tablesToModel(payload.tables || {});
-      if(M.nodes.size){
-        adoptModel(M);
-        S.meta.title = payload.title || "Shared map";
-        S.meta.key = uid("M-");
-        S.meta.provisional = false;
-        rebuild(); fitView(0.96, 0.6);
-        markDirty();
-        restored = true;
-        toast("Map received from the link and saved on this device");
-      }
-    }catch(e){
-      console.warn("link decode failed", e);
-      toast("That link could not be read. It may have been shortened or cut off.");
-    }
-  }
+  if(packed) restored = await receiveMapData(packed, true);
 
   try{
     if(restored) throw {skip:true};
