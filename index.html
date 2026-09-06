@@ -52,6 +52,32 @@ button{cursor:pointer}
 .brand h1{margin:0;font-size:17px;font-weight:600;letter-spacing:.01em}
 .brand p{margin:2px 0 0;font-size:12px;color:var(--graphite-60)}
 
+.railtabs{display:flex;border-bottom:1px solid var(--rule)}
+.railtab{flex:1;border:0;background:transparent;padding:9px 6px;font-size:13px;
+  color:var(--graphite-60);border-bottom:2px solid transparent}
+.railtab.on{color:var(--graphite);font-weight:600;border-bottom-color:var(--blueprint)}
+#paneContents details{margin:0}
+#paneContents summary{list-style:none;cursor:pointer}
+#paneContents summary::-webkit-details-marker{display:none}
+.tocitem{display:flex;align-items:center;gap:7px;padding:6px 4px;font-size:13px;
+  border-radius:2px;cursor:pointer;line-height:1.3}
+.tocitem:hover{background:var(--paper-2)}
+.tocitem.sel{background:var(--blueprint-soft);color:var(--blueprint)}
+.tocitem.retired{color:var(--retired)}
+.tocitem.retired .toclabel{text-decoration:line-through;text-decoration-color:var(--rule)}
+.toclabel{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tocdot{width:7px;height:7px;flex:0 0 auto;border:1px solid var(--graphite-60)}
+.tocdot.decision{transform:rotate(45deg)}
+.tocdot.start,.tocdot.end{border-radius:50%}
+.tocdot.filled{background:var(--graphite-60)}
+.toctwist{flex:0 0 auto;width:10px;color:var(--graphite-60);font-size:9px;transition:transform .12s}
+details[open]>summary .toctwist{transform:rotate(90deg)}
+.tocrow{display:flex;align-items:center;gap:6px;padding:6px 4px;font-size:13px;cursor:pointer;border-radius:2px}
+.tocrow:hover{background:var(--paper-2)}
+.tocrow .swatch{width:10px;height:10px;flex:0 0 auto;border-radius:2px}
+.tocrow .kill{opacity:.5;font-size:15px;line-height:1;padding:0 4px;border:0;background:transparent}
+.tocempty{font-size:12px;color:var(--graphite-60);margin:0}
+@media (max-width:820px){ .railtab{padding:12px 6px;font-size:14px} .tocitem,.tocrow{padding:9px 4px} }
 .group{padding:14px 16px;border-bottom:1px solid var(--rule-soft)}
 .group h2{margin:0 0 9px;font-size:12px;font-weight:600;color:var(--graphite-60)}
 .row{display:flex;gap:6px;flex-wrap:wrap}
@@ -127,6 +153,11 @@ label.field>span{display:block;font-size:12px;color:var(--graphite-60);margin-bo
 .node-g.dim{opacity:.16}
 .node-g{cursor:pointer}
 .node-g.pinned .pin{fill:var(--blueprint)}
+.area-g{cursor:move}
+.area-box{pointer-events:all}
+.area-label{font-family:var(--sans);font-size:13px;font-weight:600;pointer-events:none}
+.area-g.sel .area-box{stroke-width:2.5;stroke-dasharray:none}
+.area-grab{cursor:nwse-resize}
 .edge{fill:none}
 .edge.dim{opacity:.1}
 .edge-label{font-family:var(--sans);font-size:10.5px;fill:var(--graphite-60)}
@@ -365,7 +396,12 @@ body.bannered #app{padding-top:56px}
       <p id="mapMeta">0 nodes · 0 links</p>
     </div>
 
-    <div class="pane-scroll">
+    <div class="railtabs">
+      <button class="railtab on" data-pane="Tools">Tools</button>
+      <button class="railtab" data-pane="Contents">Contents</button>
+    </div>
+
+    <div class="pane-scroll" id="paneTools">
 
       <div class="group">
         <h2>Workbook</h2>
@@ -420,7 +456,10 @@ body.bannered #app{padding-top:56px}
         </div>
         <div class="row" style="margin-top:6px">
           <button class="btn" id="btnRoot">Add root</button>
-          <button class="btn" id="btnLink">Link to…</button>
+          <button class="btn" id="btnLoose">Loose node</button>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <button class="btn wide" id="btnLink">Link to…</button>
         </div>
         <div class="row" style="margin-top:6px">
           <button class="btn wide" id="btnUnpin">Release manual positions</button>
@@ -485,6 +524,29 @@ body.bannered #app{padding-top:56px}
       </div>
 
     </div>
+
+    <div class="pane-scroll" id="paneContents" hidden>
+      <div class="group">
+        <input type="search" id="tocQ" placeholder="Filter the outline">
+      </div>
+
+      <div class="group">
+        <h2>Bookmarks</h2>
+        <div id="tocBookmarks"></div>
+        <button class="btn wide" id="btnBookmark" style="margin-top:8px">Bookmark this view</button>
+      </div>
+
+      <div class="group">
+        <h2>Areas</h2>
+        <div id="tocAreas"></div>
+        <button class="btn wide" id="btnArea" style="margin-top:8px">Draw an area</button>
+      </div>
+
+      <div class="group">
+        <h2>Outline</h2>
+        <div id="tocOutline"></div>
+      </div>
+    </div>
   </aside>
 
   <!-- ============ STAGE ============ -->
@@ -493,6 +555,7 @@ body.bannered #app{padding-top:56px}
       <svg id="svg" xmlns="http://www.w3.org/2000/svg">
         <defs id="defs"></defs>
         <g id="world">
+          <g id="gAreas"></g>
           <g id="gEdges"></g>
           <g id="gNodes"></g>
         </g>
@@ -593,7 +656,7 @@ body.bannered #app{padding-top:56px}
  * One deployment can serve any number of spreadsheets: pass ?id=<spreadsheetId>.
  */
 var TOKEN = 'change-me';                       // must match the token in the app
-var TABS  = ['Nodes','Links','Revisions','TagStyles'];
+var TABS  = ['Nodes','Links','Areas','Bookmarks','Revisions','TagStyles'];
 
 function doGet(e)  { return handle(e, null); }
 function doPost(e) { return handle(e, JSON.parse((e.postData && e.postData.contents) || '{}')); }
@@ -675,10 +738,13 @@ function writeAll(ss, prefix, tables) {
 const S = {
   meta:{ title:"Sample accessioning", author:"jerico", created:nowISO() },
   nodes:new Map(),      // id -> node
+  areas:new Map(),      // id -> labelled region drawn behind the map
+  bookmarks:[],         // saved viewpoints
   edges:new Map(),      // id -> edge
   revisions:[],         // append only
   tagStyles:new Map(),  // tag -> style
-  sel:null,
+  sel:null, selArea:null,
+  areaMode:false,
   hits:[], hitIx:-1,
   view:{x:0,y:0,k:1},
   dirty:false,
@@ -701,6 +767,17 @@ function newNode(o={}){
     rev:1, author:S.meta.author, x:null, y:null, pinned:false, collapsed:false
   }, o);
 }
+const AREA_COLORS = ["#14549B","#B4472A","#2E7D5B","#6C4AB0","#8A6A1F","#1F7A8C","#7A4E7E"];
+function newArea(o={}){
+  return Object.assign({
+    id:uid("A-"), label:"New area", x:0, y:0, w:520, h:320,
+    color:AREA_COLORS[S.areas.size % AREA_COLORS.length], note:"", moveContents:true
+  }, o);
+}
+function newBookmark(o={}){
+  return Object.assign({ id:uid("B-"), label:"Bookmark", node:"", x:0, y:0, k:1 }, o);
+}
+
 function newEdge(o={}){
   return Object.assign({
     id:uid("E-"), from:"", to:"", link_type:"tree", tag:"", label:"", condition:""
@@ -832,6 +909,7 @@ function descendants(id, acc=new Set()){
    ===================================================================== */
 function seed(){
   S.nodes.clear(); S.edges.clear(); S.revisions.length=0; S.tagStyles.clear();
+  S.areas.clear(); S.bookmarks.length=0;
   const mk=(label,o)=>{ const n=newNode(Object.assign({label},o)); S.nodes.set(n.id,n); return n.id; };
   const ln=(a,b,o)=>{ const e=newEdge(Object.assign({from:a,to:b},o)); S.edges.set(e.id,e); return e.id; };
 
@@ -865,8 +943,21 @@ function seed(){
   S.tagStyles.get("exception").line="dashed";
   S.tagStyles.get("rework").line="dash-dot";
   S.tagStyles.get("merge").line="dotted";
+  const zone = newArea({label:"Routing by specimen type", color:"#2E7D5B",
+    x:0, y:0, w:520, h:360, moveContents:true});
+  S.areas.set(zone.id, zone);
   S.meta.title="Sample accessioning";
   markClean();
+  setTimeout(()=>{
+    const ns = [bl,sa,ff,dn].map(i=>S.nodes.get(i)).filter(n=>n && n._x != null);
+    if(!ns.length) return;
+    let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
+    ns.forEach(n=>{ x0=Math.min(x0,n._x); y0=Math.min(y0,n._y);
+      x1=Math.max(x1,n._x+NODE_W); y1=Math.max(y1,n._y+n._h); });
+    zone.x=Math.round(x0-30); zone.y=Math.round(y0-40);
+    zone.w=Math.round(x1-x0+60); zone.h=Math.round(y1-y0+70);
+    render(); renderContents();
+  }, 0);
 }
 
 /* =====================================================================
@@ -879,7 +970,9 @@ const HDR = {
   Links:["edge_id","from_id","to_id","link_type","tag","label","condition"],
   Revisions:["rev_id","node_id","timestamp","author","field","class","note","folded","old_value","new_value"],
   TagStyles:["tag","color","line_style","width","arrow","applies_to"],
-  Sync:["name","endpoint","spreadsheet_id","prefix","token","mode","last_sync"]
+  Sync:["name","endpoint","spreadsheet_id","prefix","token","mode","last_sync"],
+  Areas:["area_id","label","x","y","w","h","color","move_contents","note"],
+  Bookmarks:["bookmark_id","label","node_id","x","y","zoom"]
 };
 
 function pathOf(id){
@@ -910,11 +1003,20 @@ function toSheets(){
     tag:t.tag, color:t.color, line_style:t.line, width:t.width,
     arrow:t.arrow, applies_to:t.applies
   }));
+  const areas = [...S.areas.values()].map(a=>({
+    area_id:a.id, label:a.label, x:round(a.x), y:round(a.y), w:round(a.w), h:round(a.h),
+    color:a.color, move_contents:a.moveContents ? "yes" : "", note:a.note||""
+  }));
+  const bookmarks = S.bookmarks.map(b=>({
+    bookmark_id:b.id, label:b.label, node_id:b.node||"",
+    x:round(b.x), y:round(b.y), zoom:Math.round(b.k*1000)/1000
+  }));
   const sync = S.connections.map(c=>({
     name:c.name, endpoint:c.endpoint, spreadsheet_id:c.id||"", prefix:c.prefix||"",
     token:c.token||"", mode:c.mode, last_sync:c.last_sync||""
   }));
-  return { Nodes:nodes, Links:links, Revisions:S.revisions.slice(), TagStyles:styles, Sync:sync };
+  return { Nodes:nodes, Links:links, Revisions:S.revisions.slice(), TagStyles:styles,
+           Areas:areas, Bookmarks:bookmarks, Sync:sync };
 }
 function round(v){ return v==null?"":Math.round(v*10)/10; }
 
@@ -937,7 +1039,8 @@ function exportXlsx(){
 function tablesToModel(t){
   const nodes = t.Nodes || [], links = (t.Links && t.Links.length) ? t.Links : (t.Edges || []),
         revs = t.Revisions || [], styles = t.TagStyles || [];
-  const M = { nodes:new Map(), edges:new Map(), revisions:[], tagStyles:new Map(), connections:[] };
+  const M = { nodes:new Map(), edges:new Map(), revisions:[], tagStyles:new Map(),
+              connections:[], areas:new Map(), bookmarks:[] };
 
   for(const r of nodes){
     const n = newNode({
@@ -989,6 +1092,24 @@ function tablesToModel(t){
       arrow:String(r.arrow||"yes"), applies:String(r.applies_to||"edge")
     });
   }
+  for(const r of (t.Areas||[])){
+    if(!r.area_id && !r.label) continue;
+    const a = newArea({
+      id:String(r.area_id||uid("A-")), label:String(r.label||"Area"),
+      x:Number(r.x)||0, y:Number(r.y)||0,
+      w:Math.max(80, Number(r.w)||400), h:Math.max(60, Number(r.h)||260),
+      color:String(r.color||"#14549B"), note:String(r.note||""),
+      moveContents:/^(yes|true|1|y)$/i.test(String(r.move_contents ?? "yes"))
+    });
+    M.areas.set(a.id, a);
+  }
+  for(const r of (t.Bookmarks||[])){
+    if(!r.bookmark_id && !r.label) continue;
+    M.bookmarks.push(newBookmark({
+      id:String(r.bookmark_id||uid("B-")), label:String(r.label||"Bookmark"),
+      node:String(r.node_id||""), x:Number(r.x)||0, y:Number(r.y)||0, k:Number(r.zoom)||1
+    }));
+  }
   for(const r of (t.Sync||[])){
     if(!r.endpoint) continue;
     M.connections.push({
@@ -1003,6 +1124,8 @@ function tablesToModel(t){
 function adoptModel(M, keepConnections){
   S.nodes = M.nodes; S.edges = M.edges;
   S.revisions = M.revisions; S.tagStyles = M.tagStyles;
+  S.areas = M.areas; S.bookmarks = M.bookmarks;
+  S.selArea = null;
   if(M.connections.length && !keepConnections) S.connections = M.connections;
   for(const e of S.edges.values()) ensureTagStyle(e.tag);
   for(const n of S.nodes.values()) (n.tags||[]).forEach(t=>ensureTagStyle(t));
@@ -1032,6 +1155,9 @@ function mergeModel(M){
   S.revisions.sort((a,b)=>String(a.timestamp).localeCompare(String(b.timestamp)));
   S.revisions.forEach((r,i)=>r.rev_id=i+1);
   for(const [t, st] of M.tagStyles) if(!S.tagStyles.has(t)) S.tagStyles.set(t, st);
+  for(const [id, a] of M.areas) if(!S.areas.has(id)) S.areas.set(id, a);
+  const bmIds = new Set(S.bookmarks.map(b=>b.id));
+  for(const b of M.bookmarks) if(!bmIds.has(b.id)) S.bookmarks.push(b);
   for(const e of S.edges.values()) ensureTagStyle(e.tag);
   return {added, updated, kept, linksAdded, revsAdded};
 }
@@ -1061,8 +1187,8 @@ function importXlsx(file){
 function copyTsv(){
   const d = toSheets();
   let out = "";
-  for(const name of ["Nodes","Links","Revisions","TagStyles","Sync"]){
-    if(!d[name].length && name==="Sync") continue;
+  for(const name of ["Nodes","Links","Areas","Bookmarks","Revisions","TagStyles","Sync"]){
+    if(!d[name].length && (name==="Sync"||name==="Areas"||name==="Bookmarks")) continue;
     out += "### " + name + "\n" + HDR[name].join("\t") + "\n";
     for(const row of d[name]) out += HDR[name].map(h=>String(row[h]??"").replace(/[\t\n]/g," ")).join("\t") + "\n";
     out += "\n";
@@ -1148,6 +1274,10 @@ function worldBBox(pad=48){
     x0=Math.min(x0,n._x); y0=Math.min(y0,n._y);
     x1=Math.max(x1,n._x+NODE_W); y1=Math.max(y1,n._y+n._h);
   }
+  for(const a of S.areas.values()){
+    x0=Math.min(x0,a.x); y0=Math.min(y0,a.y);
+    x1=Math.max(x1,a.x+a.w); y1=Math.max(y1,a.y+a.h);
+  }
   if(!isFinite(x0)) return {x:0,y:0,w:800,h:600};
   return {x:x0-pad, y:y0-pad, w:(x1-x0)+pad*2, h:(y1-y0)+pad*2};
 }
@@ -1193,9 +1323,21 @@ function activeTagFilter(){
 }
 
 function render(){
-  const gE = el("gEdges"), gN = el("gNodes");
-  gE.textContent = ""; gN.textContent = "";
+  const gE = el("gEdges"), gN = el("gNodes"), gA = el("gAreas");
+  gE.textContent = ""; gN.textContent = ""; gA.textContent = "";
   el("defs").querySelectorAll("clipPath").forEach(c=>c.remove());
+
+  for(const a of S.areas.values()){
+    const g = mk("g",{class:"area-g" + (S.selArea === a.id ? " sel" : ""),
+      transform:`translate(${a.x},${a.y})`, "data-area":a.id}, gA);
+    mk("rect",{class:"area-box", width:a.w, height:a.h, rx:4,
+      fill:a.color, "fill-opacity":.05, stroke:a.color, "stroke-width":1.25,
+      "stroke-dasharray":"10 5"}, g);
+    const t = mk("text",{class:"area-label", x:11, y:19, fill:a.color}, g);
+    t.textContent = a.label;
+    mk("rect",{class:"area-grab", x:a.w-16, y:a.h-16, width:16, height:16,
+      fill:a.color, "fill-opacity":.28, "data-resize":a.id}, g);
+  }
   const vis = visibleNodes();
   const offTags = activeTagFilter();
   const showCross = el("showCross").checked;
@@ -1303,7 +1445,100 @@ function applyView(){
   el("zLvl").textContent = Math.round(S.view.k*100) + "%";
 }
 
-function rebuild(){ layout(); buildTagFilters(); render(); renderInspector(); }
+function rebuild(){ layout(); buildTagFilters(); render(); renderInspector(); renderContents(); }
+
+/* =====================================================================
+   CONTENTS — bookmarks, areas and an outline of the whole map
+   ===================================================================== */
+function renderContents(){
+  const q = (el("tocQ").value || "").trim().toLowerCase();
+
+  /* bookmarks */
+  const bm = el("tocBookmarks");
+  bm.innerHTML = S.bookmarks.length
+    ? S.bookmarks.map(b=>`<div class="tocrow" data-bm="${esc(b.id)}">
+        <span class="tocdot filled"></span>
+        <span class="toclabel">${esc(b.label)}</span>
+        <button class="kill" data-killbm="${esc(b.id)}" title="Remove">&times;</button>
+      </div>`).join("")
+    : `<p class="tocempty">None yet. Line up a view you keep coming back to and save it.</p>`;
+
+  /* areas */
+  const ar = el("tocAreas");
+  ar.innerHTML = S.areas.size
+    ? [...S.areas.values()].map(a=>`<div class="tocrow" data-area-jump="${esc(a.id)}">
+        <span class="swatch" style="background:${esc(a.color)}"></span>
+        <span class="toclabel">${esc(a.label)}</span>
+        <span style="font-family:var(--mono);font-size:10px;color:var(--graphite-60)">${nodesInArea(a).length}</span>
+      </div>`).join("")
+    : `<p class="tocempty">None yet. Draw one around a cluster to name that part of the map.</p>`;
+
+  /* outline */
+  const seen = new Set();
+  const line = (n, depth, hasKids) => {
+    const cls = "tocitem" + (n.status === "retired" ? " retired" : "") + (S.sel === n.id ? " sel" : "");
+    return `<div class="${cls}" data-jump="${esc(n.id)}" style="padding-left:${4 + depth*11}px">
+      ${hasKids ? `<span class="toctwist">&#9656;</span>` : `<span class="toctwist"></span>`}
+      <span class="tocdot ${esc(n.type)}"></span>
+      <span class="toclabel">${esc(n.label || n.id)}</span></div>`;
+  };
+  const walk = (id, depth) => {
+    if(seen.has(id)) return "";
+    seen.add(id);
+    const n = S.nodes.get(id);
+    if(!n) return "";
+    const kids = childrenOf(id).filter(k=>!seen.has(k));
+    const inner = kids.map(k=>walk(k, depth+1)).join("");
+    const hit = !q || [n.label, n.id, n.type, (n.tags||[]).join(" ")].join(" ").toLowerCase().includes(q);
+    if(q && !hit && !inner) return "";
+    if(!kids.length || !inner) return line(n, depth, false);
+    return `<details${(depth < 2 || q) ? " open" : ""}><summary>${line(n, depth, true)}</summary>${inner}</details>`;
+  };
+
+  const rs = roots();
+  const attached = rs.filter(id=>childrenOf(id).length);
+  const loose = rs.filter(id=>!childrenOf(id).length);
+  let html = attached.map(id=>walk(id, 0)).join("");
+  const looseHtml = loose.map(id=>walk(id, 0)).join("");
+  if(looseHtml){
+    html += `<p class="tocempty" style="margin:14px 0 4px">Not connected to anything</p>` + looseHtml;
+  }
+  el("tocOutline").innerHTML = html || `<p class="tocempty">Nothing matches.</p>`;
+
+  const root = el("paneContents");
+  root.querySelectorAll("[data-jump]").forEach(e=>{
+    e.onclick = ev=>{ ev.preventDefault(); ev.stopPropagation();
+      const id = e.dataset.jump;
+      if(S.nodes.get(id).status === "retired" && el("showScope").value === "active"){
+        el("showScope").value = "all"; rebuild();
+      }
+      focusNode(id);
+      if(window.matchMedia("(max-width:820px)").matches){
+        el("rail").classList.remove("open"); el("scrim").classList.remove("on");
+      }
+    };
+  });
+  root.querySelectorAll("[data-area-jump]").forEach(e=>{
+    e.onclick = ()=>{ zoomToArea(e.dataset.areaJump);
+      if(window.matchMedia("(max-width:820px)").matches){
+        el("rail").classList.remove("open"); el("scrim").classList.remove("on");
+      }
+    };
+  });
+  root.querySelectorAll("[data-bm]").forEach(e=>{
+    e.onclick = ev=>{ if(ev.target.hasAttribute("data-killbm")) return;
+      gotoBookmark(e.dataset.bm);
+      if(window.matchMedia("(max-width:820px)").matches){
+        el("rail").classList.remove("open"); el("scrim").classList.remove("on");
+      }
+    };
+  });
+  root.querySelectorAll("[data-killbm]").forEach(e=>{
+    e.onclick = ev=>{ ev.stopPropagation();
+      S.bookmarks = S.bookmarks.filter(b=>b.id !== e.dataset.killbm);
+      markDirty(); renderContents(); };
+  });
+}
 
 function updateChrome(){
   if(el("histNote")) updateHistNote();
@@ -1391,6 +1626,9 @@ const MIN_K = 0.05, MAX_K = 6;
   const pts = new Map();
   let mode = null, panStart = null, dragNode = null, moved = false, pinch = null;
   let downPt = null, downTime = 0, lastTapTime = 0, lastTapId = null, tapBlockUntil = 0;
+  let dragArea = null, drawFrom = null, drawEl = null, lpTimer = null;
+
+  function cancelLongPress(){ clearTimeout(lpTimer); lpTimer = null; }
 
   const rect = ()=>svg().getBoundingClientRect();
   const dist = (a,b)=>Math.hypot(a.x-b.x, a.y-b.y);
@@ -1424,7 +1662,19 @@ const MIN_K = 0.05, MAX_K = 6;
     downPt = {x:ev.clientX, y:ev.clientY};
     downTime = Date.now();
 
+    /* drawing a new area beats everything else */
+    if(S.areaMode){
+      drawFrom = toWorld(ev.clientX, ev.clientY);
+      drawEl = mk("rect",{x:drawFrom.x, y:drawFrom.y, width:0, height:0, rx:4,
+        fill:"#14549B", "fill-opacity":.06, stroke:"#14549B", "stroke-width":1.5,
+        "stroke-dasharray":"8 4"}, el("gAreas"));
+      mode = "draw";
+      return;
+    }
+
     const g = ev.target.closest(".node-g");
+    const ag = ev.target.closest(".area-g");
+
     if(g && !S.linkMode){
       const id = g.dataset.id, n = S.nodes.get(id);
       const w = toWorld(ev.clientX, ev.clientY);
@@ -1433,10 +1683,30 @@ const MIN_K = 0.05, MAX_K = 6;
     } else if(g && S.linkMode){
       mode = "tap-node";
       dragNode = {id:g.dataset.id};
+    } else if(ag){
+      const id = ag.dataset.area, a = S.areas.get(id);
+      const w = toWorld(ev.clientX, ev.clientY);
+      if(ev.target.hasAttribute("data-resize")){
+        mode = "resize";
+        dragArea = {id, ow:a.w, oh:a.h, sx:w.x, sy:w.y};
+      } else {
+        mode = "area";
+        dragArea = {id, dx:w.x - a.x, dy:w.y - a.y, ox:a.x, oy:a.y,
+          members: a.moveContents ? nodesInArea(a).map(n=>({n, ox:n._x, oy:n._y})) : []};
+      }
     } else {
       mode = "pan";
       panStart = {px:ev.clientX, py:ev.clientY, vx:S.view.x, vy:S.view.y};
       svg().classList.add("panning");
+      /* press and hold on blank canvas drops a loose node there */
+      const w = toWorld(ev.clientX, ev.clientY);
+      cancelLongPress();
+      lpTimer = setTimeout(()=>{
+        if(mode !== "pan" || moved) return;
+        mode = null; svg().classList.remove("panning");
+        tapBlockUntil = Date.now() + 600;
+        addLooseNodeAt(w.x, w.y);
+      }, 550);
     }
   });
 
@@ -1461,7 +1731,43 @@ const MIN_K = 0.05, MAX_K = 6;
       return;
     }
 
-    if(downPt && !moved && Math.hypot(ev.clientX-downPt.x, ev.clientY-downPt.y) > 6) moved = true;
+    if(downPt && !moved && Math.hypot(ev.clientX-downPt.x, ev.clientY-downPt.y) > 6){ moved = true; cancelLongPress(); }
+
+    if(mode === "draw" && drawEl && drawFrom){
+      const w = toWorld(ev.clientX, ev.clientY);
+      drawEl.setAttribute("x", Math.min(drawFrom.x, w.x));
+      drawEl.setAttribute("y", Math.min(drawFrom.y, w.y));
+      drawEl.setAttribute("width", Math.abs(w.x - drawFrom.x));
+      drawEl.setAttribute("height", Math.abs(w.y - drawFrom.y));
+      return;
+    }
+    if(mode === "area" && dragArea){
+      const a = S.areas.get(dragArea.id);
+      const w = toWorld(ev.clientX, ev.clientY);
+      a.x = w.x - dragArea.dx; a.y = w.y - dragArea.dy;
+      const g2 = svg().querySelector(`.area-g[data-area="${CSS.escape(a.id)}"]`);
+      if(g2) g2.setAttribute("transform", `translate(${a.x},${a.y})`);
+      for(const m of dragArea.members){
+        m.n._x = m.ox + (a.x - dragArea.ox); m.n._y = m.oy + (a.y - dragArea.oy);
+        const ng = svg().querySelector(`.node-g[data-id="${CSS.escape(m.n.id)}"]`);
+        if(ng) ng.setAttribute("transform", `translate(${m.n._x},${m.n._y})`);
+      }
+      return;
+    }
+    if(mode === "resize" && dragArea){
+      const a = S.areas.get(dragArea.id);
+      const w = toWorld(ev.clientX, ev.clientY);
+      a.w = Math.max(90, dragArea.ow + (w.x - dragArea.sx));
+      a.h = Math.max(70, dragArea.oh + (w.y - dragArea.sy));
+      const g2 = svg().querySelector(`.area-g[data-area="${CSS.escape(a.id)}"]`);
+      if(g2){
+        g2.querySelector(".area-box").setAttribute("width", a.w);
+        g2.querySelector(".area-box").setAttribute("height", a.h);
+        const grab = g2.querySelector(".area-grab");
+        grab.setAttribute("x", a.w-16); grab.setAttribute("y", a.h-16);
+      }
+      return;
+    }
 
     if(mode === "pan" && panStart){
       S.view.x = panStart.vx + (ev.clientX - panStart.px);
@@ -1478,7 +1784,43 @@ const MIN_K = 0.05, MAX_K = 6;
 
   function endPointer(ev){
     pts.delete(ev.pointerId);
+    cancelLongPress();
     try{ svg().releasePointerCapture(ev.pointerId); }catch(e){}
+
+    if(mode === "draw"){
+      const w = Number(drawEl && drawEl.getAttribute("width")) || 0;
+      const h = Number(drawEl && drawEl.getAttribute("height")) || 0;
+      const x = Number(drawEl && drawEl.getAttribute("x")) || 0;
+      const y = Number(drawEl && drawEl.getAttribute("y")) || 0;
+      if(drawEl) drawEl.remove();
+      drawEl = null; drawFrom = null; mode = null;
+      S.areaMode = false;
+      el("btnArea").classList.remove("primary");
+      svg().style.cursor = "";
+      if(w > 40 && h > 30){
+        const a = newArea({x, y, w, h});
+        S.areas.set(a.id, a);
+        markDirty(); rebuild(); selectArea(a.id);
+        if(window.matchMedia("(max-width:820px)").matches){
+          el("inspector").classList.add("open"); el("scrim").classList.add("on");
+        }
+        setTimeout(()=>{ const f = el("aLabel"); if(f){ f.focus(); f.select(); } }, 60);
+      }
+      return;
+    }
+    if(mode === "area" || mode === "resize"){
+      const a = S.areas.get(dragArea && dragArea.id);
+      if(a && moved){
+        a.x = Math.round(a.x); a.y = Math.round(a.y);
+        a.w = Math.round(a.w); a.h = Math.round(a.h);
+        for(const m of (dragArea.members||[])){
+          m.n.pinned = true; m.n.x = Math.round(m.n._x); m.n.y = Math.round(m.n._y);
+        }
+        markDirty(); render();
+      } else if(a){ selectArea(a.id); }
+      mode = null; dragArea = null; moved = false;
+      return;
+    }
 
     if(mode === "pinch"){
       tapBlockUntil = Date.now() + 500;
@@ -1521,6 +1863,8 @@ const MIN_K = 0.05, MAX_K = 6;
   svg().addEventListener("pointerup", endPointer);
   svg().addEventListener("pointercancel", ev=>{
     pts.delete(ev.pointerId);
+    cancelLongPress();
+    if(drawEl){ drawEl.remove(); drawEl = null; drawFrom = null; }
     if(mode === "node") abortNodeDrag();
     if(pts.size < 2){ mode = null; pinch = null; panStart = null; }
     svg().classList.remove("panning");
@@ -1538,7 +1882,8 @@ function focusNode(id){
   const n = S.nodes.get(id);
   if(!n || n._x == null) return;
   const s = svgSize();
-  const k = Math.max(0.4, Math.min(MAX_K, Math.min(
+  /* capped, or a wide desktop stage would slam to 300% for one small box */
+  const k = Math.max(0.4, Math.min(1.8, Math.min(
     (s.w * 0.82) / NODE_W,
     (s.h * 0.72) / Math.max(n._h, 60))));
   S.view.k = k;
@@ -1553,17 +1898,24 @@ function focusNode(id){
    ===================================================================== */
 function select(id){
   if(S.linkMode && S.sel && id !== S.sel){
-    const e = newEdge({from:S.sel, to:id, link_type:"cross", tag:"", label:""});
+    /* An unattached node becomes a child; anything already in the tree gets a
+       cross-link, so linking never silently reparents a branch. */
+    const orphan = !parentOf(id) && !descendants(id).has(S.sel);
+    const kind = orphan ? "tree" : "cross";
+    const e = newEdge({from:S.sel, to:id, link_type:kind, tag:"", label:""});
     S.edges.set(e.id, e);
-    logRev(S.sel, "link", "", "cross → " + id);
+    logRev(S.sel, "link", "", kind + " → " + id);
     S.linkMode = false;
     el("btnLink").classList.remove("primary");
     markDirty(); rebuild();
-    toast("Cross-link added");
+    toast(orphan ? "Attached as a child. Change it to a cross-link in Connections."
+                 : "Cross-link added");
     return;
   }
   const prev = S.sel;
-  S.sel = id;
+  const hadArea = S.selArea;
+  S.sel = id; S.selArea = null;
+  if(hadArea){ render(); renderInspector(); return; }
   /* swap two classes instead of rebuilding the drawing — a full render on
      every tap is what makes a big map feel sticky on a phone */
   const g = el("gNodes");
@@ -1574,7 +1926,67 @@ function select(id){
 
 function esc(s){ return String(s??"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 
+function renderAreaInspector(a){
+  const body = el("inspBody");
+  el("inspTitle").textContent = "Area";
+  el("inspId").textContent = a.id;
+  const inside = nodesInArea(a);
+  body.innerHTML = `
+    <div class="group">
+      <label class="field"><span>Label</span><input type="text" id="aLabel" value="${esc(a.label)}"></label>
+      <label class="field"><span>Notes</span><textarea id="aNote">${esc(a.note||"")}</textarea></label>
+      <label class="field"><span>Colour</span>
+        <select id="aColor">
+          ${AREA_COLORS.map(c=>`<option value="${c}"${a.color===c?" selected":""}>${c}</option>`).join("")}
+        </select></label>
+      <label class="check"><input type="checkbox" id="aMove"${a.moveContents?" checked":""}>
+        Move the nodes inside when the box moves</label>
+      <p style="font-size:12px;color:var(--graphite-60);margin:8px 0 0">
+        ${inside.length} node${inside.length===1?"":"s"} inside. Drag the corner square to resize.</p>
+      <div class="row" style="margin-top:10px">
+        <button class="btn" id="aZoom">Zoom to it</button>
+        <button class="btn" id="aFit">Wrap the nodes inside</button>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <button class="btn" id="aBookmark">Bookmark this view</button>
+        <button class="btn" id="aDelete">Delete area</button>
+      </div>
+    </div>
+    <div class="group">
+      <h2>Inside this area</h2>
+      ${inside.length ? inside.map(n=>`<div style="padding:5px 0;border-top:1px solid var(--rule-soft);font-size:13px">
+          <a href="#" data-jump="${esc(n.id)}" style="color:var(--blueprint);text-decoration:none">${esc(n.label)}</a>
+        </div>`).join("")
+        : `<p style="font-size:12px;color:var(--graphite-60);margin:0">Nothing inside yet. Drag the box over some nodes, or press and hold on blank canvas to drop one.</p>`}
+    </div>`;
+  const commit = ()=>{ markDirty(); rebuild(); };
+  el("aLabel").onchange = e=>{ a.label = e.target.value; commit(); };
+  el("aNote").onchange  = e=>{ a.note = e.target.value; markDirty(); };
+  el("aColor").onchange = e=>{ a.color = e.target.value; commit(); };
+  el("aMove").onchange  = e=>{ a.moveContents = e.target.checked; markDirty(); };
+  el("aZoom").onclick   = ()=>zoomToArea(a.id);
+  el("aFit").onclick    = ()=>{
+    const ns = nodesInArea(a);
+    if(!ns.length){ toast("No nodes inside to wrap"); return; }
+    let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
+    ns.forEach(n=>{ x0=Math.min(x0,n._x); y0=Math.min(y0,n._y);
+      x1=Math.max(x1,n._x+NODE_W); y1=Math.max(y1,n._y+n._h); });
+    a.x = Math.round(x0-30); a.y = Math.round(y0-40);
+    a.w = Math.round(x1-x0+60); a.h = Math.round(y1-y0+70);
+    commit();
+  };
+  el("aBookmark").onclick = ()=>addBookmark(a.label);
+  el("aDelete").onclick = ()=>{
+    if(!confirm("Delete the area \u201c" + a.label + "\u201d? The nodes inside stay.")) return;
+    S.areas.delete(a.id); S.selArea = null; markDirty(); rebuild(); renderInspector();
+  };
+  body.querySelectorAll("[data-jump]").forEach(el2=>{
+    el2.onclick = ev=>{ ev.preventDefault(); focusNode(el2.dataset.jump); };
+  });
+}
+
 function renderInspector(){
+  if(S.selArea && S.areas.has(S.selArea)) return renderAreaInspector(S.areas.get(S.selArea));
   const body = el("inspBody"), n = S.sel ? S.nodes.get(S.sel) : null;
   if(!n){
     el("inspTitle").textContent = "Nothing selected";
@@ -1778,6 +2190,31 @@ function ensureVisible(id, pad=48){
   if(dx || dy){ S.view.x += dx; S.view.y += dy; applyView(); }
 }
 
+function nodesInArea(a){
+  const out = [];
+  for(const n of S.nodes.values()){
+    if(n._x == null) continue;
+    const cx = n._x + NODE_W/2, cy = n._y + (n._h||46)/2;
+    if(cx >= a.x && cx <= a.x + a.w && cy >= a.y && cy <= a.y + a.h) out.push(n);
+  }
+  return out;
+}
+function zoomToArea(id){
+  const a = S.areas.get(id);
+  if(!a) return;
+  const s = svgSize();
+  const k = Math.max(MIN_K, Math.min(MAX_K, Math.min(s.w/(a.w+80), s.h/(a.h+80))));
+  S.view.k = k;
+  S.view.x = s.w/2 - (a.x + a.w/2)*k;
+  S.view.y = s.h/2 - (a.y + a.h/2)*k;
+  applyView();
+  selectArea(id);
+}
+function selectArea(id){
+  S.selArea = id; S.sel = null;
+  render(); renderInspector();
+}
+
 function pinAt(n, x, y){ n.pinned = true; n.x = n._x = Math.round(x); n.y = n._y = Math.round(y); }
 
 /* Slide down the column until the slot is clear, so repeated adds stack
@@ -1794,6 +2231,21 @@ function freeSlot(x, y, h, skipId){
     ty += h + ROW_GAP;
   }
   return ty;
+}
+
+/* A node with no parent, dropped exactly where you asked for it. */
+function addLooseNodeAt(wx, wy){
+  const n = newNode({label:"New node"});
+  pinAt(n, wx - NODE_W/2, freeSlot(wx - NODE_W/2, wy - 30, 60, n.id));
+  S.nodes.set(n.id, n);
+  logRev(n.id, "created", "", n.label);
+  markDirty(); rebuild(); select(n.id); ensureVisible(n.id);
+  if(window.matchMedia("(max-width:820px)").matches){
+    el("inspector").classList.add("open"); el("scrim").classList.add("on");
+    el("fab").style.display = "none";
+  }
+  setTimeout(()=>{ const f = el("fLabel"); if(f){ f.focus(); f.select(); } }, 60);
+  return n.id;
 }
 
 function addNode(rel){
@@ -1864,6 +2316,24 @@ function attachImage(node, file, maxW=380, quality=0.72){
     img.src = fr.result;
   };
   fr.readAsDataURL(file);
+}
+
+function addBookmark(suggested){
+  const label = prompt("Name this bookmark", suggested || (S.sel && S.nodes.get(S.sel) ? S.nodes.get(S.sel).label : "Bookmark"));
+  if(label == null) return;
+  S.bookmarks.push(newBookmark({
+    label: label.trim() || "Bookmark",
+    node: S.sel || "", x:S.view.x, y:S.view.y, k:S.view.k
+  }));
+  markDirty(); renderContents();
+  toast("Bookmarked");
+}
+function gotoBookmark(id){
+  const b = S.bookmarks.find(x=>x.id === id);
+  if(!b) return;
+  if(b.node && S.nodes.has(b.node)){ focusNode(b.node); return; }
+  S.view = {x:b.x, y:b.y, k:b.k || 1};
+  applyView();
 }
 
 function toast(msg){
@@ -2186,9 +2656,11 @@ function buildWorkbook(){
     Links:[14,14,14,10,14,20,24],
     Revisions:[8,14,19,10,14,11,26,7,30,30],
     TagStyles:[16,10,11,7,7,10],
-    Sync:[18,54,44,14,14,10,19]
+    Sync:[18,54,44,14,14,10,19],
+    Areas:[14,30,8,8,8,8,10,14,40],
+    Bookmarks:[14,30,14,8,8,7]
   };
-  for(const name of ["Nodes","Links","Revisions","TagStyles","Sync"]){
+  for(const name of ["Nodes","Links","Areas","Bookmarks","Revisions","TagStyles","Sync"]){
     if(name === "Sync" && !data.Sync.length) continue;
     const ws = XLSX.utils.json_to_sheet(data[name], {header:HDR[name]});
     ws["!cols"] = widths[name].map(w=>({wch:w}));
@@ -2781,7 +3253,8 @@ async function boot(){
     if(S.nodes.size && !confirm("Start an empty map? The current one is kept under Recover an earlier version.")) return;
     if(S.nodes.size) await saveNow(true);
     S.nodes.clear(); S.edges.clear(); S.revisions.length=0; S.tagStyles.clear();
-    S.meta.title = "Untitled map"; S.sel = null;
+    S.areas.clear(); S.bookmarks.length = 0;
+    S.meta.title = "Untitled map"; S.sel = null; S.selArea = null;
     const n = newNode({label:"Start here", type:"start"});
     S.nodes.set(n.id, n);
     markClean(); rebuild(); fitView(0.96, 1); select(n.id);
@@ -2799,6 +3272,27 @@ async function boot(){
   el("showScope").onchange = ()=>rebuild();
   el("showCross").onchange = render;
   el("showEdgeLabels").onchange = render;
+
+  document.querySelectorAll(".railtab").forEach(t=>{
+    t.onclick = ()=>{
+      document.querySelectorAll(".railtab").forEach(x=>x.classList.toggle("on", x === t));
+      el("paneTools").hidden = t.dataset.pane !== "Tools";
+      el("paneContents").hidden = t.dataset.pane !== "Contents";
+      if(t.dataset.pane === "Contents") renderContents();
+    };
+  });
+  el("tocQ").addEventListener("input", debounce(renderContents, 160));
+  el("btnBookmark").onclick = ()=>addBookmark();
+  el("btnArea").onclick = ()=>{
+    S.areaMode = !S.areaMode;
+    el("btnArea").classList.toggle("primary", S.areaMode);
+    svg().style.cursor = S.areaMode ? "crosshair" : "";
+    toast(S.areaMode ? "Drag on the map to draw the area" : "Area drawing cancelled");
+    if(S.areaMode && window.matchMedia("(max-width:820px)").matches){
+      el("rail").classList.remove("open"); el("scrim").classList.remove("on");
+    }
+  };
+  el("btnLoose").onclick = ()=>{ const c = viewCenterWorld(); addLooseNodeAt(c.x, c.y); };
 
   el("btnChild").onclick = ()=>addNode("child");
   el("btnSibling").onclick = ()=>addNode("sibling");
@@ -2892,7 +3386,8 @@ async function boot(){
   document.addEventListener("keydown", ev=>{
     const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
     if(ev.key === "/" && !typing){ ev.preventDefault(); el("q").focus(); }
-    if(ev.key === "Escape"){ S.linkMode=false; el("btnLink").classList.remove("primary"); el("q").blur(); }
+    if(ev.key === "Escape"){ S.linkMode=false; el("btnLink").classList.remove("primary");
+      S.areaMode=false; el("btnArea").classList.remove("primary"); svg().style.cursor=""; el("q").blur(); }
     if(typing) return;
     if(ev.key === "Enter" && S.sel) addNode("child");
     if(ev.key === "Tab"   && S.sel){ ev.preventDefault(); addNode("sibling"); }
