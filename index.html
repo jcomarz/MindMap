@@ -3205,8 +3205,12 @@ async function openSnapshots(){
   let html = "";
   if(cur){
     html += card(cur, "this map", "current");
-    html += `<div class="row" style="margin-top:-6px;margin-bottom:4px">
-      <button class="btn wide" id="copyMapLink">Copy a link that opens this map</button></div>`;
+    html += `<div class="row" style="margin-top:-6px">
+      <button class="btn wide primary" id="copyMapData">Copy a link with the map inside</button></div>
+      <div class="row" style="margin-bottom:4px">
+      <button class="btn wide" id="copyMapLink">Copy a bookmark link, this browser only</button></div>
+      <p class="fineprint" style="margin:6px 0 0">The first carries the whole map and opens it on
+      any device. The second is just a pointer to storage here.</p>`;
   }
   const busyNow = await gatherClaims(180);
   if(maps.length){
@@ -3291,8 +3295,36 @@ async function openSnapshots(){
   const cml = el("copyMapLink");
   if(cml) cml.onclick = ()=>{
     navigator.clipboard.writeText(buildShareLink({map:true}))
-      .then(()=>toast("Link copied. It opens this map directly."))
+      .then(()=>toast("Bookmark link copied. It only works in this browser."))
       .catch(()=>toast("Clipboard blocked by the browser"));
+  };
+
+  const cmd = el("copyMapData");
+  if(cmd) cmd.onclick = async ()=>{
+    cmd.disabled = true; cmd.textContent = "Packing…";
+    try{
+      let r = await buildTransferLink(false);
+      if(r.error){ toast(r.error); return; }
+      if(r.tooBig){
+        const withPhotos = r;
+        r = await buildTransferLink(true);
+        if(r.tooBig || r.error){
+          toast("This map is too big for a link (" + Math.round(withPhotos.chars/1024) + " KB). "
+            + "Push it to Google Sheets, or save the .xlsx and open that on the other device.");
+          return;
+        }
+        if(!confirm("Photos stored in the map are too large to travel in a link.\n\n"
+          + "Copy a link without the " + withPhotos.stripped + " embedded photo(s)? "
+          + "Everything else comes across.")) return;
+      }
+      await navigator.clipboard.writeText(r.url);
+      toast("Link copied, " + Math.round(r.chars/1024) + " KB. Opening it anywhere loads this map."
+        + (r.stripped ? " Photos left out." : ""));
+    }catch(e){
+      toast(String(e.message || e));
+    }finally{
+      cmd.disabled = false; cmd.textContent = "Copy a link with the map inside";
+    }
   };
 
   const ps = el("purgeStale");
@@ -3572,6 +3604,47 @@ function recallKey(){
   try{ return sessionStorage.getItem(TAB_KEY_SLOT) || null; }catch(e){ return null; }
 }
 
+/* ---------------------------------------------------------------
+   Transfer links.
+   A key-only link is a bookmark for this browser. To move a map to
+   another device the link has to carry the map itself, so the tables
+   are gzipped into the fragment. Sync tokens are never included.
+   --------------------------------------------------------------- */
+const LINK_LIMIT = 8000;
+
+async function gzipB64(str){
+  if(typeof CompressionStream === "undefined") return null;
+  const stream = new Blob([str]).stream().pipeThrough(new CompressionStream("gzip"));
+  const bytes = new Uint8Array(await new Response(stream).arrayBuffer());
+  let bin = "";
+  for(let i = 0; i < bytes.length; i += 0x8000)
+    bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(bin).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+}
+async function ungzipB64(b64){
+  const bin = atob(b64.replace(/-/g,"+").replace(/_/g,"/"));
+  const bytes = new Uint8Array(bin.length);
+  for(let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+  return await new Response(stream).text();
+}
+
+/* Returns {url, chars, stripped} or a reason it cannot be done. */
+async function buildTransferLink(dropImages){
+  const tables = toSheets();
+  delete tables.Sync;                                  // never travel with tokens
+  let stripped = 0;
+  if(dropImages){
+    (tables.Nodes || []).forEach(n=>{
+      if(n.image && String(n.image).startsWith("data:")){ n.image = ""; n.image_h = ""; stripped++; }
+    });
+  }
+  const packed = await gzipB64(JSON.stringify({v:1, title:S.meta.title || "", tables}));
+  if(packed === null) return {error:"This browser cannot compress the map. Use Google Sheets or a .xlsx file."};
+  const url = location.origin + location.pathname + "#d=" + packed;
+  return {url, chars:url.length, stripped, tooBig:url.length > LINK_LIMIT};
+}
+
 /* A shareable link is built on demand and copied. The address bar is left
    alone, so nothing accumulates. */
 function buildShareLink(opts){
@@ -3590,6 +3663,10 @@ function takeHash(){
   return h;
 }
 let bootHash = "";
+function readHashData(){
+  const m = /[#&]d=([^&]+)/.exec(bootHash);
+  return m ? m[1] : null;
+}
 function readHashKey(){
   const m = /[#&]m=([^&]+)/.exec(bootHash);
   return m ? decodeURIComponent(m[1]) : null;
@@ -3950,8 +4027,32 @@ async function boot(){
   initTabChannel();
   updateSaveNote();
 
-  let restored = false, cur = null, forked = false, hadSessions = false;
+  let restored = false, cur = null, forked = false, hadSessions = false, missingLink = false;
+
+  /* a link carrying a whole map wins over anything saved here */
+  const packed = readHashData();
+  if(packed){
+    try{
+      const payload = JSON.parse(await ungzipB64(packed));
+      const M = tablesToModel(payload.tables || {});
+      if(M.nodes.size){
+        adoptModel(M);
+        S.meta.title = payload.title || "Shared map";
+        S.meta.key = uid("M-");
+        S.meta.provisional = false;
+        rebuild(); fitView(0.96, 0.6);
+        markDirty();
+        restored = true;
+        toast("Map received from the link and saved on this device");
+      }
+    }catch(e){
+      console.warn("link decode failed", e);
+      toast("That link could not be read. It may have been shortened or cut off.");
+    }
+  }
+
   try{
+    if(restored) throw {skip:true};
     /* one-time lift of the old single-slot session into a keyed one */
     let metas = await Store.listSessions();
     if(!metas.length){
@@ -3970,6 +4071,7 @@ async function boot(){
 
     if(wanted){
       key = wanted;
+      if(readHashKey() && !metas.some(m=>m.key === wanted)) missingLink = true;
       /* a duplicated tab would otherwise fight the original for the same
          record, so this one takes a copy instead */
       if(busy.has(wanted)) forked = true;
@@ -3990,7 +4092,7 @@ async function boot(){
       }
       if(restored && !forked) toast("Picked up where you left off — last saved " + ago(cur.savedAt));
     }
-  }catch(e){ console.warn("restore failed", e); }
+  }catch(e){ if(!e || !e.skip) console.warn("restore failed", e); }
 
   /* pick the linked file back up if one was bound before */
   try{
@@ -4033,6 +4135,10 @@ async function boot(){
       This browser has opened the tool ${Store.beacon.launches} times but kept no map from last time.
       Storage here is being discarded. Keep a live file on disk or use Google Sheets.`,
       canLinkFile ? "Link a file" : null, linkFile);
+  } else if(missingLink){
+    showBanner(`<strong>That link points at a map saved in another browser.</strong>
+      A plain map link is a bookmark, not a copy. To move a map between devices use
+      <em>Copy a link with the map inside</em>, a Google Sheet, or a saved .xlsx file.`, null, null);
   } else if(!isWebOrigin() && Store.beacon && Store.beacon.launches === 1){
     showBanner(`<strong>Opened from a folder.</strong>
       Storage for downloaded files is throwaway on some browsers, phones especially.
