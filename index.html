@@ -671,9 +671,11 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
   <div class="dlg-body">
     <ol class="setup">
       <li>Open the spreadsheet you want this map to live in.</li>
-      <li>Extensions → Apps Script. Delete what is there, paste the bridge script, save.</li>
+      <li>Fill in the Token box below first, then copy the bridge script — it is copied with that token already in it.</li>
+      <li>Extensions → Apps Script. Delete what is there, paste the script, save.</li>
       <li>Deploy → New deployment → Web app. Run as yourself, access: anyone with the link.</li>
       <li>Copy the /exec URL it gives you into the first box below, then Done.</li>
+      <li>Changed the script later? Deploy → Manage deployments → edit → Version: New version. Editing alone does not update the live URL.</li>
     </ol>
     <div class="row">
       <button class="btn" id="copyScript">Copy the bridge script</button>
@@ -2711,7 +2713,7 @@ window.addEventListener("afterprint", ()=>{ el("printroot").textContent = ""; })
    ===================================================================== */
 /* The storage names stay as they are. Renaming them would point the app at a
    fresh, empty database and orphan every saved version already on the device. */
-const DB_NAME = "branchwork-atlas", DB_VER = 4, LS_KEY = "branchwork:current", LS_SNAPS = "branchwork:snaps";
+const DB_NAME = "branchwork-atlas", DB_VER = 5, LS_KEY = "branchwork:current", LS_SNAPS = "branchwork:snaps";
 const SAVE_DEBOUNCE = 1500, SNAPSHOT_EVERY_MS = 4*60*1000, SNAPSHOT_EVERY_EDITS = 25;
 const SNAPSHOTS_PER_MAP = 6, MAX_SNAPSHOTS = 150, MIN_SAVE_GAP = 2500;
 const MAX_SNAPSHOT_BYTES = 6*1024*1024, STALE_MAP_DAYS = 60;
@@ -2738,6 +2740,9 @@ const Store = {
         }
         /* One live session per map, so two tabs on two maps never write to
            the same record. Headlines again kept apart from the payloads. */
+        /* which map last wrote to a given set of sheet tabs */
+        if(!db.objectStoreNames.contains("syncowner"))
+          db.createObjectStore("syncowner", {keyPath:"target"});
         if(!db.objectStoreNames.contains("sessions"))
           db.createObjectStore("sessions", {keyPath:"key"});
         if(!db.objectStoreNames.contains("sessmeta")){
@@ -2862,6 +2867,17 @@ const Store = {
     }
     return [];
   },
+  async claimTarget(target, mapKey, title){
+    if(this.mode !== "idb" || !target) return;
+    return this.wrap(this.tx("syncowner","readwrite")
+      .put({target, mapKey, title, at:nowISO()}));
+  },
+  async ownerOfTarget(target){
+    if(this.mode !== "idb" || !target) return null;
+    try{ return await this.wrap(this.tx("syncowner","readonly").get(target)) || null; }
+    catch(e){ return null; }
+  },
+
   async dropSession(key){
     if(this.mode === "idb"){
       await this.dropMapSnapshots(key);
@@ -3854,6 +3870,13 @@ function refreshSyncUI(){
   if(c2 && !ready) note.textContent = "Paste the web app URL in Manage sheets to finish setting this up.";
 }
 
+/* Two maps pointing at the same spreadsheet with the same tab prefix write to
+   the same four tabs, and a push clears them first. The destination is
+   identified here so that collision can be caught before it happens. */
+function targetOf(conn){
+  return [(conn.endpoint||"").trim(), (conn.id||"").trim(), (conn.prefix||"").trim()].join("|");
+}
+
 async function callBridge(conn, action, tables){
   const base = (conn.endpoint||"").trim();
   if(!/^https:\/\/script\.google(usercontent)?\.com\//.test(base))
@@ -3879,6 +3902,14 @@ async function callBridge(conn, action, tables){
   return await r.json();
 }
 
+function tokenHint(err){
+  if(err && /token/i.test(String(err)))
+    return "The script's TOKEN does not match the Token box. Copy the bridge script again "
+         + "(it now includes your token), paste it over the old one, then Deploy \u2192 "
+         + "Manage deployments \u2192 edit \u2192 New version.";
+  return err;
+}
+
 async function runSync(kind){
   const conn = activeConnection();
   if(!conn){ toast("Set up a sheet first"); return; }
@@ -3891,16 +3922,27 @@ async function runSync(kind){
   el("syncNote").textContent = kind === "push" ? "Sending…" : "Fetching…";
   try{
     if(kind === "push"){
+      const owner = await Store.ownerOfTarget(targetOf(conn));
+      if(owner && owner.mapKey && owner.mapKey !== S.meta.key){
+        const ok = confirm(
+          "Those sheet tabs were last written by a different map:\n\n"
+          + "    " + (owner.title || "Untitled map") + "\n\n"
+          + "Pushing replaces everything in them with \u201c" + (S.meta.title || "this map") + "\u201d.\n\n"
+          + "To keep both maps in one spreadsheet, cancel and give this one a tab prefix "
+          + "in Manage sheets. Push anyway?");
+        if(!ok){ el("syncNote").textContent = "Push cancelled."; return; }
+      }
       const t = toSheets();
       delete t.Sync;
       const res = await callBridge(conn, "write", t);
-      if(!res.ok) throw new Error(res.error || "The sheet refused the write");
+      if(!res.ok) throw new Error(tokenHint(res.error) || "The sheet refused the write");
       conn.last_sync = nowISO();
+      await Store.claimTarget(targetOf(conn), S.meta.key, S.meta.title);
       markClean();
       toast("Pushed " + S.nodes.size + " nodes to " + (conn.name || "the sheet"));
     } else {
       const res = await callBridge(conn, "read");
-      if(!res.ok) throw new Error(res.error || "The sheet refused the read");
+      if(!res.ok) throw new Error(tokenHint(res.error) || "The sheet refused the read");
       if(kind === "pull" && S.nodes.size) await saveNow(true);
       const M = tablesToModel(res.tables || {});
       if(!M.nodes.size){ toast("That sheet has no rows on a Nodes tab yet. Push first."); }
@@ -3927,9 +3969,12 @@ async function runSync(kind){
 }
 
 /* --------------------------- connection editor --------------------------- */
+function newToken(){
+  return "k" + Math.random().toString(36).slice(2,8) + Math.random().toString(36).slice(2,8);
+}
 function blankConnection(){
   S.connections.push({name:"My sheet", endpoint:"", id:"", prefix:"",
-                      token:"change-me", mode:"merge", auto:false, last_sync:""});
+                      token:newToken(), mode:"merge", auto:false, last_sync:""});
   S.activeConn = S.connections.length - 1;
 }
 
@@ -3964,9 +4009,30 @@ function renderConnList(){
         <label class="field"><span>Tab prefix, for several maps in one file</span>
           <input type="text" data-i="${i}" data-f="prefix" value="${esc(c.prefix||"")}" placeholder="optional"></label>
       </div>
-      <label class="check"><input type="checkbox" data-i="${i}" data-f="auto"${c.auto?" checked":""}> Pull automatically when this link is opened</label>`;
+      <label class="check"><input type="checkbox" data-i="${i}" data-f="auto"${c.auto?" checked":""}> Pull automatically when this link is opened</label>
+      <p class="fineprint owner" data-owner="${i}" style="margin-top:6px"></p>`;
     box.appendChild(d);
   });
+  /* say straight away if these tabs already belong to another map */
+  S.connections.forEach(async (c, i)=>{
+    const slot = box.querySelector(`[data-owner="${i}"]`);
+    if(!slot) return;
+    if(!(c.endpoint||"").trim()){
+      slot.textContent = "Four tabs are used: Nodes, Links, Areas, Bookmarks, Revisions, TagStyles.";
+      return;
+    }
+    const owner = await Store.ownerOfTarget(targetOf(c));
+    if(owner && owner.mapKey && owner.mapKey !== S.meta.key){
+      slot.innerHTML = `<span style="color:var(--flag)">These tabs are already used by
+        \u201c${esc(owner.title || "another map")}\u201d. Set a tab prefix below to keep both
+        maps in the same spreadsheet, or point this one at a different Spreadsheet ID.</span>`;
+    } else {
+      slot.textContent = "Writes to " + (c.prefix ? c.prefix + "Nodes, " + c.prefix + "Links…"
+                                                  : "Nodes, Links, Areas, Bookmarks, Revisions, TagStyles")
+        + (c.id ? " in the spreadsheet you named." : " in the bound spreadsheet.");
+    }
+  });
+
   box.querySelectorAll("[data-f]").forEach(inp=>{
     inp.onchange = ev=>{
       const c = S.connections[Number(inp.dataset.i)];
@@ -4109,8 +4175,14 @@ async function boot(){
   };
   el("addConn").onclick = ()=>{ blankConnection(); renderConnList(); refreshSyncUI(); };
   el("copyScript").onclick = ()=>{
-    navigator.clipboard.writeText(el("gsScript").textContent.trim())
-      .then(()=>toast("Bridge script copied. Paste it into Apps Script."))
+    /* the token is written into the script as it is copied, so the two halves
+       cannot drift apart and produce a token mismatch */
+    const c = activeConnection() || S.connections[0];
+    const tok = (c && (c.token||"").trim()) || "change-me";
+    const text = el("gsScript").textContent.trim()
+      .replace("var TOKEN = 'change-me';", "var TOKEN = '" + tok.replace(/'/g, "\\'") + "';");
+    navigator.clipboard.writeText(text)
+      .then(()=>toast("Script copied with your token (" + tok + ") already filled in."))
       .catch(()=>toast("Clipboard blocked. Select the script from the page source instead."));
   };
   el("copyLink").onclick = ()=>{
@@ -4245,6 +4317,9 @@ async function boot(){
       if(restored && forked){
         S.meta.key = uid("M-");
         S.meta.title = (S.meta.title || "Untitled map") + " (copy)";
+        /* a copy sharing the original's sheet would overwrite it on the first
+           push, so automatic pulling is switched off on the duplicate */
+        S.connections.forEach(c=>{ c.auto = false; });
         markDirty();
       }
       if(restored && !forked) toast("Picked up where you left off — last saved " + ago(cur.savedAt));
