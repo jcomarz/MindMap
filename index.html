@@ -375,6 +375,8 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
 .cls-chip{opacity:.42}
 .cls-chip.on{opacity:1;border-color:var(--graphite)}
 .cls-chip[data-cls="functional"].on{border-color:var(--blueprint);color:var(--blueprint)}
+.swatchin{flex:0 0 46px;width:46px;height:32px;padding:2px;border:1px solid var(--rule);
+  border-radius:2px;background:var(--paper)}
 .routing>summary{cursor:pointer;list-style:none;font-size:12px;color:var(--graphite-60);
   padding:6px 0 0}
 .routing>summary::-webkit-details-marker{display:none}
@@ -630,6 +632,18 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
             <option value="straight">Straight</option>
             <option value="arc">Bowed</option>
           </select></label>
+        <label class="field"><span>Untagged cross-links look like</span>
+          <select id="crossLine">
+            <option value="dashed">Dashed</option>
+            <option value="dotted">Dotted</option>
+            <option value="dash-dot">Dash-dot</option>
+            <option value="phantom">Long dash</option>
+            <option value="solid">Solid, same as a branch</option>
+          </select></label>
+        <div class="row" style="margin-bottom:10px;align-items:center">
+          <input type="color" class="swatchin" id="crossColor" title="Colour for untagged cross-links">
+          <button class="btn" id="crossColorClear" style="flex:1">Default colour</button>
+        </div>
         <div class="row" style="margin-bottom:10px">
           <button class="btn wide" id="btnTidyLines">Reset every line to automatic</button>
         </div>
@@ -1063,7 +1077,7 @@ function writeAll(ss, prefix, tables) {
 const S = {
   meta:{ title:"Sample accessioning", author:"jerico", created:nowISO(), key:null,
          lastEdited:null, lastOpened:null, bytes:0, provisional:false,
-         locked:false, rootHash:"", routeTree:"curve", routeCross:"curve" },
+         locked:false, rootHash:"", routeTree:"curve", routeCross:"curve", crossLine:"dashed", crossColor:"" },
   nodes:new Map(),      // id -> node
   areas:new Map(),      // id -> labelled region drawn behind the map
   bookmarks:[],         // saved viewpoints
@@ -1152,7 +1166,8 @@ function newBookmark(o={}){
 function newEdge(o={}){
   return Object.assign({
     id:uid("E-"), from:"", to:"", link_type:"tree", tag:"", label:"", condition:"",
-    route:"auto", fromSide:"auto", toSide:"auto", bow:0
+    route:"auto", fromSide:"auto", toSide:"auto", bow:0,
+    color:"", line:"", width:"", arrow:""
   }, o);
 }
 
@@ -1412,7 +1427,7 @@ function seed(){
    ===================================================================== */
 const HDR = {
   Nodes:["node_id","label","body","type","tags","status","flag","image","image_h","created","modified","rev","edit","author","x","y","pinned","parent_id","depth","path"],
-  Links:["edge_id","from_id","to_id","link_type","tag","label","condition","route","from_side","to_side","bow"],
+  Links:["edge_id","from_id","to_id","link_type","tag","label","condition","route","from_side","to_side","bow","color","line_style","width","arrow"],
   Revisions:["rev_id","node_id","timestamp","author","field","class","note","folded","old_value","new_value"],
   TagStyles:["tag","color","line_style","width","arrow","applies_to"],
   Sync:["name","endpoint","spreadsheet_id","prefix","token","viewer_token","mode","last_sync"],
@@ -1450,7 +1465,8 @@ function toSheets(){
     edge_id:e.id, from_id:e.from, to_id:e.to, link_type:e.link_type,
     tag:e.tag||"", label:e.label||"", condition:e.condition||"",
     route:e.route||"auto", from_side:e.fromSide||"auto", to_side:e.toSide||"auto",
-    bow:Number(e.bow)||0
+    bow:Number(e.bow)||0, color:e.color||"", line_style:e.line||"",
+    width:e.width||"", arrow:e.arrow||""
   }));
   const styles = [...S.tagStyles.values()].map(t=>({
     tag:t.tag, color:t.color, line_style:t.line, width:t.width,
@@ -1488,7 +1504,9 @@ function toSheets(){
     {key:"locked", value:S.meta.locked ? "yes" : ""},
     {key:"root_hash", value:S.meta.rootHash || ""},
     {key:"route_tree", value:S.meta.routeTree || "curve"},
-    {key:"route_cross", value:S.meta.routeCross || "curve"}
+    {key:"route_cross", value:S.meta.routeCross || "curve"},
+    {key:"cross_line", value:S.meta.crossLine || "dashed"},
+    {key:"cross_color", value:S.meta.crossColor || ""}
   ];
   const sync = S.connections.filter(c=>(c.endpoint||"").trim()).map(c=>({
     name:c.name, endpoint:c.endpoint, spreadsheet_id:c.id||"", prefix:c.prefix||"",
@@ -1545,7 +1563,9 @@ function tablesToModel(t){
       link_type:String(r.link_type||"tree").toLowerCase()==="cross"?"cross":"tree",
       tag:String(r.tag||""), label:String(r.label||""), condition:String(r.condition||""),
       route:String(r.route||"auto"), fromSide:String(r.from_side||"auto"),
-      toSide:String(r.to_side||"auto"), bow:Number(r.bow)||0
+      toSide:String(r.to_side||"auto"), bow:Number(r.bow)||0,
+      color:String(r.color||""), line:String(r.line_style||""),
+      width:String(r.width||""), arrow:String(r.arrow||"")
     });
     if(M.nodes.has(e.from) && M.nodes.has(e.to)) M.edges.set(e.id, e);
   }
@@ -1663,6 +1683,8 @@ function adoptModel(M, keepConnections){
   S.meta.rootHash = M.settings.root_hash || "";
   S.meta.routeTree = M.settings.route_tree || "curve";
   S.meta.routeCross = M.settings.route_cross || "curve";
+  S.meta.crossLine = M.settings.cross_line || "dashed";
+  S.meta.crossColor = M.settings.cross_color || "";
   S.mode = S.meta.locked ? "viewer" : "root";
   S.selArea = null;
   /* Always take the incoming map's connections, even when it has none.
@@ -2065,11 +2087,20 @@ function render(){
     if(e.link_type === "cross" && !showCross) continue;
     if(e.tag && offTags.has(e.tag)) continue;
     const a = S.nodes.get(e.from), b = S.nodes.get(e.to);
-    const raw = e.tag ? styleFor(e.tag) : {color:"", line:"solid", width:1.3, arrow:"yes"};
-    const st = Object.assign({}, raw, {
-      color: themeColor(raw.color || getComputedStyle(document.documentElement)
-        .getPropertyValue("--edge-idle").trim() || "#7C848C")
-    });
+    /* what the line looks like: this link's own setting first, then its tag,
+       then the default for its kind — so an untagged cross-link never reads
+       as a branch */
+    const tagSt = e.tag ? styleFor(e.tag) : null;
+    const idle = getComputedStyle(document.documentElement)
+      .getPropertyValue("--edge-idle").trim() || "#7C848C";
+    const isCross = e.link_type === "cross";
+    const st = {
+      color: themeColor(e.color || (tagSt && tagSt.color)
+             || (isCross ? (S.meta.crossColor || idle) : idle)),
+      line:  e.line || (tagSt && tagSt.line) || (isCross ? (S.meta.crossLine || "dashed") : "solid"),
+      width: Number(e.width) || (tagSt && Number(tagSt.width)) || (isCross ? 1.15 : 1.35),
+      arrow: e.arrow || (tagSt && tagSt.arrow) || "yes"
+    };
     const dash = LINE_DASH[st.line] ?? "";
     const [fs, ts] = sidesFor(e, a, b);
     const p1 = anchorPt(a, fs), p2 = anchorPt(b, ts);
@@ -2079,7 +2110,7 @@ function render(){
     const d = edgePathD(p1, p2, route, e.bow);
 
     const p = mk("path",{
-      d, class:"edge", stroke:st.color, "stroke-width":st.width || 1.3,
+      d, class:"edge", "data-edge":e.id, stroke:st.color, "stroke-width":st.width || 1.3,
       "stroke-dasharray":dash || null,
       "marker-end": st.arrow === "no" ? null : "url(#"+ensureArrow(st.color)+")"
     }, gE);
@@ -3323,6 +3354,15 @@ function renderInspector(){
     };
   });
   wireContributions(n);
+  body.querySelectorAll("[data-clearcolor]").forEach(b=>{
+    b.onclick = ()=>{
+      const e = S.edges.get(b.dataset.clearcolor);
+      if(!e) return;
+      logRev(e.from, "link color", e.color, "");
+      e.color = "";
+      markDirty(); rebuild();
+    };
+  });
   body.querySelectorAll("[data-cut]").forEach(b=>{
     b.onclick = ()=>{ const e=S.edges.get(b.dataset.cut);
       logRev(n.id,"link removed", e.from+" → "+e.to, ""); S.edges.delete(b.dataset.cut);
@@ -3370,6 +3410,26 @@ function connRow(e, dir){
       <label class="field" style="margin:8px 0 0"><span>Bow ${Number(e.bow)||0}</span>
         <input type="range" data-edge="${e.id}" data-field="bow" min="-160" max="240" step="10"
                value="${Number(e.bow)||0}"></label>
+      <div class="row" style="margin-top:8px">
+        <select data-edge="${e.id}" data-field="line" title="Dash pattern">
+          ${[["","from its tag"],["solid","solid"],["dashed","dashed"],["dotted","dotted"],
+             ["dash-dot","dash-dot"],["phantom","long dash"]].map(([v,l])=>
+            `<option value="${v}"${(e.line||"")===v?" selected":""}>${l}</option>`).join("")}
+        </select>
+        <select data-edge="${e.id}" data-field="width" title="Thickness" style="max-width:92px">
+          ${[["","auto"],["1","thin"],["1.6","medium"],["2.4","thick"],["3.4","heavy"]].map(([v,l])=>
+            `<option value="${v}"${String(e.width||"")===v?" selected":""}>${l}</option>`).join("")}
+        </select>
+        <select data-edge="${e.id}" data-field="arrow" title="Arrow head" style="max-width:86px">
+          ${[["","auto"],["yes","arrow"],["no","no arrow"]].map(([v,l])=>
+            `<option value="${v}"${(e.arrow||"")===v?" selected":""}>${l}</option>`).join("")}
+        </select>
+      </div>
+      <div class="row" style="margin-top:8px;align-items:center">
+        <input type="color" class="swatchin" data-edge="${e.id}" data-field="color"
+               value="${esc(e.color || "#7C848C")}" title="Colour of this line">
+        <button class="btn" data-clearcolor="${e.id}" style="flex:1">Use the tag colour</button>
+      </div>
     </details>
   </div>`;
 }
@@ -4200,7 +4260,7 @@ function buildWorkbook(){
   const wb = XLSX.utils.book_new();
   const widths = {
     Nodes:[14,34,44,11,20,9,10,40,8,19,19,6,6,10,8,8,8,14,7,60],
-    Links:[14,14,14,10,14,20,24,10,10,10,7],
+    Links:[14,14,14,10,14,20,24,10,10,10,7,10,11,7,7],
     Revisions:[8,14,19,10,14,11,26,7,30,30],
     TagStyles:[16,10,11,7,7,10],
     Sync:[18,54,44,14,14,14,10,19],
@@ -4347,6 +4407,8 @@ async function afterMapSwitch(){
   if(el("notesMode")) el("notesMode").value = S.notesMode;
   if(el("routeTree")) el("routeTree").value = S.meta.routeTree || "curve";
   if(el("routeCross")) el("routeCross").value = S.meta.routeCross || "curve";
+  if(el("crossLine")) el("crossLine").value = S.meta.crossLine || "dashed";
+  if(el("crossColor")) el("crossColor").value = S.meta.crossColor || "#7C848C";
   announceKey();
   await loadPersonal();
   if(el("notesMode")) el("notesMode").value = S.notesMode;
@@ -5755,12 +5817,26 @@ async function boot(){
     if(!canEdit()){ e.target.value = S.meta.routeCross; toast("Switch to editing mode."); return; }
     S.meta.routeCross = e.target.value; markDirty(); rebuild();
   };
+  el("crossLine").onchange = e=>{
+    if(!canEdit()){ e.target.value = S.meta.crossLine; toast("Switch to editing mode."); return; }
+    S.meta.crossLine = e.target.value; markDirty(); rebuild();
+  };
+  el("crossColor").onchange = e=>{
+    if(!canEdit()){ toast("Switch to editing mode."); return; }
+    S.meta.crossColor = e.target.value; markDirty(); rebuild();
+  };
+  el("crossColorClear").onclick = ()=>{
+    if(!canEdit()){ toast("Switch to editing mode."); return; }
+    S.meta.crossColor = ""; markDirty(); rebuild();
+  };
   el("btnTidyLines").onclick = ()=>{
     if(!canEdit()){ toast("Switch to editing mode."); return; }
     let n = 0;
     for(const e of S.edges.values()){
-      if(e.route !== "auto" || e.fromSide !== "auto" || e.toSide !== "auto" || e.bow){
-        e.route = "auto"; e.fromSide = "auto"; e.toSide = "auto"; e.bow = 0; n++;
+      if(e.route !== "auto" || e.fromSide !== "auto" || e.toSide !== "auto" || e.bow
+         || e.color || e.line || e.width || e.arrow){
+        e.route = "auto"; e.fromSide = "auto"; e.toSide = "auto"; e.bow = 0;
+        e.color = ""; e.line = ""; e.width = ""; e.arrow = ""; n++;
       }
     }
     if(!n){ toast("Every line is already on automatic."); return; }
@@ -6101,6 +6177,8 @@ async function boot(){
   if(el("notesMode")) el("notesMode").value = S.notesMode;
   if(el("routeTree")) el("routeTree").value = S.meta.routeTree || "curve";
   if(el("routeCross")) el("routeCross").value = S.meta.routeCross || "curve";
+  if(el("crossLine")) el("crossLine").value = S.meta.crossLine || "dashed";
+  if(el("crossColor")) el("crossColor").value = S.meta.crossColor || "#7C848C";
   document.body.classList.toggle("viewing", !isRoot());
   updateModeUI();
   /* the sync panel was drawn before storage had returned the map, so it still
