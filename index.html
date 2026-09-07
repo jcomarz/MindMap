@@ -375,6 +375,11 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
 .cls-chip{opacity:.42}
 .cls-chip.on{opacity:1;border-color:var(--graphite)}
 .cls-chip[data-cls="functional"].on{border-color:var(--blueprint);color:var(--blueprint)}
+.routing>summary{cursor:pointer;list-style:none;font-size:12px;color:var(--graphite-60);
+  padding:6px 0 0}
+.routing>summary::-webkit-details-marker{display:none}
+.routing>summary::before{content:"▸ ";font-size:9px}
+.routing[open]>summary::before{content:"▾ "}
 .nodehist>summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;
   align-items:baseline;gap:8px}
 .nodehist>summary::-webkit-details-marker{display:none}
@@ -612,6 +617,22 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
             <option value="light">Light</option>
             <option value="dark">Dark</option>
           </select></label>
+        <label class="field"><span>Branch lines</span>
+          <select id="routeTree">
+            <option value="curve">Curved</option>
+            <option value="elbow">Right angles</option>
+            <option value="straight">Straight</option>
+          </select></label>
+        <label class="field"><span>Cross-link lines</span>
+          <select id="routeCross">
+            <option value="curve">Curved</option>
+            <option value="elbow">Right angles</option>
+            <option value="straight">Straight</option>
+            <option value="arc">Bowed</option>
+          </select></label>
+        <div class="row" style="margin-bottom:10px">
+          <button class="btn wide" id="btnTidyLines">Reset every line to automatic</button>
+        </div>
         <label class="field"><span>Notes on the map</span>
           <select id="notesMode">
             <option value="off">Labels only</option>
@@ -1042,7 +1063,7 @@ function writeAll(ss, prefix, tables) {
 const S = {
   meta:{ title:"Sample accessioning", author:"jerico", created:nowISO(), key:null,
          lastEdited:null, lastOpened:null, bytes:0, provisional:false,
-         locked:false, rootHash:"" },
+         locked:false, rootHash:"", routeTree:"curve", routeCross:"curve" },
   nodes:new Map(),      // id -> node
   areas:new Map(),      // id -> labelled region drawn behind the map
   bookmarks:[],         // saved viewpoints
@@ -1130,7 +1151,8 @@ function newBookmark(o={}){
 
 function newEdge(o={}){
   return Object.assign({
-    id:uid("E-"), from:"", to:"", link_type:"tree", tag:"", label:"", condition:""
+    id:uid("E-"), from:"", to:"", link_type:"tree", tag:"", label:"", condition:"",
+    route:"auto", fromSide:"auto", toSide:"auto", bow:0
   }, o);
 }
 
@@ -1390,7 +1412,7 @@ function seed(){
    ===================================================================== */
 const HDR = {
   Nodes:["node_id","label","body","type","tags","status","flag","image","image_h","created","modified","rev","edit","author","x","y","pinned","parent_id","depth","path"],
-  Links:["edge_id","from_id","to_id","link_type","tag","label","condition"],
+  Links:["edge_id","from_id","to_id","link_type","tag","label","condition","route","from_side","to_side","bow"],
   Revisions:["rev_id","node_id","timestamp","author","field","class","note","folded","old_value","new_value"],
   TagStyles:["tag","color","line_style","width","arrow","applies_to"],
   Sync:["name","endpoint","spreadsheet_id","prefix","token","viewer_token","mode","last_sync"],
@@ -1426,7 +1448,9 @@ function toSheets(){
   }));
   const links = [...S.edges.values()].map(e=>({
     edge_id:e.id, from_id:e.from, to_id:e.to, link_type:e.link_type,
-    tag:e.tag||"", label:e.label||"", condition:e.condition||""
+    tag:e.tag||"", label:e.label||"", condition:e.condition||"",
+    route:e.route||"auto", from_side:e.fromSide||"auto", to_side:e.toSide||"auto",
+    bow:Number(e.bow)||0
   }));
   const styles = [...S.tagStyles.values()].map(t=>({
     tag:t.tag, color:t.color, line_style:t.line, width:t.width,
@@ -1462,7 +1486,9 @@ function toSheets(){
   }));
   const settings = [
     {key:"locked", value:S.meta.locked ? "yes" : ""},
-    {key:"root_hash", value:S.meta.rootHash || ""}
+    {key:"root_hash", value:S.meta.rootHash || ""},
+    {key:"route_tree", value:S.meta.routeTree || "curve"},
+    {key:"route_cross", value:S.meta.routeCross || "curve"}
   ];
   const sync = S.connections.filter(c=>(c.endpoint||"").trim()).map(c=>({
     name:c.name, endpoint:c.endpoint, spreadsheet_id:c.id||"", prefix:c.prefix||"",
@@ -1517,7 +1543,9 @@ function tablesToModel(t){
     const e = newEdge({
       id:String(r.edge_id||uid("E-")), from:String(r.from_id||""), to:String(r.to_id||""),
       link_type:String(r.link_type||"tree").toLowerCase()==="cross"?"cross":"tree",
-      tag:String(r.tag||""), label:String(r.label||""), condition:String(r.condition||"")
+      tag:String(r.tag||""), label:String(r.label||""), condition:String(r.condition||""),
+      route:String(r.route||"auto"), fromSide:String(r.from_side||"auto"),
+      toSide:String(r.to_side||"auto"), bow:Number(r.bow)||0
     });
     if(M.nodes.has(e.from) && M.nodes.has(e.to)) M.edges.set(e.id, e);
   }
@@ -1633,6 +1661,8 @@ function adoptModel(M, keepConnections){
   S.questions = M.questions; S.pins = M.pins; S.selQuestion = null;
   S.meta.locked = M.settings.locked === "yes";
   S.meta.rootHash = M.settings.root_hash || "";
+  S.meta.routeTree = M.settings.route_tree || "curve";
+  S.meta.routeCross = M.settings.route_cross || "curve";
   S.mode = S.meta.locked ? "viewer" : "root";
   S.selArea = null;
   /* Always take the incoming map's connections, even when it has none.
@@ -1846,6 +1876,78 @@ function layout(){
   }
 }
 
+/* Where a line meets a node, and how it gets there. Auto keeps the tidy
+   left-to-right look for tree links and picks the facing sides for
+   cross-links, which is what stops them all diving out of the bottom. */
+function anchorPt(n, side){
+  const cx = n._x + NODE_W/2, cy = n._y + n._h/2;
+  if(side === "right")  return {x:n._x + NODE_W, y:cy, dx:1,  dy:0};
+  if(side === "left")   return {x:n._x,          y:cy, dx:-1, dy:0};
+  if(side === "top")    return {x:cx, y:n._y,          dx:0, dy:-1};
+  return                       {x:cx, y:n._y + n._h,   dx:0, dy:1};
+}
+function facingSide(a, b){
+  const ax = a._x + NODE_W/2, ay = a._y + a._h/2;
+  const bx = b._x + NODE_W/2, by = b._y + b._h/2;
+  const dx = bx - ax, dy = by - ay;
+  /* compare in units of the node's own size so wide boxes do not always win */
+  if(Math.abs(dx) / NODE_W >= Math.abs(dy) / Math.max(a._h, 40))
+    return dx >= 0 ? "right" : "left";
+  return dy >= 0 ? "bottom" : "top";
+}
+function sidesFor(e, a, b){
+  let f = e.fromSide || "auto", t = e.toSide || "auto";
+  if(f === "auto") f = e.link_type === "tree" ? "right" : facingSide(a, b);
+  if(t === "auto") t = e.link_type === "tree" ? "left"  : facingSide(b, a);
+  return [f, t];
+}
+
+function roundedPath(pts, r){
+  if(pts.length < 3) return "M" + pts.map(p=>p.x + "," + p.y).join(" L");
+  let d = `M${pts[0].x},${pts[0].y}`;
+  for(let i = 1; i < pts.length - 1; i++){
+    const p = pts[i], a = pts[i-1], c = pts[i+1];
+    const l1 = Math.hypot(p.x-a.x, p.y-a.y), l2 = Math.hypot(c.x-p.x, c.y-p.y);
+    const rr = Math.max(0, Math.min(r, l1/2, l2/2));
+    const s = {x:p.x + (a.x-p.x)/(l1||1)*rr, y:p.y + (a.y-p.y)/(l1||1)*rr};
+    const e2 = {x:p.x + (c.x-p.x)/(l2||1)*rr, y:p.y + (c.y-p.y)/(l2||1)*rr};
+    d += ` L${s.x},${s.y} Q${p.x},${p.y} ${e2.x},${e2.y}`;
+  }
+  const last = pts[pts.length-1];
+  return d + ` L${last.x},${last.y}`;
+}
+
+function edgePathD(p1, p2, route, bow){
+  const stub = 20;
+  if(route === "straight") return `M${p1.x},${p1.y} L${p2.x},${p2.y}`;
+
+  if(route === "elbow"){
+    const a = {x:p1.x + p1.dx*stub, y:p1.y + p1.dy*stub};
+    const b = {x:p2.x + p2.dx*stub, y:p2.y + p2.dy*stub};
+    const pts = [p1, a];
+    const h1 = p1.dx !== 0, h2 = p2.dx !== 0;
+    if(h1 && h2){ const mx = (a.x + b.x)/2; pts.push({x:mx, y:a.y}, {x:mx, y:b.y}); }
+    else if(!h1 && !h2){ const my = (a.y + b.y)/2; pts.push({x:a.x, y:my}, {x:b.x, y:my}); }
+    else if(h1){ pts.push({x:b.x, y:a.y}); }
+    else { pts.push({x:a.x, y:b.y}); }
+    pts.push(b, p2);
+    return roundedPath(pts, 12);
+  }
+
+  if(route === "arc"){
+    const mx = (p1.x + p2.x)/2, my = (p1.y + p2.y)/2;
+    const vx = p2.x - p1.x, vy = p2.y - p1.y;
+    const len = Math.hypot(vx, vy) || 1;
+    const off = (Number(bow) || 60);
+    return `M${p1.x},${p1.y} Q${mx - vy/len*off},${my + vx/len*off} ${p2.x},${p2.y}`;
+  }
+
+  /* curve: leave and arrive along the chosen sides */
+  const reach = Math.max(45, Math.hypot(p2.x-p1.x, p2.y-p1.y) * 0.42) + (Number(bow) || 0);
+  return `M${p1.x},${p1.y} C${p1.x + p1.dx*reach},${p1.y + p1.dy*reach} `
+       + `${p2.x + p2.dx*reach},${p2.y + p2.dy*reach} ${p2.x},${p2.y}`;
+}
+
 function worldBBox(pad=48){
   const vis = visibleNodes();
   let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
@@ -1969,19 +2071,13 @@ function render(){
         .getPropertyValue("--edge-idle").trim() || "#7C848C")
     });
     const dash = LINE_DASH[st.line] ?? "";
-    let d, ax, ay, bx, by;
+    const [fs, ts] = sidesFor(e, a, b);
+    const p1 = anchorPt(a, fs), p2 = anchorPt(b, ts);
+    const route = (e.route && e.route !== "auto")
+      ? e.route
+      : (e.link_type === "tree" ? (S.meta.routeTree || "curve") : (S.meta.routeCross || "curve"));
+    const d = edgePathD(p1, p2, route, e.bow);
 
-    if(e.link_type === "tree"){
-      ax = a._x + NODE_W; ay = a._y + a._h/2;
-      bx = b._x;          by = b._y + b._h/2;
-      const mx = (ax + bx)/2;
-      d = `M${ax},${ay} C${mx},${ay} ${mx},${by} ${bx},${by}`;
-    } else {
-      ax = a._x + NODE_W/2; ay = a._y + a._h;
-      bx = b._x + NODE_W/2; by = b._y + b._h;
-      const bow = 46 + Math.min(120, Math.abs(bx-ax)/4);
-      d = `M${ax},${ay} C${ax},${ay+bow} ${bx},${by+bow} ${bx},${by}`;
-    }
     const p = mk("path",{
       d, class:"edge", stroke:st.color, "stroke-width":st.width || 1.3,
       "stroke-dasharray":dash || null,
@@ -1990,14 +2086,14 @@ function render(){
     if(dimOn && !(hitSet.has(e.from) && hitSet.has(e.to))) p.classList.add("dim");
 
     if(showLabels && e.label){
-      const t = mk("text",{
-        class:"edge-label", x:(ax+bx)/2, y:(ay+by)/2 + (e.link_type==="cross"?34:-5),
-        "text-anchor":"middle"
-      }, gE);
+      /* put the label wherever the line actually passes, not on the chord */
+      let mid = {x:(p1.x + p2.x)/2, y:(p1.y + p2.y)/2};
+      try{ const L = p.getTotalLength(); if(L) mid = p.getPointAtLength(L/2); }catch(err){}
+      const t = mk("text",{class:"edge-label", x:mid.x, y:mid.y - 4, "text-anchor":"middle"}, gE);
       t.textContent = e.label;
       const bb = {w: e.label.length*5.6 + 8};
-      const bg = mk("rect",{x:(ax+bx)/2 - bb.w/2, y:(ay+by)/2 + (e.link_type==="cross"?24:-15),
-        width:bb.w, height:13, class:"edge-label-bg"}, gE);
+      const bg = mk("rect",{x:mid.x - bb.w/2, y:mid.y - 14, width:bb.w, height:13,
+        class:"edge-label-bg"}, gE);
       gE.insertBefore(bg, t);
       if(dimOn && !(hitSet.has(e.from) && hitSet.has(e.to))){ t.classList.add("dim"); bg.classList.add("dim"); }
     }
@@ -3219,8 +3315,9 @@ function renderInspector(){
       const e = S.edges.get(sel.dataset.edge);
       if(!e) return;
       const f = sel.dataset.field;
-      logRev(e.from, "link " + f, e[f], ev.target.value);
-      e[f] = ev.target.value;
+      const v = f === "bow" ? Number(ev.target.value) : ev.target.value;
+      logRev(e.from, "link " + f, e[f], v);
+      e[f] = v;
       if(f==="tag") ensureTagStyle(ev.target.value);
       markDirty(); rebuild();
     };
@@ -3254,6 +3351,26 @@ function connRow(e, dir){
         <option value="cross"${e.link_type==="cross"?" selected":""}>cross</option>
       </select>
     </div>
+    <details class="routing"><summary>Line</summary>
+      <div class="row" style="margin-top:7px">
+        <select data-edge="${e.id}" data-field="route" title="Shape of the line">
+          ${[["auto","auto shape"],["curve","curved"],["elbow","right angles"],
+             ["straight","straight"],["arc","bowed"]].map(([v,l])=>
+            `<option value="${v}"${(e.route||"auto")===v?" selected":""}>${l}</option>`).join("")}
+        </select>
+        <select data-edge="${e.id}" data-field="fromSide" title="Where it leaves this end">
+          ${["auto","right","left","top","bottom"].map(v=>
+            `<option value="${v}"${(e.fromSide||"auto")===v?" selected":""}>from ${v}</option>`).join("")}
+        </select>
+        <select data-edge="${e.id}" data-field="toSide" title="Where it meets the other end">
+          ${["auto","right","left","top","bottom"].map(v=>
+            `<option value="${v}"${(e.toSide||"auto")===v?" selected":""}>to ${v}</option>`).join("")}
+        </select>
+      </div>
+      <label class="field" style="margin:8px 0 0"><span>Bow ${Number(e.bow)||0}</span>
+        <input type="range" data-edge="${e.id}" data-field="bow" min="-160" max="240" step="10"
+               value="${Number(e.bow)||0}"></label>
+    </details>
   </div>`;
 }
 
@@ -4083,7 +4200,7 @@ function buildWorkbook(){
   const wb = XLSX.utils.book_new();
   const widths = {
     Nodes:[14,34,44,11,20,9,10,40,8,19,19,6,6,10,8,8,8,14,7,60],
-    Links:[14,14,14,10,14,20,24],
+    Links:[14,14,14,10,14,20,24,10,10,10,7],
     Revisions:[8,14,19,10,14,11,26,7,30,30],
     TagStyles:[16,10,11,7,7,10],
     Sync:[18,54,44,14,14,14,10,19],
@@ -4228,6 +4345,8 @@ async function saveNow(force){
 async function afterMapSwitch(){
   rememberKey();
   if(el("notesMode")) el("notesMode").value = S.notesMode;
+  if(el("routeTree")) el("routeTree").value = S.meta.routeTree || "curve";
+  if(el("routeCross")) el("routeCross").value = S.meta.routeCross || "curve";
   announceKey();
   await loadPersonal();
   if(el("notesMode")) el("notesMode").value = S.notesMode;
@@ -5628,6 +5747,26 @@ async function boot(){
   el("dimOthers").onchange = render;
   el("showScope").onchange = ()=>rebuild();
   el("notesMode").onchange = e=>{ S.notesMode = e.target.value; savePersonal(); rebuild(); };
+  el("routeTree").onchange = e=>{
+    if(!canEdit()){ e.target.value = S.meta.routeTree; toast("Switch to editing mode."); return; }
+    S.meta.routeTree = e.target.value; markDirty(); rebuild();
+  };
+  el("routeCross").onchange = e=>{
+    if(!canEdit()){ e.target.value = S.meta.routeCross; toast("Switch to editing mode."); return; }
+    S.meta.routeCross = e.target.value; markDirty(); rebuild();
+  };
+  el("btnTidyLines").onclick = ()=>{
+    if(!canEdit()){ toast("Switch to editing mode."); return; }
+    let n = 0;
+    for(const e of S.edges.values()){
+      if(e.route !== "auto" || e.fromSide !== "auto" || e.toSide !== "auto" || e.bow){
+        e.route = "auto"; e.fromSide = "auto"; e.toSide = "auto"; e.bow = 0; n++;
+      }
+    }
+    if(!n){ toast("Every line is already on automatic."); return; }
+    markDirty(); rebuild();
+    toast(n + " line" + (n===1?"":"s") + " back on automatic");
+  };
   el("themeBtn").onclick = ()=>{
     const now = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
     S.theme = now;
@@ -5960,6 +6099,8 @@ async function boot(){
 
   await loadPersonal();
   if(el("notesMode")) el("notesMode").value = S.notesMode;
+  if(el("routeTree")) el("routeTree").value = S.meta.routeTree || "curve";
+  if(el("routeCross")) el("routeCross").value = S.meta.routeCross || "curve";
   document.body.classList.toggle("viewing", !isRoot());
   updateModeUI();
   /* the sync panel was drawn before storage had returned the map, so it still
