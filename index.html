@@ -10,6 +10,7 @@
 <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
 <style>
 :root{
+  color-scheme:light;
   --paper:#FCFCFA;
   --paper-2:#F2F2EE;
   --graphite:#23282D;
@@ -36,6 +37,7 @@
    to graphite and the ink comes up to light, so the drawing still reads as a
    drawing. */
 html[data-theme="dark"]{
+  color-scheme:dark;
   --paper:#16191C;
   --paper-2:#1E2227;
   --graphite:#E3E7EA;
@@ -156,10 +158,12 @@ details[open]>summary .toctwist{transform:rotate(90deg)}
 .btn.wide{width:100%}
 .btn[disabled]{opacity:.45;cursor:default}
 
-input[type=text],input[type=search],select,textarea{
+input[type=text],input[type=search],input[type=number],input[type=password],
+input[type=url],select,textarea{
   width:100%;border:1px solid var(--rule);border-radius:2px;background:var(--paper);
-  padding:6px 8px;
+  color:var(--graphite);padding:6px 8px;
 }
+input[type=number]{max-width:96px}
 textarea{resize:vertical;min-height:64px;line-height:1.45}
 label.field{display:block;margin-bottom:10px}
 label.field>span{display:block;font-size:12px;color:var(--graphite-60);margin-bottom:3px}
@@ -263,6 +267,7 @@ label.field>span{display:block;font-size:12px;color:var(--graphite-60);margin-bo
 .mobile-tabs .mhits #mCount{font-family:var(--mono);font-size:11px;color:var(--graphite-60);
   min-width:34px;text-align:center}
 #topAdd{flex:0 0 auto}
+.iconbtn{flex:0 0 auto;padding:6px 10px;font-size:16px;line-height:1.1}
 .modebtn{opacity:.5}
 .modebtn.on{opacity:1;border-color:var(--blueprint);color:var(--blueprint);font-weight:600}
 body.viewing .brand h1::after{content:" · viewing";font-size:12px;font-weight:400;color:var(--graphite-60)}
@@ -323,6 +328,23 @@ dialog#connDlg::backdrop{background:rgba(35,40,45,.42)}
 .conn .hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}
 .conn .hdr strong{font-size:13px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+dialog#reviewDlg{border:1px solid var(--graphite);border-radius:3px;padding:0;background:var(--paper);
+  width:min(760px,96vw);height:min(88dvh,860px);color:var(--graphite);display:flex;flex-direction:column}
+dialog#reviewDlg::backdrop{background:rgba(35,40,45,.42)}
+dialog#reviewDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
+.rev-tab{opacity:.45}
+.rev-tab.on{opacity:1;border-color:var(--blueprint);color:var(--blueprint);font-weight:600}
+.revcard{border:1px solid var(--rule);border-radius:2px;padding:12px;margin-top:12px}
+.revcard .where{font-size:12px;color:var(--graphite-60);margin:0 0 6px}
+.revcard .where a{color:var(--blueprint);text-decoration:none;font-weight:600}
+.revcard .said{font-size:13.5px;line-height:1.45;margin:0 0 10px;white-space:pre-wrap}
+.revcard .byline{font-size:11px;font-family:var(--mono);color:var(--graphite-60)}
+.bar{height:6px;background:var(--rule-soft);border-radius:3px;overflow:hidden;margin:7px 0}
+.bar i{display:block;height:100%;background:var(--blueprint)}
+#revBadge{display:inline-block;min-width:18px;margin-left:7px;padding:0 5px;border-radius:9px;
+  background:var(--flag);color:#fff;font-size:11px;font-family:var(--mono)}
+#revBadge:empty{display:none}
+@media (max-width:820px){ dialog#reviewDlg{width:100vw;height:100dvh;max-height:none;border:0;border-radius:0} }
 dialog#snapDlg{border:1px solid var(--graphite);border-radius:3px;padding:0;background:var(--paper);
   width:min(560px,94vw);max-height:88dvh;color:var(--graphite)}
 @media (max-width:820px){ dialog#snapDlg{width:100vw;height:100dvh;max-height:none;border:0;border-radius:0} }
@@ -452,7 +474,7 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
 
   /* thumb-sized controls throughout */
   .btn{padding:10px 13px;font-size:14px;border-radius:3px}
-  input[type=text],input[type=search],select,textarea{padding:10px 10px;font-size:16px}
+  input[type=text],input[type=search],input[type=number],select,textarea{padding:10px 10px;font-size:16px}
   .check{padding:5px 0}
   .check input{width:18px;height:18px}
   .tagchip{padding:6px 10px;font-size:13px}
@@ -492,6 +514,7 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
     <button type="button" id="mNext" aria-label="Next match">&#8250;</button>
   </span>
   <button class="btn" id="topAdd">Add node</button>
+  <button class="btn iconbtn" id="themeBtn" title="Light or dark" aria-label="Light or dark">◐</button>
   <button class="btn" id="mInsp">Node</button>
 </div>
 
@@ -521,6 +544,9 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
         </div>
         <p id="modeNote" style="font-size:12px;color:var(--graphite-60);margin:9px 0 0;line-height:1.5">—</p>
         <div class="row" style="margin-top:8px">
+          <button class="btn wide primary" id="btnReview">Waiting for you<span id="revBadge"></span></button>
+        </div>
+        <div class="row" style="margin-top:6px">
           <button class="btn wide" id="btnLockMap">Lock this map</button>
         </div>
         <div class="row" style="margin-top:6px">
@@ -676,7 +702,7 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
         </div>
         <p style="font-size:12px;color:var(--graphite-60);margin:9px 0 0">
           Sheets carry a grid reference, corner ticks and a dashed trim line. Cut on the
-          dashes and the edges butt together exactly. In Chrome\u2019s print dialog, open
+          dashes and the edges butt together exactly. In Chrome’s print dialog, open
           More settings and switch off Headers and footers.
         </p>
       </div>
@@ -792,6 +818,24 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
       Use <em>Copy a link to this setup</em> to carry the same connection to another device.
     </p>
   </div>
+</dialog>
+
+<dialog id="reviewDlg">
+  <div class="dlg-head">
+    <h2>Waiting for you</h2>
+    <button class="btn" id="reviewClose">Done</button>
+  </div>
+  <div class="hist-controls">
+    <input type="search" id="revQ" placeholder="Search text, people, node names">
+    <div class="row" style="margin-top:8px">
+      <button class="btn rev-tab on" data-tab="suggestions">Suggestions</button>
+      <button class="btn rev-tab" data-tab="questions">Questions</button>
+      <button class="btn rev-tab" data-tab="confirm">Confirmations</button>
+    </div>
+    <label class="check" style="margin-top:6px"><input type="checkbox" id="revOpenOnly" checked>
+      Only what still needs attention</label>
+  </div>
+  <div class="dlg-body" id="reviewBody"></div>
 </dialog>
 
 <dialog id="snapDlg">
@@ -1806,10 +1850,15 @@ function themeColor(hex){
   return "#" + [16, 8, 0].map(sh => lift((v >> sh) & 255).toString(16).padStart(2, "0")).join("");
 }
 function applyTheme(pref){
+  const btn = el("themeBtn");
   const want = pref === "dark" ? "dark"
              : pref === "light" ? "light"
              : (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
   document.documentElement.setAttribute("data-theme", want);
+  if(btn){
+    btn.textContent = want === "dark" ? "☀" : "☾";
+    btn.title = want === "dark" ? "Switch to light" : "Switch to dark";
+  }
   const sel = el("themePref");
   if(sel && sel.value !== (pref || "auto")) sel.value = pref || "auto";
 }
@@ -2182,8 +2231,11 @@ function updateModeUI(){
     : `The map is read only here. You can still confirm items, leave suggestions and keep your own bookmarks${S.who ? ", signed " + esc(S.who) : ""}.`;
   lock.textContent = S.meta.locked ? "Change or remove the lock" : "Lock this map";
   lock.disabled = !isRoot();
-  const open = S.suggestions.filter(x=>x.status === "open").length;
-  if(isRoot() && open) note.innerHTML += ` <span style="color:var(--flag)">${open} suggestion${open===1?"":"s"} waiting.</span>`;
+  updateReviewBadge();
+  const c = pendingCount();
+  if(isRoot() && c.total)
+    note.innerHTML += ` <span style="color:var(--flag)">${c.openSug} suggestion${c.openSug===1?"":"s"},
+      ${c.openQ} question${c.openQ===1?"":"s"} and ${c.shortItems} unconfirmed item${c.shortItems===1?"":"s"}.</span>`;
 }
 
 function updateChrome(){
@@ -4496,6 +4548,173 @@ async function openSnapshots(){
 }
 
 /* =====================================================================
+   REVIEW HUB
+   Everything people have sent in, in one place, so a suggestion made on
+   a node nobody visits does not sit there unread.
+   ===================================================================== */
+S.revTab = "suggestions";
+
+function nodeName(id){
+  const n = S.nodes.get(id);
+  return n ? (n.label || id) : id + " (deleted)";
+}
+function peopleSeen(){
+  const set = new Set();
+  S.checkoffs.forEach(x=>x.person && set.add(x.person));
+  S.suggestions.forEach(x=>x.person && set.add(x.person));
+  S.questions.forEach(x=>x.person && set.add(x.person));
+  return [...set].sort();
+}
+function pendingCount(){
+  const openSug = S.suggestions.filter(x=>x.status === "open").length;
+  const openQ = S.questions.filter(x=>x.status === "open").length;
+  const roster = peopleSeen().length;
+  const shortItems = roster
+    ? S.checkItems.filter(it=>checkCount(it.id) < roster).length
+    : 0;
+  return {openSug, openQ, shortItems, total:openSug + openQ + shortItems};
+}
+function updateReviewBadge(){
+  const b = el("revBadge"), btn = el("btnReview");
+  if(!b) return;
+  const c = pendingCount();
+  b.textContent = c.total ? String(c.total) : "";
+  if(btn) btn.style.display = isRoot() ? "" : "none";
+}
+
+function openReview(){
+  el("revQ").value = "";
+  renderReview();
+  el("reviewDlg").showModal();
+}
+
+function renderReview(){
+  const body = el("reviewBody");
+  const q = (el("revQ").value || "").trim().toLowerCase();
+  const openOnly = el("revOpenOnly").checked;
+  const hit = txt => !q || String(txt).toLowerCase().includes(q);
+  let html = "";
+
+  if(S.revTab === "suggestions"){
+    const rows = S.suggestions
+      .filter(x=>!openOnly || x.status === "open")
+      .filter(x=>hit(x.text) || hit(x.person) || hit(nodeName(x.node)))
+      .sort((a,b)=>String(b.timestamp).localeCompare(String(a.timestamp)));
+    html = rows.length ? rows.map(x=>`
+      <div class="revcard">
+        <p class="where">on <a href="#" data-go="${esc(x.node)}">${esc(nodeName(x.node))}</a>
+          <span class="fold">${esc(x.kind)}</span>
+          <span class="fold">${esc(x.status)}</span></p>
+        <p class="said">${esc(x.text)}</p>
+        <p class="byline">${esc(x.person)} · ${esc(String(x.timestamp).slice(0,16))}
+          ${x.resolved_by ? " · " + esc(x.status) + " by " + esc(x.resolved_by) : ""}</p>
+        ${x.status === "open" ? `<div class="row" style="margin-top:9px">
+          <button class="btn primary" data-acc="${esc(x.id)}">Accept</button>
+          <button class="btn" data-dec="${esc(x.id)}">Decline</button>
+          <button class="btn" data-go="${esc(x.node)}">Go to the node</button>
+        </div>` : ""}
+      </div>`).join("")
+      : `<p class="histempty">${openOnly ? "No suggestions are waiting." : "No suggestions match."}</p>`;
+  }
+
+  if(S.revTab === "questions"){
+    const rows = S.questions
+      .filter(x=>!openOnly || x.status === "open")
+      .filter(x=>hit(x.text) || hit(x.person) || pinsFor(x.id).some(pn=>hit(nodeName(pn.node))))
+      .sort((a,b)=>String(b.timestamp).localeCompare(String(a.timestamp)));
+    html = rows.length ? rows.map(x=>{
+      const pins = pinsFor(x.id);
+      return `<div class="revcard">
+        <p class="said">${esc(x.text)}</p>
+        <p class="byline">${esc(x.person)} · ${esc(String(x.timestamp).slice(0,16))}
+          <span class="fold">${esc(x.status)}</span></p>
+        <p class="where" style="margin-top:8px">${pins.length
+          ? "answers: " + pins.map(pn=>`<a href="#" data-go="${esc(pn.node)}">${esc(nodeName(pn.node))}</a>`).join(", ")
+          : "<span style=\"color:var(--flag)\">nothing pinned as an answer yet</span>"}</p>
+        <div class="row" style="margin-top:9px">
+          <button class="btn" data-openq="${esc(x.id)}">Open it</button>
+          <button class="btn" data-qtoggle="${esc(x.id)}">${x.status === "open" ? "Mark answered" : "Reopen"}</button>
+        </div>
+      </div>`;
+    }).join("")
+      : `<p class="histempty">${openOnly ? "No questions are open." : "No questions match."}</p>`;
+  }
+
+  if(S.revTab === "confirm"){
+    const roster = peopleSeen();
+    const rows = S.checkItems
+      .filter(it=>hit(it.label) || hit(nodeName(it.node)))
+      .map(it=>{
+        const done = S.checkoffs.filter(x=>x.item === it.id && x.checked === "yes");
+        const names = done.map(x=>x.person);
+        const missing = roster.filter(pp=>names.indexOf(pp) < 0);
+        return {it, names, missing};
+      })
+      .filter(r=>!openOnly || r.missing.length || !r.names.length);
+    html = rows.length ? rows.map(({it, names, missing})=>{
+      const pct = roster.length ? Math.round(names.length / roster.length * 100) : 0;
+      return `<div class="revcard">
+        <p class="where">on <a href="#" data-go="${esc(it.node)}">${esc(nodeName(it.node))}</a></p>
+        <p class="said" style="margin-bottom:4px">${esc(it.label)}</p>
+        <div class="bar"><i style="width:${pct}%"></i></div>
+        <p class="byline">${names.length} of ${roster.length || "?"} confirmed${names.length ? " · " + esc(names.join(", ")) : ""}</p>
+        ${missing.length ? `<p class="byline" style="color:var(--flag)">waiting on ${esc(missing.join(", "))}</p>` : ""}
+        <div class="row" style="margin-top:9px">
+          <button class="btn" data-go="${esc(it.node)}">Go to the node</button>
+          <button class="btn" data-dropitem="${esc(it.id)}">Remove this item</button>
+        </div>
+      </div>`;
+    }).join("")
+      : `<p class="histempty">${S.checkItems.length ? "Everyone has confirmed everything." : "No confirmation items yet. Add one from a node."}</p>`;
+  }
+
+  body.innerHTML = html;
+
+  body.querySelectorAll("[data-go]").forEach(b=>{
+    b.onclick = ev=>{
+      ev.preventDefault();
+      const id = b.dataset.go;
+      if(!S.nodes.has(id)){ toast("That node no longer exists"); return; }
+      if(S.nodes.get(id).status === "retired" && el("showScope").value === "active"){
+        el("showScope").value = "all"; rebuild();
+      }
+      el("reviewDlg").close();
+      focusNode(id);
+    };
+  });
+  body.querySelectorAll("[data-acc],[data-dec]").forEach(b=>{
+    b.onclick = ()=>{
+      const x = S.suggestions.find(y=>y.id === (b.dataset.acc || b.dataset.dec));
+      if(!x) return;
+      x.status = b.dataset.acc ? "accepted" : "declined";
+      x.resolved_by = S.meta.author || S.who || "root";
+      x.resolved_at = nowISO();
+      markDirty(); renderReview(); updateReviewBadge(); renderInspector();
+      if(b.dataset.acc) toast("Accepted. Make the edit on the node when you are ready.");
+    };
+  });
+  body.querySelectorAll("[data-openq]").forEach(b=>{
+    b.onclick = ()=>{ el("reviewDlg").close(); openQuestion(b.dataset.openq); };
+  });
+  body.querySelectorAll("[data-qtoggle]").forEach(b=>{
+    b.onclick = ()=>{
+      const x = S.questions.find(y=>y.id === b.dataset.qtoggle);
+      if(!x) return;
+      x.status = x.status === "open" ? "answered" : "open";
+      markDirty(); renderReview(); updateReviewBadge(); renderContents();
+    };
+  });
+  body.querySelectorAll("[data-dropitem]").forEach(b=>{
+    b.onclick = ()=>{
+      if(!confirm("Remove this confirmation item and everyone's answers to it?")) return;
+      S.checkItems = S.checkItems.filter(x=>x.id !== b.dataset.dropitem);
+      S.checkoffs = S.checkoffs.filter(x=>x.item !== b.dataset.dropitem);
+      markDirty(); renderReview(); updateReviewBadge(); renderInspector();
+    };
+  });
+}
+
+/* =====================================================================
    CHANGE LOG
    The whole journal in one place: chronological, searchable, filtered by
    what kind of change it was and whether the node still exists.
@@ -5247,6 +5466,14 @@ async function boot(){
   el("dimOthers").onchange = render;
   el("showScope").onchange = ()=>rebuild();
   el("notesMode").onchange = e=>{ S.notesMode = e.target.value; savePersonal(); rebuild(); };
+  el("themeBtn").onclick = ()=>{
+    const now = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    S.theme = now;
+    applyTheme(now);
+    Store.putKey("theme", now);
+    rebuild();
+    toast(now === "dark" ? "Dark" : "Light");
+  };
   el("themePref").onchange = e=>{
     S.theme = e.target.value;
     applyTheme(S.theme);
@@ -5298,6 +5525,18 @@ async function boot(){
     if(k){ markDirty(); rebuild(); fitView(0.96, 0.6); }
     toast(k ? k + " nodes back on auto layout" : "Nothing was pinned");
   };
+
+  el("btnReview").onclick = openReview;
+  el("reviewClose").onclick = ()=>el("reviewDlg").close();
+  el("revQ").addEventListener("input", debounce(renderReview, 180));
+  el("revOpenOnly").onchange = renderReview;
+  document.querySelectorAll(".rev-tab").forEach(t=>{
+    t.onclick = ()=>{
+      document.querySelectorAll(".rev-tab").forEach(x=>x.classList.toggle("on", x === t));
+      S.revTab = t.dataset.tab;
+      renderReview();
+    };
+  });
 
   el("btnHistory").onclick = ()=>{ if(S.hist.scope === "node" && !S.sel) S.hist.scope = "all"; openHistory(); };
   el("histClose").onclick = ()=>el("histDlg").close();
