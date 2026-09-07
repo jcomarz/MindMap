@@ -25,6 +25,44 @@
   --mono:"IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
   --rail:264px;
   --insp:320px;
+  --note-ink:#4A5158;
+  --hit-fill:#FDF4D2;
+  --hit-line:#F5CE55;
+  --img-bg:#EFEFEB;
+  --edge-idle:#7C848C;
+}
+
+/* Dark is a second ink-and-paper set rather than an inversion: the paper goes
+   to graphite and the ink comes up to light, so the drawing still reads as a
+   drawing. */
+html[data-theme="dark"]{
+  --paper:#16191C;
+  --paper-2:#1E2227;
+  --graphite:#E3E7EA;
+  --graphite-60:#959DA5;
+  --rule:#343B42;
+  --rule-soft:#252A30;
+  --blueprint:#6BA6E8;
+  --blueprint-soft:#1B2836;
+  --highlight:#5A4A18;
+  --retired:#6E767D;
+  --flag:#E08265;
+  --note-ink:#AEB6BD;
+  --hit-fill:#3A3213;
+  --hit-line:#6E5D1C;
+  --img-bg:#22262A;
+  --edge-idle:#7E868E;
+}
+
+/* Sheets are always ink on white, whatever the screen is set to. */
+@media print{
+  html[data-theme="dark"]{
+    --paper:#FCFCFA; --paper-2:#F2F2EE; --graphite:#23282D; --graphite-60:#6E757C;
+    --rule:#C9CCC6; --rule-soft:#E3E5E0; --blueprint:#14549B; --blueprint-soft:#E4EDF7;
+    --highlight:#FBE08A; --retired:#9AA1A8; --flag:#B4472A;
+    --note-ink:#4A5158; --hit-fill:#FDF4D2; --hit-line:#F5CE55; --img-bg:#EFEFEB;
+    --edge-idle:#7C848C;
+  }
 }
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
@@ -92,6 +130,13 @@ details[open]>summary .toctwist{transform:rotate(90deg)}
 .tocrow{display:flex;align-items:center;gap:6px;padding:6px 4px;font-size:13px;cursor:pointer;border-radius:2px}
 .tocrow:hover{background:var(--paper-2)}
 .tocrow .swatch{width:10px;height:10px;flex:0 0 auto;border-radius:2px}
+.qrow{padding:8px 4px;border-top:1px solid var(--rule-soft);cursor:pointer;border-radius:2px}
+.qrow:first-child{border-top:0}
+.qrow:hover{background:var(--paper-2)}
+.qrow.hit{background:var(--hit-fill)}
+.qrow.sel{background:var(--blueprint-soft)}
+.qtext{font-size:13px;line-height:1.35}
+.qmeta{font-size:11px;color:var(--graphite-60);font-family:var(--mono);margin-top:3px}
 .tocrow .kill{opacity:.5;font-size:15px;line-height:1;padding:0 4px;border:0;background:transparent}
 .tocempty{font-size:12px;color:var(--graphite-60);margin:0}
 @media (max-width:820px){ .railtab{padding:12px 6px;font-size:14px} .tocitem,.tocrow{padding:9px 4px} }
@@ -163,10 +208,14 @@ label.field>span{display:block;font-size:12px;color:var(--graphite-60);margin-bo
 .node-box{fill:var(--paper);stroke:var(--graphite);stroke-width:1.25}
 .node-label{font-family:var(--sans);font-size:13px;fill:var(--graphite)}
 .node-id{font-family:var(--mono);font-size:9px;fill:var(--graphite-60)}
-.node-g.retired .node-box{stroke:var(--retired);stroke-dasharray:5 3;fill:#F7F7F5}
+.node-note{font-family:var(--sans);font-size:11px;fill:var(--note-ink)}
+.note-hit{font-weight:600;fill:var(--graphite)}
+.node-g.retired .node-note{fill:var(--retired)}
+.node-g.retired .node-box{stroke:var(--retired);stroke-dasharray:5 3;fill:var(--paper-2)}
 .node-g.retired .node-label{fill:var(--retired)}
 .node-g.sel .node-box{stroke:var(--blueprint);stroke-width:2.25}
-.node-g.hit .node-box{fill:var(--highlight)}
+.node-g.hit .node-box{fill:var(--hit-fill)}
+.node-g.hit.plain .node-box{fill:var(--highlight)}
 .node-g.dim{opacity:.16}
 .node-g{cursor:pointer}
 .node-g.pinned .pin{fill:var(--blueprint)}
@@ -178,6 +227,7 @@ label.field>span{display:block;font-size:12px;color:var(--graphite-60);margin-bo
 .edge{fill:none}
 .edge.dim{opacity:.1}
 .edge-label{font-family:var(--sans);font-size:10.5px;fill:var(--graphite-60)}
+.edge-label-bg{fill:var(--paper)}
 .flagmark{fill:var(--flag)}
 
 /* ---------- inspector ---------- */
@@ -291,7 +341,7 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
 .nodehist>summary em{font-style:normal;font-size:11px;color:var(--graphite-60);font-family:var(--mono)}
 .rev .chg .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px}
 .rev .chg .dot.functional{background:var(--blueprint)}
-.rev .chg .dot.editorial{background:#AEB4BA}
+.rev .chg .dot.editorial{background:var(--graphite-60)}
 .rev .chg .dot.layout{background:transparent;border:1px solid var(--rule)}
 .rev .fold{font-family:var(--mono);font-size:10px;color:var(--graphite-60);
   border:1px solid var(--rule);border-radius:2px;padding:0 4px;margin-left:5px}
@@ -317,7 +367,7 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
 .ent time{font-family:var(--mono);font-size:10.5px;color:var(--graphite-60)}
 .ent .dot{width:8px;height:8px;border-radius:50%;align-self:center}
 .ent .dot.functional{background:var(--blueprint)}
-.ent .dot.editorial{background:#AEB4BA}
+.ent .dot.editorial{background:var(--graphite-60)}
 .ent .dot.layout{background:transparent;border:1px solid var(--rule)}
 .ent .who{font-weight:600}
 .ent .what{color:var(--graphite-60)}
@@ -336,7 +386,7 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
 }
 .imgcard{display:flex;gap:10px;align-items:center;border:1px solid var(--rule);
   border-radius:2px;padding:8px;margin-bottom:10px;background:var(--paper-2)}
-.imgcard img{width:64px;height:48px;object-fit:cover;border:1px solid var(--rule);background:#fff}
+.imgcard img{width:64px;height:48px;object-fit:cover;border:1px solid var(--rule);background:var(--paper)}
 .imgcard strong{display:block;font-size:12px;font-weight:600}
 .imgcard span{font-size:11px;color:var(--graphite-60);font-family:var(--mono);word-break:break-all}
 .fineprint{font-size:12px;color:var(--graphite-60);line-height:1.5;margin:14px 0 0}
@@ -512,6 +562,18 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
 
       <div class="group">
         <h2>Show</h2>
+        <label class="field"><span>Appearance</span>
+          <select id="themePref">
+            <option value="auto">Match the device</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select></label>
+        <label class="field"><span>Notes on the map</span>
+          <select id="notesMode">
+            <option value="off">Labels only</option>
+            <option value="search">Open a note when it matches a search</option>
+            <option value="always">Always show notes</option>
+          </select></label>
         <label class="field"><span>Nodes</span>
           <select id="showScope">
             <option value="all">Everything, retired included</option>
@@ -643,6 +705,12 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
       </div>
 
       <div class="group">
+        <h2>Questions</h2>
+        <div id="tocQuestions"></div>
+        <button class="btn wide" id="btnAskQ" style="margin-top:8px">Ask a question</button>
+      </div>
+
+      <div class="group">
         <h2>Areas</h2>
         <div id="tocAreas"></div>
         <button class="btn wide" id="btnArea" style="margin-top:8px">Draw an area</button>
@@ -767,7 +835,7 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
 var TOKEN        = 'change-me';                // full access: reads and rewrites the map
 var VIEWER_TOKEN = '';                         // hand this one out: read, and add suggestions only
 var BUILD = 'b4';                              // lets the app confirm which version is deployed
-var TABS  = ['Nodes','Links','Areas','Bookmarks','Suggestions','CheckItems','Checkoffs','Revisions','TagStyles','Settings'];
+var TABS  = ['Nodes','Links','Areas','Bookmarks','Questions','QuestionPins','Suggestions','CheckItems','Checkoffs','Revisions','TagStyles','Settings'];
 
 function doGet(e)  { return handle(e, null); }
 function doPost(e) { return handle(e, JSON.parse((e.postData && e.postData.contents) || '{}')); }
@@ -838,7 +906,7 @@ function readAll(ss, prefix) {
 /* Adds or updates rows on the two contribution tabs and touches nothing else,
    so a viewer token cannot damage the map however it is used. */
 function contribute(ss, prefix, tables) {
-  ['Suggestions', 'Checkoffs'].forEach(function (name) {
+  ['Suggestions', 'Checkoffs', 'Questions', 'QuestionPins'].forEach(function (name) {
     var rows = (tables && tables[name]) || [];
     if (!rows.length) return;
     var sh = ss.getSheetByName(prefix + name) || ss.insertSheet(prefix + name);
@@ -917,7 +985,14 @@ const S = {
   checkItems:[],               // things the host asks people to confirm
   checkoffs:[],                // who confirmed what
   personal:{bookmarks:[], searches:[]},   // per device, never part of the map
+  notesMode:"search",          // off | always | search — how much of a note the map shows
+  theme:"auto",                // auto | light | dark, kept per device
   who:"",
+  questions:[],                // asked by anyone; answers are pinned nodes
+  pins:[],
+  selQuestion:null,
+  qHits:[],
+  hitQuery:"",
   draft:false,
   hist:{q:"", cls:{functional:true, editorial:true, layout:false}, scope:"all", node:null},
   syncing:false
@@ -934,6 +1009,19 @@ function newNode(o={}){
     rev:1, author:S.meta.author, x:null, y:null, pinned:false, collapsed:false
   }, o);
 }
+function newQuestion(o={}){
+  return Object.assign({
+    id:uid("Q-"), text:"", person:S.who || "anonymous", timestamp:nowISO(),
+    status:"open", note:""
+  }, o);
+}
+function newPin(o={}){
+  return Object.assign({
+    id:uid("P-"), question:"", node:"", person:S.who || "anonymous",
+    timestamp:nowISO(), note:""
+  }, o);
+}
+
 function newSuggestion(o={}){
   return Object.assign({
     id:uid("S-"), node:"", person:S.who || "anonymous", timestamp:nowISO(),
@@ -1056,6 +1144,20 @@ function markDirty(){
   if(typeof scheduleSave === "function") scheduleSave(); }
 function markClean(){ S.dirty = false; document.body.classList.remove("dirty"); }
 
+function pinsFor(qid){ return S.pins.filter(x=>x.question === qid); }
+function questionsForNode(id){
+  const qs = new Set(S.pins.filter(x=>x.node === id).map(x=>x.question));
+  return S.questions.filter(q=>qs.has(q.id));
+}
+function questionMatches(q, terms){
+  const pinned = pinsFor(q.id).map(x=>{
+    const n = S.nodes.get(x.node);
+    return n ? [n.label, n.body, (n.tags||[]).join(" ")].join(" ") : "";
+  }).join(" ");
+  const hay = [q.text, q.note, q.person, pinned].join(" ").toLowerCase();
+  return terms.every(t=>hay.includes(t));
+}
+
 function isRoot(){ return S.mode === "root"; }
 function canEdit(){ return S.mode === "root"; }
 function suggestionsFor(id){ return S.suggestions.filter(x=>x.node === id); }
@@ -1132,6 +1234,7 @@ function blankMap(){
   S.nodes.clear(); S.edges.clear(); S.revisions.length = 0; S.tagStyles.clear();
   S.areas.clear(); S.bookmarks.length = 0;
   S.suggestions.length = 0; S.checkItems.length = 0; S.checkoffs.length = 0;
+  S.questions.length = 0; S.pins.length = 0; S.selQuestion = null;
   S.meta.locked = false; S.meta.rootHash = ""; S.mode = "root";
   S.sel = null; S.selArea = null;
   const n = newNode({label:"Start here", type:"start"});
@@ -1149,6 +1252,7 @@ function seed(){
   S.nodes.clear(); S.edges.clear(); S.revisions.length=0; S.tagStyles.clear();
   S.areas.clear(); S.bookmarks.length=0;
   S.suggestions.length=0; S.checkItems.length=0; S.checkoffs.length=0;
+  S.questions.length = 0; S.pins.length = 0; S.selQuestion = null;
   S.meta.locked=false; S.meta.rootHash=""; S.mode="root";
   const mk=(label,o)=>{ const n=newNode(Object.assign({label},o)); S.nodes.set(n.id,n); return n.id; };
   const ln=(a,b,o)=>{ const e=newEdge(Object.assign({from:a,to:b},o)); S.edges.set(e.id,e); return e.id; };
@@ -1218,7 +1322,9 @@ const HDR = {
   Suggestions:["suggestion_id","node_id","person","timestamp","kind","text","status","resolved_by","resolved_at"],
   CheckItems:["item_id","node_id","label","created","author"],
   Checkoffs:["check_id","item_id","node_id","person","checked","timestamp","note"],
-  Settings:["key","value"]
+  Settings:["key","value"],
+  Questions:["question_id","text","person","timestamp","status","note"],
+  QuestionPins:["pin_id","question_id","node_id","person","timestamp","note"]
 };
 
 function pathOf(id){
@@ -1269,6 +1375,14 @@ function toSheets(){
     check_id:x.id, item_id:x.item, node_id:x.node, person:x.person,
     checked:x.checked, timestamp:x.timestamp, note:x.note||""
   }));
+  const questions = S.questions.map(x=>({
+    question_id:x.id, text:x.text, person:x.person, timestamp:x.timestamp,
+    status:x.status, note:x.note||""
+  }));
+  const pins = S.pins.map(x=>({
+    pin_id:x.id, question_id:x.question, node_id:x.node, person:x.person,
+    timestamp:x.timestamp, note:x.note||""
+  }));
   const settings = [
     {key:"locked", value:S.meta.locked ? "yes" : ""},
     {key:"root_hash", value:S.meta.rootHash || ""}
@@ -1279,7 +1393,8 @@ function toSheets(){
   }));
   return { Nodes:nodes, Links:links, Revisions:S.revisions.slice(), TagStyles:styles,
            Areas:areas, Bookmarks:bookmarks, Suggestions:suggestions,
-           CheckItems:checkItems, Checkoffs:checkoffs, Settings:settings, Sync:sync };
+           CheckItems:checkItems, Checkoffs:checkoffs, Questions:questions,
+           QuestionPins:pins, Settings:settings, Sync:sync };
 }
 function round(v){ return v==null?"":Math.round(v*10)/10; }
 
@@ -1304,7 +1419,8 @@ function tablesToModel(t){
         revs = t.Revisions || [], styles = t.TagStyles || [];
   const M = { nodes:new Map(), edges:new Map(), revisions:[], tagStyles:new Map(),
               connections:[], areas:new Map(), bookmarks:[],
-              suggestions:[], checkItems:[], checkoffs:[], settings:{} };
+              suggestions:[], checkItems:[], checkoffs:[], settings:{},
+              questions:[], pins:[] };
 
   for(const r of nodes){
     const n = newNode({
@@ -1374,6 +1490,22 @@ function tablesToModel(t){
       node:String(r.node_id||""), x:Number(r.x)||0, y:Number(r.y)||0, k:Number(r.zoom)||1
     }));
   }
+  for(const r of (t.Questions||[])){
+    if(!r.question_id && !r.text) continue;
+    M.questions.push(newQuestion({
+      id:String(r.question_id||uid("Q-")), text:String(r.text||""),
+      person:String(r.person||"anonymous"), timestamp:String(r.timestamp||nowISO()),
+      status:String(r.status||"open").toLowerCase(), note:String(r.note||"")
+    }));
+  }
+  for(const r of (t.QuestionPins||[])){
+    if(!r.pin_id && !r.question_id) continue;
+    M.pins.push(newPin({
+      id:String(r.pin_id||uid("P-")), question:String(r.question_id||""),
+      node:String(r.node_id||""), person:String(r.person||"anonymous"),
+      timestamp:String(r.timestamp||nowISO()), note:String(r.note||"")
+    }));
+  }
   for(const r of (t.Suggestions||[])){
     if(!r.suggestion_id && !r.text) continue;
     M.suggestions.push(newSuggestion({
@@ -1421,6 +1553,7 @@ function adoptModel(M, keepConnections){
   S.revisions = M.revisions; S.tagStyles = M.tagStyles;
   S.areas = M.areas; S.bookmarks = M.bookmarks;
   S.suggestions = M.suggestions; S.checkItems = M.checkItems; S.checkoffs = M.checkoffs;
+  S.questions = M.questions; S.pins = M.pins; S.selQuestion = null;
   S.meta.locked = M.settings.locked === "yes";
   S.meta.rootHash = M.settings.root_hash || "";
   S.mode = S.meta.locked ? "viewer" : "root";
@@ -1468,6 +1601,10 @@ function mergeModel(M){
     else if(String(x.resolved_at||"") > String(mine.resolved_at||"")) Object.assign(mine, x);
   });
   void sIds;
+  const qIds = new Set(S.questions.map(x=>x.id));
+  M.questions.forEach(x=>{ if(!qIds.has(x.id)) S.questions.push(x); });
+  const pIds = new Set(S.pins.map(x=>x.id));
+  M.pins.forEach(x=>{ if(!pIds.has(x.id)) S.pins.push(x); });
   const cIds = new Set(S.checkItems.map(x=>x.id));
   M.checkItems.forEach(x=>{ if(!cIds.has(x.id)) S.checkItems.push(x); });
   /* one row per person per item; the newer timestamp wins */
@@ -1509,7 +1646,7 @@ function importXlsx(file){
 function copyTsv(){
   const d = toSheets();
   let out = "";
-  for(const name of ["Nodes","Links","Areas","Bookmarks","Suggestions","CheckItems","Checkoffs","Revisions","TagStyles","Settings","Sync"]){
+  for(const name of ["Nodes","Links","Areas","Bookmarks","Questions","QuestionPins","Suggestions","CheckItems","Checkoffs","Revisions","TagStyles","Settings","Sync"]){
     if(!d[name].length && name!=="Nodes" && name!=="Links") continue;
     out += "### " + name + "\n" + HDR[name].join("\t") + "\n";
     for(const row of d[name]) out += HDR[name].map(h=>String(row[h]??"").replace(/[\t\n]/g," ")).join("\t") + "\n";
@@ -1523,6 +1660,7 @@ function copyTsv(){
    LAYOUT — tidy left-to-right tree, with pinned nodes honoured
    ===================================================================== */
 const NODE_W = 208, COL_GAP = 96, ROW_GAP = 20, LINE_H = 16, PAD_Y = 13;
+const NOTE_LH = 13, NOTE_MAX = 14, NOTE_SNIPPET = 8;
 const CHAR_W = 6.35;
 
 function wrap(text, widthPx){
@@ -1536,6 +1674,44 @@ function wrap(text, widthPx){
   }
   if(cur.length) lines.push(cur);
   return lines.length ? lines.slice(0,5) : [""];
+}
+
+/* Which lines of a note the map should show. When a search is running the
+   note opens around the match rather than from the top, so the reason the
+   node came up is the part you actually see. */
+function noteLinesFor(n, q, isHit){
+  const body = String(n.body || "").trim();
+  if(!body) return [];
+  const mode = S.notesMode;
+  const matches = q && body.toLowerCase().includes(q);
+  if(mode === "off" && !(matches && isHit)) return [];
+  if(mode === "search" && !(matches && isHit)) return [];
+
+  const all = [];
+  body.split(/\n+/).forEach(para=>{ wrapAll(para, NODE_W - 26).forEach(l=>all.push(l)); });
+  if(!matches) return all.slice(0, NOTE_MAX);
+
+  const first = all.findIndex(l=>l.toLowerCase().includes(q));
+  if(first < 0) return all.slice(0, NOTE_MAX);
+  const start = Math.max(0, first - 1);
+  const out = all.slice(start, start + NOTE_SNIPPET);
+  if(start > 0) out.unshift("…");
+  if(start + NOTE_SNIPPET < all.length) out.push("…");
+  return out;
+}
+
+/* like wrap(), but never truncates */
+function wrapAll(text, widthPx){
+  const max = Math.max(8, Math.floor(widthPx / (CHAR_W * 0.92)));
+  const words = String(text||"").split(/\s+/).filter(Boolean);
+  const lines = []; let cur = "";
+  for(const w of words){
+    if(!cur.length) cur = w;
+    else if((cur + " " + w).length <= max) cur += " " + w;
+    else { lines.push(cur); cur = w; }
+  }
+  if(cur.length) lines.push(cur);
+  return lines.length ? lines : [""];
 }
 
 function visibleNodes(){
@@ -1552,10 +1728,15 @@ function visibleNodes(){
 
 function layout(){
   const vis = visibleNodes();
+  const q = (S.hitQuery || "").toLowerCase();
+  const hitSet = new Set(S.hits);
   for(const n of S.nodes.values()){
     n._lines = wrap(n.label, NODE_W - 22);
     n._imgH = n.image ? Math.max(40, Math.min(400, Number(n.imageH)||120)) : 0;
-    n._h = Math.max(46, n._lines.length * LINE_H + PAD_Y*2 + 9) + (n._imgH ? n._imgH + 8 : 0);
+    n._note = noteLinesFor(n, q, hitSet.has(n.id));
+    n._h = Math.max(46, n._lines.length * LINE_H + PAD_Y*2 + 9)
+         + (n._imgH ? n._imgH + 8 : 0)
+         + (n._note.length ? n._note.length * NOTE_LH + 8 : 0);
   }
   let cursor = 0;
   const visiting = new Set();
@@ -1607,6 +1788,32 @@ function worldBBox(pad=48){
 /* =====================================================================
    RENDER
    ===================================================================== */
+/* ---------------------------------------------------------------
+   Theme. Colours held in the data — tag styles, area colours — are
+   authored against white, so they are lifted toward the light end
+   when the page is dark and left alone for printing.
+   --------------------------------------------------------------- */
+let PRINT_LIGHT = false;
+function isDark(){
+  return !PRINT_LIGHT && document.documentElement.getAttribute("data-theme") === "dark";
+}
+function themeColor(hex){
+  if(!isDark()) return hex;
+  const m = /^#?([0-9a-fA-F]{6})$/.exec(String(hex||""));
+  if(!m) return hex;
+  const v = parseInt(m[1], 16);
+  const lift = c => Math.round(c + (255 - c) * 0.45);
+  return "#" + [16, 8, 0].map(sh => lift((v >> sh) & 255).toString(16).padStart(2, "0")).join("");
+}
+function applyTheme(pref){
+  const want = pref === "dark" ? "dark"
+             : pref === "light" ? "light"
+             : (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  document.documentElement.setAttribute("data-theme", want);
+  const sel = el("themePref");
+  if(sel && sel.value !== (pref || "auto")) sel.value = pref || "auto";
+}
+
 const SVGNS = "http://www.w3.org/2000/svg";
 function mk(tag, attrs={}, parent){
   const e = document.createElementNS(SVGNS, tag);
@@ -1652,13 +1859,14 @@ function render(){
   for(const a of S.areas.values()){
     const g = mk("g",{class:"area-g" + (S.selArea === a.id ? " sel" : ""),
       transform:`translate(${a.x},${a.y})`, "data-area":a.id}, gA);
+    const ac = themeColor(a.color);
     mk("rect",{class:"area-box", width:a.w, height:a.h, rx:4,
-      fill:a.color, "fill-opacity":.05, stroke:a.color, "stroke-width":1.25,
+      fill:ac, "fill-opacity":isDark()?.08:.05, stroke:ac, "stroke-width":1.25,
       "stroke-dasharray":"10 5"}, g);
-    const t = mk("text",{class:"area-label", x:11, y:19, fill:a.color}, g);
+    const t = mk("text",{class:"area-label", x:11, y:19, fill:ac}, g);
     t.textContent = a.label;
     mk("rect",{class:"area-grab", x:a.w-16, y:a.h-16, width:16, height:16,
-      fill:a.color, "fill-opacity":.28, "data-resize":a.id}, g);
+      fill:ac, "fill-opacity":.28, "data-resize":a.id}, g);
   }
   const vis = visibleNodes();
   const offTags = activeTagFilter();
@@ -1673,7 +1881,11 @@ function render(){
     if(e.link_type === "cross" && !showCross) continue;
     if(e.tag && offTags.has(e.tag)) continue;
     const a = S.nodes.get(e.from), b = S.nodes.get(e.to);
-    const st = e.tag ? styleFor(e.tag) : {color:"#7C848C", line:"solid", width:1.3, arrow:"yes"};
+    const raw = e.tag ? styleFor(e.tag) : {color:"", line:"solid", width:1.3, arrow:"yes"};
+    const st = Object.assign({}, raw, {
+      color: themeColor(raw.color || getComputedStyle(document.documentElement)
+        .getPropertyValue("--edge-idle").trim() || "#7C848C")
+    });
     const dash = LINE_DASH[st.line] ?? "";
     let d, ax, ay, bx, by;
 
@@ -1703,7 +1915,7 @@ function render(){
       t.textContent = e.label;
       const bb = {w: e.label.length*5.6 + 8};
       const bg = mk("rect",{x:(ax+bx)/2 - bb.w/2, y:(ay+by)/2 + (e.link_type==="cross"?24:-15),
-        width:bb.w, height:13, fill:"#FCFCFA"}, gE);
+        width:bb.w, height:13, class:"edge-label-bg"}, gE);
       gE.insertBefore(bg, t);
       if(dimOn && !(hitSet.has(e.from) && hitSet.has(e.to))){ t.classList.add("dim"); bg.classList.add("dim"); }
     }
@@ -1716,7 +1928,7 @@ function render(){
     if(n.status === "retired") g.classList.add("retired");
     if(S.sel === id) g.classList.add("sel");
     if(n.pinned) g.classList.add("pinned");
-    if(hitSet.has(id)) g.classList.add("hit");
+    if(hitSet.has(id)){ g.classList.add("hit"); if(!n._note.length) g.classList.add("plain"); }
     else if(dimOn) g.classList.add("dim");
 
     const tagColor = (n.tags||[]).map(t=>S.tagStyles.get(t)).find(Boolean);
@@ -1725,7 +1937,7 @@ function render(){
     mk("path",{d:nodePath(n), class:"node-box"}, g);
     if(tagColor){
       const inset = n.type === "decision" ? 9 : (n.type==="start"||n.type==="end") ? 6 : 0;
-      mk("rect",{x:0, y:inset, width:4, height:n._h - inset*2, fill:tagColor.color,
+      mk("rect",{x:0, y:inset, width:4, height:n._h - inset*2, fill:themeColor(tagColor.color),
         opacity: n.status==="retired" ? .35 : 1}, g);
     }
 
@@ -1736,7 +1948,7 @@ function render(){
       if(prev) prev.remove();
       mk("rect",{x:0, y:0, width:NODE_W-10, height:n._imgH, rx:2}, cp);
       const wrapG = mk("g",{transform:`translate(5,5)`, "clip-path":`url(#${clipId})`}, g);
-      mk("rect",{width:NODE_W-10, height:n._imgH, fill:"#EFEFEB"}, wrapG);
+      mk("rect",{width:NODE_W-10, height:n._imgH, fill:"var(--img-bg)"}, wrapG);
       const im = mk("image",{x:0, y:0, width:NODE_W-10, height:n._imgH,
         preserveAspectRatio:"xMidYMid slice", opacity: n.status==="retired" ? .45 : 1}, wrapG);
       im.setAttributeNS("http://www.w3.org/1999/xlink", "href", n.image);
@@ -1747,6 +1959,30 @@ function render(){
       const t = mk("text",{class:"node-label", x:13, y:textTop + PAD_Y + 11 + i*LINE_H}, g);
       t.textContent = ln;
     });
+    if(n._note && n._note.length){
+      const q = (S.hitQuery || "").toLowerCase();
+      const noteTop = textTop + PAD_Y + 11 + n._lines.length * LINE_H - 2;
+      n._note.forEach((line, i)=>{
+        const y = noteTop + i * NOTE_LH;
+        const lower = line.toLowerCase();
+        const hit = q && lower.includes(q);
+        if(hit) mk("rect",{x:11, y:y - NOTE_LH + 3, width:NODE_W - 22, height:NOTE_LH,
+          fill:"var(--hit-line)", "fill-opacity":.85, rx:1}, g);
+        const t = mk("text",{class:"node-note", x:13, y}, g);
+        if(!hit){ t.textContent = line; return; }
+        /* split the line so the matched words can be picked out in place */
+        let from = 0;
+        while(from <= line.length){
+          const at = lower.indexOf(q, from);
+          if(at < 0){ if(from < line.length){
+            const rest = mk("tspan",{}, t); rest.textContent = line.slice(from); } break; }
+          if(at > from){ const pre = mk("tspan",{}, t); pre.textContent = line.slice(from, at); }
+          const em = mk("tspan",{class:"note-hit"}, t);
+          em.textContent = line.substr(at, q.length);
+          from = at + q.length;
+        }
+      });
+    }
     const meta = mk("text",{class:"node-id", x:13, y:n._h - 8}, g);
     meta.textContent = n.id + "  " + verOf(n) + (n.status==="retired" ? "  retired" : "");
 
@@ -1797,11 +2033,32 @@ function renderContents(){
       : `<p class="tocempty">Searches you run are listed here, on this device only.</p>`;
   }
 
+  /* questions */
+  const qb = el("tocQuestions");
+  if(qb){
+    const matching = new Set(S.qHits);
+    const list = S.questions.slice().sort((a,b)=>{
+      const am = matching.has(a.id) ? 0 : 1, bm = matching.has(b.id) ? 0 : 1;
+      if(am !== bm) return am - bm;
+      return String(b.timestamp).localeCompare(String(a.timestamp));
+    }).filter(x=>!q || matching.has(x.id) || x.text.toLowerCase().includes(q));
+    qb.innerHTML = list.length
+      ? list.map(x=>{
+          const pins = pinsFor(x.id);
+          return `<div class="qrow${matching.has(x.id)?" hit":""}" data-q="${esc(x.id)}">
+            <div class="qtext">${esc(x.text)}</div>
+            <div class="qmeta">${esc(x.person)} · ${pins.length} answer${pins.length===1?"":"s"}
+              ${x.status !== "open" ? `<span class="fold">${esc(x.status)}</span>` : ""}</div>
+          </div>`;
+        }).join("")
+      : `<p class="tocempty">${q ? "No questions match." : "None yet. Ask one, then pin the nodes that answer it."}</p>`;
+  }
+
   /* areas */
   const ar = el("tocAreas");
   ar.innerHTML = S.areas.size
     ? [...S.areas.values()].map(a=>`<div class="tocrow" data-area-jump="${esc(a.id)}">
-        <span class="swatch" style="background:${esc(a.color)}"></span>
+        <span class="swatch" style="background:${esc(themeColor(a.color))}"></span>
         <span class="toclabel">${esc(a.label)}</span>
         <span style="font-family:var(--mono);font-size:10px;color:var(--graphite-60)">${nodesInArea(a).length}</span>
       </div>`).join("")
@@ -1849,6 +2106,14 @@ function renderContents(){
       focusNode(id);
       if(window.matchMedia("(max-width:820px)").matches){
         el("rail").classList.remove("open"); el("scrim").classList.remove("on");
+      }
+    };
+  });
+  root.querySelectorAll("[data-q]").forEach(e=>{
+    e.onclick = ()=>{ openQuestion(e.dataset.q);
+      if(window.matchMedia("(max-width:820px)").matches){
+        el("rail").classList.remove("open");
+        el("inspector").classList.add("open"); el("scrim").classList.add("on");
       }
     };
   });
@@ -1947,7 +2212,7 @@ function buildTagFilters(){
     const c = document.createElement("button");
     c.className = "tagchip" + (prevOff.has(t) ? " off" : "");
     c.dataset.tag = t;
-    c.innerHTML = `<i style="border-top-style:${st.line==="solid"?"solid":st.line==="dotted"?"dotted":"dashed"};border-color:${st.color}"></i>${t}`;
+    c.innerHTML = `<i style="border-top-style:${st.line==="solid"?"solid":st.line==="dotted"?"dotted":"dashed"};border-color:${themeColor(st.color)}"></i>${esc(t)}`;
     c.onclick = ()=>{ c.classList.toggle("off"); render(); };
     box.appendChild(c);
   });
@@ -2308,8 +2573,9 @@ function select(id){
     return;
   }
   const prev = S.sel;
-  const hadArea = S.selArea;
-  S.sel = id; S.selArea = null;
+  const hadArea = S.selArea || S.selQuestion;
+  S.sel = id; S.selArea = null; S.selQuestion = null;
+  if(id) S.lastNode = id;
   if(hadArea){ render(); renderInspector(); updateFab(); return; }
   /* swap two classes instead of rebuilding the drawing — a full render on
      every tap is what makes a big map feel sticky on a phone */
@@ -2353,6 +2619,95 @@ function updateFab(){
 }
 
 function esc(s){ return String(s??"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+function openQuestion(id){
+  S.selQuestion = id; S.sel = null; S.selArea = null;
+  render(); renderInspector(); renderContents();
+}
+function askQuestion(fromNode){
+  const text = prompt("What is the question?");
+  if(text == null || !text.trim()) return;
+  if(!whoAmI()) return;
+  const q = newQuestion({text:text.trim(), person:S.who});
+  S.questions.push(q);
+  if(fromNode) S.pins.push(newPin({question:q.id, node:fromNode, person:S.who}));
+  markContribution();
+  openQuestion(q.id);
+  toast("Question added" + (fromNode ? " with this node pinned as an answer" : ""));
+}
+
+function renderQuestionInspector(q){
+  const body = el("inspBody");
+  el("inspTitle").textContent = "Question";
+  el("inspId").textContent = q.id;
+  const pins = pinsFor(q.id);
+  body.innerHTML = `
+    <div class="group">
+      <p style="font-size:15px;line-height:1.4;margin:0 0 8px">${esc(q.text)}</p>
+      <p style="font-size:12px;color:var(--graphite-60);margin:0">
+        asked by ${esc(q.person)} · ${esc(String(q.timestamp).slice(0,16))}
+        <span class="fold">${esc(q.status)}</span></p>
+      <label class="field" style="margin-top:12px"><span>Notes on this question</span>
+        <textarea id="qNote">${esc(q.note||"")}</textarea></label>
+      <div class="row">
+        <button class="btn" id="qPin">Pin the selected node</button>
+        <button class="btn" id="qMark">Bookmark it</button>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <button class="btn" id="qStatus">${q.status === "open" ? "Mark answered" : "Reopen"}</button>
+        <button class="btn" id="qDrop">Delete</button>
+      </div>
+    </div>
+    <div class="group">
+      <h2>Pinned answers</h2>
+      ${pins.length ? pins.map(pn=>{
+        const nd = S.nodes.get(pn.node);
+        return `<div class="tocrow" data-qjump="${esc(pn.node)}">
+          <span class="tocdot filled"></span>
+          <span class="toclabel">${esc(nd ? nd.label : pn.node + " (gone)")}</span>
+          <button class="kill" data-unpin="${esc(pn.id)}" title="Unpin">&times;</button>
+        </div>`;
+      }).join("") : `<p class="tocempty">Nothing pinned yet. Select a node on the map, then press
+        Pin the selected node.</p>`}
+    </div>`;
+  el("qNote").onchange = e=>{ q.note = e.target.value; markContribution(); };
+  el("qPin").onclick = ()=>{
+    if(!S.lastNode || !S.nodes.has(S.lastNode)){ toast("Select a node on the map first."); return; }
+    if(pins.some(x=>x.node === S.lastNode)){ toast("Already pinned."); return; }
+    if(!whoAmI()) return;
+    S.pins.push(newPin({question:q.id, node:S.lastNode, person:S.who}));
+    markContribution(); renderInspector(); renderContents();
+    toast("Pinned " + (S.nodes.get(S.lastNode).label || "the node"));
+  };
+  el("qMark").onclick = ()=>{
+    const bm = newBookmark({label:"Q: " + q.text.slice(0, 40), node:pinsFor(q.id)[0] ? pinsFor(q.id)[0].node : "",
+                            x:S.view.x, y:S.view.y, k:S.view.k});
+    if(canEdit()){ S.bookmarks.push(bm); markDirty(); }
+    else { S.personal.bookmarks.push(bm); savePersonal(); }
+    renderContents(); toast("Question bookmarked");
+  };
+  el("qStatus").onclick = ()=>{
+    q.status = q.status === "open" ? "answered" : "open";
+    markContribution(); renderInspector(); renderContents();
+  };
+  el("qDrop").onclick = ()=>{
+    if(!isRoot() && q.person !== S.who){ toast("Only the person who asked it, or an editor, can delete it."); return; }
+    if(!confirm("Delete this question and its pins?")) return;
+    S.questions = S.questions.filter(x=>x.id !== q.id);
+    S.pins = S.pins.filter(x=>x.question !== q.id);
+    S.selQuestion = null;
+    markContribution(); renderInspector(); renderContents();
+  };
+  body.querySelectorAll("[data-qjump]").forEach(e=>{
+    e.onclick = ev=>{ if(ev.target.hasAttribute("data-unpin")) return;
+      const id = e.dataset.qjump; if(S.nodes.has(id)) focusNode(id); };
+  });
+  body.querySelectorAll("[data-unpin]").forEach(e=>{
+    e.onclick = ev=>{ ev.stopPropagation();
+      S.pins = S.pins.filter(x=>x.id !== e.dataset.unpin);
+      markContribution(); renderInspector(); renderContents(); };
+  });
+}
 
 function renderViewerInspector(n){
   const body = el("inspBody");
@@ -2466,6 +2821,19 @@ function contributionBlock(n){
     </div>
 
     <div class="group">
+      <h2>Questions</h2>
+      ${questionsForNode(n.id).length
+        ? questionsForNode(n.id).map(q=>`<div class="qrow" data-q="${esc(q.id)}">
+            <div class="qtext">${esc(q.text)}</div>
+            <div class="qmeta">${esc(q.person)}<span class="fold">${esc(q.status)}</span></div>
+          </div>`).join("")
+        : `<p class="tocempty">This node is not pinned to a question yet.</p>`}
+      <div class="row" style="margin-top:8px">
+        <button class="btn wide" id="askAboutNode">Ask a question about this node</button>
+      </div>
+    </div>
+
+    <div class="group">
       <h2>Suggestions</h2>
       <label class="field"><span>Propose a change — the node itself is not altered</span>
         <textarea id="sugText" placeholder="What should change, and why?"></textarea></label>
@@ -2516,6 +2884,9 @@ function wireContributions(n){
       renderInspector();
     };
   });
+  const ask = el("askAboutNode");
+  if(ask) ask.onclick = ()=>askQuestion(n.id);
+  body.querySelectorAll("[data-q]").forEach(e=>{ e.onclick = ()=>openQuestion(e.dataset.q); });
   const send = el("sugSend");
   if(send) send.onclick = ()=>{
     const text = el("sugText").value.trim();
@@ -2560,6 +2931,8 @@ function markContribution(){
 }
 
 function renderInspector(){
+  if(S.selQuestion && S.questions.some(x=>x.id === S.selQuestion))
+    return renderQuestionInspector(S.questions.find(x=>x.id === S.selQuestion));
   if(S.selArea && S.areas.has(S.selArea)) return renderAreaInspector(S.areas.get(S.selArea));
   const body = el("inspBody"), n = S.sel ? S.nodes.get(S.sel) : null;
   if(n && !canEdit()) return renderViewerInspector(n);
@@ -2714,18 +3087,28 @@ function connRow(e, dir){
    ===================================================================== */
 function runSearch(){
   const q = el("q").value.trim().toLowerCase();
-  if(!q){ S.hits = []; S.hitIx = -1; el("hitCount").textContent = "—"; syncHitChrome(); render(); return; }
+  S.hitQuery = q;
+  if(!q){ S.hits = []; S.qHits = []; S.hitIx = -1; el("hitCount").textContent = "—"; syncHitChrome();
+    layout(); render(); renderContents(); return; }
   const terms = q.split(/\s+/);
+  S.qHits = S.questions.filter(x=>questionMatches(x, terms)).map(x=>x.id);
+  /* a question that matches drags its pinned answers into the results, so
+     searching a question takes you to the nodes that answer it */
+  const viaQuestions = new Set();
+  S.qHits.forEach(qid=>pinsFor(qid).forEach(p=>{
+    if(S.nodes.has(p.node)) viaQuestions.add(p.node);
+  }));
   S.hits = [...S.nodes.values()].filter(n=>{
     const hay = [n.label, n.body, n.id, n.type, n.status, (n.tags||[]).join(" "),
                  (n.image||"").startsWith("data:") ? "photo image" : (n.image||"")].join(" ").toLowerCase();
-    return terms.every(t=>hay.includes(t));
+    return viaQuestions.has(n.id) || terms.every(t=>hay.includes(t));
   }).map(n=>n.id);
   S.hitIx = S.hits.length ? 0 : -1;
   el("hitCount").textContent = S.hits.length ? "1 / " + S.hits.length : "no matches";
   if(S.hits.length) rememberSearch(q);
   syncHitChrome();
-  render();
+  /* the layout has to run again because an opened note makes a node taller */
+  layout(); render(); renderContents();
   if(S.hits.length) centerOn(S.hits[0], Math.max(S.view.k, .8));
 }
 function stepHit(d){
@@ -3057,6 +3440,8 @@ function describePlan(){
 }
 
 function printCurrentView(){
+  const wasDark = document.documentElement.getAttribute("data-theme") === "dark";
+  if(wasDark){ PRINT_LIGHT = true; render(); }
   const {pw, ph} = printRects();
   SHEET_SEQ = 0;
   const s = svgSize();
@@ -3070,10 +3455,15 @@ function printCurrentView(){
   sheet.appendChild(sheetSvg(rect, pw, ph));
   sheet.appendChild(titleBlockEl("current view", null));
   root.appendChild(sheet);
+  if(wasDark){ PRINT_LIGHT = false; render(); }
   window.print();
 }
 
 function printCollage(){
+  /* render once against the light palette so the sheets carry ink-on-white
+     colours rather than the lifted ones the dark canvas uses */
+  const wasDark = document.documentElement.getAttribute("data-theme") === "dark";
+  if(wasDark){ PRINT_LIGHT = true; render(); }
   const p = planCollage();
   if(p.total > 60 && !confirm(p.total + " sheets at this size. Print anyway?")) return;
 
@@ -3145,6 +3535,7 @@ function printCollage(){
     sheet.appendChild(titleBlockEl(ref, p.total + "  (" + p.cols + "×" + p.rows + ")"));
     root.appendChild(sheet);
   }
+  if(wasDark){ PRINT_LIGHT = false; render(); }
   window.print();
 }
 
@@ -3523,12 +3914,14 @@ function buildWorkbook(){
     Sync:[18,54,44,14,14,14,10,19],
     Areas:[14,30,8,8,8,8,10,14,40],
     Bookmarks:[14,30,14,8,8,7],
+    Questions:[14,56,16,19,10,34],
+    QuestionPins:[14,14,14,16,19,30],
     Suggestions:[14,14,16,19,11,52,10,14,19],
     CheckItems:[14,14,34,19,14],
     Checkoffs:[14,14,14,16,9,19,30],
     Settings:[14,44]
   };
-  for(const name of ["Nodes","Links","Areas","Bookmarks","Suggestions","CheckItems","Checkoffs","Revisions","TagStyles","Settings","Sync"]){
+  for(const name of ["Nodes","Links","Areas","Bookmarks","Questions","QuestionPins","Suggestions","CheckItems","Checkoffs","Revisions","TagStyles","Settings","Sync"]){
     if(name === "Sync" && !data.Sync.length) continue;
     const ws = XLSX.utils.json_to_sheet(data[name], {header:HDR[name]});
     ws["!cols"] = widths[name].map(w=>({wch:w}));
@@ -3659,8 +4052,10 @@ async function saveNow(force){
    you left: its sheet connections, its lock, and your own data for it. */
 async function afterMapSwitch(){
   rememberKey();
+  if(el("notesMode")) el("notesMode").value = S.notesMode;
   announceKey();
   await loadPersonal();
+  if(el("notesMode")) el("notesMode").value = S.notesMode;
   document.body.classList.toggle("viewing", !isRoot());
   updateModeUI();
   refreshSyncUI();
@@ -3791,6 +4186,7 @@ async function loadPersonal(){
       S.personal.bookmarks = Array.isArray(rec.bookmarks) ? rec.bookmarks : [];
       S.personal.searches = Array.isArray(rec.searches) ? rec.searches : [];
       S.who = rec.who || S.who || "";
+      if(rec.notesMode) S.notesMode = rec.notesMode;
       S.mode = rec.mode === "root" && !S.meta.locked ? "root" : S.mode;
     }
   }catch(e){}
@@ -3799,7 +4195,7 @@ async function savePersonal(){
   try{
     await Store.putKey(personalKey(), {
       bookmarks:S.personal.bookmarks, searches:S.personal.searches,
-      who:S.who, mode:S.mode, at:nowISO()
+      who:S.who, mode:S.mode, notesMode:S.notesMode, at:nowISO()
     });
   }catch(e){}
 }
@@ -4572,8 +4968,10 @@ async function runSync(kind){
       /* a viewer sends only the two contribution tabs, by a route that
          cannot touch anything else even if the token were misused */
       const t = toSheets();
-      const only = {Suggestions:t.Suggestions, Checkoffs:t.Checkoffs};
-      if(!only.Suggestions.length && !only.Checkoffs.length){
+      const only = {Suggestions:t.Suggestions, Checkoffs:t.Checkoffs,
+                    Questions:t.Questions, QuestionPins:t.QuestionPins};
+      if(!only.Suggestions.length && !only.Checkoffs.length
+         && !only.Questions.length && !only.QuestionPins.length){
         toast("Nothing to send yet. Tick something or leave a suggestion first.");
         return;
       }
@@ -4581,8 +4979,9 @@ async function runSync(kind){
       if(!res.ok) throw new Error(tokenHint(res.error, res) || "The sheet refused the contribution");
       conn.last_sync = nowISO();
       markClean();
-      toast("Sent " + only.Suggestions.length + " suggestion(s) and "
-            + only.Checkoffs.length + " check-off(s)");
+      toast("Sent " + only.Suggestions.length + " suggestion(s), "
+            + only.Checkoffs.length + " check-off(s) and "
+            + only.Questions.length + " question(s)");
     } else if(kind === "push"){
       const owner = await Store.ownerOfTarget(targetOf(conn));
       if(owner && owner.mapKey && owner.mapKey !== S.meta.key){
@@ -4825,6 +5224,8 @@ async function boot(){
     S.nodes.clear(); S.edges.clear(); S.revisions.length=0; S.tagStyles.clear();
     S.areas.clear(); S.bookmarks.length = 0;
     S.suggestions.length = 0; S.checkItems.length = 0; S.checkoffs.length = 0;
+  S.questions.length = 0; S.pins.length = 0; S.selQuestion = null;
+    S.questions.length = 0; S.pins.length = 0; S.selQuestion = null;
     S.meta.locked = false; S.meta.rootHash = ""; S.mode = "root";
     S.meta.title = "Untitled map"; S.sel = null; S.selArea = null;
     S.connections = []; S.activeConn = null;
@@ -4845,6 +5246,18 @@ async function boot(){
   el("prevHit").onclick = ()=>stepHit(-1);
   el("dimOthers").onchange = render;
   el("showScope").onchange = ()=>rebuild();
+  el("notesMode").onchange = e=>{ S.notesMode = e.target.value; savePersonal(); rebuild(); };
+  el("themePref").onchange = e=>{
+    S.theme = e.target.value;
+    applyTheme(S.theme);
+    Store.putKey("theme", S.theme);
+    rebuild();
+  };
+  if(window.matchMedia){
+    matchMedia("(prefers-color-scheme: dark)").addEventListener("change", ()=>{
+      if((S.theme || "auto") === "auto"){ applyTheme("auto"); rebuild(); }
+    });
+  }
   el("showCross").onchange = render;
   el("showEdgeLabels").onchange = render;
 
@@ -4858,6 +5271,7 @@ async function boot(){
   });
   el("tocQ").addEventListener("input", debounce(renderContents, 160));
   el("btnBookmark").onclick = ()=>addBookmark();
+  el("btnAskQ").onclick = ()=>askQuestion(S.sel || S.lastNode || "");
   el("btnArea").onclick = ()=>{
     S.areaMode = !S.areaMode;
     el("btnArea").classList.toggle("primary", S.areaMode);
@@ -5039,6 +5453,8 @@ async function boot(){
   el("bannerHide").onclick = hideBanner;
 
   bootHash = takeHash();
+  /* set before the first paint so the app never flashes the wrong shade */
+  applyTheme(S.theme);
 
   /* Put a map on screen before touching storage. If the database is slow or
      held open by another tab, the person sees the app rather than a blank
@@ -5047,6 +5463,10 @@ async function boot(){
   const preSeeded = true;
 
   await Store.init();
+  try{
+    const t = await Store.getKey("theme");
+    if(t){ S.theme = t; applyTheme(t); }
+  }catch(e){}
   await Store.requestPersist();
   await Store.checkBeacon();
   initTabChannel();
@@ -5129,6 +5549,7 @@ async function boot(){
   }
 
   await loadPersonal();
+  if(el("notesMode")) el("notesMode").value = S.notesMode;
   document.body.classList.toggle("viewing", !isRoot());
   updateModeUI();
   renderContents();
