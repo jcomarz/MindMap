@@ -1425,7 +1425,13 @@ function adoptModel(M, keepConnections){
   S.meta.rootHash = M.settings.root_hash || "";
   S.mode = S.meta.locked ? "viewer" : "root";
   S.selArea = null;
-  if(M.connections.length && !keepConnections) S.connections = M.connections;
+  /* Always take the incoming map's connections, even when it has none.
+     Testing for length meant a map with no sheet inherited the last map's,
+     and would then push into a spreadsheet that was nothing to do with it. */
+  if(!keepConnections){
+    S.connections = M.connections;
+    S.activeConn = S.connections.length ? 0 : null;
+  }
   for(const e of S.edges.values()) ensureTagStyle(e.tag);
   for(const n of S.nodes.values()) (n.tags||[]).forEach(t=>ensureTagStyle(t));
   S.sel = null;
@@ -1488,7 +1494,9 @@ function importXlsx(file){
       if(S.nodes.size) saveNow(true);
       adoptModel(tablesToModel(t));
       S.meta.title = file.name.replace(/\.[^.]+$/,"").replace(/-\d{4}-\d{2}-\d{2}$/,"");
+      S.meta.key = uid("M-");
       markClean(); rebuild(); fitView(0.96, 0.6);
+      afterMapSwitch();
       toast(S.nodes.size + " nodes loaded");
     }catch(err){
       console.error(err);
@@ -3647,6 +3655,20 @@ async function saveNow(force){
   }
 }
 
+/* Everything that belongs to the map you just moved to, rather than the one
+   you left: its sheet connections, its lock, and your own data for it. */
+async function afterMapSwitch(){
+  rememberKey();
+  announceKey();
+  await loadPersonal();
+  document.body.classList.toggle("viewing", !isRoot());
+  updateModeUI();
+  refreshSyncUI();
+  renderContents();
+  renderInspector();
+  updateChrome();
+}
+
 function restorePayload(rec){
   const M = tablesToModel(rec.tables || {});
   if(!M.nodes.size) return false;
@@ -3845,12 +3867,21 @@ async function openSnapshots(){
   let html = "";
   if(cur){
     html += card(cur, "this map", "current");
-    html += `<div class="row" style="margin-top:-6px">
-      <button class="btn wide primary" id="copyMapData">Copy a link with the map inside</button></div>
-      <div class="row" style="margin-bottom:4px">
-      <button class="btn wide" id="copyMapLink">Copy a bookmark link, this browser only</button></div>
-      <p class="fineprint" style="margin:6px 0 0">The first carries the whole map and opens it on
-      any device. The second is just a pointer to storage here.</p>`;
+    const hasSheet = S.connections.some(c=>(c.endpoint||"").trim());
+    const hasViewer = S.connections.some(c=>(c.viewerToken||"").trim());
+    html += `<div style="margin-top:-2px">
+      <label class="field" style="margin-bottom:6px"><span>Send this map to another device</span>
+        <select id="linkSync">
+          <option value="none">Map only — no sheet details</option>
+          <option value="root"${hasSheet?"":" disabled"}>Map and sheet, full access — your own devices</option>
+          <option value="viewer"${hasViewer?"":" disabled"}>Map and sheet, read and suggest only — other people</option>
+        </select></label>
+      <div class="row"><button class="btn wide primary" id="copyMapData">Copy the link</button></div>
+      <div class="row" style="margin-top:6px"><button class="btn wide" id="copyMapLink">Copy a bookmark link, this browser only</button></div>
+      <p class="fineprint" style="margin:6px 0 4px">A link carrying sheet details lets the other
+      device sync straight away, with no /exec URL to re-enter. It also carries the token, and a
+      link cannot be taken back — so use the read-and-suggest option for anyone who should not
+      overwrite the map.</p></div>`;
   }
   const busyNow = await gatherClaims(180);
   if(maps.length){
@@ -3929,7 +3960,7 @@ async function openSnapshots(){
       const rec = await Store.getSession(key);
       if(!rec || !restorePayload(rec)){ toast("That map could not be opened"); return; }
       S.meta.key = key;
-      rememberKey(); announceKey();
+      await afterMapSwitch();
       el("snapDlg").close();
       toast("Opened " + (rec.title || "the map"));
     };
@@ -3972,11 +4003,12 @@ async function openSnapshots(){
   if(cmd) cmd.onclick = async ()=>{
     cmd.disabled = true; cmd.textContent = "Packing…";
     try{
-      let r = await buildTransferLink(false);
+      const want = (el("linkSync") || {}).value || "none";
+      let r = await buildTransferLink(false, want);
       if(r.error){ toast(r.error); return; }
       if(r.tooBig){
         const withPhotos = r;
-        r = await buildTransferLink(true);
+        r = await buildTransferLink(true, want);
         if(r.tooBig || r.error){
           toast("This map is too big for a link (" + Math.round(withPhotos.chars/1024) + " KB). "
             + "Push it to Google Sheets, or save the .xlsx and open that on the other device.");
@@ -3987,8 +4019,11 @@ async function openSnapshots(){
           + "Everything else comes across.")) return;
       }
       await navigator.clipboard.writeText(r.url);
-      toast("Link copied, " + Math.round(r.chars/1024) + " KB. Opening it anywhere loads this map."
-        + (r.stripped ? " Photos left out." : ""));
+      const how = r.sync === "root" ? " It carries full sheet access — keep it to yourself."
+                : r.sync === "viewer" ? " It carries read-and-suggest sheet access."
+                : "";
+      toast("Link copied, " + Math.round(r.chars/1024) + " KB."
+        + (r.stripped ? " Photos left out." : "") + how);
     }catch(e){
       toast(String(e.message || e));
     }finally{
@@ -4034,8 +4069,11 @@ async function openSnapshots(){
       if(!meta) return;
       if(S.dirty && !confirm("Replace what is on screen with this version?")) return;
       const r = await load(b.dataset.restoreSnap);
-      if(r && restorePayload(r)){ el("snapDlg").close(); toast("Opened the version from " + ago(meta.savedAt)); }
-      else toast("That version could not be opened");
+      if(r && restorePayload(r)){
+        await afterMapSwitch();
+        el("snapDlg").close();
+        toast("Opened the version from " + ago(meta.savedAt));
+      } else toast("That version could not be opened");
     };
   });
   body.querySelectorAll("[data-xlsx-snap]").forEach(b=>{
@@ -4298,10 +4336,23 @@ async function ungzipB64(b64){
   return await new Response(stream).text();
 }
 
-/* Returns {url, chars, stripped} or a reason it cannot be done. */
-async function buildTransferLink(dropImages){
+/* Returns {url, chars, stripped} or a reason it cannot be done.
+   sync: "none" keeps tokens out of the link; "root" carries full access, for
+   your own devices; "viewer" carries the read-and-suggest token, for everyone
+   else. The choice is deliberate because a link is a copy that cannot be
+   revoked. */
+async function buildTransferLink(dropImages, sync){
   const tables = toSheets();
-  delete tables.Sync;                                  // never travel with tokens
+  sync = sync || "none";
+  if(sync === "none"){
+    delete tables.Sync;
+  } else if(sync === "viewer"){
+    const rows = (tables.Sync || []).filter(r=>(r.viewer_token||"").trim());
+    if(!rows.length) return {error:"Set a viewer token on the sheet first, in Manage sheets."};
+    tables.Sync = rows.map(r=>Object.assign({}, r, {
+      token:r.viewer_token, viewer_token:"", name:(r.name || "Sheet") + " (viewing)"
+    }));
+  }
   let stripped = 0;
   if(dropImages){
     (tables.Nodes || []).forEach(n=>{
@@ -4311,7 +4362,7 @@ async function buildTransferLink(dropImages){
   const packed = await gzipB64(JSON.stringify({v:1, title:S.meta.title || "", tables}));
   if(packed === null) return {error:"This browser cannot compress the map. Use Google Sheets or a .xlsx file."};
   const url = location.origin + location.pathname + "#d=" + packed;
-  return {url, chars:url.length, stripped, tooBig:url.length > LINK_LIMIT};
+  return {url, chars:url.length, stripped, sync, tooBig:url.length > LINK_LIMIT};
 }
 
 /* Adopt a map that arrived in a link. Whatever is on screen is parked in
@@ -4326,13 +4377,16 @@ async function receiveMapData(packed, quiet){
   const M = tablesToModel(payload.tables || {});
   if(!M.nodes.size){ toast("That link held no nodes."); return false; }
   if(!quiet && S.nodes.size && !S.meta.provisional) await saveNow(true);
+  /* a connection carried in the link should be live on arrival, but never
+     start pulling before the person has seen what they opened */
+  M.connections.forEach(c=>{ c.auto = false; });
   adoptModel(M);
   S.meta.title = payload.title || "Shared map";
   S.meta.key = uid("M-");
   S.meta.provisional = false;
   rebuild(); fitView(0.96, 0.6);
   markDirty();
-  rememberKey(); announceKey();
+  await afterMapSwitch();
   toast("Map received from the link and saved on this device");
   return true;
 }
@@ -4348,7 +4402,7 @@ async function switchToMapKey(key){
   if(S.nodes.size && !S.meta.provisional) await saveNow(true);
   if(!restorePayload(rec)) return false;
   S.meta.key = key;
-  rememberKey(); announceKey();
+  await afterMapSwitch();
   toast("Opened " + (rec.title || "the map"));
   return true;
 }
@@ -4757,7 +4811,9 @@ async function boot(){
     S.suggestions.length = 0; S.checkItems.length = 0; S.checkoffs.length = 0;
     S.meta.locked = false; S.meta.rootHash = ""; S.mode = "root";
     S.meta.title = "Untitled map"; S.sel = null; S.selArea = null;
-    S.meta.key = uid("M-"); rememberKey(); announceKey();
+    S.connections = []; S.activeConn = null;
+    S.meta.key = uid("M-");
+    afterMapSwitch();
     const n = newNode({label:"Start here", type:"start"});
     S.nodes.set(n.id, n);
     markClean(); rebuild(); fitView(0.96, 1); select(n.id);
