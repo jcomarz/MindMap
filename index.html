@@ -5105,6 +5105,11 @@ function activeConnection(){
 }
 
 function refreshSyncUI(){
+  /* a map that has connections but no selection is a state the interface
+     should never show; pick the first rather than reporting none */
+  if(S.activeConn == null && S.connections.length) S.activeConn = 0;
+  if(S.activeConn != null && !S.connections[S.activeConn])
+    S.activeConn = S.connections.length ? 0 : null;
   const sel = el("connSel"), note = el("syncNote");
   sel.textContent = "";
   if(!S.connections.length){
@@ -5791,6 +5796,9 @@ async function boot(){
   if(el("notesMode")) el("notesMode").value = S.notesMode;
   document.body.classList.toggle("viewing", !isRoot());
   updateModeUI();
+  /* the sync panel was drawn before storage had returned the map, so it still
+     showed the empty state even though the connection had loaded */
+  refreshSyncUI();
   renderContents();
   renderInspector();
   if(!S.meta.key) S.meta.key = uid("M-");
