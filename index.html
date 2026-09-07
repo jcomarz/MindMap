@@ -3872,9 +3872,9 @@ async function openSnapshots(){
     html += `<div style="margin-top:-2px">
       <label class="field" style="margin-bottom:6px"><span>Send this map to another device</span>
         <select id="linkSync">
-          <option value="none">Map only — no sheet details</option>
-          <option value="root"${hasSheet?"":" disabled"}>Map and sheet, full access — your own devices</option>
+          <option value="root"${hasSheet?"":" disabled"}${hasSheet?" selected":""}>Map and sheet, full access — your own devices</option>
           <option value="viewer"${hasViewer?"":" disabled"}>Map and sheet, read and suggest only — other people</option>
+          <option value="none"${hasSheet?"":" selected"}>Map only — no sheet details</option>
         </select></label>
       <div class="row"><button class="btn wide primary" id="copyMapData">Copy the link</button></div>
       <div class="row" style="margin-top:6px"><button class="btn wide" id="copyMapLink">Copy a bookmark link, this browser only</button></div>
@@ -4021,7 +4021,7 @@ async function openSnapshots(){
       await navigator.clipboard.writeText(r.url);
       const how = r.sync === "root" ? " It carries full sheet access — keep it to yourself."
                 : r.sync === "viewer" ? " It carries read-and-suggest sheet access."
-                : "";
+                : " No sheet details in it.";
       toast("Link copied, " + Math.round(r.chars/1024) + " KB."
         + (r.stripped ? " Photos left out." : "") + how);
     }catch(e){
@@ -4359,7 +4359,8 @@ async function buildTransferLink(dropImages, sync){
       if(n.image && String(n.image).startsWith("data:")){ n.image = ""; n.image_h = ""; stripped++; }
     });
   }
-  const packed = await gzipB64(JSON.stringify({v:1, title:S.meta.title || "", tables}));
+  const packed = await gzipB64(JSON.stringify({
+    v:2, sync, title:S.meta.title || "", tables}));
   if(packed === null) return {error:"This browser cannot compress the map. Use Google Sheets or a .xlsx file."};
   const url = location.origin + location.pathname + "#d=" + packed;
   return {url, chars:url.length, stripped, sync, tooBig:url.length > LINK_LIMIT};
@@ -4387,7 +4388,22 @@ async function receiveMapData(packed, quiet){
   rebuild(); fitView(0.96, 0.6);
   markDirty();
   await afterMapSwitch();
-  toast("Map received from the link and saved on this device");
+
+  const got = S.connections.length;
+  if(got){
+    toast("Opened “" + (S.meta.title || "the map") + "”, connected to "
+      + (S.connections[0].name || "its sheet") + ". Pull to sync.");
+  } else if(payload.v >= 2 && payload.sync && payload.sync !== "none"){
+    toast("Map opened, but its sheet details did not survive the link.");
+  } else {
+    /* the sender chose map only, or the link predates sheet details */
+    showBanner(`<strong>No sheet details came with this link.</strong>
+      ${payload.v >= 2
+        ? "It was sent as map only. Ask for a new link with <em>Map and sheet</em> chosen."
+        : "It was made by an older version that could not carry them. Update the other device, then send a new link."}
+      You can also set the sheet up by hand in Manage sheets.`, null, null);
+    toast("Map received. No sheet came with it.");
+  }
   return true;
 }
 
