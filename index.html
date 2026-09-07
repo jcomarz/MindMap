@@ -200,6 +200,23 @@ label.field>span{display:block;font-size:12px;color:var(--graphite-60);margin-bo
 .titleblock div:last-child{border-right:0}
 .titleblock b{display:block;font-weight:500;font-size:9px;color:var(--graphite-60)}
 
+.linkbar{
+  position:absolute;left:50%;top:14px;transform:translateX(-50%);z-index:20;
+  background:var(--paper);border:1px solid var(--graphite);border-radius:3px;
+  padding:8px 10px;box-shadow:0 3px 14px rgba(0,0,0,.18);max-width:calc(100% - 28px)
+}
+.linkbar[hidden]{display:none}
+.pairnames{display:flex;gap:8px;align-items:center;font-size:12.5px;
+  justify-content:center;margin-bottom:7px}
+.pairnames b{font-weight:600;max-width:34%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pairnames span{color:var(--graphite-60);font-family:var(--mono)}
+.pairacts{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.pairacts .btn{padding:5px 9px;font-size:12.5px}
+.node-g.pair .node-box{stroke:var(--blueprint);stroke-width:2.25;stroke-dasharray:6 3}
+@media (max-width:820px){
+  .linkbar{left:8px;right:8px;transform:none;max-width:none}
+  .pairacts .btn{flex:1 1 auto;padding:9px 8px;font-size:13px}
+}
 .zoombar{
   position:absolute;left:14px;bottom:14px;display:flex;gap:4px;
   background:var(--paper);border:1px solid var(--rule);border-radius:2px;padding:4px;
@@ -278,6 +295,7 @@ body.viewing #btnArea,
 body.viewing #btnNew,
 body.viewing #btnImport{display:none}
 body.viewing .titleinput{pointer-events:none;color:var(--graphite-60)}
+body.drafting .brand h1::after{content:" · draft";font-size:12px;font-weight:400;color:var(--flag)}
 .dirty-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--flag);vertical-align:middle;margin-left:5px;visibility:hidden}
 .dirty .dirty-dot{visibility:visible}
 
@@ -622,19 +640,23 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
           <button class="btn" id="btnLoose">Loose node</button>
         </div>
         <div class="row" style="margin-top:6px">
-          <button class="btn wide" id="btnLink">Link to…</button>
+          <button class="btn wide" id="btnLink">Pick a second node to link</button>
         </div>
         <div class="row" style="margin-top:6px">
           <button class="btn wide" id="btnUnpin">Release manual positions</button>
         </div>
         <label class="check" style="margin-top:9px"><input type="checkbox" id="draftMode">
           Draft mode — do not log edits</label>
+        <p id="draftNote" style="font-size:12px;margin:6px 0 0;line-height:1.45"></p>
       </div>
 
       <div class="group">
         <h2>History</h2>
         <div class="row">
           <button class="btn wide" id="btnHistory">Open the change log</button>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <button class="btn wide" id="btnWipeHistory">Erase all history and reset to r1.0</button>
         </div>
         <p style="font-size:12px;color:var(--graphite-60);margin:9px 0 0" id="histNote">—</p>
       </div>
@@ -766,6 +788,17 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
       <div><b>Map</b><span id="tbTitle">Untitled</span></div>
       <div><b>Nodes</b><span id="tbCount">0</span></div>
       <div><b>Revised</b><span id="tbDate">—</span></div>
+    </div>
+
+    <div class="linkbar" id="linkBar" hidden>
+      <div class="pairnames"><b id="pairA">—</b><span id="pairArrow">→</span><b id="pairB">—</b></div>
+      <div class="pairacts">
+        <button class="btn" id="pairChild">Link as child</button>
+        <button class="btn" id="pairCross">Cross-link</button>
+        <button class="btn" id="pairSwap">Swap direction</button>
+        <button class="btn" id="pairCut">Unlink</button>
+        <button class="btn" id="pairClear">✕</button>
+      </div>
     </div>
 
     <div class="zoombar">
@@ -1016,7 +1049,7 @@ const S = {
   edges:new Map(),      // id -> edge
   revisions:[],         // append only
   tagStyles:new Map(),  // tag -> style
-  sel:null, selArea:null,
+  sel:null, selArea:null, sel2:null, pairArmed:false,
   areaMode:false,
   hits:[], hitIx:-1,
   view:{x:0,y:0,k:1},
@@ -1976,6 +2009,7 @@ function render(){
     const g = mk("g",{class:"node-g", transform:`translate(${n._x},${n._y})`, "data-id":id}, gN);
     if(n.status === "retired") g.classList.add("retired");
     if(S.sel === id) g.classList.add("sel");
+    if(S.sel2 === id) g.classList.add("pair");
     if(n.pinned) g.classList.add("pinned");
     if(hitSet.has(id)){ g.classList.add("hit"); if(!n._note.length) g.classList.add("plain"); }
     else if(dimOn) g.classList.add("dim");
@@ -2052,7 +2086,8 @@ function applyView(){
   el("zLvl").textContent = Math.round(S.view.k*100) + "%";
 }
 
-function rebuild(){ layout(); buildTagFilters(); render(); renderInspector(); renderContents(); updateFab(); updateModeUI(); }
+function rebuild(){ layout(); buildTagFilters(); render(); renderInspector(); renderContents();
+  updateFab(); updateModeUI(); updateLinkBar(); }
 
 /* =====================================================================
    CONTENTS — bookmarks, areas and an outline of the whole map
@@ -2362,9 +2397,10 @@ const MIN_K = 0.05, MAX_K = 6;
     moved = false;
     downPt = {x:ev.clientX, y:ev.clientY};
     downTime = Date.now();
+    S.pairShift = !!(ev.shiftKey || ev.metaKey || ev.ctrlKey);
 
     /* drawing a new area beats everything else */
-    if(S.areaMode && canEdit()){
+    if(S.areaMode && canEdit() && !S.pairArmed){
       drawFrom = toWorld(ev.clientX, ev.clientY);
       drawEl = mk("rect",{x:drawFrom.x, y:drawFrom.y, width:0, height:0, rx:4,
         fill:"#14549B", "fill-opacity":.06, stroke:"#14549B", "stroke-width":1.5,
@@ -2379,14 +2415,14 @@ const MIN_K = 0.05, MAX_K = 6;
     if(g && !canEdit()){
       mode = "tap-node";
       dragNode = {id:g.dataset.id};
-    } else if(g && !S.linkMode){
+    } else if(g && (S.pairArmed || S.pairShift)){
+      mode = "tap-node";
+      dragNode = {id:g.dataset.id};
+    } else if(g){
       const id = g.dataset.id, n = S.nodes.get(id);
       const w = toWorld(ev.clientX, ev.clientY);
       dragNode = {id, dx:w.x - n._x, dy:w.y - n._y, ox:n._x, oy:n._y};
       mode = "node";
-    } else if(g && S.linkMode){
-      mode = "tap-node";
-      dragNode = {id:g.dataset.id};
     } else if(ag && canEdit()){
       const id = ag.dataset.area, a = S.areas.get(id);
       const w = toWorld(ev.clientX, ev.clientY);
@@ -2609,26 +2645,19 @@ function focusNode(id){
    SELECTION + INSPECTOR
    ===================================================================== */
 function select(id){
-  if(S.linkMode && S.sel && id !== S.sel){
-    /* An unattached node becomes a child; anything already in the tree gets a
-       cross-link, so linking never silently reparents a branch. */
-    const orphan = !parentOf(id) && !descendants(id).has(S.sel);
-    const kind = orphan ? "tree" : "cross";
-    const e = newEdge({from:S.sel, to:id, link_type:kind, tag:"", label:""});
-    S.edges.set(e.id, e);
-    logRev(S.sel, "link", "", kind + " → " + id);
-    S.linkMode = false;
-    el("btnLink").classList.remove("primary");
-    markDirty(); rebuild();
-    toast(orphan ? "Attached as a child. Change it to a cross-link in Connections."
-                 : "Cross-link added");
+  /* armed for a pair, or holding shift: this tap picks the second node */
+  if((S.pairArmed || S.pairShift) && S.sel && id !== S.sel){
+    S.pairShift = false;
+    setPair(id);
     return;
   }
   const prev = S.sel;
   const hadArea = S.selArea || S.selQuestion;
-  S.sel = id; S.selArea = null; S.selQuestion = null;
+  const hadPair = S.sel2;
+  S.sel = id; S.selArea = null; S.selQuestion = null; S.sel2 = null;
   if(id) S.lastNode = id;
-  if(hadArea){ render(); renderInspector(); updateFab(); return; }
+  if(hadPair){ render(); renderInspector(); updateFab(); updateLinkBar(); return; }
+  if(hadArea){ render(); renderInspector(); updateFab(); updateLinkBar(); return; }
   /* swap two classes instead of rebuilding the drawing — a full render on
      every tap is what makes a big map feel sticky on a phone */
   const g = el("gNodes");
@@ -2639,9 +2668,91 @@ function select(id){
 }
 
 /* Clearing the selection turns the + button back into "make a loose node". */
+/* Two nodes chosen, then decide what the relationship is. Easier to reason
+   about than arming a mode and hoping the next tap does the right thing. */
+function edgesBetween(a, b){
+  return [...S.edges.values()].filter(e=>
+    (e.from === a && e.to === b) || (e.from === b && e.to === a));
+}
+function setPair(id){
+  if(!id || id === S.sel){ return; }
+  S.sel2 = id;
+  S.pairArmed = false;
+  const btn = el("btnLink");
+  if(btn) btn.classList.remove("primary");
+  render(); updateLinkBar();
+}
+function clearPair(){
+  S.sel2 = null; S.pairArmed = false;
+  const btn = el("btnLink");
+  if(btn) btn.classList.remove("primary");
+  render(); updateLinkBar();
+}
+function updateLinkBar(){
+  const bar = el("linkBar");
+  if(!bar) return;
+  const a = S.sel && S.nodes.get(S.sel), b = S.sel2 && S.nodes.get(S.sel2);
+  if(!a || !b || !canEdit()){ bar.hidden = true; return; }
+  bar.hidden = false;
+  el("pairA").textContent = a.label || a.id;
+  el("pairB").textContent = b.label || b.id;
+  const existing = edgesBetween(a.id, b.id);
+  const e = existing[0];
+  el("pairArrow").textContent = e ? (e.from === a.id ? "→" : "←") : "·";
+  el("pairCut").disabled = !existing.length;
+  el("pairSwap").disabled = !existing.length;
+  el("pairChild").disabled = !!existing.length;
+  el("pairCross").disabled = !!existing.length;
+  el("pairChild").title = parentOf(b.id) && parentOf(b.id) !== a.id
+    ? "That node already has a parent; a cross-link keeps its place in the tree"
+    : "";
+}
+function pairLink(kind){
+  const a = S.sel, b = S.sel2;
+  if(!a || !b || !canEdit()) return;
+  if(edgesBetween(a, b).length){ toast("Those two are already linked."); return; }
+  if(kind === "tree" && descendants(b).has(a)){
+    toast("That would make a loop. Use a cross-link instead."); return;
+  }
+  if(kind === "tree"){
+    /* one parent only, so an existing tree link into b is replaced */
+    for(const [k, e] of [...S.edges]) if(e.link_type === "tree" && e.to === b) S.edges.delete(k);
+  }
+  const e = newEdge({from:a, to:b, link_type:kind});
+  S.edges.set(e.id, e);
+  logRev(a, "link", "", kind + " → " + b);
+  markDirty(); rebuild(); updateLinkBar();
+  toast(kind === "tree" ? "Linked as a child" : "Cross-link added");
+}
+function pairUnlink(){
+  const a = S.sel, b = S.sel2;
+  if(!a || !b || !canEdit()) return;
+  const gone = edgesBetween(a, b);
+  if(!gone.length) return;
+  if(!confirm("Remove the link between “" + nodeName(a) + "” and “" + nodeName(b) + "”?")) return;
+  gone.forEach(e=>{
+    logRev(a, "link removed", e.from + " → " + e.to, "");
+    S.edges.delete(e.id);
+  });
+  markDirty(); rebuild(); updateLinkBar();
+  toast("Unlinked");
+}
+function pairSwap(){
+  const a = S.sel, b = S.sel2;
+  const es = edgesBetween(a, b);
+  if(!es.length || !canEdit()) return;
+  es.forEach(e=>{
+    const was = e.from + " → " + e.to;
+    const f = e.from; e.from = e.to; e.to = f;
+    logRev(e.from, "link", was, e.from + " → " + e.to);
+  });
+  markDirty(); rebuild(); updateLinkBar();
+}
+
 function deselect(){
   const prev = S.sel, prevArea = S.selArea;
-  S.sel = null; S.selArea = null;
+  S.sel = null; S.selArea = null; S.sel2 = null; S.pairArmed = false;
+  updateLinkBar();
   if(prevArea){ render(); }
   else if(prev){
     const g = el("gNodes").querySelector(`.node-g[data-id="${CSS.escape(prev)}"]`);
@@ -3035,7 +3146,10 @@ function renderInspector(){
       </div>
       <div class="row" style="margin-top:6px">
         <button class="btn" id="fZoom">Zoom to node</button>
-        <button class="btn" id="fDelete">Delete outright</button>
+        <button class="btn" id="fPair">Link with another node</button>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <button class="btn wide" id="fDelete">Delete outright</button>
       </div>
     </div>
 
@@ -3082,6 +3196,15 @@ function renderInspector(){
   el("fUnpin").onclick  = ()=>{ n.pinned=false; n.x=null; n.y=null;
     logRev(n.id,"position","manual","auto"); markDirty(); rebuild(); };
   el("fZoom").onclick   = ()=>focusNode(n.id);
+  el("fPair").onclick = ()=>{
+    S.pairArmed = true;
+    el("btnLink").classList.add("primary");
+    toast("Now tap the second node on the map");
+    if(window.matchMedia("(max-width:820px)").matches){
+      el("inspector").classList.remove("open"); el("scrim").classList.remove("on");
+      el("fab").style.display = "";
+    }
+  };
   el("fHistory").onclick = ()=>{ S.hist.scope = "node"; S.hist.node = n.id;
     el("histScope").value = "node"; openHistory(); };
   el("fDelete").onclick = ()=>{
@@ -4867,6 +4990,40 @@ function renderHistory(){
   });
 }
 
+/* The sweep. Destructive and irreversible in the map itself, so it takes a
+   snapshot first, states the damage in plain numbers, and asks twice. */
+async function wipeAllHistory(){
+  if(!isRoot()){ toast("Switch to editing mode first."); return; }
+  const entries = S.revisions.length;
+  const nodes = S.nodes.size;
+  const advanced = [...S.nodes.values()].filter(n=>(n.rev|0) > 1 || (n.edit|0) > 0).length;
+  if(!entries && !advanced){ toast("There is no history to erase."); return; }
+
+  const warn =
+    "ERASE ALL REVISION HISTORY\n\n"
+    + "This will delete " + entries + " log entr" + (entries === 1 ? "y" : "ies")
+    + " and reset the version on all " + nodes + " node" + (nodes === 1 ? "" : "s") + " to r1.0"
+    + (advanced ? " (" + advanced + " currently above r1.0)." : ".") + "\n\n"
+    + "You lose: who changed what, when, why, the old wording of everything, and the "
+    + "ability to restore any previous value from the log.\n\n"
+    + "You keep: the map exactly as it is now, and every suggestion, question and check-off.\n\n"
+    + "A saved version is taken first, so you can still get the history back from "
+    + "Maps and versions until that version is pruned.\n\n"
+    + "Continue?";
+  if(!confirm(warn)) return;
+
+  const typed = prompt("Last check. Type ERASE to confirm.\n\nAnything else cancels.");
+  if(String(typed || "").trim().toUpperCase() !== "ERASE"){ toast("Cancelled. Nothing was erased."); return; }
+
+  const saved = await saveNow(true);
+  S.revisions = [];
+  for(const n of S.nodes.values()){ n.rev = 1; n.edit = 0; }
+  markDirty(); rebuild(); updateHistNote();
+  toast(saved
+    ? "History erased. The old one is under Maps and versions."
+    : "History erased. The pre-wipe version could not be saved, so it is gone.");
+}
+
 function updateHistNote(){
   const fn = S.revisions.filter(r=>r.class === "functional").length;
   const ed = S.revisions.filter(r=>r.class === "editorial").length;
@@ -5519,11 +5676,16 @@ async function boot(){
   el("btnSibling").onclick = ()=>addNode("sibling");
   el("btnRoot").onclick = ()=>{ S.sel = null; addNode("root"); };
   el("btnLink").onclick = ()=>{
-    if(!S.sel){ toast("Select the starting node first"); return; }
-    S.linkMode = !S.linkMode;
-    el("btnLink").classList.toggle("primary", S.linkMode);
-    toast(S.linkMode ? "Now click the node to link to" : "Link cancelled");
+    if(!S.sel){ toast("Select one node first, then pick the second."); return; }
+    S.pairArmed = !S.pairArmed;
+    el("btnLink").classList.toggle("primary", S.pairArmed);
+    toast(S.pairArmed ? "Now tap the second node" : "Cancelled");
   };
+  el("pairChild").onclick = ()=>pairLink("tree");
+  el("pairCross").onclick = ()=>pairLink("cross");
+  el("pairSwap").onclick  = pairSwap;
+  el("pairCut").onclick   = pairUnlink;
+  el("pairClear").onclick = clearPair;
   el("btnUnpin").onclick = ()=>{
     let k=0;
     for(const n of S.nodes.values()) if(n.pinned){ n.pinned=false; n.x=null; n.y=null; k++; }
@@ -5543,6 +5705,7 @@ async function boot(){
     };
   });
 
+  el("btnWipeHistory").onclick = wipeAllHistory;
   el("btnHistory").onclick = ()=>{ if(S.hist.scope === "node" && !S.sel) S.hist.scope = "all"; openHistory(); };
   el("histClose").onclick = ()=>el("histDlg").close();
   el("histQ").addEventListener("input", debounce(()=>{ S.hist.q = el("histQ").value; renderHistory(); }, 200));
@@ -5564,6 +5727,9 @@ async function boot(){
   };
   el("draftMode").onchange = e=>{
     S.draft = e.target.checked;
+    document.body.classList.toggle("drafting", S.draft);
+    if(el("draftNote")) el("draftNote").innerHTML = S.draft
+      ? `<span style="color:var(--flag)">Nothing is being logged while this is on.</span>` : "";
     updateHistNote();
     toast(S.draft ? "Draft mode on — edits will not be logged" : "Draft mode off — edits are logged again");
   };
@@ -5665,7 +5831,7 @@ async function boot(){
   document.addEventListener("keydown", ev=>{
     const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
     if(ev.key === "/" && !typing){ ev.preventDefault(); el("q").focus(); }
-    if(ev.key === "Escape"){ S.linkMode=false; el("btnLink").classList.remove("primary");
+    if(ev.key === "Escape"){ clearPair();
       S.areaMode=false; el("btnArea").classList.remove("primary"); svg().style.cursor="";
       el("q").blur(); deselect(); }
     if(typing) return;
