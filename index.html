@@ -230,11 +230,66 @@ label.field>span{display:block;font-size:12px;color:var(--graphite-60);margin-bo
 .node-label{font-family:var(--sans);font-size:13px;fill:var(--graphite)}
 .node-id{font-family:var(--mono);font-size:9px;fill:var(--graphite-60)}
 .node-note{font-family:var(--sans);font-size:11px;fill:var(--note-ink)}
+.node-note.tab{font-family:var(--mono);font-size:9.5px;letter-spacing:-.1px}
 .note-hit{font-weight:600;fill:var(--graphite)}
 .node-g.retired .node-note{fill:var(--retired)}
 .node-g.retired .node-box{stroke:var(--retired);stroke-dasharray:5 3;fill:var(--paper-2)}
 .node-g.retired .node-label{fill:var(--retired)}
-.node-g.sel .node-box{stroke:var(--blueprint);stroke-width:2.25}
+.node-g.sel .node-box{stroke:var(--blueprint);stroke-width:2.25;
+  filter:drop-shadow(0 0 5px color-mix(in srgb, var(--blueprint) 65%, transparent))}
+@keyframes nodepulse{
+  0%,100%{filter:drop-shadow(0 0 4px color-mix(in srgb, var(--blueprint) 45%, transparent))}
+  50%    {filter:drop-shadow(0 0 9px color-mix(in srgb, var(--blueprint) 80%, transparent))}
+}
+.node-g.sel .node-box{animation:nodepulse 2.6s ease-in-out infinite}
+
+/* light running along the links that touch the selected node: outward and
+   inward read differently so the direction of the relationship is legible */
+@keyframes beamflow{ to{ stroke-dashoffset:-120 } }
+.beam{fill:none;stroke-width:2.4;stroke-linecap:round;stroke-dasharray:2.5 26;
+  animation:beamflow 1.7s linear infinite;pointer-events:none;opacity:.95}
+.beam.inbound{animation-direction:reverse;stroke-dasharray:2.5 34;animation-duration:2.1s}
+@media (prefers-reduced-motion:reduce){
+  .beam{animation:none;opacity:.55}
+  .node-g.sel .node-box{animation:none}
+}
+/* calm keeps the cues but stops them moving; off removes them entirely */
+html[data-motion="calm"] .beam{animation:none;opacity:.6}
+html[data-motion="calm"] .node-g.sel .node-box{animation:none}
+html[data-motion="off"] .beam{display:none}
+html[data-motion="off"] .node-g.sel .node-box{animation:none;filter:none}
+html[data-motion="off"] .group.flash{animation:none}
+html[data-motion="off"] *{transition:none !important}
+
+/* the strip that appears under a selected node */
+.strip-bg{fill:var(--paper);stroke:var(--rule);stroke-width:1}
+.strip-btn{cursor:pointer}
+.strip-btn .pill{fill:var(--paper-2);stroke:var(--rule);stroke-width:.9}
+.strip-btn:hover .pill{fill:var(--blueprint-soft);stroke:var(--blueprint)}
+.strip-btn.on .pill{fill:var(--blueprint-soft);stroke:var(--blueprint)}
+.strip-ico{font-family:var(--sans);font-size:11px;fill:var(--graphite);pointer-events:none}
+.strip-num{font-family:var(--mono);font-size:9px;fill:var(--graphite-60);pointer-events:none}
+.badge-pill{fill:var(--paper);stroke:var(--graphite-60);stroke-width:1}
+.badge-new .badge-pill{fill:var(--flag);stroke:var(--flag)}
+.badge-text{font-family:var(--sans);font-size:10px;font-weight:600;fill:var(--graphite-60);
+  pointer-events:none}
+.badge-new .badge-text{fill:#fff}
+.badge-x{opacity:0;cursor:pointer;transition:opacity .12s}
+.badge-x circle{fill:var(--graphite);stroke:var(--paper);stroke-width:1.5}
+.badge-x text{font-family:var(--sans);font-size:10px;fill:var(--paper);pointer-events:none}
+.badge:hover .badge-x{opacity:1}
+@media (hover:none){ .badge-x{opacity:.9} }
+.noteview{font-size:13px;line-height:1.5;margin:10px 0 0}
+.notepara{margin:0 0 8px;white-space:pre-wrap}
+.tablewrap{overflow-x:auto;margin:0 0 10px;border:1px solid var(--rule);border-radius:2px}
+.notetable{border-collapse:collapse;width:100%;font-size:12.5px}
+.notetable th,.notetable td{border-bottom:1px solid var(--rule-soft);padding:6px 9px;text-align:left;
+  vertical-align:top;white-space:nowrap}
+.notetable th{background:var(--paper-2);font-weight:600;font-size:11.5px;
+  position:sticky;top:0}
+.notetable tr:last-child td{border-bottom:0}
+@keyframes groupflash{ from{background:var(--blueprint-soft)} to{background:transparent} }
+.group.flash{animation:groupflash .9s ease-out}
 .node-g.hit .node-box{fill:var(--hit-fill)}
 .node-g.hit.plain .node-box{fill:var(--highlight)}
 .node-g.dim{opacity:.16}
@@ -539,6 +594,7 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
     <button type="button" id="mNext" aria-label="Next match">&#8250;</button>
   </span>
   <button class="btn" id="topAdd">Add node</button>
+  <button class="btn iconbtn" id="topToc" title="Contents, questions and bookmarks" aria-label="Contents">☰</button>
   <button class="btn iconbtn" id="themeBtn" title="Light or dark" aria-label="Light or dark">◐</button>
   <button class="btn" id="mInsp">Node</button>
 </div>
@@ -647,6 +703,12 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
         <div class="row" style="margin-bottom:10px">
           <button class="btn wide" id="btnTidyLines">Reset every line to automatic</button>
         </div>
+        <label class="field"><span>Movement</span>
+          <select id="motionPref">
+            <option value="full">Full — gliding, glow and beams</option>
+            <option value="calm">Calm — no movement, cues stay</option>
+            <option value="off">Off — nothing moves or glows</option>
+          </select></label>
         <label class="field"><span>Notes on the map</span>
           <select id="notesMode">
             <option value="off">Labels only</option>
@@ -785,6 +847,19 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
       <div class="group">
         <h2>Recent searches</h2>
         <div id="tocSearches"></div>
+      </div>
+
+      <div class="group">
+        <h2>New and recent</h2>
+        <div id="tocNew"></div>
+        <div class="row" style="margin-top:8px">
+          <button class="btn" id="btnSignAll">Sign off all</button>
+          <button class="btn" id="btnClearRecent">Clear recent</button>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <button class="btn wide" id="btnRecentBadge">Use a GIF for my recent badge</button>
+          <input type="file" id="recentBadgeFile" accept="image/*,image/gif" hidden>
+        </div>
       </div>
 
       <div class="group">
@@ -1077,7 +1152,7 @@ function writeAll(ss, prefix, tables) {
 const S = {
   meta:{ title:"Sample accessioning", author:"jerico", created:nowISO(), key:null,
          lastEdited:null, lastOpened:null, bytes:0, provisional:false,
-         locked:false, rootHash:"", routeTree:"curve", routeCross:"curve", crossLine:"dashed", crossColor:"" },
+         locked:false, rootHash:"", routeTree:"curve", routeCross:"curve", crossLine:"dashed", crossColor:"", newBadgeImage:"" },
   nodes:new Map(),      // id -> node
   areas:new Map(),      // id -> labelled region drawn behind the map
   bookmarks:[],         // saved viewpoints
@@ -1096,15 +1171,17 @@ const S = {
   suggestions:[],              // proposed changes, written to the sheet
   checkItems:[],               // things the host asks people to confirm
   checkoffs:[],                // who confirmed what
-  personal:{bookmarks:[], searches:[]},   // per device, never part of the map
+  personal:{bookmarks:[], searches:[], recent:[], ackNew:{}, recentBadge:""},
   notesMode:"search",          // off | always | search — how much of a note the map shows
   theme:"auto",                // auto | light | dark, kept per device
+  motion:"full",               // full | calm | off
   who:"",
   questions:[],                // asked by anyone; answers are pinned nodes
   pins:[],
   selQuestion:null,
   qHits:[],
   hitQuery:"",
+  expanded:new Set(),          // nodes showing their whole note
   draft:false,
   hist:{q:"", cls:{functional:true, editorial:true, layout:false}, scope:"all", node:null},
   syncing:false
@@ -1117,6 +1194,7 @@ function newNode(o={}){
   return Object.assign({
     id:uid("N-"), label:"New node", body:"", type:"step", tags:[],
     status:"active", flag:"", image:"", imageH:120, edit:0,
+    badge:"", badgeAt:"", badgeImage:"",
     created:nowISO(), modified:nowISO(),
     rev:1, author:S.meta.author, x:null, y:null, pinned:false, collapsed:false
   }, o);
@@ -1270,6 +1348,38 @@ function questionMatches(q, terms){
   }).join(" ");
   const hay = [q.text, q.note, q.person, pinned].join(" ").toLowerCase();
   return terms.every(t=>hay.includes(t));
+}
+
+/* Depth-first order, the same order the outline shows, so Tab walks the map
+   the way you read it. */
+function treeOrder(){
+  const vis = visibleNodes(), seen = new Set(), out = [];
+  const walk = id=>{
+    if(seen.has(id) || !vis.has(id)) return;
+    seen.add(id); out.push(id);
+    childrenOf(id).forEach(walk);
+  };
+  roots().forEach(walk);
+  for(const id of vis) if(!seen.has(id)){ seen.add(id); out.push(id); }
+  return out;
+}
+function stepNode(delta){
+  const order = treeOrder();
+  if(!order.length) return;
+  const at = S.sel ? order.indexOf(S.sel) : -1;
+  const next = order[(at + delta + order.length) % order.length];
+  if(next){ select(next); ensureVisible(next); }
+}
+function goRelative(dir){
+  if(!S.sel) return stepNode(1);
+  if(dir === "parent"){ const pn = parentOf(S.sel); if(pn) { select(pn); ensureVisible(pn); } return; }
+  if(dir === "child"){ const kids = childrenOf(S.sel); if(kids[0]){ select(kids[0]); ensureVisible(kids[0]); } return; }
+  const pn = parentOf(S.sel);
+  const sibs = pn ? childrenOf(pn) : roots();
+  const at = sibs.indexOf(S.sel);
+  if(at < 0) return;
+  const to = sibs[at + (dir === "next" ? 1 : -1)];
+  if(to){ select(to); ensureVisible(to); }
 }
 
 function isRoot(){ return S.mode === "root"; }
@@ -1426,7 +1536,7 @@ function seed(){
    Kept human-readable so the workbook stands on its own.
    ===================================================================== */
 const HDR = {
-  Nodes:["node_id","label","body","type","tags","status","flag","image","image_h","created","modified","rev","edit","author","x","y","pinned","parent_id","depth","path"],
+  Nodes:["node_id","label","body","type","tags","status","flag","image","image_h","created","modified","rev","edit","author","badge","badge_at","badge_image","x","y","pinned","parent_id","depth","path"],
   Links:["edge_id","from_id","to_id","link_type","tag","label","condition","route","from_side","to_side","bow","color","line_style","width","arrow"],
   Revisions:["rev_id","node_id","timestamp","author","field","class","note","folded","old_value","new_value"],
   TagStyles:["tag","color","line_style","width","arrow","applies_to"],
@@ -1458,6 +1568,7 @@ function toSheets(){
     tags:(n.tags||[]).join(", "), status:n.status, flag:n.flag||"",
     image:n.image||"", image_h:n.image?(n.imageH||120):"",
     created:n.created, modified:n.modified, rev:n.rev, edit:n.edit|0, author:n.author,
+    badge:n.badge||"", badge_at:n.badgeAt||"", badge_image:n.badgeImage||"",
     x:n.pinned?round(n.x):"", y:n.pinned?round(n.y):"", pinned:n.pinned?"yes":"",
     parent_id:parentOf(n.id)||"", depth:depthOf(n.id), path:pathOf(n.id)
   }));
@@ -1506,7 +1617,8 @@ function toSheets(){
     {key:"route_tree", value:S.meta.routeTree || "curve"},
     {key:"route_cross", value:S.meta.routeCross || "curve"},
     {key:"cross_line", value:S.meta.crossLine || "dashed"},
-    {key:"cross_color", value:S.meta.crossColor || ""}
+    {key:"cross_color", value:S.meta.crossColor || ""},
+    {key:"new_badge_image", value:S.meta.newBadgeImage || ""}
   ];
   const sync = S.connections.filter(c=>(c.endpoint||"").trim()).map(c=>({
     name:c.name, endpoint:c.endpoint, spreadsheet_id:c.id||"", prefix:c.prefix||"",
@@ -1552,6 +1664,7 @@ function tablesToModel(t){
       image:String(r.image||"").trim(), imageH:Number(r.image_h)||120,
       created:String(r.created||nowISO()), modified:String(r.modified||nowISO()),
       rev:Number(r.rev)||1, edit:Number(r.edit)||0, author:String(r.author||S.meta.author),
+      badge:String(r.badge||""), badgeAt:String(r.badge_at||""), badgeImage:String(r.badge_image||""),
       x:(r.x===""||r.x==null)?null:Number(r.x), y:(r.y===""||r.y==null)?null:Number(r.y),
       pinned:/^(yes|true|1|y)$/i.test(String(r.pinned||""))
     });
@@ -1685,6 +1798,7 @@ function adoptModel(M, keepConnections){
   S.meta.routeCross = M.settings.route_cross || "curve";
   S.meta.crossLine = M.settings.cross_line || "dashed";
   S.meta.crossColor = M.settings.cross_color || "";
+  S.meta.newBadgeImage = M.settings.new_badge_image || "";
   S.mode = S.meta.locked ? "viewer" : "root";
   S.selArea = null;
   /* Always take the incoming map's connections, even when it has none.
@@ -1813,11 +1927,32 @@ function noteLinesFor(n, q, isHit){
   if(!body) return [];
   const mode = S.notesMode;
   const matches = q && body.toLowerCase().includes(q);
-  if(mode === "off" && !(matches && isHit)) return [];
-  if(mode === "search" && !(matches && isHit)) return [];
+  const forced = S.expanded.has(n.id);
+  if(!forced){
+    if(mode === "off" && !(matches && isHit)) return [];
+    if(mode === "search" && !(matches && isHit)) return [];
+  }
 
   const all = [];
-  body.split(/\n+/).forEach(para=>{ wrapAll(para, NODE_W - 26).forEach(l=>all.push(l)); });
+  body.split(/\n{2,}/).forEach(block=>{
+    if(looksLikeTable(block)){
+      /* keep the columns lined up instead of wrapping a table into prose */
+      const rows = parseTable(block);
+      const cols = Math.max(...rows.map(r=>r.length));
+      const w = [];
+      for(let c = 0; c < cols; c++)
+        w[c] = Math.min(16, Math.max(...rows.map(r=>(r[c]||"").length)));
+      rows.forEach((r, i)=>{
+        all.push(r.map((cell, c)=>{
+          const t = cell.length > w[c] ? cell.slice(0, w[c]-1) + "…" : cell;
+          return t.padEnd(w[c]);
+        }).join("  "));
+        if(i === 0) all.push(w.map(x=>"─".repeat(x)).join("  "));
+      });
+      return;
+    }
+    block.split(/\n/).forEach(para=>{ wrapAll(para, NODE_W - 26).forEach(l=>all.push(l)); });
+  });
   if(!matches) return all.slice(0, NOTE_MAX);
 
   const first = all.findIndex(l=>l.toLowerCase().includes(q));
@@ -1862,6 +1997,7 @@ function layout(){
   for(const n of S.nodes.values()){
     n._lines = wrap(n.label, NODE_W - 22);
     n._imgH = n.image ? Math.max(40, Math.min(400, Number(n.imageH)||120)) : 0;
+    n._tabular = looksLikeTable(n.body);
     n._note = noteLinesFor(n, q, hitSet.has(n.id));
     n._h = Math.max(46, n._lines.length * LINE_H + PAD_Y*2 + 9)
          + (n._imgH ? n._imgH + 8 : 0)
@@ -2057,6 +2193,111 @@ function activeTagFilter(){
   return off;
 }
 
+/* Beams and the control strip depend on which node is selected, so they are
+   drawn on their own. Selecting must not redraw the whole map. */
+function drawStrip(g, n){
+  const id = n.id, sy = n._h + 5, sh = 22;
+  const strip = mk("g",{class:"strip", transform:`translate(0,${sy})`}, g);
+  const openNote = S.expanded.has(id);
+  const btn = (x, w, label, count, onClick, on)=>{
+    const b = mk("g",{class:"strip-btn" + (on ? " on" : ""), transform:`translate(${x},0)`}, strip);
+    mk("rect",{class:"pill", width:w, height:sh, rx:sh/2}, b);
+    const t = mk("text",{class:"strip-ico", x:w/2 - (count ? 5 : 0), y:sh/2 + 4,
+      "text-anchor":"middle"}, b);
+    t.textContent = label;
+    if(count){
+      const c = mk("text",{class:"strip-num", x:w - 8, y:sh/2 + 4, "text-anchor":"end"}, b);
+      c.textContent = count;
+    }
+    b.addEventListener("pointerup", ev=>{ ev.stopPropagation(); onClick(); });
+    b.addEventListener("pointerdown", ev=>ev.stopPropagation());
+  };
+  let x = 0;
+  if(n.body){
+    btn(x, 30, openNote ? "\u25B4" : "\u25BE", 0, ()=>{
+      if(openNote) S.expanded.delete(id); else S.expanded.add(id);
+      rebuild();
+    }, openNote);
+    x += 34;
+  }
+  const sug = suggestionsFor(id).filter(z=>z.status === "open").length;
+  const qs = questionsForNode(id).length;
+  const chk = itemsFor(id).length;
+  btn(x, 42, "\u270E", sug || "", ()=>openPanelFor(id, "suggest"), !!sug); x += 46;
+  btn(x, 42, "?",       qs  || "", ()=>openPanelFor(id, "question"), !!qs); x += 46;
+  btn(x, 42, "\u2713", chk || "", ()=>openPanelFor(id, "check"), !!chk);
+}
+
+/* Badges sit above the top-right corner. They are per person for recency and
+   sign-off, so they are drawn separately from the map itself. */
+function badgeFor(n){
+  if(isNewFor(n)) return {kind:"new", label:"NEW",
+    img:n.badgeImage || S.meta.newBadgeImage || "", cls:"badge-new"};
+  if(isRecent(n.id)) return {kind:"recent", label:"R",
+    img:S.personal.recentBadge || "", cls:"badge-recent"};
+  return null;
+}
+function decorateBadges(){
+  const gN = el("gNodes");
+  if(!gN) return;
+  gN.querySelectorAll("g.badge").forEach(b=>b.remove());
+  const vis = visibleNodes();
+  for(const id of vis){
+    const n = S.nodes.get(id);
+    const bd = badgeFor(n);
+    if(!bd) continue;
+    const g = gN.querySelector(`.node-g[data-id="${CSS.escape(id)}"]`);
+    if(!g) continue;
+    const w = bd.img ? 30 : (bd.kind === "new" ? 38 : 22), h = bd.img ? 30 : 20;
+    const bg = mk("g",{class:"badge " + bd.cls, transform:`translate(${NODE_W - w + 8},${-h/2 - 3})`}, g);
+    if(bd.img){
+      const im = mk("image",{x:0, y:0, width:w, height:h,
+        preserveAspectRatio:"xMidYMid meet"}, bg);
+      im.setAttributeNS("http://www.w3.org/1999/xlink", "href", bd.img);
+      im.setAttribute("href", bd.img);
+    } else {
+      mk("rect",{class:"badge-pill", width:w, height:h, rx:h/2}, bg);
+      const t = mk("text",{class:"badge-text", x:w/2, y:h/2 + 3.5, "text-anchor":"middle"}, bg);
+      t.textContent = bd.label;
+    }
+    /* an X to clear it, revealed on hover or straight away on a touch screen */
+    const kill = mk("g",{class:"badge-x", transform:`translate(${w - 4},-4)`}, bg);
+    mk("circle",{r:7, cx:0, cy:0}, kill);
+    const xt = mk("text",{x:0, y:3.2, "text-anchor":"middle"}, kill);
+    xt.textContent = "\u00d7";
+    kill.addEventListener("pointerup", ev=>{
+      ev.stopPropagation();
+      if(bd.kind === "new") signOffNew(id); else forgetVisited(id);
+    });
+    kill.addEventListener("pointerdown", ev=>ev.stopPropagation());
+    const ttl = mk("title",{}, bg);
+    ttl.textContent = bd.kind === "new"
+      ? "Marked new" + (n.badgeAt ? " on " + String(n.badgeAt).slice(0,10) : "") + " — tap the cross to sign off"
+      : "You looked at this recently — tap the cross to clear";
+  }
+}
+
+function decorateSelection(){
+  const gE = el("gEdges"), gN = el("gNodes");
+  if(!gE || !gN) return;
+  gE.querySelectorAll("path.beam").forEach(b=>b.remove());
+  gN.querySelectorAll("g.strip").forEach(b=>b.remove());
+  const id = S.sel;
+  if(!id || !S.nodes.has(id)) return;
+  const g = gN.querySelector(`.node-g[data-id="${CSS.escape(id)}"]`);
+  if(!g) return;
+
+  for(const e of S.edges.values()){
+    if(e.from !== id && e.to !== id) continue;
+    const src = gE.querySelector(`path.edge[data-edge="${CSS.escape(e.id)}"]`);
+    if(!src) continue;
+    const out = e.from === id;
+    mk("path",{ d:src.getAttribute("d"), class:"beam" + (out ? "" : " inbound"),
+      stroke:out ? "var(--blueprint)" : "var(--flag)" }, gE);
+  }
+  if(!S.pairArmed) drawStrip(g, S.nodes.get(id));
+}
+
 function render(){
   const gE = el("gEdges"), gN = el("gNodes"), gA = el("gAreas");
   gE.textContent = ""; gN.textContent = ""; gA.textContent = "";
@@ -2178,7 +2419,8 @@ function render(){
         const hit = q && lower.includes(q);
         if(hit) mk("rect",{x:11, y:y - NOTE_LH + 3, width:NODE_W - 22, height:NOTE_LH,
           fill:"var(--hit-line)", "fill-opacity":.85, rx:1}, g);
-        const t = mk("text",{class:"node-note", x:13, y}, g);
+        const t = mk("text",{class:"node-note" + (/\u2500|  /.test(line) && n._tabular ? " tab" : ""),
+          x:13, y}, g);
         if(!hit){ t.textContent = line; return; }
         /* split the line so the matched words can be picked out in place */
         let from = 0;
@@ -2203,6 +2445,8 @@ function render(){
     ttl.textContent = (n.body ? n.label + "\n\n" + n.body : n.label)
       + "\n\ntags: " + (n.tags||[]).join(", ") + "\nmodified: " + n.modified;
   }
+  decorateSelection();
+  decorateBadges();
   applyView();
   updateChrome();
 }
@@ -2242,6 +2486,33 @@ function renderContents(){
           <span class="toclabel">${esc(q)}</span>
           <button class="kill" data-killsearch="${esc(q)}" title="Remove">&times;</button></div>`).join("")
       : `<p class="tocempty">Searches you run are listed here, on this device only.</p>`;
+  }
+
+  /* what is new, and where you have been */
+  const nb = el("tocNew");
+  if(nb){
+    const news = newNodes();
+    const unread = news.filter(isNewFor);
+    const recents = (S.personal.recent || []).filter(r=>S.nodes.has(r.id));
+    let h = "";
+    if(news.length){
+      h += `<p class="tocempty" style="margin:0 0 4px">Updates${unread.length ? " · " + unread.length + " to sign off" : " · all signed off"}</p>`;
+      h += news.map(n=>`<div class="tocrow" data-jump="${esc(n.id)}">
+        <span class="tocdot ${isNewFor(n) ? "filled" : ""}"></span>
+        <span class="toclabel">${esc(n.label || n.id)}</span>
+        ${isNewFor(n) ? `<button class="kill" data-signoff="${esc(n.id)}" title="Sign off">&check;</button>`
+                      : `<span class="fold">read</span>`}
+      </div>`).join("");
+    }
+    if(recents.length){
+      h += `<p class="tocempty" style="margin:10px 0 4px">Recently opened, on this device</p>`;
+      h += recents.slice(0, 12).map(r=>`<div class="tocrow" data-jump="${esc(r.id)}">
+        <span class="tocdot"></span>
+        <span class="toclabel">${esc(nodeName(r.id))}</span>
+        <button class="kill" data-forget="${esc(r.id)}" title="Forget this one">&times;</button>
+      </div>`).join("");
+    }
+    nb.innerHTML = h || `<p class="tocempty">Nothing marked new, and nowhere visited yet.</p>`;
   }
 
   /* questions */
@@ -2319,6 +2590,12 @@ function renderContents(){
         el("rail").classList.remove("open"); el("scrim").classList.remove("on");
       }
     };
+  });
+  root.querySelectorAll("[data-signoff]").forEach(e=>{
+    e.onclick = ev=>{ ev.stopPropagation(); signOffNew(e.dataset.signoff); };
+  });
+  root.querySelectorAll("[data-forget]").forEach(e=>{
+    e.onclick = ev=>{ ev.stopPropagation(); forgetVisited(e.dataset.forget); };
   });
   root.querySelectorAll("[data-q]").forEach(e=>{
     e.onclick = ()=>{ openQuestion(e.dataset.q);
@@ -2444,22 +2721,54 @@ function toWorld(cx, cy){
 /* minK keeps the opening view readable. A map wide enough to need
    collage printing is unreadable at true fit, so on load we clamp the
    zoom and anchor to the left edge, where the roots are. */
+/* Views move rather than jump. Anything that changes the viewport goes
+   through here so the eye can follow where it went. */
+let viewAnim = null;
+function reducedMotion(){
+  if(S.motion === "off" || S.motion === "calm") return true;
+  try{ return matchMedia("(prefers-reduced-motion: reduce)").matches; }catch(e){ return false; }
+}
+function applyMotion(){
+  document.documentElement.setAttribute("data-motion", S.motion || "full");
+  const sel = el("motionPref");
+  if(sel) sel.value = S.motion || "full";
+}
+function animateView(to, ms){
+  if(viewAnim){ cancelAnimationFrame(viewAnim); viewAnim = null; }
+  const from = {x:S.view.x, y:S.view.y, k:S.view.k};
+  const dur = reducedMotion() ? 0 : (ms || 340);
+  const near = Math.abs(to.x-from.x) < 1 && Math.abs(to.y-from.y) < 1
+            && Math.abs(to.k-from.k) < 0.002;
+  if(!dur || near){ S.view = {x:to.x, y:to.y, k:to.k}; applyView(); return; }
+  const t0 = performance.now();
+  const ease = t => 1 - Math.pow(1 - t, 3);
+  const step = now=>{
+    const t = Math.min(1, (now - t0) / dur), e = ease(t);
+    /* interpolate the zoom geometrically so it feels even at any scale */
+    S.view.k = from.k * Math.pow(to.k / from.k, e);
+    S.view.x = from.x + (to.x - from.x) * e;
+    S.view.y = from.y + (to.y - from.y) * e;
+    applyView();
+    viewAnim = t < 1 ? requestAnimationFrame(step) : null;
+  };
+  viewAnim = requestAnimationFrame(step);
+}
+
 function fitView(pad=0.96, minK=0){
   const b = worldBBox(), s = svgSize();
   if(!s.w) return;
   const raw = Math.min(s.w/b.w, s.h/b.h) * pad;
   const clamped = raw < minK;
   S.view.k = Math.max(MIN_K, Math.min(2.5, clamped ? minK : raw));
-  if(clamped){
-    S.view.x = 24 - b.x*S.view.k;
-    S.view.y = (s.h - b.h*S.view.k)/2 - b.y*S.view.k;
-  } else {
-    S.view.x = (s.w - b.w*S.view.k)/2 - b.x*S.view.k;
-    S.view.y = (s.h - b.h*S.view.k)/2 - b.y*S.view.k;
-  }
-  applyView();
+  const k = S.view.k;
+  const to = clamped
+    ? {k, x:24 - b.x*k, y:(s.h - b.h*k)/2 - b.y*k}
+    : {k, x:(s.w - b.w*k)/2 - b.x*k, y:(s.h - b.h*k)/2 - b.y*k};
+  S.view.k = raw && !clamped ? k : k;
+  animateView(to);
 }
 function zoomAt(factor, cx, cy){
+  if(viewAnim){ cancelAnimationFrame(viewAnim); viewAnim = null; }
   const r = svg().getBoundingClientRect();
   const px = cx==null ? r.width/2 : cx - r.left;
   const py = cy==null ? r.height/2 : cy - r.top;
@@ -2515,6 +2824,7 @@ const MIN_K = 0.05, MAX_K = 6;
   }
 
   svg().addEventListener("pointerdown", ev=>{
+    if(viewAnim){ cancelAnimationFrame(viewAnim); viewAnim = null; }
     pts.set(ev.pointerId, {x:ev.clientX, y:ev.clientY});
     try{ svg().setPointerCapture(ev.pointerId); }catch(e){}
 
@@ -2761,10 +3071,7 @@ function focusNode(id){
   const k = Math.max(0.4, Math.min(1.8, Math.min(
     (s.w * 0.82) / NODE_W,
     (s.h * 0.72) / Math.max(n._h, 60))));
-  S.view.k = k;
-  S.view.x = s.w/2 - (n._x + NODE_W/2) * k;
-  S.view.y = s.h/2 - (n._y + n._h/2) * k;
-  applyView();
+  animateView({k, x:s.w/2 - (n._x + NODE_W/2)*k, y:s.h/2 - (n._y + n._h/2)*k});
   select(id);
 }
 
@@ -2782,7 +3089,7 @@ function select(id){
   const hadArea = S.selArea || S.selQuestion;
   const hadPair = S.sel2;
   S.sel = id; S.selArea = null; S.selQuestion = null; S.sel2 = null;
-  if(id) S.lastNode = id;
+  if(id){ S.lastNode = id; markVisited(id); }
   if(hadPair){ render(); renderInspector(); updateFab(); updateLinkBar(); return; }
   if(hadArea){ render(); renderInspector(); updateFab(); updateLinkBar(); return; }
   /* swap two classes instead of rebuilding the drawing — a full render on
@@ -2790,8 +3097,11 @@ function select(id){
   const g = el("gNodes");
   if(prev){ const p = g.querySelector(`.node-g[data-id="${CSS.escape(prev)}"]`); if(p) p.classList.remove("sel"); }
   if(id){ const c = g.querySelector(`.node-g[data-id="${CSS.escape(id)}"]`); if(c) c.classList.add("sel"); }
+  decorateSelection();
+  decorateBadges();
   renderInspector();
   updateFab();
+  updateLinkBar();
 }
 
 /* Clearing the selection turns the + button back into "make a loose node". */
@@ -2888,6 +3198,7 @@ function deselect(){
   renderInspector();
   renderContents();
   updateFab();
+  decorateSelection();
 }
 
 /* The button says what it will do, because on a phone the selection is not
@@ -2909,6 +3220,29 @@ function updateFab(){
 }
 
 function esc(s){ return String(s??"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+/* Jump straight to the part of the inspector a pill stands for. */
+function openPanelFor(nodeId, which){
+  if(S.sel !== nodeId) select(nodeId);
+  if(window.matchMedia("(max-width:820px)").matches){
+    el("inspector").classList.add("open");
+    el("scrim").classList.add("on");
+    el("fab").style.display = "none";
+  }
+  setTimeout(()=>{
+    const body = el("inspBody");
+    const heads = [...body.querySelectorAll("h2")];
+    const want = which === "suggest" ? "suggestions"
+               : which === "question" ? "questions" : "confirm";
+    const target = heads.find(h=>h.textContent.trim().toLowerCase().startsWith(want));
+    if(target){
+      target.scrollIntoView({behavior:reducedMotion() ? "auto" : "smooth", block:"start"});
+      const grp = target.closest(".group");
+      if(grp){ grp.classList.add("flash"); setTimeout(()=>grp.classList.remove("flash"), 900); }
+    }
+    if(which === "suggest"){ const t = el("sugText"); if(t) t.focus(); }
+  }, 60);
+}
 
 function openQuestion(id){
   S.selQuestion = id; S.sel = null; S.selArea = null;
@@ -2999,6 +3333,36 @@ function renderQuestionInspector(q){
   });
 }
 
+/* Pipe tables in a note are rendered as tables. Anything else is left as
+   written, so plain notes are untouched. */
+function looksLikeTable(text){
+  const lines = String(text||"").split(/\n/).map(l=>l.trim()).filter(Boolean);
+  return lines.length >= 2 && lines.filter(l=>l.includes("|")).length >= 2;
+}
+function parseTable(block){
+  return block.split(/\n/).map(l=>l.trim()).filter(Boolean)
+    .filter(l=>!/^\|?\s*:?-{2,}/.test(l.replace(/\|/g, "")))
+    .map(l=>l.replace(/^\||\|$/g, "").split("|").map(c=>c.trim()));
+}
+function noteToHtml(text){
+  const out = [];
+  String(text||"").split(/\n{2,}/).forEach(block=>{
+    if(looksLikeTable(block)){
+      const rows = parseTable(block);
+      if(rows.length){
+        const head = rows[0], body = rows.slice(1);
+        out.push(`<div class="tablewrap"><table class="notetable">
+          <thead><tr>${head.map(c=>`<th>${esc(c)}</th>`).join("")}</tr></thead>
+          <tbody>${body.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join("")}</tr>`).join("")}</tbody>
+        </table></div>`);
+        return;
+      }
+    }
+    out.push(`<p class="notepara">${esc(block)}</p>`);
+  });
+  return out.join("");
+}
+
 function renderViewerInspector(n){
   const body = el("inspBody");
   el("inspTitle").textContent = n.type.charAt(0).toUpperCase() + n.type.slice(1);
@@ -3010,16 +3374,19 @@ function renderViewerInspector(n){
       ${n.status === "retired" ? `<span class="status-pill retired">retired</span>` : ""}
       ${n.image ? `<div class="imgcard" style="margin-top:10px"><img src="${esc(n.image)}" alt="">
         <div><strong>Image</strong></div></div>` : ""}
-      ${n.body ? `<p style="font-size:13px;line-height:1.5;white-space:pre-wrap;margin:10px 0 0">${esc(n.body)}</p>` : ""}
+      ${n.body ? `<div class="noteview">${noteToHtml(n.body)}</div>` : ""}
       ${(n.tags||[]).length ? `<div class="taglist" style="margin-top:10px">${(n.tags||[]).map(t=>`<span class="tagchip">${esc(t)}</span>`).join("")}</div>` : ""}
       ${parent ? `<p style="font-size:12px;color:var(--graphite-60);margin:10px 0 0">Follows
         <a href="#" data-jump="${esc(parent)}" style="color:var(--blueprint)">${esc((S.nodes.get(parent)||{}).label||parent)}</a></p>` : ""}
+      ${isNewFor(n) ? `<div class="row" style="margin-top:10px">
+        <button class="btn primary wide" id="vSign">Sign off — I have read this update</button></div>` : ""}
       <div class="row" style="margin-top:10px">
         <button class="btn" id="vZoom">Zoom to it</button>
         <button class="btn" id="vMark">Bookmark this</button>
       </div>
     </div>
     ${contributionBlock(n)}`;
+  if(el("vSign")) el("vSign").onclick = ()=>{ signOffNew(n.id); renderInspector(); };
   el("vZoom").onclick = ()=>focusNode(n.id);
   el("vMark").onclick = ()=>addBookmark(n.label);
   body.querySelectorAll("[data-jump]").forEach(a=>{
@@ -3242,6 +3609,7 @@ function renderInspector(){
     <div class="group">
       <label class="field"><span>Label</span><input type="text" id="fLabel" value="${esc(n.label)}"></label>
       <label class="field"><span>Notes</span><textarea id="fBody">${esc(n.body)}</textarea></label>
+      ${looksLikeTable(n.body) ? `<div class="noteview" style="margin:-4px 0 10px">${noteToHtml(n.body)}</div>` : ""}
       <label class="field"><span>Type</span>
         <select id="fType">
           ${["start","decision","step","end","note"].map(t=>`<option value="${t}"${n.type===t?" selected":""}>${t}</option>`).join("")}
@@ -3249,7 +3617,8 @@ function renderInspector(){
       <label class="field"><span>Tags, comma separated</span><input type="text" id="fTags" value="${esc((n.tags||[]).join(", "))}"></label>
       ${n.image ? `<div class="imgcard">
           <img src="${esc(n.image)}" alt="">
-          <div><strong>${n.image.startsWith("data:") ? "Photo stored in the cell" : "Linked image"}</strong>
+          <div><strong>${n.image.startsWith("data:image/gif") ? "Animated GIF in the cell"
+            : n.image.startsWith("data:") ? "Photo stored in the cell" : "Linked image"}</strong>
             <span>${n.image.startsWith("data:") ? Math.round(n.image.length/1024)+" KB" : esc(n.image.slice(0,44))+(n.image.length>44?"…":"")}</span></div>
         </div>` : ""}
       ${n.image && n.image.startsWith("data:") ? "" :
@@ -3258,10 +3627,22 @@ function renderInspector(){
       <div class="row">
         <button class="btn" id="fPickImg">${n.image?"Replace photo":"Add photo"}</button>
         <button class="btn" id="fClearImg"${n.image?"":" disabled"}>Remove</button>
-        <input type="file" id="fImgFile" accept="image/*" hidden>
+        <input type="file" id="fImgFile" accept="image/*,image/gif" hidden>
       </div>
       ${n.image?`<label class="field" style="margin-top:10px"><span>Image height ${n.imageH||120}px</span>
         <input type="range" id="fImgH" min="60" max="360" step="10" value="${n.imageH||120}"></label>`:""}
+      <div class="row" style="margin-top:4px">
+        <button class="btn" id="fNew">${n.badge === "new" ? "Clear the New mark" : "Mark as New"}</button>
+        <button class="btn" id="fBadgeImg">${n.badgeImage ? "Change badge" : "Badge image"}</button>
+        <input type="file" id="fBadgeFile" accept="image/*,image/gif" hidden>
+      </div>
+      ${n.badge === "new" ? `<p class="fineprint" style="margin:6px 0 0">Marked new
+        ${esc(String(n.badgeAt||"").slice(0,16))}. Everyone sees the badge until they sign it off.</p>` : ""}
+      ${n.badgeImage ? `<div class="imgcard" style="margin-top:8px"><img src="${esc(n.badgeImage)}" alt="">
+        <div><strong>Badge for this node</strong>
+        <span>${n.badgeImage.startsWith("data:image/gif") ? "animated" : "still"}</span></div>
+        <button class="btn" id="fBadgeClear" style="flex:0 0 auto;padding:3px 8px;font-size:11px">Remove</button>
+      </div>` : ""}
       <label class="field" style="margin-top:10px"><span>Flag</span>
         <select id="fFlag">
           <option value="">none</option>
@@ -3319,6 +3700,25 @@ function renderInspector(){
   el("fImgFile").onchange = e=>{ if(e.target.files[0]) attachImage(n, e.target.files[0]); e.target.value=""; };
   el("fClearImg").onclick = ()=>commit("image", "");
   if(el("fImgH")) el("fImgH").onchange = e=>commit("imageH", Number(e.target.value));
+  el("fNew").onclick = ()=>{
+    if(n.badge === "new"){ setField(n, "badge", ""); n.badgeAt = ""; }
+    else { setField(n, "badge", "new"); n.badgeAt = nowISO(); }
+    markDirty(); rebuild();
+  };
+  el("fBadgeImg").onclick = ()=>el("fBadgeFile").click();
+  el("fBadgeFile").onchange = e=>{
+    const f = e.target.files[0]; e.target.value = "";
+    if(!f) return;
+    const fr = new FileReader();
+    fr.onload = ()=>{
+      const d = String(fr.result || "");
+      if(d.length > 40000){ toast("That badge is too big for a cell. Use a smaller image."); return; }
+      setField(n, "badgeImage", d);
+      rebuild();
+    };
+    fr.readAsDataURL(f);
+  };
+  if(el("fBadgeClear")) el("fBadgeClear").onclick = ()=>{ setField(n, "badgeImage", ""); rebuild(); };
   el("fRetire").onclick = ()=>{ commit("status", n.status==="retired" ? "active" : "retired"); };
   el("fUnpin").onclick  = ()=>{ n.pinned=false; n.x=null; n.y=null;
     logRev(n.id,"position","manual","auto"); markDirty(); rebuild(); };
@@ -3500,7 +3900,7 @@ function ensureVisible(id, pad=48){
   let dx = 0, dy = 0;
   if(left < pad) dx = pad - left; else if(right > s.w - pad) dx = (s.w - pad) - right;
   if(top < pad) dy = pad - top;  else if(bottom > s.h - pad) dy = (s.h - pad) - bottom;
-  if(dx || dy){ S.view.x += dx; S.view.y += dy; applyView(); }
+  if(dx || dy) animateView({k, x:S.view.x + dx, y:S.view.y + dy}, 260);
 }
 
 function nodesInArea(a){
@@ -3517,10 +3917,7 @@ function zoomToArea(id){
   if(!a) return;
   const s = svgSize();
   const k = Math.max(MIN_K, Math.min(MAX_K, Math.min(s.w/(a.w+80), s.h/(a.h+80))));
-  S.view.k = k;
-  S.view.x = s.w/2 - (a.x + a.w/2)*k;
-  S.view.y = s.h/2 - (a.y + a.h/2)*k;
-  applyView();
+  animateView({k, x:s.w/2 - (a.x + a.w/2)*k, y:s.h/2 - (a.y + a.h/2)*k});
   selectArea(id);
 }
 function selectArea(id){
@@ -3611,6 +4008,25 @@ function addNode(rel){
    survive a trip through a spreadsheet cell. Sheets caps a cell at 50,000
    characters, so anything past ~45,000 is refused rather than silently cut. */
 function attachImage(node, file, maxW=380, quality=0.72){
+  /* a GIF has to be stored byte for byte or it stops moving, so it skips the
+     canvas entirely and is only checked for size */
+  if(file && /gif/i.test(file.type || file.name || "")){
+    const gr = new FileReader();
+    gr.onload = ()=>{
+      const data = String(gr.result || "");
+      if(data.length > 45000){
+        toast("That GIF is " + Math.round(data.length/1024) + " KB, too big for a spreadsheet "
+          + "cell. Use a smaller one, or paste a link to it instead.");
+        return;
+      }
+      setField(node, "image", data);
+      rebuild();
+      toast("Animated GIF added, " + Math.round(data.length/1024) + " KB in the cell");
+    };
+    gr.onerror = ()=>toast("That file could not be read");
+    gr.readAsDataURL(file);
+    return;
+  }
   const fr = new FileReader();
   fr.onload = () => {
     const img = new Image();
@@ -4259,7 +4675,7 @@ function buildWorkbook(){
   const data = toSheets();
   const wb = XLSX.utils.book_new();
   const widths = {
-    Nodes:[14,34,44,11,20,9,10,40,8,19,19,6,6,10,8,8,8,14,7,60],
+    Nodes:[14,34,44,11,20,9,10,40,8,19,19,6,6,10,9,19,40,8,8,8,14,7,60],
     Links:[14,14,14,10,14,20,24,10,10,10,7,10,11,7,7],
     Revisions:[8,14,19,10,14,11,26,7,30,30],
     TagStyles:[16,10,11,7,7,10],
@@ -4405,6 +4821,7 @@ async function saveNow(force){
 async function afterMapSwitch(){
   rememberKey();
   if(el("notesMode")) el("notesMode").value = S.notesMode;
+  applyMotion();
   if(el("routeTree")) el("routeTree").value = S.meta.routeTree || "curve";
   if(el("routeCross")) el("routeCross").value = S.meta.routeCross || "curve";
   if(el("crossLine")) el("crossLine").value = S.meta.crossLine || "dashed";
@@ -4535,7 +4952,7 @@ async function storageDiagnostics(){
 function personalKey(){ return "personal:" + (S.meta.key || "none"); }
 
 async function loadPersonal(){
-  S.personal = {bookmarks:[], searches:[]};
+  S.personal = {bookmarks:[], searches:[], recent:[], ackNew:{}, recentBadge:""};
   try{
     const rec = await Store.getKey(personalKey());
     if(rec){
@@ -4543,6 +4960,10 @@ async function loadPersonal(){
       S.personal.searches = Array.isArray(rec.searches) ? rec.searches : [];
       S.who = rec.who || S.who || "";
       if(rec.notesMode) S.notesMode = rec.notesMode;
+      if(rec.motion) S.motion = rec.motion;
+      S.personal.recent = Array.isArray(rec.recent) ? rec.recent : [];
+      S.personal.ackNew = rec.ackNew && typeof rec.ackNew === "object" ? rec.ackNew : {};
+      S.personal.recentBadge = rec.recentBadge || "";
       S.mode = rec.mode === "root" && !S.meta.locked ? "root" : S.mode;
     }
   }catch(e){}
@@ -4551,10 +4972,50 @@ async function savePersonal(){
   try{
     await Store.putKey(personalKey(), {
       bookmarks:S.personal.bookmarks, searches:S.personal.searches,
-      who:S.who, mode:S.mode, notesMode:S.notesMode, at:nowISO()
+      who:S.who, mode:S.mode, notesMode:S.notesMode, motion:S.motion,
+      recent:S.personal.recent, ackNew:S.personal.ackNew,
+      recentBadge:S.personal.recentBadge || "", at:nowISO()
     });
   }catch(e){}
 }
+const RECENT_MAX = 40;
+function markVisited(id){
+  if(!id || !S.nodes.has(id)) return;
+  const now = nowISO();
+  S.personal.recent = [{id, at:now}]
+    .concat((S.personal.recent || []).filter(r=>r.id !== id))
+    .slice(0, RECENT_MAX);
+  savePersonal();
+}
+function isRecent(id){ return (S.personal.recent || []).some(r=>r.id === id); }
+function forgetVisited(id){
+  S.personal.recent = (S.personal.recent || []).filter(r=>r.id !== id);
+  savePersonal(); decorateBadges(); renderContents();
+}
+
+/* A node marked new stays badged for each person until they sign it off,
+   which is recorded on their own device. */
+/* Sign-off records the exact stamp that was signed off, not the moment of
+   signing. Comparing times would miss a node re-marked in the same second. */
+function isNewFor(n){
+  if(!n || n.badge !== "new") return false;
+  const ack = (S.personal.ackNew || {})[n.id];
+  if(!ack) return true;
+  return String(n.badgeAt || "") !== String(ack);
+}
+function signOffNew(id){
+  const n = S.nodes.get(id);
+  if(!n) return;
+  S.personal.ackNew = S.personal.ackNew || {};
+  S.personal.ackNew[id] = n.badgeAt || nowISO();
+  savePersonal(); decorateBadges(); renderContents();
+  toast("Signed off");
+}
+function newNodes(){
+  return [...S.nodes.values()].filter(n=>n.badge === "new")
+    .sort((a,b)=>String(b.badgeAt||"").localeCompare(String(a.badgeAt||"")));
+}
+
 function rememberSearch(q){
   q = String(q||"").trim();
   if(q.length < 2) return;
@@ -4563,7 +5024,9 @@ function rememberSearch(q){
 }
 function exportPersonal(){
   const blob = new Blob([JSON.stringify({v:1, map:S.meta.title, who:S.who,
-    bookmarks:S.personal.bookmarks, searches:S.personal.searches}, null, 2)],
+    bookmarks:S.personal.bookmarks, searches:S.personal.searches,
+    recent:S.personal.recent, ackNew:S.personal.ackNew,
+    recentBadge:S.personal.recentBadge || ""}, null, 2)],
     {type:"application/json"});
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
@@ -4577,6 +5040,10 @@ function importPersonal(file){
   fr.onload = ()=>{
     try{
       const d = JSON.parse(fr.result);
+      if(Array.isArray(d.recent)) S.personal.recent =
+        d.recent.concat(S.personal.recent || []).filter((r,i,a)=>a.findIndex(x=>x.id===r.id)===i).slice(0,RECENT_MAX);
+      if(d.ackNew) S.personal.ackNew = Object.assign({}, d.ackNew, S.personal.ackNew || {});
+      if(d.recentBadge && !S.personal.recentBadge) S.personal.recentBadge = d.recentBadge;
       if(Array.isArray(d.bookmarks)){
         const have = new Set(S.personal.bookmarks.map(b=>b.id));
         d.bookmarks.forEach(b=>{ if(!have.has(b.id)) S.personal.bookmarks.push(b); });
@@ -5809,6 +6276,7 @@ async function boot(){
   el("dimOthers").onchange = render;
   el("showScope").onchange = ()=>rebuild();
   el("notesMode").onchange = e=>{ S.notesMode = e.target.value; savePersonal(); rebuild(); };
+  el("motionPref").onchange = e=>{ S.motion = e.target.value; applyMotion(); savePersonal(); render(); };
   el("routeTree").onchange = e=>{
     if(!canEdit()){ e.target.value = S.meta.routeTree; toast("Switch to editing mode."); return; }
     S.meta.routeTree = e.target.value; markDirty(); rebuild();
@@ -5843,6 +6311,16 @@ async function boot(){
     markDirty(); rebuild();
     toast(n + " line" + (n===1?"":"s") + " back on automatic");
   };
+  el("topToc").onclick = ()=>{
+    const tab = [...document.querySelectorAll(".railtab")].find(t=>t.dataset.pane === "Contents");
+    if(tab) tab.click();
+    if(window.matchMedia("(max-width:820px)").matches){
+      const open = el("rail").classList.contains("open");
+      el("inspector").classList.remove("open");
+      el("rail").classList.toggle("open", !open);
+      el("scrim").classList.toggle("on", !open);
+    }
+  };
   el("themeBtn").onclick = ()=>{
     const now = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
     S.theme = now;
@@ -5876,6 +6354,33 @@ async function boot(){
   el("tocQ").addEventListener("input", debounce(renderContents, 160));
   el("btnBookmark").onclick = ()=>addBookmark();
   el("btnAskQ").onclick = ()=>askQuestion(S.sel || S.lastNode || "");
+  el("btnSignAll").onclick = ()=>{
+    const list = newNodes().filter(isNewFor);
+    if(!list.length){ toast("Nothing waiting to be signed off."); return; }
+    if(!confirm("Sign off all " + list.length + " update" + (list.length===1?"":"s") + "?")) return;
+    S.personal.ackNew = S.personal.ackNew || {};
+    list.forEach(n=>{ S.personal.ackNew[n.id] = n.badgeAt || nowISO(); });
+    savePersonal(); decorateBadges(); renderContents();
+    toast(list.length + " signed off");
+  };
+  el("btnClearRecent").onclick = ()=>{
+    S.personal.recent = [];
+    savePersonal(); decorateBadges(); renderContents();
+  };
+  el("btnRecentBadge").onclick = ()=>el("recentBadgeFile").click();
+  el("recentBadgeFile").onchange = e=>{
+    const f = e.target.files[0]; e.target.value = "";
+    if(!f) return;
+    const fr = new FileReader();
+    fr.onload = ()=>{
+      const d = String(fr.result || "");
+      if(d.length > 200000){ toast("That badge is large; pick something smaller."); return; }
+      S.personal.recentBadge = d;
+      savePersonal(); decorateBadges();
+      toast("Recent badge set. It stays on this device.");
+    };
+    fr.readAsDataURL(f);
+  };
   el("btnArea").onclick = ()=>{
     S.areaMode = !S.areaMode;
     el("btnArea").classList.toggle("primary", S.areaMode);
@@ -6050,8 +6555,12 @@ async function boot(){
       S.areaMode=false; el("btnArea").classList.remove("primary"); svg().style.cursor="";
       el("q").blur(); deselect(); }
     if(typing) return;
-    if(ev.key === "Enter" && S.sel) addNode("child");
-    if(ev.key === "Tab"   && S.sel){ ev.preventDefault(); addNode("sibling"); }
+    if(ev.key === "Enter" && S.sel){ ev.preventDefault(); addNode(ev.shiftKey ? "sibling" : "child"); }
+    if(ev.key === "Tab"){ ev.preventDefault(); stepNode(ev.shiftKey ? -1 : 1); }
+    if(ev.key === "ArrowLeft"){ ev.preventDefault(); goRelative("parent"); }
+    if(ev.key === "ArrowRight"){ ev.preventDefault(); goRelative("child"); }
+    if(ev.key === "ArrowUp"){ ev.preventDefault(); goRelative("prev"); }
+    if(ev.key === "ArrowDown"){ ev.preventDefault(); goRelative("next"); }
     if((ev.ctrlKey||ev.metaKey) && ev.key.toLowerCase() === "s"){ ev.preventDefault(); exportXlsx(); }
     if((ev.ctrlKey||ev.metaKey) && ev.key.toLowerCase() === "p"){ ev.preventDefault(); printCurrentView(); }
     if(ev.key === "f" ) fitView();
@@ -6175,6 +6684,7 @@ async function boot(){
 
   await loadPersonal();
   if(el("notesMode")) el("notesMode").value = S.notesMode;
+  applyMotion();
   if(el("routeTree")) el("routeTree").value = S.meta.routeTree || "curve";
   if(el("routeCross")) el("routeCross").value = S.meta.routeCross || "curve";
   if(el("crossLine")) el("crossLine").value = S.meta.crossLine || "dashed";
