@@ -136,6 +136,7 @@ button{cursor:pointer}
 .tocitem.retired .toclabel{text-decoration:line-through;text-decoration-color:var(--rule)}
 .toclabel{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tocdot{width:7px;height:7px;flex:0 0 auto;border:1px solid var(--graphite-60)}
+.bmicon{width:20px;height:20px;flex:0 0 auto;object-fit:contain;border-radius:3px}
 .tocdot.decision{transform:rotate(45deg)}
 .tocdot.start,.tocdot.end{border-radius:50%}
 .tocdot.filled{background:var(--graphite-60)}
@@ -210,7 +211,11 @@ label.field>span{display:block;font-size:12px;color:var(--graphite-60);margin-bo
 /* The system grab cursor is a white hand with a hairline outline, which all
    but vanishes on white paper. These are drawn dark with a light halo so they
    read on either theme. */
-#svg{width:100%;height:100%;display:block;touch-action:none;
+#sheet::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:0;
+  background-image:var(--wall-image, none);background-size:var(--wall-size, cover);
+  background-position:center;background-repeat:var(--wall-repeat, no-repeat);
+  opacity:var(--wall-opacity, 0)}
+#svg{position:relative;z-index:1;width:100%;height:100%;display:block;touch-action:none;
   cursor:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2228%22%20height%3D%2228%22%20viewBox%3D%220%200%2028%2028%22%3E%3Cpath%20d%3D%22M9.5%2013.5V6.2a2.1%202.1%200%200%201%204.2%200v5.1V4.6a2.1%202.1%200%200%201%204.2%200v6.7V7.4a2.1%202.1%200%200%201%204.2%200v9.4c0%204.3-3.1%207.4-7.4%207.4h-1.6c-2.9%200-4.8-1.7-6-3.9l-3-5.6a2.1%202.1%200%200%201%203.3-2.4l2.1%202.6z%22%20fill%3D%22%2320262c%22%20stroke%3D%22%23fff%22%20stroke-width%3D%221.7%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E") 13 12, grab}
 #svg.panning{cursor:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2228%22%20height%3D%2228%22%20viewBox%3D%220%200%2028%2028%22%3E%3Cpath%20d%3D%22M9.5%2013.2v-2.6a2%202%200%200%201%204%200v1.6v-2.4a2%202%200%200%201%204%200v2.4v-1.4a2%202%200%200%201%204%200v6c0%204.2-3%207.3-7.2%207.3h-1.6c-2.8%200-4.7-1.7-5.8-3.8l-2.9-5.5a2%202%200%200%201%203.2-2.3l2%202.5z%22%20fill%3D%22%2320262c%22%20stroke%3D%22%23fff%22%20stroke-width%3D%221.7%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E") 13 12, grabbing}
 input,textarea,select{caret-color:var(--graphite)}
@@ -254,14 +259,14 @@ input,textarea,select{caret-color:var(--graphite)}
 .zoombar .lvl{font-family:var(--mono);font-size:11px;padding:4px 6px;color:var(--graphite-60);align-self:center;min-width:46px;text-align:center}
 
 /* ---------- svg content ---------- */
-.node-box{fill:var(--node-fill, var(--paper));stroke:var(--graphite);
+.node-box{fill:var(--node-fill, var(--paper));stroke:var(--node-stroke, var(--graphite));
   stroke-width:var(--node-border, 1.25px);filter:var(--node-shadow, none)}
 html[data-font="mono"] .node-label,html[data-font="mono"] .node-note{font-family:var(--mono)}
 html[data-font="serif"] .node-label{font-family:Georgia,"Times New Roman",serif}
 html[data-font="serif"] .node-note{font-family:Georgia,"Times New Roman",serif}
-.node-label{font-family:var(--sans);font-size:13px;fill:var(--graphite)}
-.node-id{font-family:var(--mono);font-size:9px;fill:var(--graphite-60)}
-.node-note{font-family:var(--sans);font-size:11px;fill:var(--note-ink)}
+.node-label{font-family:var(--sans);font-size:13px;fill:var(--node-ink, var(--graphite))}
+.node-id{font-family:var(--mono);font-size:9px;fill:var(--node-ink-60, var(--graphite-60))}
+.node-note{font-family:var(--sans);font-size:11px;fill:var(--node-note-ink, var(--note-ink))}
 .node-note.tab{font-family:var(--mono);font-size:9.5px;letter-spacing:-.1px}
 .note-hit{font-weight:600;fill:var(--graphite)}
 .node-g.retired .node-note{fill:var(--retired)}
@@ -287,6 +292,8 @@ html[data-font="serif"] .node-note{font-family:Georgia,"Times New Roman",serif}
 .beam.core{stroke-width:3.2;opacity:1}
 .beam.rev{animation-direction:reverse}
 .beam.lag{animation-delay:-.47s}
+.fish{pointer-events:none}
+html[data-motion="off"] .fish{display:none}
 @media (prefers-reduced-motion:reduce){
   .beam{animation:none;opacity:.55}
   .node-g.sel .node-box{animation:none}
@@ -394,6 +401,20 @@ body.viewing #btnArea,
 body.viewing #btnNew,
 body.viewing #btnImport{display:none}
 body.viewing .titleinput{pointer-events:none;color:var(--graphite-60)}
+/* a handout has no editing to switch back to, so the controls go entirely */
+body.viewerbuild #modeGroup .row:first-of-type,
+body.viewerbuild #btnLockMap,
+body.viewerbuild #btnReview,
+body.viewerbuild #btnConns,
+body.viewerbuild #btnNew,
+body.viewerbuild #btnImport,
+body.viewerbuild #btnSnaps,
+body.viewerbuild #btnLinkFile,
+body.viewerbuild #syncGroup,
+body.viewerbuild #histGroup,
+body.viewerbuild #printAdvanced,
+body.viewerbuild #btnViewerCopy{display:none}
+body.viewerbuild .brand h1::after{content:" · viewing copy"}
 body.drafting .brand h1::after{content:" · draft";font-size:12px;font-weight:400;color:var(--flag)}
 .dirty-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--flag);vertical-align:middle;margin-left:5px;visibility:hidden}
 .dirty .dirty-dot{visibility:visible}
@@ -708,6 +729,7 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
           <button class="btn modebtn" id="modeViewer">Viewing</button>
         </div>
         <p id="modeNote" style="font-size:12px;color:var(--graphite-60);margin:9px 0 0;line-height:1.5">—</p>
+        <p id="viewerStatus" style="font-size:12px;color:var(--graphite-60);margin:8px 0 0"></p>
         <div class="row" style="margin-top:8px">
           <button class="btn wide primary" id="btnReview">Waiting for you<span id="revBadge"></span></button>
         </div>
@@ -836,7 +858,7 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
         <p id="draftNote" style="font-size:12px;margin:6px 0 0;line-height:1.45"></p>
       </div>
 
-      <div class="group">
+      <div class="group" id="histGroup">
         <h2>History</h2>
         <div class="row">
           <button class="btn wide" id="btnHistory">Open the change log</button>
@@ -847,7 +869,7 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
         <p style="font-size:12px;color:var(--graphite-60);margin:9px 0 0" id="histNote">—</p>
       </div>
 
-      <div class="group">
+      <div class="group" id="syncGroup">
         <h2>Google Sheets</h2>
         <label class="field"><span>Connected sheet</span>
           <select id="connSel"><option value="">No sheets set up</option></select></label>
@@ -858,6 +880,9 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
         </div>
         <div class="row" style="margin-top:6px">
           <button class="btn wide" id="btnConns">Manage sheets</button>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <button class="btn wide" id="btnViewerCopy">Build a viewer copy</button>
         </div>
         <p id="syncNote" style="font-size:12px;color:var(--graphite-60);margin:9px 0 0">
           Not connected yet. Manage sheets walks you through it.</p>
@@ -950,6 +975,11 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
       <div class="group" id="badgeGroup">
         <h2>Badges</h2>
         <div id="badgeSetup"></div>
+        <label class="check" style="margin-top:10px"><input type="checkbox" id="useHostArt">
+          Show the host's pictures where I have not set my own</label>
+        <div class="row" style="margin-top:6px">
+          <button class="btn wide" id="clearMyArt">Drop all my own artwork</button>
+        </div>
         <p class="tocempty" style="margin-top:8px">Animated GIFs work. The recent badge is yours
           alone; the New badge is stored with the map so everyone sees it.</p>
       </div>
@@ -1290,6 +1320,7 @@ function writeAll(ss, prefix, tables) {
 }
 </script>
 
+<div id="viewerSlot"></div>
 <div id="printroot"></div>
 <div class="toast" id="toast"></div>
 <script>
@@ -1320,10 +1351,11 @@ const S = {
   connections:[],
   activeConn:null,
   mode:"root",                 // root edits the map, viewer contributes to it
+  viewerBuild:false,           // true in a copy handed out to viewers
   suggestions:[],              // proposed changes, written to the sheet
   checkItems:[],               // things the host asks people to confirm
   checkoffs:[],                // who confirmed what
-  personal:{bookmarks:[], searches:[], recent:[], ackNew:{}, recentBadge:"", newBadge:""},
+  personal:{bookmarks:[], searches:[], recent:[], ackNew:{}, recentBadge:"", newBadge:"", art:{}, useHostArt:true},
   showIds:false,               // node id and revision on the node face
   notesMode:"search",          // off | always | search — how much of a note the map shows
   themeMode:"auto",            // auto | light | dark, kept per device
@@ -1537,8 +1569,33 @@ function goRelative(dir){
   if(to){ select(to); ensureVisible(to); }
 }
 
-function isRoot(){ return S.mode === "root"; }
-function canEdit(){ return S.mode === "root"; }
+/* What a node looks like to me. The map carries what the host set; anything
+   I have chosen for myself sits on top, unless I have switched that off for
+   this node or for the whole map. */
+function artFor(n, which){
+  const mine = (S.personal.art || {})[n.id];
+  const host = which === "badge" ? n.badgeImage : n.image;
+  if(!mine) return host;
+  if(mine.useHost) return host;
+  const own = which === "badge" ? mine.badgeImage : mine.image;
+  if(own) return own;
+  return S.personal.useHostArt ? host : "";
+}
+function hasOwnArt(id){
+  const m = (S.personal.art || {})[id];
+  return !!(m && (m.image || m.badgeImage));
+}
+function setOwnArt(id, which, value){
+  S.personal.art = S.personal.art || {};
+  const m = S.personal.art[id] = S.personal.art[id] || {};
+  if(which === "badge") m.badgeImage = value; else m.image = value;
+  if(!m.image && !m.badgeImage && !("useHost" in m)) delete S.personal.art[id];
+  savePersonal(); rebuild();
+}
+
+function isRoot(){ return S.mode === "root" && !S.viewerBuild; }
+/* A viewer build has no editing at all — not a mode you can switch out of. */
+function canEdit(){ return S.mode === "root" && !S.viewerBuild; }
 function suggestionsFor(id){ return S.suggestions.filter(x=>x.node === id); }
 function itemsFor(id){ return S.checkItems.filter(x=>x.node === id); }
 function checkoffFor(itemId, person){
@@ -1697,7 +1754,7 @@ const HDR = {
   TagStyles:["tag","color","line_style","width","arrow","applies_to"],
   Sync:["name","endpoint","spreadsheet_id","prefix","token","viewer_token","mode","last_sync"],
   Areas:["area_id","label","x","y","w","h","color","move_contents","note"],
-  Bookmarks:["bookmark_id","label","node_id","x","y","zoom"],
+  Bookmarks:["bookmark_id","label","node_id","x","y","zoom","icon"],
   Suggestions:["suggestion_id","node_id","person","timestamp","kind","text","status","resolved_by","resolved_at"],
   CheckItems:["item_id","node_id","label","created","author"],
   Checkoffs:["check_id","item_id","node_id","person","checked","timestamp","note"],
@@ -1744,7 +1801,7 @@ function toSheets(){
   }));
   const bookmarks = S.bookmarks.map(b=>({
     bookmark_id:b.id, label:b.label, node_id:b.node||"",
-    x:round(b.x), y:round(b.y), zoom:Math.round(b.k*1000)/1000
+    x:round(b.x), y:round(b.y), zoom:Math.round(b.k*1000)/1000, icon:b.icon||""
   }));
   const suggestions = S.suggestions.map(x=>({
     suggestion_id:x.id, node_id:x.node, person:x.person, timestamp:x.timestamp,
@@ -1880,7 +1937,8 @@ function tablesToModel(t){
     if(!r.bookmark_id && !r.label) continue;
     M.bookmarks.push(newBookmark({
       id:String(r.bookmark_id||uid("B-")), label:String(r.label||"Bookmark"),
-      node:String(r.node_id||""), x:Number(r.x)||0, y:Number(r.y)||0, k:Number(r.zoom)||1
+      node:String(r.node_id||""), x:Number(r.x)||0, y:Number(r.y)||0, k:Number(r.zoom)||1,
+      icon:String(r.icon||"")
     }));
   }
   for(const r of (t.Questions||[])){
@@ -2060,9 +2118,15 @@ function copyTsv(){
 const NODE_W = 208, COL_GAP = 96, ROW_GAP = 20, LINE_H = 16, PAD_Y = 13;
 const NOTE_LH = 13, NOTE_MAX = 14, NOTE_SNIPPET = 8;
 const CHAR_W = 6.35;
+/* monospace and serif are wider than the condensed sans the wrap was tuned
+   for, which is why terminal text ran past the edge of its node */
+function charW(){
+  const f = (activeTheme().font || "sans");
+  return f === "mono" ? 7.55 : f === "serif" ? 6.9 : CHAR_W;
+}
 
 function wrap(text, widthPx){
-  const max = Math.max(8, Math.floor(widthPx / CHAR_W));
+  const max = Math.max(8, Math.floor(widthPx / charW()));
   const words = String(text||"").split(/\s+/).filter(Boolean);
   const lines = []; let cur = "";
   for(const w of words){
@@ -2121,7 +2185,7 @@ function noteLinesFor(n, q, isHit){
 
 /* like wrap(), but never truncates */
 function wrapAll(text, widthPx){
-  const max = Math.max(8, Math.floor(widthPx / (CHAR_W * 0.92)));
+  const max = Math.max(8, Math.floor(widthPx / (charW() * 0.92)));
   const words = String(text||"").split(/\s+/).filter(Boolean);
   const lines = []; let cur = "";
   for(const w of words){
@@ -2151,7 +2215,8 @@ function layout(){
   const hitSet = new Set(S.hits);
   for(const n of S.nodes.values()){
     n._lines = wrap(n.label, NODE_W - 22);
-    n._imgH = n.image ? Math.max(40, Math.min(400, Number(n.imageH)||120)) : 0;
+    n._art = artFor(n, "image");
+    n._imgH = n._art ? Math.max(40, Math.min(400, Number(n.imageH)||120)) : 0;
     n._tabular = looksLikeTable(n.body);
     n._note = noteLinesFor(n, q, hitSet.has(n.id));
     n._h = Math.max(40, n._lines.length * LINE_H + PAD_Y*2 + (S.showIds ? 9 : -4))
@@ -2335,20 +2400,21 @@ const PRESETS = [
   node:{shape:"round",radius:10,border:1,depth:2,fill:"soft"},
   bg:{pattern:"none",scale:24,strength:.25}, font:"sans" },
 
-{ id:"islands", name:"Islands", note:"Rounded landmasses with depth. Playful, good for brainstorming.",
-  light:{paper:"#F7FBFD",paper2:"#E8F2F7",ink:"#1E3A44",ink60:"#5E7C88",rule:"#BBD5E0",
-         accent:"#1B8FA8",edge:"#7FA8B6",hit:"#FFF0C4",hitLine:"#F0C246",flag:"#D2603C"},
-  dark: {paper:"#0E1A20",paper2:"#15262E",ink:"#DCEDF3",ink60:"#89A7B3",rule:"#26424E",
-         accent:"#54C4DC",edge:"#5F8593",hit:"#3A3517",hitLine:"#6B6224",flag:"#F0906A"},
-  node:{shape:"island",radius:22,border:1.4,depth:3,fill:"gradient"},
-  bg:{pattern:"dots",scale:26,strength:.45}, font:"sans" },
+{ id:"islands", name:"Islands", note:"Sand islands on open water, with fish along the currents.",
+  light:{paper:"#BFE3EF",paper2:"#A9D8E8",ink:"#4A3B22",ink60:"#8A7A5A",rule:"#8FC6D8",
+         accent:"#1B7F9B",edge:"#4E93A8",hit:"#FFE9A8",hitLine:"#E8BE4A",flag:"#C2532F"},
+  dark: {paper:"#0B2A38",paper2:"#0E3444",ink:"#F2E4C6",ink60:"#B8A98A",rule:"#175064",
+         accent:"#63C8E0",edge:"#3E7E95",hit:"#3E3517",hitLine:"#6E5F26",flag:"#EE8A63"},
+  node:{shape:"island",radius:24,border:1.2,depth:4,fill:"custom",
+        color:"#E8D5A8",colorDark:"#C9AE78",stroke:"#B49A63",vary:true},
+  bg:{pattern:"waves",scale:30,strength:.5}, beam:"fish", font:"sans" },
 
 { id:"blueprint", name:"Blueprint", note:"Grid paper and cyan lines. Schematic feel.",
   light:{paper:"#F3F7FC",paper2:"#E6EFF9",ink:"#123A63",ink60:"#5A7EA3",rule:"#B7CCE3",
          accent:"#0B63A8",edge:"#7B9BBC",hit:"#FDF0C8",hitLine:"#E9C24E",flag:"#B4472A"},
   dark: {paper:"#0A1A2B",paper2:"#0F2438",ink:"#CFE4F7",ink60:"#7FA3C4",rule:"#1E3A55",
-         accent:"#4FB6F0",edge:"#5C82A6",hit:"#33351A",hitLine:"#5F6425",flag:"#EE8461"},
-  node:{shape:"rect",radius:2,border:1.1,depth:0,fill:"flat"},
+         accent:"#7FD0FF",edge:"#5C82A6",hit:"#33351A",hitLine:"#5F6425",flag:"#EE8461"},
+  node:{shape:"rect",radius:2,border:2.2,depth:1,fill:"flat",stroke:"#0A2A4A"},
   bg:{pattern:"grid",scale:22,strength:.5}, font:"sans" },
 
 { id:"foolscap", name:"Foolscap", note:"Warm stock and ruled lines. Notebook, not screen.",
@@ -2402,12 +2468,22 @@ function applyThemeVars(){
   set("--beam-in", c.flag);
   const nd = t.node || {};
   r.setProperty("--node-border", (nd.border || 1.25) + "px");
+  const stroke = nd.stroke === "accent" ? c.accent
+               : (nd.stroke && nd.stroke[0] === "#") ? nd.stroke : c.ink;
+  set("--node-stroke", stroke);
   const dep = Number(nd.depth) || 0;
   r.setProperty("--node-shadow", dep
     ? `drop-shadow(0 ${dep}px ${dep*1.8}px ${hexA(dark ? "#000000" : c.ink, dark ? .55 : .18)})`
     : "none");
-  r.setProperty("--node-fill", nd.fill === "soft" ? c.paper2
-    : nd.fill === "gradient" ? mixHex(c.paper, c.accent, .93) : c.paper);
+  const fill = nd.color ? (dark && nd.colorDark ? nd.colorDark : nd.color)
+             : nd.fill === "soft" ? c.paper2
+             : nd.fill === "gradient" ? mixHex(c.paper, c.accent, .93) : c.paper;
+  r.setProperty("--node-fill", fill);
+  /* pick lettering that actually reads on whatever the node is filled with */
+  const light = luminance(fill) > .55;
+  set("--node-ink", light ? c.ink : mixHex(c.paper, "#ffffff", .35));
+  set("--node-ink-60", light ? c.ink60 : hexA2(mixHex(c.paper, "#ffffff", .2), .78));
+  set("--node-note-ink", light ? mixHex(c.ink, fill, .28) : mixHex(c.paper, fill, .22));
   document.documentElement.setAttribute("data-font", t.font || "sans");
   applyBackground(t, c);
 }
@@ -2428,11 +2504,30 @@ function applyBackground(t, c){
   } else if(bg.pattern === "rules"){
     img = `linear-gradient(${line} 1px, transparent 1px)`;
     size = `100% ${s}px`;
+  } else if(bg.pattern === "waves"){
+    const a = hexA(c.ink, (Number(bg.strength) || .4) * .16);
+    const b2 = hexA(c.paper2, .85);
+    img = `radial-gradient(ellipse ${s*2.4}px ${s*0.5}px at 25% 40%, ${a} 0 40%, transparent 42%),`
+        + `radial-gradient(ellipse ${s*2.4}px ${s*0.5}px at 75% 80%, ${a} 0 40%, transparent 42%),`
+        + `linear-gradient(180deg, ${b2} 0%, transparent 60%)`;
+    size = `${s*4}px ${s*3}px, ${s*4}px ${s*3}px, 100% 100%`;
   }
   sheet.style.backgroundImage = img;
   sheet.style.backgroundSize = size;
+  const r = document.documentElement.style;
+  r.setProperty("--wall-image", bg.image ? `url("${bg.image}")` : "none");
+  r.setProperty("--wall-size", bg.fit === "tile" ? (Math.max(40, Number(bg.imageScale)||240) + "px") : "cover");
+  r.setProperty("--wall-repeat", bg.fit === "tile" ? "repeat" : "no-repeat");
+  r.setProperty("--wall-opacity", String(bg.image ? (Number(bg.opacity) ?? .35) : 0));
 }
 
+function luminance(hex){
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex||"")); if(!m) return 1;
+  const v = parseInt(m[1],16);
+  const f = c=>{ c/=255; return c <= .03928 ? c/12.92 : Math.pow((c+.055)/1.055, 2.4); };
+  return .2126*f((v>>16)&255) + .7152*f((v>>8)&255) + .0722*f(v&255);
+}
+function hexA2(hex, a){ return hexA(hex, a); }
 function hexA(hex, a){
   const m = /^#?([0-9a-f]{6})$/i.exec(String(hex||"")); if(!m) return "rgba(0,0,0,"+a+")";
   const v = parseInt(m[1],16);
@@ -2465,6 +2560,11 @@ function ensureArrow(color){
   return id;
 }
 
+function hashOf(str){
+  let h = 0;
+  for(let i = 0; i < String(str).length; i++) h = (h * 31 + str.charCodeAt(i)) % 100000;
+  return h / 100000;
+}
 function roundRect(w, h, r){
   r = Math.max(0, Math.min(r, w/2, h/2));
   if(!r) return `M0,0 L${w},0 L${w},${h} L0,${h} Z`;
@@ -2474,6 +2574,7 @@ function roundRect(w, h, r){
 function nodePath(n){
   const w = NODE_W, h = n._h;
   const t = activeTheme().node || {};
+  void n;
   const shape = t.shape || "rect";
   const rr = Number(t.radius) || 0;
 
@@ -2491,11 +2592,20 @@ function nodePath(n){
     return `M${c},0 L${w-c},0 L${w},${h/2} L${w-c},${h} L${c},${h} L0,${h/2} Z`;
   }
   if(shape === "island"){
-    /* a soft landmass: flat-ish top, a swell along the bottom */
-    const r = Math.max(14, rr), b = Math.min(18, h * .3);
-    return `M${r},0 L${w-r},0 Q${w},0 ${w},${r} L${w},${h-b} `
-         + `Q${w*0.78},${h+b*0.55} ${w/2},${h} Q${w*0.22},${h+b*0.55} 0,${h-b} `
-         + `L0,${r} Q0,0 ${r},0 Z`;
+    /* a landmass rather than a box: every edge bulges a little, and the
+       amount is derived from the node id so no two are the same shape */
+    const seed = t.vary === false ? 0 : hashOf(n.id);
+    const j = (i, amp) => t.vary === false ? 0
+      : ((Math.sin(seed * (i + 1) * 12.9898) * 43758.5453) % 1 + 1) % 1 * amp - amp/2;
+    const r = Math.max(16, rr);
+    const bx = w * .5, by = h + 6 + j(1, 10);
+    return `M${r + j(2,8)},${j(3,4)} `
+         + `Q${w*.35},${-6 + j(4,7)} ${w*.62},${j(5,5)} `
+         + `Q${w - r*.4},${j(6,4)} ${w + j(7,7)},${h*.42} `
+         + `Q${w + 4 + j(8,6)},${h*.86} ${w*.72},${h + j(9,7)} `
+         + `Q${bx},${by} ${w*.28},${h + j(10,7)} `
+         + `Q${-4 + j(11,6)},${h*.84} ${j(12,7)},${h*.4} `
+         + `Q${-2},${j(13,5)} ${r + j(2,8)},${j(3,4)} Z`;
   }
   return roundRect(w, h, rr);
 }
@@ -2600,6 +2710,73 @@ async function pasteBranch(){
     + (clip.from ? " from " + clip.from : ""));
 }
 
+/* A viewer never presses Pull or Push. Updates arrive on their own, and
+   anything they write is sent a few seconds after they stop. */
+let viewerSendTimer = null, viewerLastSync = null, viewerBusy = false;
+
+async function viewerRefresh(quiet){
+  const conn = activeConnection();
+  if(!conn || viewerBusy) return;
+  viewerBusy = true;
+  try{
+    const res = await callBridge(conn, "read");
+    if(res && res.ok){
+      const M = tablesToModel(res.tables || {});
+      if(M.nodes.size){
+        const before = S.nodes.size;
+        mergeModel(M);
+        if(res.name && !S.meta.title) S.meta.title = res.name;
+        rebuild();
+        if(!quiet && S.nodes.size !== before) toast("Map updated");
+      }
+      viewerLastSync = new Date();
+      scheduleSave();
+    }
+  }catch(e){ /* offline or the sheet is unreachable; try again next time */ }
+  finally{ viewerBusy = false; updateViewerStatus(); }
+}
+
+async function viewerSend(){
+  const conn = activeConnection();
+  if(!conn || viewerBusy) return;
+  const t = toSheets();
+  const only = {Suggestions:t.Suggestions, Checkoffs:t.Checkoffs,
+                Questions:t.Questions, QuestionPins:t.QuestionPins};
+  if(!only.Suggestions.length && !only.Checkoffs.length
+     && !only.Questions.length && !only.QuestionPins.length) return;
+  viewerBusy = true;
+  try{
+    const res = await callBridge(conn, "contribute", only);
+    if(res && res.ok){ viewerLastSync = new Date(); markClean(); }
+  }catch(e){ /* keep it locally and try again after the next change */ }
+  finally{ viewerBusy = false; updateViewerStatus(); }
+}
+
+function queueViewerSend(){
+  if(!S.viewerBuild) return;
+  clearTimeout(viewerSendTimer);
+  viewerSendTimer = setTimeout(viewerSend, 4000);
+  updateViewerStatus();
+}
+
+function updateViewerStatus(){
+  const el2 = el("viewerStatus");
+  if(!el2 || !S.viewerBuild) return;
+  el2.textContent = viewerBusy ? "Fetching the latest…"
+    : S.dirty ? "Your notes will be sent in a moment."
+    : viewerLastSync ? "Up to date, checked " + ago(viewerLastSync.toISOString()) + "."
+    : S.nodes.size ? "Waiting for the first update…"
+    : "Could not reach the sheet yet. It will keep trying.";
+}
+
+function startViewerSync(){
+  viewerRefresh(true);
+  setInterval(()=>{ if(!document.hidden) viewerRefresh(true); }, 4 * 60 * 1000);
+  document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) viewerRefresh(true); });
+  window.addEventListener("pagehide", ()=>{ if(S.dirty) viewerSend(); });
+  setInterval(updateViewerStatus, 30000);
+}
+
 function updatePasteButton(){
   const b = el("btnPaste");
   if(!b) return;
@@ -2686,9 +2863,10 @@ function decorateBadges(){
     if(!g) continue;
 
     /* the node's own badge, always on, hanging off the left edge */
-    if(n.badgeImage){
+    const nodeBadge = artFor(n, "badge");
+    if(nodeBadge){
       const sz = 34;
-      drawMark(g, {x:-sz + 6, y:(n._h - sz)/2, w:sz, h:sz, img:n.badgeImage,
+      drawMark(g, {x:-sz + 6, y:(n._h - sz)/2, w:sz, h:sz, img:nodeBadge,
         cls:"badge-node", tip:"Badge for this node"});
     }
 
@@ -2714,6 +2892,33 @@ function decorateBadges(){
     }
   }
 }
+
+/* Little fish, following the line itself rather than sliding along a dash. */
+const FISH = "M0,0 q7,-4.5 14,0 q-7,4.5 -14,0 z M0,0 l-5,-3.4 v6.8 z";
+function swim(gE, d, color, reverse, count, offset){
+  const id = "sw" + (SWIM_SEQ++);
+  const guide = mk("path",{id, d, fill:"none", stroke:"none", class:"swimpath"}, gE);
+  void guide;
+  for(let i = 0; i < count; i++){
+    const g = mk("g",{class:"fish", transform:offset ? `translate(${offset.x},${offset.y})` : null}, gE);
+    const body = mk("path",{d:FISH, fill:color, opacity:.95}, g);
+    void body;
+    const anim = document.createElementNS(SVGNS, "animateMotion");
+    anim.setAttribute("dur", (3.4 + i * 0.35) + "s");
+    anim.setAttribute("repeatCount", "indefinite");
+    anim.setAttribute("rotate", "auto");
+    anim.setAttribute("begin", (-i * (3.4 / count)) + "s");
+    if(reverse) anim.setAttribute("keyPoints", "1;0"),
+                anim.setAttribute("keyTimes", "0;1"),
+                anim.setAttribute("calcMode", "linear");
+    const mp = document.createElementNS(SVGNS, "mpath");
+    mp.setAttributeNS("http://www.w3.org/1999/xlink", "href", "#" + id);
+    mp.setAttribute("href", "#" + id);
+    anim.appendChild(mp);
+    g.appendChild(anim);
+  }
+}
+let SWIM_SEQ = 0;
 
 /* Two rounds per beam: a blurred halo and a hard core. */
 function shoot(gE, d, color, reverse, lag, offset){
@@ -2747,7 +2952,7 @@ function drawBand(){
 function decorateSelection(){
   const gE = el("gEdges"), gN = el("gNodes");
   if(!gE || !gN) return;
-  gE.querySelectorAll("path.beam").forEach(b=>b.remove());
+  gE.querySelectorAll("path.beam, g.fish, path.swimpath").forEach(b=>b.remove());
   gN.querySelectorAll("g.strip").forEach(b=>b.remove());
   const id = S.sel;
   if(!id || !S.nodes.has(id)) return;
@@ -2760,14 +2965,21 @@ function decorateSelection(){
     if(!src) continue;
     const d = src.getAttribute("d");
 
+    const fish = (activeTheme().beam === "fish") && S.motion === "full";
     if(e.link_type === "tree"){
       /* a branch always runs parent to child, whichever end you selected */
-      shoot(gE, d, "var(--beam-out)", false, 0);
+      if(fish) swim(gE, d, "var(--beam-out)", false, 3);
+      else shoot(gE, d, "var(--beam-out)", false, 0);
     } else {
       /* a cross-link carries traffic both ways, on either side of the line */
       const off = crossOffset(src);
-      shoot(gE, d, "var(--beam-out)", false, 0, off);
-      shoot(gE, d, "var(--beam-in)", true, 1, -off);
+      if(fish){
+        swim(gE, d, "var(--beam-out)", false, 2, off);
+        swim(gE, d, "var(--beam-in)", true, 2, {x:-off.x, y:-off.y});
+      } else {
+        shoot(gE, d, "var(--beam-out)", false, 0, off);
+        shoot(gE, d, "var(--beam-in)", true, 1, {x:-off.x, y:-off.y});
+      }
     }
   }
   if(!S.pairArmed) drawStrip(g, S.nodes.get(id));
@@ -2878,8 +3090,8 @@ function render(){
       mk("rect",{width:NODE_W-10, height:n._imgH, fill:"var(--img-bg)"}, wrapG);
       const im = mk("image",{x:0, y:0, width:NODE_W-10, height:n._imgH,
         preserveAspectRatio:"xMidYMid slice", opacity: n.status==="retired" ? .45 : 1}, wrapG);
-      im.setAttributeNS("http://www.w3.org/1999/xlink", "href", n.image);
-      im.setAttribute("href", n.image);
+      im.setAttributeNS("http://www.w3.org/1999/xlink", "href", n._art);
+      im.setAttribute("href", n._art);
     }
     const textTop = n._imgH ? n._imgH + 8 : 0;
     n._lines.forEach((ln,i)=>{
@@ -2952,9 +3164,11 @@ function renderContents(){
   const rows = S.bookmarks.map(b=>({b, mine:false})).concat(S.personal.bookmarks.map(b=>({b, mine:true})));
   bm.innerHTML = rows.length
     ? rows.map(({b, mine})=>`<div class="tocrow" data-bm="${esc(b.id)}">
-        <span class="tocdot${mine?"":" filled"}"></span>
+        ${b.icon ? `<img class="bmicon" src="${esc(b.icon)}" alt="">`
+                 : `<span class="tocdot${mine?"":" filled"}"></span>`}
         <span class="toclabel">${esc(b.label)}</span>
         ${mine?`<span class="fold">yours</span>`:""}
+        <button class="kill" data-bmicon="${esc(b.id)}" title="Picture for this bookmark">&#9635;</button>
         <button class="kill" data-killbm="${esc(b.id)}" title="Remove">&times;</button>
       </div>`).join("")
     : `<p class="tocempty">None yet. Line up a view you keep coming back to and save it.</p>`;
@@ -3036,6 +3250,19 @@ function renderContents(){
     };
     el("rbUp").onclick = ()=>pickImage("My recent badge, on this device", mine,
       v=>takeBadge(v, false), ()=>takeBadge("", false));
+    const uh = el("useHostArt");
+    if(uh){
+      uh.checked = S.personal.useHostArt !== false;
+      uh.onchange = ()=>{ S.personal.useHostArt = uh.checked; savePersonal(); rebuild(); };
+    }
+    const cma = el("clearMyArt");
+    if(cma) cma.onclick = ()=>{
+      const n = Object.keys(S.personal.art || {}).length;
+      if(!n){ toast("You have not set any of your own."); return; }
+      if(!confirm("Drop your own artwork on " + n + " node" + (n===1?"":"s") + "?")) return;
+      S.personal.art = {}; savePersonal(); rebuild();
+      toast("Back to the host's pictures");
+    };
     el("mnUp").onclick = ()=>pickImage("My New badge — mine only, overrides the map's", myNew,
       v=>{ S.personal.newBadge = v; savePersonal(); decorateBadges(); renderContents(); },
       ()=>{ S.personal.newBadge = ""; savePersonal(); decorateBadges(); renderContents(); });
@@ -3148,6 +3375,19 @@ function renderContents(){
       }
     };
   });
+  root.querySelectorAll("[data-bmicon]").forEach(e=>{
+    e.onclick = ev=>{
+      ev.stopPropagation();
+      const id = e.dataset.bmicon;
+      const b = S.bookmarks.concat(S.personal.bookmarks).find(x=>x.id === id);
+      if(!b) return;
+      const mine = S.personal.bookmarks.some(x=>x.id === id);
+      if(!mine && !canEdit()){ toast("That bookmark belongs to the map."); return; }
+      pickImage("Picture for “" + b.label + "”", b.icon || "",
+        v=>{ b.icon = v; if(mine) savePersonal(); else markDirty(); renderContents(); },
+        ()=>{ b.icon = ""; if(mine) savePersonal(); else markDirty(); renderContents(); });
+    };
+  });
   root.querySelectorAll("[data-killbm]").forEach(e=>{
     e.onclick = ev=>{ ev.stopPropagation();
       const id = e.dataset.killbm;
@@ -3193,6 +3433,14 @@ function updateModeUI(){
   r.classList.toggle("on", isRoot());
   v.classList.toggle("on", !isRoot());
   document.body.classList.toggle("viewing", !isRoot());
+  if(S.viewerBuild){
+    note.innerHTML = `This is a viewing copy. The map cannot be changed here, and the sheet
+      connection only lets it add suggestions, questions and check-offs. Everything personal —
+      bookmarks, badges, your own pictures, themes — is yours and stays on this device.`;
+    lock.disabled = true;
+    updateViewerStatus();
+    return;
+  }
   note.innerHTML = isRoot()
     ? `You can change the map. ${S.meta.locked ? "It is locked for everyone else." : "It is unlocked, so anyone opening it can edit."}`
     : `The map is read only here. You can still confirm items, leave suggestions and keep your own bookmarks${S.who ? ", signed " + esc(S.who) : ""}.`;
@@ -3978,8 +4226,12 @@ function renderViewerInspector(n){
     <div class="group">
       <h2 style="margin-bottom:6px">${esc(n.label)}</h2>
       ${n.status === "retired" ? `<span class="status-pill retired">retired</span>` : ""}
-      ${n.image ? `<div class="imgcard" style="margin-top:10px"><img src="${esc(n.image)}" alt="">
-        <div><strong>Image</strong></div></div>` : ""}
+      ${artFor(n,"image") ? `<div class="imgcard" style="margin-top:10px">
+        <img src="${esc(artFor(n,"image"))}" alt="">
+        <div><strong>${hasOwnArt(n.id) ? "Your picture" : "Image"}</strong></div>
+        <button class="btn" id="vArt" style="flex:0 0 auto;padding:3px 8px;font-size:11px">Change</button>
+      </div>` : `<div class="row" style="margin-top:10px">
+        <button class="btn wide" id="vArt">Put my own picture on this node</button></div>`}
       ${n.body ? `<div class="noteview">${noteToHtml(n.body)}</div>` : ""}
       ${(n.tags||[]).length ? `<div class="taglist" style="margin-top:10px">${(n.tags||[]).map(t=>`<span class="tagchip">${esc(t)}</span>`).join("")}</div>` : ""}
       ${parent ? `<p style="font-size:12px;color:var(--graphite-60);margin:10px 0 0">Follows
@@ -3992,6 +4244,12 @@ function renderViewerInspector(n){
       </div>
     </div>
     ${contributionBlock(n)}`;
+  if(el("vArt")) el("vArt").onclick = ()=>{
+    const cur = ((S.personal.art||{})[n.id]||{});
+    pickImage("My own picture for this node", cur.image || n.image || "",
+      v=>setOwnArt(n.id, "image", v), ()=>{ if(S.personal.art) delete S.personal.art[n.id];
+        savePersonal(); rebuild(); });
+  };
   if(el("vSign")) el("vSign").onclick = ()=>{ signOffNew(n.id); renderInspector(); };
   el("vZoom").onclick = ()=>focusNode(n.id);
   el("vMark").onclick = ()=>addBookmark(n.label);
@@ -4187,6 +4445,7 @@ function wireContributions(n){
    map look edited when a viewer cannot edit. */
 function markContribution(){
   S.meta.lastEdited = nowISO();
+  queueViewerSend();
   S.meta.provisional = false;
   S.dirty = true;
   document.body.classList.add("dirty");
@@ -4239,6 +4498,12 @@ function renderInspector(){
         <button class="btn" id="fNew">${n.badge === "new" ? "Clear the New mark" : "Mark as New"}</button>
         <button class="btn" id="fBadgeImg">${n.badgeImage ? "Change this node's badge" : "Badge for this node"}</button>
       </div>
+      <div class="row" style="margin-top:8px">
+        <button class="btn" id="fMyArt">${hasOwnArt(n.id) ? "Change my own picture" : "Use my own picture here"}</button>
+        <button class="btn" id="fMyArtOff"${hasOwnArt(n.id)?"":" disabled"}>Back to the host's</button>
+      </div>
+      ${hasOwnArt(n.id) ? `<p class="fineprint" style="margin:6px 0 0;color:var(--flag)">
+        You are seeing your own artwork on this node. Nobody else is.</p>` : ""}
       <p class="fineprint" style="margin:6px 0 0">The node badge sits on the left edge.
         The NEW and recent badges live under Contents → Badges.</p>
       ${n.badge === "new" ? `<p class="fineprint" style="margin:6px 0 0">Marked new
@@ -4305,6 +4570,15 @@ function renderInspector(){
     v=>{ setField(n, "image", v); rebuild(); },
     ()=>{ setField(n, "image", ""); rebuild(); });
   if(el("fImgH")) el("fImgH").onchange = e=>commit("imageH", Number(e.target.value));
+  el("fMyArt").onclick = ()=>{
+    const cur = ((S.personal.art||{})[n.id]||{});
+    pickImage("My own picture for this node", cur.image || n.image || "",
+      v=>setOwnArt(n.id, "image", v), ()=>setOwnArt(n.id, "image", ""));
+  };
+  el("fMyArtOff").onclick = ()=>{
+    if(S.personal.art) delete S.personal.art[n.id];
+    savePersonal(); rebuild();
+  };
   el("fNew").onclick = ()=>{
     if(n.badge === "new"){ setField(n, "badge", ""); n.badgeAt = ""; }
     else { setField(n, "badge", "new"); n.badgeAt = nowISO(); }
@@ -5348,7 +5622,7 @@ function buildWorkbook(){
     TagStyles:[16,10,11,7,7,10],
     Sync:[18,54,44,14,14,14,10,19],
     Areas:[14,30,8,8,8,8,10,14,40],
-    Bookmarks:[14,30,14,8,8,7],
+    Bookmarks:[14,30,14,8,8,7,40],
     Questions:[14,56,16,19,10,34],
     QuestionPins:[14,14,14,16,19,30],
     Suggestions:[14,14,16,19,11,52,10,14,19],
@@ -5496,6 +5770,16 @@ async function afterMapSwitch(){
   if(el("crossColor")) el("crossColor").value = S.meta.crossColor || "#7C848C";
   announceKey();
   await loadPersonal();
+  if(S.viewerBuild){
+    S.mode = "viewer";
+    document.body.classList.add("viewing","viewerbuild");
+    if(viewerCfg){
+      /* so a plain reload of the address stays in the handout */
+      try{ await Store.putKey("viewer:" + S.meta.key, viewerCfg); }catch(e){}
+      rememberKey();
+    }
+    startViewerSync();
+  }
   if(el("notesMode")) el("notesMode").value = S.notesMode;
   document.body.classList.toggle("viewing", !isRoot());
   updateModeUI();
@@ -5613,6 +5897,127 @@ async function storageDiagnostics(){
   </div>`;
 }
 
+/* ---------------------------------------------------------------
+   Viewer copy. A second HTML file, the same app, with the sheet
+   already wired up on the read-and-suggest token and editing removed
+   rather than merely hidden.
+   --------------------------------------------------------------- */
+async function hashText(t){
+  try{
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t));
+    return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,"0")).join("").slice(0,12);
+  }catch(e){ return String(Math.abs(hashOf(t) * 1e6) | 0); }
+}
+
+async function buildViewerFile(){
+  const conn = activeConnection();
+  if(!conn || !(conn.endpoint||"").trim()){
+    toast("Set up the sheet first, in Manage sheets."); return;
+  }
+  if(!(conn.viewerToken||"").trim()){
+    toast("Give the connection a viewer token first, then copy the bridge script again "
+        + "so the script has it too."); return;
+  }
+  const host = location.origin + location.pathname;
+  if(!/^https?:/i.test(location.protocol)){
+    toast("Build this from the tool's web address, not a downloaded file, so the copy "
+        + "knows where to find the live version.");
+    return;
+  }
+
+  const cfg = {
+    v:2, madeAt:nowISO(), title:S.meta.title || "Map",
+    mapKey:"V-" + (await hashText((S.meta.title||"") + "|" + (conn.endpoint||"")
+                                 + "|" + (conn.prefix||"") + "|" + (conn.id||""))),
+    theme:{ id:S.themeId, custom:(S.customThemes||[]).find(t=>t.id === S.themeId) || null },
+    connection:{ name:(conn.name || "Sheet") + " (viewing)", endpoint:conn.endpoint.trim(),
+                 id:conn.id||"", prefix:conn.prefix||"", token:conn.viewerToken.trim(),
+                 mode:"merge", auto:true }
+  };
+  const packed = await gzipB64(JSON.stringify(cfg));
+  const target = host + "#v=" + packed;
+  const title = esc(S.meta.title || "MindMap");
+
+  /* A launcher rather than a copy of the app. It carries only who it is and
+     which sheet to read, then hands over to the live version — so every
+     change made to the tool reaches everyone holding one of these. */
+  const out = `<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${title}</title>
+<style>
+ html,body{height:100%;margin:0;background:#16191C;color:#E3E7EA;
+   font:15px/1.6 ui-sans-serif,system-ui,"Segoe UI",sans-serif;
+   display:flex;align-items:center;justify-content:center;text-align:center}
+ .c{max-width:420px;padding:28px}
+ h1{font-size:19px;margin:0 0 8px;font-weight:600}
+ p{margin:0 0 14px;color:#959DA5;font-size:13.5px}
+ a{display:inline-block;background:#6BA6E8;color:#0F1216;text-decoration:none;
+   padding:10px 18px;border-radius:3px;font-weight:600;font-size:14px}
+ code{font-size:11px;color:#6E757C;word-break:break-all}
+</style></head><body>
+<div class="c">
+  <h1>${title}</h1>
+  <p id="m">Opening…</p>
+  <a id="go" href="${esc(target)}">Open it</a>
+  <p style="margin-top:18px"><code>Keep this file. It always opens the current version.</code></p>
+</div>
+<script>
+ var t = ${JSON.stringify(target)};
+ setTimeout(function(){ try{ location.replace(t); }
+   catch(e){ document.getElementById("m").textContent =
+     "Press the button below to open the map."; } }, 60);
+ setTimeout(function(){ document.getElementById("m").textContent =
+   "If nothing happened, press the button below."; }, 2500);
+<\/script>
+</body></html>`;
+
+  const safe = (S.meta.title || "mindmap").replace(/[^\w\- ]+/g,"").trim().replace(/\s+/g,"-") || "mindmap";
+  const blob = new Blob([out], {type:"text/html"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = safe + "-viewer.html";
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 6000);
+  try{ await navigator.clipboard.writeText(target); }catch(e){}
+  toast("Viewer copy saved, " + Math.round(out.length/1024) + " KB, and the same link is on "
+      + "your clipboard. It always opens the current version of the tool.");
+}
+
+/* A viewer arrives either with #v= in the address or with the lock already
+   recorded against this map on this device. */
+async function loadViewerConfig(){
+  const m = /[#&]v=([^&]+)/.exec(bootHash || "");
+  if(!m) return null;
+  let cfg = null;
+  try{ cfg = JSON.parse(await ungzipB64(m[1])); }catch(e){ return null; }
+  return applyViewerConfig(cfg);
+}
+
+/* the lock is recorded against the map, so a plain reload of the address
+   stays in the handout — but storage has to be open before it can be read */
+async function recallViewerConfig(){
+  try{
+    const key = recallKey();
+    if(!key) return null;
+    const stored = await Store.getKey("viewer:" + key);
+    return stored ? applyViewerConfig(stored) : null;
+  }catch(e){ return null; }
+}
+
+function applyViewerConfig(cfg){
+  if(!cfg) return null;
+  S.viewerBuild = true;
+  S.mode = "viewer";
+  document.body.classList.add("viewing", "viewerbuild");
+  if(cfg.connection){ S.connections = [cfg.connection]; S.activeConn = 0; }
+  if(cfg.theme){
+    if(cfg.theme.custom) S.customThemes = (S.customThemes || []).concat([cfg.theme.custom]);
+    if(cfg.theme.id) S.themeId = cfg.theme.id;
+  }
+  return cfg;
+}
+
 /* --------------------------- theme chooser --------------------------- */
 function allThemes(){ return PRESETS.concat(S.customThemes || []); }
 
@@ -5708,7 +6113,29 @@ function openThemeEditor(){
         <input type="range" min="10" max="60" step="2" data-t="bg.scale" value="${t.bg.scale}"></label>
       <label><span>Strength ${t.bg.strength}</span>
         <input type="range" min="0.05" max="1" step="0.05" data-t="bg.strength" value="${t.bg.strength}"></label>
-      <label><span>&nbsp;</span><button class="btn" id="themeDelete">Delete this theme</button></label>
+      <label><span>Wallpaper opacity ${t.bg.opacity ?? .35}</span>
+        <input type="range" min="0" max="1" step="0.05" data-t="bg.opacity" value="${t.bg.opacity ?? .35}"></label>
+      <label><span>Wallpaper fit</span><select data-t="bg.fit">
+        ${[["cover","Fill the sheet"],["tile","Tile it"]].map(([v,l])=>
+          `<option value="${v}"${(t.bg.fit||"cover")===v?" selected":""}>${l}</option>`).join("")}
+      </select></label>
+      <label><span>Tile size ${t.bg.imageScale || 240}</span>
+        <input type="range" min="40" max="600" step="20" data-t="bg.imageScale" value="${t.bg.imageScale || 240}"></label>
+      <label><span>Node fill colour</span>
+        <input type="color" class="swatchin" style="width:100%" data-t="node.color"
+          value="${esc(t.node.color || "#ffffff")}"></label>
+      <label><span>Node outline colour</span>
+        <input type="color" class="swatchin" style="width:100%" data-t="node.stroke"
+          value="${esc((t.node.stroke||"").startsWith("#") ? t.node.stroke : "#23282D")}"></label>
+      <label><span>Connector life</span><select data-t="beam">
+        ${[["dots","Light pulses"],["fish","Fish"]].map(([v,l])=>
+          `<option value="${v}"${(t.beam||"dots")===v?" selected":""}>${l}</option>`).join("")}
+      </select></label>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn" id="themeWall">${t.bg.image ? "Change the wallpaper" : "Set a wallpaper"}</button>
+      <button class="btn" id="themeWallClear"${t.bg.image?"":" disabled"}>No wallpaper</button>
+      <button class="btn" id="themeDelete">Delete this theme</button>
     </div>`;
 
   box.querySelectorAll("[data-t]").forEach(inp=>{
@@ -5725,6 +6152,12 @@ function openThemeEditor(){
     inp.addEventListener("input", apply);
     inp.addEventListener("change", apply);
   });
+  el("themeWall").onclick = ()=>pickImage("Wallpaper behind the map", t.bg.image || "",
+    v=>{ t.bg.image = v; if(t.bg.opacity == null) t.bg.opacity = .35;
+         saveCustomThemes(); applyTheme(S.themeMode); rebuild(); openThemeEditor(); },
+    ()=>{ t.bg.image = ""; saveCustomThemes(); applyTheme(S.themeMode); rebuild(); openThemeEditor(); });
+  el("themeWallClear").onclick = ()=>{ t.bg.image = ""; saveCustomThemes();
+    applyTheme(S.themeMode); rebuild(); openThemeEditor(); };
   el("themeDelete").onclick = ()=>{
     if(!confirm("Delete the theme “" + t.name + "”?")) return;
     S.customThemes = (S.customThemes || []).filter(x=>x.id !== t.id);
@@ -5783,7 +6216,8 @@ function importTheme(file){
 function personalKey(){ return "personal:" + (S.meta.key || "none"); }
 
 async function loadPersonal(){
-  S.personal = {bookmarks:[], searches:[], recent:[], ackNew:{}, recentBadge:"", newBadge:""};
+  S.personal = {bookmarks:[], searches:[], recent:[], ackNew:{}, recentBadge:"", newBadge:"",
+                art:{}, useHostArt:true};
   try{
     const rec = await Store.getKey(personalKey());
     if(rec){
@@ -5797,6 +6231,8 @@ async function loadPersonal(){
       S.personal.ackNew = rec.ackNew && typeof rec.ackNew === "object" ? rec.ackNew : {};
       S.personal.recentBadge = rec.recentBadge || "";
       S.personal.newBadge = rec.newBadge || "";
+      S.personal.art = rec.art && typeof rec.art === "object" ? rec.art : {};
+      S.personal.useHostArt = rec.useHostArt !== false;
       S.mode = rec.mode === "root" && !S.meta.locked ? "root" : S.mode;
     }
   }catch(e){}
@@ -5807,7 +6243,8 @@ async function savePersonal(){
       bookmarks:S.personal.bookmarks, searches:S.personal.searches,
       who:S.who, mode:S.mode, notesMode:S.notesMode, motion:S.motion, showIds:S.showIds,
       recent:S.personal.recent, ackNew:S.personal.ackNew,
-      recentBadge:S.personal.recentBadge || "", newBadge:S.personal.newBadge || "", at:nowISO()
+      recentBadge:S.personal.recentBadge || "", newBadge:S.personal.newBadge || "",
+      art:S.personal.art, useHostArt:S.personal.useHostArt, at:nowISO()
     });
   }catch(e){}
 }
@@ -5859,7 +6296,8 @@ function exportPersonal(){
   const blob = new Blob([JSON.stringify({v:1, map:S.meta.title, who:S.who,
     bookmarks:S.personal.bookmarks, searches:S.personal.searches,
     recent:S.personal.recent, ackNew:S.personal.ackNew,
-    recentBadge:S.personal.recentBadge || "", newBadge:S.personal.newBadge || ""}, null, 2)],
+    recentBadge:S.personal.recentBadge || "", newBadge:S.personal.newBadge || "",
+    art:S.personal.art, useHostArt:S.personal.useHostArt}, null, 2)],
     {type:"application/json"});
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
@@ -5878,6 +6316,8 @@ function importPersonal(file){
       if(d.ackNew) S.personal.ackNew = Object.assign({}, d.ackNew, S.personal.ackNew || {});
       if(d.recentBadge && !S.personal.recentBadge) S.personal.recentBadge = d.recentBadge;
       if(d.newBadge && !S.personal.newBadge) S.personal.newBadge = d.newBadge;
+      if(d.art) S.personal.art = Object.assign({}, d.art, S.personal.art || {});
+      if(typeof d.useHostArt === "boolean") S.personal.useHostArt = d.useHostArt;
       if(Array.isArray(d.bookmarks)){
         const have = new Set(S.personal.bookmarks.map(b=>b.id));
         d.bookmarks.forEach(b=>{ if(!have.has(b.id)) S.personal.bookmarks.push(b); });
@@ -6867,6 +7307,15 @@ function refreshSyncUI(){
   const c2 = activeConnection();
   const ready = !!(c2 && (c2.endpoint||"").trim());
   ["btnPull","btnPush","btnMerge"].forEach(id=>el(id).disabled = !ready);
+  if(!canEdit()){
+    el("btnPush").textContent = "Send";
+    el("btnPush").title = "Sends your suggestions, questions and check-offs. "
+      + "It cannot change the map.";
+    el("btnMerge").hidden = true;
+  } else {
+    el("btnPush").textContent = "Push";
+    el("btnMerge").hidden = false;
+  }
   if(c2 && !ready) note.textContent = "Paste the web app URL in Manage sheets to finish setting this up.";
 }
 
@@ -6926,7 +7375,7 @@ async function runSync(kind){
   document.querySelector(".rail").classList.add("syncing");
   el("syncNote").textContent = kind === "push" ? "Sending…" : "Fetching…";
   try{
-    if(kind === "push" && !canEdit()){
+    if(kind === "push" && (S.viewerBuild || !canEdit())){
       /* a viewer sends only the two contribution tabs, by a route that
          cannot touch anything else even if the token were misused */
       const t = toSheets();
@@ -7467,6 +7916,7 @@ async function boot(){
   el("btnPull").onclick  = ()=>runSync("pull");
   el("btnMerge").onclick = ()=>runSync("merge");
   el("btnPush").onclick  = ()=>runSync("push");
+  el("btnViewerCopy").onclick = buildViewerFile;
   el("btnConns").onclick = ()=>{
     /* start with an empty form rather than making people find an Add button
        before step 4 has anywhere to paste into */
@@ -7629,8 +8079,9 @@ async function boot(){
   el("bannerHide").onclick = hideBanner;
 
   bootHash = takeHash();
+  let viewerCfg = await loadViewerConfig();
   /* set before the first paint so the app never flashes the wrong shade */
-  applyTheme(S.theme);
+  applyTheme(S.themeMode);
 
   /* Put a map on screen before touching storage. If the database is slow or
      held open by another tab, the person sees the app rather than a blank
@@ -7639,6 +8090,7 @@ async function boot(){
   const preSeeded = true;
 
   await Store.init();
+  if(!viewerCfg) viewerCfg = await recallViewerConfig();
   try{
     const t = await Store.getKey("theme");
     if(t) S.themeMode = t;
@@ -7673,13 +8125,14 @@ async function boot(){
     }
 
     hadSessions = metas.length > 0;
-    const wanted = readHashKey() || recallKey();
+    /* a handout always opens its own map, whatever else is stored here */
+    const wanted = (viewerCfg && viewerCfg.mapKey) || readHashKey() || recallKey();
     const busy = await gatherClaims();
     let key = null;
 
     if(wanted){
       key = wanted;
-      if(readHashKey() && !metas.some(m=>m.key === wanted)) missingLink = true;
+      if(!viewerCfg && readHashKey() && !metas.some(m=>m.key === wanted)) missingLink = true;
       /* a duplicated tab would otherwise fight the original for the same
          record, so this one takes a copy instead */
       if(busy.has(wanted)) forked = true;
@@ -7716,6 +8169,20 @@ async function boot(){
     }
   }catch(e){}
 
+  if(!restored && viewerCfg){
+    /* nothing stored here yet. Clear the sample the boot drew as a placeholder
+       and wait for the sheet rather than showing someone else's map. */
+    S.nodes.clear(); S.edges.clear(); S.areas.clear();
+    S.revisions.length = 0; S.bookmarks.length = 0;
+    S.suggestions.length = 0; S.checkItems.length = 0; S.checkoffs.length = 0;
+    S.questions.length = 0; S.pins.length = 0;
+    S.sel = null; S.selArea = null;
+    S.meta.key = viewerCfg.mapKey || uid("M-");
+    S.meta.title = viewerCfg.title || "Map";
+    S.meta.provisional = false;
+    restored = true;
+    rebuild();
+  }
   if(!restored){
     if(hadSessions){
       /* the sample was only a placeholder while storage opened */
@@ -7730,6 +8197,16 @@ async function boot(){
   }
 
   await loadPersonal();
+  if(S.viewerBuild){
+    S.mode = "viewer";
+    document.body.classList.add("viewing","viewerbuild");
+    if(viewerCfg){
+      /* so a plain reload of the address stays in the handout */
+      try{ await Store.putKey("viewer:" + S.meta.key, viewerCfg); }catch(e){}
+      rememberKey();
+    }
+    startViewerSync();
+  }
   if(el("notesMode")) el("notesMode").value = S.notesMode;
   applyMotion();
   if(el("showIds")) el("showIds").checked = S.showIds;
