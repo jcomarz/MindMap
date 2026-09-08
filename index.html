@@ -918,7 +918,13 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
           <button class="btn" id="btnSignAll">Sign off all</button>
           <button class="btn" id="btnClearRecent">Clear recent</button>
         </div>
+      </div>
+
+      <div class="group" id="badgeGroup">
+        <h2>Badges</h2>
         <div id="badgeSetup"></div>
+        <p class="tocempty" style="margin-top:8px">Animated GIFs work. The recent badge is yours
+          alone; the New badge is stored with the map so everyone sees it.</p>
       </div>
 
       <div class="group">
@@ -4006,8 +4012,10 @@ function renderInspector(){
         <input type="range" id="fImgH" min="60" max="360" step="10" value="${n.imageH||120}"></label>`:""}
       <div class="row" style="margin-top:4px">
         <button class="btn" id="fNew">${n.badge === "new" ? "Clear the New mark" : "Mark as New"}</button>
-        <button class="btn" id="fBadgeImg">${n.badgeImage ? "Change badge" : "Badge image"}</button>
+        <button class="btn" id="fBadgeImg">${n.badgeImage ? "Change this node's badge" : "Badge for this node"}</button>
       </div>
+      <p class="fineprint" style="margin:6px 0 0">The node badge sits on the left edge.
+        The NEW and recent badges live under Contents → Badges.</p>
       ${n.badge === "new" ? `<p class="fineprint" style="margin:6px 0 0">Marked new
         ${esc(String(n.badgeAt||"").slice(0,16))}. Everyone sees the badge until they sign it off.</p>` : ""}
       ${n.badgeImage ? `<div class="imgcard" style="margin-top:8px"><img src="${esc(n.badgeImage)}" alt="">
@@ -5806,6 +5814,8 @@ function renderUpdates(){
   const recents = (S.personal.recent || []).filter(r=>S.nodes.has(r.id));
   let html = "";
 
+  html += `<div class="row" style="margin:2px 0 10px">
+      <button class="btn wide" id="updBadges">Change the New and recent badges</button></div>`;
   html += `<div class="diagbox"><b>${unread.length}</b> update${unread.length===1?"":"s"} to sign off
     · <b>${news.length}</b> marked new in total · <b>${recents.length}</b> node${recents.length===1?"":"s"}
     opened recently on this device</div>`;
@@ -5862,6 +5872,22 @@ function renderUpdates(){
     S.personal.ackNew = S.personal.ackNew || {};
     news.filter(isNewFor).forEach(n=>{ S.personal.ackNew[n.id] = n.badgeAt || nowISO(); });
     savePersonal(); decorateBadges(); renderContents(); renderUpdates(); updateNewCount();
+  };
+  const gb = el("updBadges");
+  if(gb) gb.onclick = ()=>{
+    el("updDlg").close();
+    const tab = [...document.querySelectorAll(".railtab")].find(t=>t.dataset.pane === "Contents");
+    if(tab) tab.click();
+    if(window.matchMedia("(max-width:820px)").matches){
+      el("rail").classList.add("open"); el("scrim").classList.add("on");
+    }
+    setTimeout(()=>{
+      const g = el("badgeGroup");
+      if(!g) return;
+      g.scrollIntoView({behavior:reducedMotion() ? "auto" : "smooth", block:"center"});
+      g.classList.add("flash");
+      setTimeout(()=>g.classList.remove("flash"), 1000);
+    }, 80);
   };
   const cr = el("updClearRecent");
   if(cr) cr.onclick = ()=>{ S.personal.recent = []; savePersonal();
