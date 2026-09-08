@@ -203,8 +203,13 @@ label.field>span{display:block;font-size:12px;color:var(--graphite-60);margin-bo
   border:1px solid var(--rule);box-shadow:0 1px 0 rgba(35,40,45,.06);
   overflow:hidden;
 }
-#svg{width:100%;height:100%;display:block;touch-action:none;cursor:grab}
-#svg.panning{cursor:grabbing}
+/* The system grab cursor is a white hand with a hairline outline, which all
+   but vanishes on white paper. These are drawn dark with a light halo so they
+   read on either theme. */
+#svg{width:100%;height:100%;display:block;touch-action:none;
+  cursor:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2228%22%20height%3D%2228%22%20viewBox%3D%220%200%2028%2028%22%3E%3Cpath%20d%3D%22M9.5%2013.5V6.2a2.1%202.1%200%200%201%204.2%200v5.1V4.6a2.1%202.1%200%200%201%204.2%200v6.7V7.4a2.1%202.1%200%200%201%204.2%200v9.4c0%204.3-3.1%207.4-7.4%207.4h-1.6c-2.9%200-4.8-1.7-6-3.9l-3-5.6a2.1%202.1%200%200%201%203.3-2.4l2.1%202.6z%22%20fill%3D%22%2320262c%22%20stroke%3D%22%23fff%22%20stroke-width%3D%221.7%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E") 13 12, grab}
+#svg.panning{cursor:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2228%22%20height%3D%2228%22%20viewBox%3D%220%200%2028%2028%22%3E%3Cpath%20d%3D%22M9.5%2013.2v-2.6a2%202%200%200%201%204%200v1.6v-2.4a2%202%200%200%201%204%200v2.4v-1.4a2%202%200%200%201%204%200v6c0%204.2-3%207.3-7.2%207.3h-1.6c-2.8%200-4.7-1.7-5.8-3.8l-2.9-5.5a2%202%200%200%201%203.2-2.3l2%202.5z%22%20fill%3D%22%2320262c%22%20stroke%3D%22%23fff%22%20stroke-width%3D%221.7%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E") 13 12, grabbing}
+input,textarea,select{caret-color:var(--graphite)}
 
 .titleblock{
   position:absolute;right:14px;bottom:14px;background:var(--paper);
@@ -293,6 +298,7 @@ html[data-motion="off"] *{transition:none !important}
 .strip-num{font-family:var(--mono);font-size:9px;fill:var(--graphite-60);pointer-events:none}
 .badge-pill{fill:var(--paper);stroke:var(--graphite-60);stroke-width:1}
 .badge-new .badge-pill{fill:var(--flag);stroke:var(--flag)}
+.badge-node{pointer-events:none}
 .badge-text{font-family:var(--sans);font-size:10px;font-weight:600;fill:var(--graphite-60);
   pointer-events:none}
 .badge-new .badge-text{fill:#fff}
@@ -427,6 +433,22 @@ dialog#connDlg::backdrop{background:rgba(35,40,45,.42)}
 .conn .hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}
 .conn .hdr strong{font-size:13px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+dialog#imgDlg{border:1px solid var(--graphite);border-radius:3px;padding:0;background:var(--paper);
+  width:min(520px,94vw);max-height:88dvh;color:var(--graphite)}
+dialog#imgDlg::backdrop{background:rgba(35,40,45,.42)}
+.dropzone{border:2px dashed var(--rule);border-radius:5px;padding:18px;display:flex;gap:16px;
+  align-items:center;background:var(--paper-2);transition:border-color .12s,background .12s}
+.dropzone.over{border-color:var(--blueprint);background:var(--blueprint-soft)}
+.dz-preview{width:96px;height:96px;flex:0 0 auto;border:1px solid var(--rule);border-radius:3px;
+  background:var(--paper);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.dz-preview img{max-width:100%;max-height:100%}
+.dz-preview span{font-size:11px;color:var(--graphite-60);text-align:center;padding:6px}
+.dz-hint strong{display:block;font-size:13.5px;margin-bottom:4px}
+.dz-hint span{font-size:12px;color:var(--graphite-60);line-height:1.5}
+.linkish{border:0;background:none;color:var(--blueprint);text-decoration:underline;
+  padding:0;font-size:12px;cursor:pointer}
+@media (max-width:820px){ dialog#imgDlg{width:100vw;height:100dvh;max-height:none;border:0;border-radius:0}
+  .dropzone{flex-direction:column;text-align:center} }
 dialog#updDlg{border:1px solid var(--graphite);border-radius:3px;padding:0;background:var(--paper);
   width:min(620px,96vw);max-height:88dvh;color:var(--graphite)}
 dialog#updDlg::backdrop{background:rgba(35,40,45,.42)}
@@ -989,6 +1011,31 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
       Sheets are saved with the map and written to the Sync tab of your workbook.
       Use <em>Copy a link to this setup</em> to carry the same connection to another device.
     </p>
+  </div>
+</dialog>
+
+<dialog id="imgDlg">
+  <div class="dlg-head">
+    <h2 id="imgTitle">Image</h2>
+    <button class="btn" id="imgClose">Cancel</button>
+  </div>
+  <div class="dlg-body">
+    <div id="imgDrop" class="dropzone" tabindex="0">
+      <div class="dz-preview" id="imgPreview"></div>
+      <div class="dz-hint">
+        <strong>Drop an image here</strong>
+        <span>or press Ctrl+V to paste one, or <button class="linkish" id="imgBrowse">browse your files</button></span>
+      </div>
+      <input type="file" id="imgFile" accept="image/*,image/gif" hidden>
+    </div>
+    <label class="field" style="margin-top:14px"><span>Or point at one that lives elsewhere</span>
+      <input type="text" id="imgUrl" placeholder="https://… or data:image/…"></label>
+    <p class="fineprint" id="imgNote"></p>
+    <div class="row" style="margin-top:12px">
+      <button class="btn primary wide" id="imgUse">Use this</button>
+      <button class="btn" id="imgDrop2" hidden></button>
+      <button class="btn" id="imgRemove">Remove</button>
+    </div>
   </div>
 </dialog>
 
@@ -2267,13 +2314,34 @@ function drawStrip(g, n){
 
 /* Badges sit above the top-right corner. They are per person for recency and
    sign-off, so they are drawn separately from the map itself. */
-function badgeFor(n){
-  if(isNewFor(n)) return {kind:"new", label:"NEW",
-    img:n.badgeImage || S.meta.newBadgeImage || "", cls:"badge-new"};
-  if(isRecent(n.id)) return {kind:"recent", label:"R",
-    img:S.personal.recentBadge || "", cls:"badge-recent"};
-  return null;
+/* Three marks, three corners, so they never fight for the same spot:
+   the node's own badge hangs off the left edge, an update sits at the top
+   right, and your own recency mark at the bottom right. */
+function drawMark(g, opts){
+  const {x, y, w, h, img, label, cls, tip, onClear} = opts;
+  const bg = mk("g",{class:"badge " + cls, transform:`translate(${x},${y})`}, g);
+  if(img){
+    const im = mk("image",{x:0, y:0, width:w, height:h, preserveAspectRatio:"xMidYMid meet"}, bg);
+    im.setAttributeNS("http://www.w3.org/1999/xlink", "href", img);
+    im.setAttribute("href", img);
+  } else {
+    mk("rect",{class:"badge-pill", width:w, height:h, rx:h/2}, bg);
+    const t = mk("text",{class:"badge-text", x:w/2, y:h/2 + 3.5, "text-anchor":"middle"}, bg);
+    t.textContent = label;
+  }
+  if(onClear){
+    const kill = mk("g",{class:"badge-x", transform:`translate(${w - 4},-4)`}, bg);
+    mk("circle",{r:7, cx:0, cy:0}, kill);
+    const xt = mk("text",{x:0, y:3.2, "text-anchor":"middle"}, kill);
+    xt.textContent = "\u00d7";
+    kill.addEventListener("pointerup", ev=>{ ev.stopPropagation(); onClear(); });
+    kill.addEventListener("pointerdown", ev=>ev.stopPropagation());
+  }
+  const ttl = mk("title",{}, bg);
+  ttl.textContent = tip || "";
+  return bg;
 }
+
 function decorateBadges(){
   updateNewCount();
   const gN = el("gNodes");
@@ -2282,36 +2350,34 @@ function decorateBadges(){
   const vis = visibleNodes();
   for(const id of vis){
     const n = S.nodes.get(id);
-    const bd = badgeFor(n);
-    if(!bd) continue;
     const g = gN.querySelector(`.node-g[data-id="${CSS.escape(id)}"]`);
     if(!g) continue;
-    const w = bd.img ? 30 : (bd.kind === "new" ? 38 : 22), h = bd.img ? 30 : 20;
-    const bg = mk("g",{class:"badge " + bd.cls, transform:`translate(${NODE_W - w + 8},${-h/2 - 3})`}, g);
-    if(bd.img){
-      const im = mk("image",{x:0, y:0, width:w, height:h,
-        preserveAspectRatio:"xMidYMid meet"}, bg);
-      im.setAttributeNS("http://www.w3.org/1999/xlink", "href", bd.img);
-      im.setAttribute("href", bd.img);
-    } else {
-      mk("rect",{class:"badge-pill", width:w, height:h, rx:h/2}, bg);
-      const t = mk("text",{class:"badge-text", x:w/2, y:h/2 + 3.5, "text-anchor":"middle"}, bg);
-      t.textContent = bd.label;
+
+    /* the node's own badge, always on, hanging off the left edge */
+    if(n.badgeImage){
+      const sz = 34;
+      drawMark(g, {x:-sz + 6, y:(n._h - sz)/2, w:sz, h:sz, img:n.badgeImage,
+        cls:"badge-node", tip:"Badge for this node"});
     }
-    /* an X to clear it, revealed on hover or straight away on a touch screen */
-    const kill = mk("g",{class:"badge-x", transform:`translate(${w - 4},-4)`}, bg);
-    mk("circle",{r:7, cx:0, cy:0}, kill);
-    const xt = mk("text",{x:0, y:3.2, "text-anchor":"middle"}, kill);
-    xt.textContent = "\u00d7";
-    kill.addEventListener("pointerup", ev=>{
-      ev.stopPropagation();
-      if(bd.kind === "new") signOffNew(id); else forgetVisited(id);
-    });
-    kill.addEventListener("pointerdown", ev=>ev.stopPropagation());
-    const ttl = mk("title",{}, bg);
-    ttl.textContent = bd.kind === "new"
-      ? "Marked new" + (n.badgeAt ? " on " + String(n.badgeAt).slice(0,10) : "") + " — tap the cross to sign off"
-      : "You looked at this recently — tap the cross to clear";
+
+    /* an update, top right */
+    if(isNewFor(n)){
+      const img = S.meta.newBadgeImage || "";
+      const w = img ? 32 : 38, h = img ? 32 : 20;
+      drawMark(g, {x:NODE_W - w + 9, y:-h/2 - 3, w, h, img, label:"NEW", cls:"badge-new",
+        tip:"Marked new" + (n.badgeAt ? " on " + String(n.badgeAt).slice(0,10) : "")
+            + " — tap the cross to sign off",
+        onClear:()=>signOffNew(id)});
+    }
+
+    /* where you have been, bottom right */
+    if(isRecent(id)){
+      const img = S.personal.recentBadge || "";
+      const w = img ? 28 : 22, h = img ? 28 : 20;
+      drawMark(g, {x:NODE_W - w + 9, y:n._h - h/2 - 3, w, h, img, label:"R", cls:"badge-recent",
+        tip:"You looked at this recently — tap the cross to clear",
+        onClear:()=>forgetVisited(id)});
+    }
   }
 }
 
@@ -2593,10 +2659,7 @@ function renderContents(){
           <span>${mine ? "custom, this device only" : "plain R"}</span></div>
       </div>
       <div class="row">
-        <button class="btn" id="rbUp">Upload</button>
-        <button class="btn" id="rbPaste">Paste</button>
-        <button class="btn" id="rbClear"${mine?"":" disabled"}>Clear</button>
-        <input type="file" id="recentBadgeFile" accept="image/*,image/gif" hidden>
+        <button class="btn wide" id="rbUp">${mine ? "Change my badge" : "Choose a GIF or image"}</button>
       </div>
       ${isRoot() ? `
       <div class="badgeset" style="margin-top:12px">
@@ -2605,34 +2668,18 @@ function renderContents(){
           <span>${theirs ? "custom, everyone sees it" : "plain NEW pill"}</span></div>
       </div>
       <div class="row">
-        <button class="btn" id="nbUp">Upload</button>
-        <button class="btn" id="nbPaste">Paste</button>
-        <button class="btn" id="nbClear"${theirs?"":" disabled"}>Clear</button>
-        <input type="file" id="newBadgeFile" accept="image/*,image/gif" hidden>
+        <button class="btn wide" id="nbUp">${theirs ? "Change the New badge" : "Choose a GIF or image"}</button>
       </div>` : ""}`;
 
     const takeBadge = (data, forMap)=>{
-      if(imageTooBig(data, "That badge")) return;
       if(forMap){ S.meta.newBadgeImage = data; markDirty(); }
       else { S.personal.recentBadge = data; savePersonal(); }
       decorateBadges(); renderContents();
-      toast("Badge set");
     };
-    const readFile = (f, forMap)=>{
-      const fr = new FileReader();
-      fr.onload = ()=>takeBadge(String(fr.result||""), forMap);
-      fr.readAsDataURL(f);
-    };
-    el("rbUp").onclick = ()=>el("recentBadgeFile").click();
-    el("recentBadgeFile").onchange = e=>{ if(e.target.files[0]) readFile(e.target.files[0], false); e.target.value=""; };
-    el("rbPaste").onclick = ()=>askForImage("a badge image", d=>takeBadge(d, false));
-    el("rbClear").onclick = ()=>{ S.personal.recentBadge = ""; savePersonal(); decorateBadges(); renderContents(); };
-    if(el("nbUp")){
-      el("nbUp").onclick = ()=>el("newBadgeFile").click();
-      el("newBadgeFile").onchange = e=>{ if(e.target.files[0]) readFile(e.target.files[0], true); e.target.value=""; };
-      el("nbPaste").onclick = ()=>askForImage("a badge image", d=>takeBadge(d, true));
-      el("nbClear").onclick = ()=>{ S.meta.newBadgeImage = ""; markDirty(); decorateBadges(); renderContents(); };
-    }
+    el("rbUp").onclick = ()=>pickImage("My recent badge, on this device", mine,
+      v=>takeBadge(v, false), ()=>takeBadge("", false));
+    if(el("nbUp")) el("nbUp").onclick = ()=>pickImage("New badge for this map", theirs,
+      v=>takeBadge(v, true), ()=>takeBadge("", true));
   }
 
   /* questions */
@@ -3745,17 +3792,13 @@ function renderInspector(){
         `<label class="field"><span>Image link</span>
           <input type="text" id="fImage" value="${esc(n.image||"")}" placeholder="https://… or a Drive share link"></label>`}
       <div class="row">
-        <button class="btn" id="fPickImg">${n.image?"Replace":"Add photo"}</button>
-        <button class="btn" id="fPasteImg">Paste</button>
-        <button class="btn" id="fClearImg"${n.image?"":" disabled"}>Remove</button>
-        <input type="file" id="fImgFile" accept="image/*,image/gif" hidden>
+        <button class="btn wide" id="fPickImg">${n.image ? "Change the picture" : "Add a picture or GIF"}</button>
       </div>
       ${n.image?`<label class="field" style="margin-top:10px"><span>Image height ${n.imageH||120}px</span>
         <input type="range" id="fImgH" min="60" max="360" step="10" value="${n.imageH||120}"></label>`:""}
       <div class="row" style="margin-top:4px">
         <button class="btn" id="fNew">${n.badge === "new" ? "Clear the New mark" : "Mark as New"}</button>
         <button class="btn" id="fBadgeImg">${n.badgeImage ? "Change badge" : "Badge image"}</button>
-        <input type="file" id="fBadgeFile" accept="image/*,image/gif" hidden>
       </div>
       ${n.badge === "new" ? `<p class="fineprint" style="margin:6px 0 0">Marked new
         ${esc(String(n.badgeAt||"").slice(0,16))}. Everyone sees the badge until they sign it off.</p>` : ""}
@@ -3817,36 +3860,18 @@ function renderInspector(){
     commit("tags", tags);
   };
   if(el("fImage")) el("fImage").onchange = e=>commit("image", e.target.value.trim());
-  el("fPickImg").onclick = ()=>el("fImgFile").click();
-  el("fPasteImg").onclick = ()=>askForImage("an image address or data URL", d=>{
-    if(imageTooBig(d, "That image")) return;
-    setField(n, "image", d); rebuild();
-  });
-  el("fImgFile").onchange = e=>{ if(e.target.files[0]) attachImage(n, e.target.files[0]); e.target.value=""; };
-  el("fClearImg").onclick = ()=>commit("image", "");
+  el("fPickImg").onclick = ()=>pickImage("Picture on this node", n.image,
+    v=>{ setField(n, "image", v); rebuild(); },
+    ()=>{ setField(n, "image", ""); rebuild(); });
   if(el("fImgH")) el("fImgH").onchange = e=>commit("imageH", Number(e.target.value));
   el("fNew").onclick = ()=>{
     if(n.badge === "new"){ setField(n, "badge", ""); n.badgeAt = ""; }
     else { setField(n, "badge", "new"); n.badgeAt = nowISO(); }
     markDirty(); rebuild();
   };
-  el("fBadgeImg").onclick = ()=>{
-    if(confirm("Upload a badge image?\n\nCancel to paste an address instead.")) el("fBadgeFile").click();
-    else askForImage("a badge image", d=>{ if(imageTooBig(d,"That badge")) return;
-      setField(n, "badgeImage", d); rebuild(); });
-  };
-  el("fBadgeFile").onchange = e=>{
-    const f = e.target.files[0]; e.target.value = "";
-    if(!f) return;
-    const fr = new FileReader();
-    fr.onload = ()=>{
-      const d = String(fr.result || "");
-      if(imageTooBig(d, "That badge")) return;
-      setField(n, "badgeImage", d);
-      rebuild();
-    };
-    fr.readAsDataURL(f);
-  };
+  el("fBadgeImg").onclick = ()=>pickImage("Badge on the left edge of this node", n.badgeImage,
+    v=>{ setField(n, "badgeImage", v); rebuild(); },
+    ()=>{ setField(n, "badgeImage", ""); rebuild(); });
   if(el("fBadgeClear")) el("fBadgeClear").onclick = ()=>{ setField(n, "badgeImage", ""); rebuild(); };
   el("fRetire").onclick = ()=>{ commit("status", n.status==="retired" ? "active" : "retired"); };
   el("fUnpin").onclick  = ()=>{ n.pinned=false; n.x=null; n.y=null;
@@ -4138,21 +4163,53 @@ function addNode(rel){
    characters, so anything past ~45,000 is refused rather than silently cut. */
 const CELL_LIMIT = 32000;   // what a spreadsheet cell will actually carry
 
-/* Ask for an image as a link, a data URL, or a pasted picture. Used for node
-   images and for both kinds of badge. */
-function askForImage(what, cb){
-  const v = prompt(
-    "Paste " + what + ".\n\n"
-    + "A web address (https://…), or a data URL beginning data:image/…\n"
-    + "Tip: you can also copy an image and press Ctrl+V on the map.");
-  if(v == null) return;
-  const t = v.trim();
-  if(!t) return;
-  if(!/^https?:\/\//i.test(t) && !/^data:image\//i.test(t)){
-    toast("That is not a web address or a data URL.");
+/* One place to choose an image: drop it, paste it, browse for it, or point at
+   one on the web. No prompts, and you can see what you are about to use. */
+let imgPick = null;
+function pickImage(title, current, onPick, onRemove){
+  imgPick = {value:current || "", onPick, onRemove};
+  el("imgTitle").textContent = title;
+  el("imgUrl").value = /^https?:/i.test(current || "") ? current : "";
+  imgPreviewUpdate();
+  el("imgRemove").hidden = !current;
+  el("imgDlg").showModal();
+  setTimeout(()=>el("imgDrop").focus(), 30);
+}
+function imgPreviewUpdate(){
+  const box = el("imgPreview"), note = el("imgNote");
+  const v = imgPick ? imgPick.value : "";
+  if(!v){
+    box.innerHTML = `<span>nothing chosen yet</span>`;
+    note.textContent = "";
+    el("imgUse").disabled = true;
     return;
   }
-  cb(t);
+  box.innerHTML = `<img src="${esc(v)}" alt="">`;
+  el("imgUse").disabled = false;
+  if(v.startsWith("data:")){
+    const kb = Math.round(v.length/1024);
+    const gif = v.startsWith("data:image/gif");
+    note.innerHTML = (gif ? "Animated GIF, " : "Stored in the file, ") + kb + " KB. "
+      + (v.length > CELL_LIMIT
+         ? `<span style="color:var(--flag)">Too large for a spreadsheet cell, so it will stay
+            on this device and travel in links, but be left out of a saved .xlsx or a sheet push.</span>`
+         : "Small enough to travel in the spreadsheet.");
+  } else {
+    note.textContent = "Linked from the web. Nothing is stored in the file, and it needs a "
+      + "connection to show.";
+  }
+}
+function imgTake(v){
+  if(!imgPick) return;
+  imgPick.value = v;
+  imgPreviewUpdate();
+}
+function readImageFile(f){
+  if(!f || !/^image\//.test(f.type || "")){ toast("That is not an image."); return; }
+  const fr = new FileReader();
+  fr.onload = ()=>imgTake(String(fr.result || ""));
+  fr.onerror = ()=>toast("That file could not be read.");
+  fr.readAsDataURL(f);
 }
 
 function imageTooBig(data, label, keepAnyway){
@@ -6649,6 +6706,49 @@ async function boot(){
     toast(k ? k + " nodes back on auto layout" : "Nothing was pinned");
   };
 
+  /* the image picker */
+  const dz = el("imgDrop");
+  el("imgBrowse").onclick = ()=>el("imgFile").click();
+  el("imgFile").onchange = e=>{ if(e.target.files[0]) readImageFile(e.target.files[0]); e.target.value=""; };
+  ["dragenter","dragover"].forEach(t=>dz.addEventListener(t, ev=>{
+    ev.preventDefault(); dz.classList.add("over"); }));
+  ["dragleave","drop"].forEach(t=>dz.addEventListener(t, ev=>{
+    ev.preventDefault(); dz.classList.remove("over"); }));
+  dz.addEventListener("drop", ev=>{
+    const dt = ev.dataTransfer;
+    if(!dt) return;
+    const f = [...(dt.files||[])][0];
+    if(f) return readImageFile(f);
+    const url = dt.getData("text/uri-list") || dt.getData("text/plain");
+    if(url && /^(https?:|data:image\/)/i.test(url.trim())) imgTake(url.trim());
+  });
+  el("imgUrl").addEventListener("input", ()=>{
+    const v = el("imgUrl").value.trim();
+    if(!v) return;
+    if(/^(https?:|data:image\/)/i.test(v)) imgTake(v);
+  });
+  el("imgDlg").addEventListener("paste", ev=>{
+    const items = [...((ev.clipboardData && ev.clipboardData.items) || [])];
+    const img = items.find(i=>i.type && i.type.indexOf("image/") === 0);
+    if(img){ ev.preventDefault(); const f = img.getAsFile(); if(f) readImageFile(f); return; }
+    const txt = (ev.clipboardData && ev.clipboardData.getData("text")) || "";
+    if(/^(https?:|data:image\/)/i.test(txt.trim())){
+      ev.preventDefault(); imgTake(txt.trim()); el("imgUrl").value = txt.trim();
+    }
+  });
+  el("imgUse").onclick = ()=>{
+    if(!imgPick || !imgPick.value) return;
+    const v = imgPick.value, fn = imgPick.onPick;
+    el("imgDlg").close(); imgPick = null;
+    fn(v);
+  };
+  el("imgRemove").onclick = ()=>{
+    const fn = imgPick && imgPick.onRemove;
+    el("imgDlg").close(); imgPick = null;
+    if(fn) fn();
+  };
+  el("imgClose").onclick = ()=>{ el("imgDlg").close(); imgPick = null; };
+
   el("topUpdates").onclick = openUpdates;
   el("updClose").onclick = ()=>el("updDlg").close();
   el("btnReview").onclick = openReview;
@@ -6815,10 +6915,16 @@ async function boot(){
     const items = [...((ev.clipboardData && ev.clipboardData.items) || [])];
     const img = items.find(i=>i.type && i.type.indexOf("image/") === 0);
     if(!img) return;
+    if(el("imgDlg").open) return;
     if(!S.sel || !canEdit()){ toast("Select a node in editing mode first."); return; }
     ev.preventDefault();
     const f = img.getAsFile();
-    if(f) attachImage(S.nodes.get(S.sel), f);
+    if(!f) return;
+    const n = S.nodes.get(S.sel);
+    pickImage("Picture on this node", n.image,
+      v=>{ setField(n, "image", v); rebuild(); },
+      ()=>{ setField(n, "image", ""); rebuild(); });
+    readImageFile(f);
   });
 
   window.addEventListener("hashchange", handleHashArrival);
