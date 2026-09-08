@@ -233,6 +233,10 @@ input,textarea,select{caret-color:var(--graphite)}
 .pairacts{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
 .pairacts .btn{padding:5px 9px;font-size:12.5px}
 .node-g.pair .node-box{stroke:var(--blueprint);stroke-width:2.25;stroke-dasharray:6 3}
+.node-g.multi .node-box{stroke:var(--blueprint);stroke-width:2.25}
+.node-g.multi .node-hit{fill:color-mix(in srgb, var(--blueprint) 12%, transparent)}
+.bandrect{fill:var(--blueprint);fill-opacity:.10;stroke:var(--blueprint);stroke-width:1.2;
+  stroke-dasharray:5 4}
 @media (max-width:820px){
   .linkbar{left:8px;right:8px;transform:none;max-width:none}
   .pairacts .btn{flex:1 1 auto;padding:9px 8px;font-size:13px}
@@ -794,6 +798,10 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
           <button class="btn wide" id="btnLink">Pick a second node to link</button>
         </div>
         <div class="row" style="margin-top:6px">
+          <button class="btn" id="btnSelectMode">Select several</button>
+          <button class="btn" id="btnPaste" disabled>Paste</button>
+        </div>
+        <div class="row" style="margin-top:6px">
           <button class="btn wide" id="btnUnpin">Release manual positions</button>
         </div>
         <label class="check" style="margin-top:9px"><input type="checkbox" id="draftMode">
@@ -953,12 +961,20 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
 
     <div class="linkbar" id="linkBar" hidden>
       <div class="pairnames"><b id="pairA">—</b><span id="pairArrow">→</span><b id="pairB">—</b></div>
-      <div class="pairacts">
+      <div class="pairacts" id="pairActs">
         <button class="btn" id="pairChild">Link as child</button>
         <button class="btn" id="pairCross">Cross-link</button>
         <button class="btn" id="pairSwap">Swap direction</button>
         <button class="btn" id="pairCut">Unlink</button>
-        <button class="btn" id="pairClear">✕</button>
+      </div>
+      <div class="pairacts" id="multiActs">
+        <button class="btn" id="mCopy">Copy</button>
+        <button class="btn" id="mCopyBranch">Copy with children</button>
+        <button class="btn" id="mRetire">Retire</button>
+        <button class="btn" id="mDelete">Delete</button>
+      </div>
+      <div class="pairacts" style="margin-top:6px">
+        <button class="btn" id="pairClear">Clear selection</button>
       </div>
     </div>
 
@@ -1244,6 +1260,7 @@ const S = {
   revisions:[],         // append only
   tagStyles:new Map(),  // tag -> style
   sel:null, selArea:null, sel2:null, pairArmed:false,
+  multi:new Set(), selectMode:false, band:null,
   areaMode:false,
   hits:[], hitIx:-1,
   view:{x:0,y:0,k:1},
@@ -2277,6 +2294,109 @@ function activeTagFilter(){
   return off;
 }
 
+/* ---------------------------------------------------------------
+   Branch clipboard. Copying writes to storage that every tab shares,
+   so a branch cut from one map can be pasted into another without a
+   file in between.
+   --------------------------------------------------------------- */
+function collectBranch(ids, withChildren){
+  const set = new Set();
+  ids.forEach(id=>{
+    if(withChildren) branchOf(id).forEach(x=>set.add(x));
+    else set.add(id);
+  });
+  const nodes = [...set].map(id=>{
+    const n = S.nodes.get(id);
+    return {id:n.id, label:n.label, body:n.body, type:n.type, tags:(n.tags||[]).slice(),
+            status:n.status, flag:n.flag, image:n.image, imageH:n.imageH,
+            badge:n.badge, badgeAt:n.badgeAt, badgeImage:n.badgeImage};
+  });
+  const links = [...S.edges.values()]
+    .filter(e=>set.has(e.from) && set.has(e.to))
+    .map(e=>({from:e.from, to:e.to, link_type:e.link_type, tag:e.tag, label:e.label,
+              condition:e.condition, route:e.route, fromSide:e.fromSide, toSide:e.toSide,
+              bow:e.bow, color:e.color, line:e.line, width:e.width, arrow:e.arrow}));
+  const tags = {};
+  nodes.forEach(n=>(n.tags||[]).forEach(t=>{ if(S.tagStyles.has(t)) tags[t] = S.tagStyles.get(t); }));
+  links.forEach(l=>{ if(l.tag && S.tagStyles.has(l.tag)) tags[l.tag] = S.tagStyles.get(l.tag); });
+  return {v:1, from:S.meta.title || "a map", at:nowISO(), nodes, links, tags};
+}
+
+async function copySelection(withChildren){
+  if(!S.multi.size){ toast("Choose a node first."); return; }
+  const payload = collectBranch(multiList(), withChildren);
+  try{ await Store.putKey("clipboard", payload); }catch(e){}
+  try{ if(tabChannel) tabChannel.postMessage({type:"clip", from:TAB_ID, n:payload.nodes.length}); }catch(e){}
+  try{ await navigator.clipboard.writeText(JSON.stringify(payload)); }catch(e){}
+  S.clip = payload;
+  updatePasteButton();
+  toast(payload.nodes.length + " node" + (payload.nodes.length===1?"":"s")
+    + " copied. Open another map and press Paste.");
+}
+
+async function readClipboard(){
+  if(S.clip) return S.clip;
+  try{ const c = await Store.getKey("clipboard"); if(c && c.nodes) return c; }catch(e){}
+  return null;
+}
+
+/* Pasted nodes get fresh ids so they can never collide with what is already
+   here, and land under whatever is selected. */
+async function pasteBranch(){
+  if(!canEdit()){ toast("Switch to editing mode to paste."); return; }
+  const clip = await readClipboard();
+  if(!clip || !clip.nodes || !clip.nodes.length){ toast("Nothing has been copied yet."); return; }
+  const under = S.sel && S.nodes.has(S.sel) ? S.sel : null;
+  const remap = new Map();
+  const c = viewCenterWorld();
+  let dropY = c.y;
+
+  clip.nodes.forEach(src=>{
+    const n = newNode({
+      label:src.label, body:src.body, type:src.type, tags:(src.tags||[]).slice(),
+      status:src.status || "active", flag:src.flag || "", image:src.image || "",
+      imageH:src.imageH || 120, badge:src.badge || "", badgeAt:src.badgeAt || "",
+      badgeImage:src.badgeImage || ""
+    });
+    remap.set(src.id, n.id);
+    S.nodes.set(n.id, n);
+  });
+  for(const t in (clip.tags || {})) if(!S.tagStyles.has(t)) S.tagStyles.set(t, clip.tags[t]);
+
+  const hasParent = new Set(clip.links.filter(l=>l.link_type !== "cross").map(l=>l.to));
+  clip.links.forEach(l=>{
+    const e = newEdge(Object.assign({}, l, {from:remap.get(l.from), to:remap.get(l.to)}));
+    if(e.from && e.to) S.edges.set(e.id, e);
+  });
+  /* the tops of what was copied attach to the selection, or float free */
+  const tops = clip.nodes.filter(n=>!hasParent.has(n.id)).map(n=>remap.get(n.id));
+  tops.forEach((id, i)=>{
+    if(under){
+      const e = newEdge({from:under, to:id, link_type:"tree"});
+      S.edges.set(e.id, e);
+    } else {
+      const n = S.nodes.get(id);
+      pinAt(n, c.x - NODE_W/2, freeSlot(c.x - NODE_W/2, dropY + i*90, 60, id));
+    }
+  });
+
+  markDirty(); rebuild();
+  setMulti(tops);
+  if(tops[0]) ensureVisible(tops[0]);
+  toast("Pasted " + clip.nodes.length + " node" + (clip.nodes.length===1?"":"s")
+    + (under ? " under “" + nodeName(under) + "”" : " as a loose branch")
+    + (clip.from ? " from " + clip.from : ""));
+}
+
+function updatePasteButton(){
+  const b = el("btnPaste");
+  if(!b) return;
+  readClipboard().then(c=>{
+    b.disabled = !c;
+    b.textContent = c ? "Paste " + c.nodes.length + " from " + (c.from || "a map") : "Paste";
+  });
+}
+
 /* Beams and the control strip depend on which node is selected, so they are
    drawn on their own. Selecting must not redraw the whole map. */
 function drawStrip(g, n){
@@ -2401,6 +2521,15 @@ function crossOffset(path){
   }catch(e){ return {x:0, y:3.5}; }
 }
 
+function drawBand(){
+  const gA = el("gAreas");
+  gA.querySelectorAll("rect.bandrect").forEach(r=>r.remove());
+  const b = S.band;
+  if(!b) return;
+  mk("rect",{class:"bandrect", x:Math.min(b.x0,b.x1), y:Math.min(b.y0,b.y1),
+    width:Math.abs(b.x1-b.x0), height:Math.abs(b.y1-b.y0), rx:3}, gA);
+}
+
 function decorateSelection(){
   const gE = el("gEdges"), gN = el("gNodes");
   if(!gE || !gN) return;
@@ -2510,6 +2639,7 @@ function render(){
     if(n.status === "retired") g.classList.add("retired");
     if(S.sel === id) g.classList.add("sel");
     if(S.sel2 === id) g.classList.add("pair");
+    if(S.multi.size > 1 && S.multi.has(id)) g.classList.add("multi");
     if(n.pinned) g.classList.add("pinned");
     if(hitSet.has(id)){ g.classList.add("hit"); if(!n._note.length) g.classList.add("plain"); }
     else if(dimOn) g.classList.add("dim");
@@ -3038,6 +3168,12 @@ const MIN_K = 0.05, MAX_K = 6;
         dragArea = {id, dx:w.x - a.x, dy:w.y - a.y, ox:a.x, oy:a.y,
           members: a.moveContents ? nodesInArea(a).map(n=>({n, ox:n._x, oy:n._y})) : []};
       }
+    } else if((ev.shiftKey || S.selectMode) && canEdit()){
+      /* rubber band over blank canvas */
+      const w = toWorld(ev.clientX, ev.clientY);
+      S.band = {x0:w.x, y0:w.y, x1:w.x, y1:w.y};
+      drawBand();
+      mode = "band";
     } else {
       mode = "pan";
       panStart = {px:ev.clientX, py:ev.clientY, vx:S.view.x, vy:S.view.y};
@@ -3077,6 +3213,12 @@ const MIN_K = 0.05, MAX_K = 6;
 
     if(downPt && !moved && Math.hypot(ev.clientX-downPt.x, ev.clientY-downPt.y) > 6){ moved = true; cancelLongPress(); }
 
+    if(mode === "band" && S.band){
+      const w = toWorld(ev.clientX, ev.clientY);
+      S.band.x1 = w.x; S.band.y1 = w.y;
+      drawBand();
+      return;
+    }
     if(mode === "draw" && drawEl && drawFrom){
       const w = toWorld(ev.clientX, ev.clientY);
       drawEl.setAttribute("x", Math.min(drawFrom.x, w.x));
@@ -3131,6 +3273,25 @@ const MIN_K = 0.05, MAX_K = 6;
     cancelLongPress();
     try{ svg().releasePointerCapture(ev.pointerId); }catch(e){}
 
+    if(mode === "band"){
+      const b = S.band; S.band = null;
+      el("gAreas").querySelectorAll("rect.bandrect").forEach(r=>r.remove());
+      mode = null;
+      if(b){
+        const x0 = Math.min(b.x0,b.x1), x1 = Math.max(b.x0,b.x1);
+        const y0 = Math.min(b.y0,b.y1), y1 = Math.max(b.y0,b.y1);
+        if(Math.abs(x1-x0) > 8 && Math.abs(y1-y0) > 8){
+          const hits = [];
+          for(const id of visibleNodes()){
+            const n = S.nodes.get(id);
+            const cx = n._x + NODE_W/2, cy = n._y + n._h/2;
+            if(cx >= x0 && cx <= x1 && cy >= y0 && cy <= y1) hits.push(id);
+          }
+          if(hits.length) setMulti(hits);
+        }
+      }
+      return;
+    }
     if(mode === "draw"){
       const w = Number(drawEl && drawEl.getAttribute("width")) || 0;
       const h = Number(drawEl && drawEl.getAttribute("height")) || 0;
@@ -3247,8 +3408,12 @@ function focusNode(id){
    ===================================================================== */
 function select(id){
   /* armed for a pair, or holding shift: this tap picks the second node */
-  if((S.pairArmed || S.pairShift) && S.sel && id !== S.sel){
+  if((S.pairShift || S.selectMode) && S.sel && id !== S.sel){
     S.pairShift = false;
+    toggleMulti(id);
+    return;
+  }
+  if(S.pairArmed && S.sel && id !== S.sel){
     setPair(id);
     return;
   }
@@ -3256,6 +3421,7 @@ function select(id){
   const hadArea = S.selArea || S.selQuestion;
   const hadPair = S.sel2;
   S.sel = id; S.selArea = null; S.selQuestion = null; S.sel2 = null;
+  S.multi = new Set(id ? [id] : []);
   if(id){ S.lastNode = id; markVisited(id); }
   if(hadPair){ render(); renderInspector(); updateFab(); updateLinkBar(); return; }
   if(hadArea){ render(); renderInspector(); updateFab(); updateLinkBar(); return; }
@@ -3274,6 +3440,38 @@ function select(id){
 /* Clearing the selection turns the + button back into "make a loose node". */
 /* Two nodes chosen, then decide what the relationship is. Easier to reason
    about than arming a mode and hoping the next tap does the right thing. */
+/* A set of chosen nodes, with the primary selection always in it. Two chosen
+   means the link bar; any number means the branch tools. */
+function multiList(){ return [...S.multi]; }
+function toggleMulti(id){
+  if(!id) return;
+  if(S.multi.has(id) && S.multi.size > 1) S.multi.delete(id);
+  else S.multi.add(id);
+  if(!S.multi.has(S.sel)) S.sel = multiList()[0] || null;
+  S.sel2 = S.multi.size === 2 ? multiList().find(x=>x !== S.sel) : null;
+  render(); renderInspector(); updateLinkBar();
+}
+function setMulti(ids){
+  S.multi = new Set(ids.filter(id=>S.nodes.has(id)));
+  S.sel = multiList()[0] || null;
+  S.sel2 = S.multi.size === 2 ? multiList()[1] : null;
+  render(); renderInspector(); updateLinkBar();
+}
+function clearMulti(){
+  S.multi.clear();
+  if(S.sel) S.multi.add(S.sel);
+  S.sel2 = null;
+  render(); updateLinkBar();
+}
+/* a node and everything under it */
+function branchOf(id, acc){
+  acc = acc || new Set();
+  if(acc.has(id)) return acc;
+  acc.add(id);
+  childrenOf(id).forEach(k=>branchOf(k, acc));
+  return acc;
+}
+
 function edgesBetween(a, b){
   return [...S.edges.values()].filter(e=>
     (e.from === a && e.to === b) || (e.from === b && e.to === a));
@@ -3295,9 +3493,19 @@ function clearPair(){
 function updateLinkBar(){
   const bar = el("linkBar");
   if(!bar) return;
+  const many = S.multi.size > 1;
+  if(!canEdit() || !many){ bar.hidden = true; return; }
   const a = S.sel && S.nodes.get(S.sel), b = S.sel2 && S.nodes.get(S.sel2);
-  if(!a || !b || !canEdit()){ bar.hidden = true; return; }
+  el("multiActs").hidden = false;
+  el("pairActs").hidden = S.multi.size !== 2;
   bar.hidden = false;
+  if(S.multi.size !== 2){
+    el("pairA").textContent = S.multi.size + " nodes chosen";
+    el("pairArrow").textContent = "";
+    el("pairB").textContent = "";
+    return;
+  }
+  if(!a || !b){ bar.hidden = true; return; }
   el("pairA").textContent = a.label || a.id;
   el("pairB").textContent = b.label || b.id;
   const existing = edgesBetween(a.id, b.id);
@@ -3355,7 +3563,7 @@ function pairSwap(){
 
 function deselect(){
   const prev = S.sel, prevArea = S.selArea;
-  S.sel = null; S.selArea = null; S.sel2 = null; S.pairArmed = false;
+  S.sel = null; S.selArea = null; S.sel2 = null; S.pairArmed = false; S.multi.clear();
   updateLinkBar();
   if(prevArea){ render(); }
   else if(prev){
@@ -5058,6 +5266,7 @@ async function afterMapSwitch(){
   document.body.classList.toggle("viewing", !isRoot());
   updateModeUI();
   refreshSyncUI();
+  updatePasteButton();
   renderContents();
   renderInspector();
   updateChrome();
@@ -6010,6 +6219,7 @@ function initTabChannel(){
     if(d.from === TAB_ID) return;
     if(d.type === "who" && S.meta.key) tabChannel.postMessage({type:"have", from:TAB_ID, key:S.meta.key});
     if((d.type === "have" || d.type === "claim") && d.key) claimedKeys.add(d.key);
+    if(d.type === "clip"){ S.clip = null; updatePasteButton(); }
   };
 }
 function announceKey(){
@@ -6694,11 +6904,45 @@ async function boot(){
     el("btnLink").classList.toggle("primary", S.pairArmed);
     toast(S.pairArmed ? "Now tap the second node" : "Cancelled");
   };
+  el("btnSelectMode").onclick = ()=>{
+    S.selectMode = !S.selectMode;
+    el("btnSelectMode").classList.toggle("primary", S.selectMode);
+    svg().style.cursor = S.selectMode ? "crosshair" : "";
+    toast(S.selectMode
+      ? "Tap nodes to add them, or drag a box across the map. Tap the button again when done."
+      : "Selecting finished");
+  };
+  el("btnPaste").onclick = pasteBranch;
+  el("mCopy").onclick = ()=>copySelection(false);
+  el("mCopyBranch").onclick = ()=>copySelection(true);
+  el("mRetire").onclick = ()=>{
+    const ids = multiList();
+    if(!confirm("Retire " + ids.length + " node" + (ids.length===1?"":"s") + "?")) return;
+    ids.forEach(id=>setField(S.nodes.get(id), "status", "retired"));
+    rebuild();
+  };
+  el("mDelete").onclick = ()=>{
+    const ids = multiList();
+    if(!confirm("Delete " + ids.length + " node" + (ids.length===1?"":"s")
+      + " and their links? Retiring keeps the history instead.")) return;
+    ids.forEach(id=>{
+      for(const [k,e] of [...S.edges]) if(e.from === id || e.to === id) S.edges.delete(k);
+      logRev(id, "deleted", (S.nodes.get(id)||{}).label || "", "");
+      S.nodes.delete(id);
+    });
+    S.multi.clear(); S.sel = null; S.sel2 = null;
+    markDirty(); rebuild();
+  };
   el("pairChild").onclick = ()=>pairLink("tree");
   el("pairCross").onclick = ()=>pairLink("cross");
   el("pairSwap").onclick  = pairSwap;
   el("pairCut").onclick   = pairUnlink;
-  el("pairClear").onclick = clearPair;
+  el("pairClear").onclick = ()=>{
+    S.selectMode = false;
+    el("btnSelectMode").classList.remove("primary");
+    svg().style.cursor = "";
+    clearPair(); clearMulti();
+  };
   el("btnUnpin").onclick = ()=>{
     let k=0;
     for(const n of S.nodes.values()) if(n.pinned){ n.pinned=false; n.x=null; n.y=null; k++; }
@@ -6899,6 +7143,11 @@ async function boot(){
     if(ev.key === "ArrowRight"){ ev.preventDefault(); goRelative("child"); }
     if(ev.key === "ArrowUp"){ ev.preventDefault(); goRelative("prev"); }
     if(ev.key === "ArrowDown"){ ev.preventDefault(); goRelative("next"); }
+    if((ev.ctrlKey||ev.metaKey) && ev.key.toLowerCase() === "c" && S.multi.size){
+      ev.preventDefault(); copySelection(ev.shiftKey); }
+    if((ev.ctrlKey||ev.metaKey) && ev.key.toLowerCase() === "v"){ ev.preventDefault(); pasteBranch(); }
+    if((ev.ctrlKey||ev.metaKey) && ev.key.toLowerCase() === "a"){
+      ev.preventDefault(); setMulti([...visibleNodes()]); }
     if((ev.ctrlKey||ev.metaKey) && ev.key.toLowerCase() === "s"){ ev.preventDefault(); exportXlsx(); }
     if((ev.ctrlKey||ev.metaKey) && ev.key.toLowerCase() === "p"){ ev.preventDefault(); printCurrentView(); }
     if(ev.key === "f" ) fitView();
@@ -6925,6 +7174,17 @@ async function boot(){
       v=>{ setField(n, "image", v); rebuild(); },
       ()=>{ setField(n, "image", ""); rebuild(); });
     readImageFile(f);
+  });
+
+  ["dragenter","dragover"].forEach(t=>el("sheet").addEventListener(t, ev=>ev.preventDefault()));
+  el("sheet").addEventListener("drop", async ev=>{
+    ev.preventDefault();
+    const txt = ev.dataTransfer && ev.dataTransfer.getData("text");
+    if(!txt) return;
+    try{
+      const j = JSON.parse(txt);
+      if(j && Array.isArray(j.nodes)){ S.clip = j; await pasteBranch(); }
+    }catch(e){}
   });
 
   window.addEventListener("hashchange", handleHashArrival);
@@ -7050,6 +7310,7 @@ async function boot(){
   /* the sync panel was drawn before storage had returned the map, so it still
      showed the empty state even though the connection had loaded */
   refreshSyncUI();
+  updatePasteButton();
   renderContents();
   renderInspector();
   if(!S.meta.key) S.meta.key = uid("M-");
