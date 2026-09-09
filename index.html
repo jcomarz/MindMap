@@ -314,7 +314,8 @@ html[data-font="serif"] .node-note{font-family:Georgia,"Times New Roman",serif}
    inward read differently so the direction of the relationship is legible */
 /* Rounds and fish ride the line as small moving elements. Animating a dash
    along the stroke instead meant repainting the whole path every frame. */
-.rider{pointer-events:none}
+@keyframes ride{ from{offset-distance:0%} to{offset-distance:100%} }
+.rider{pointer-events:none;will-change:offset-distance}
 html[data-motion="off"] .rider{display:none}
 html[data-motion="calm"] .rider{opacity:.5}
 @media (prefers-reduced-motion:reduce){
@@ -3434,61 +3435,100 @@ function decorateBadges(){
    frame, which is what made a cross-linked node crawl. */
 const FISH = "M0,0 q7,-4.5 14,0 q-7,4.5 -14,0 z M0,0 l-5,-3.4 v6.8 z";
 
-function rideAlong(gE, edgeId, make, count, dur, reverse, offset){
-  const href = "#ep-" + edgeId;
+/* Riders follow the line with a CSS motion path rather than SMIL: the browser
+   can run offset-distance off the main thread, so a busy tunnel stays smooth. */
+function rideAlong(gE, edgeD, make, count, dur, reverse, offset, seed){
   for(let i = 0; i < count; i++){
-    const g = mk("g", {class:"rider",
-      transform:offset ? `translate(${offset.x},${offset.y})` : null}, gE);
-    make(g);
-    const anim = document.createElementNS(SVGNS, "animateMotion");
-    anim.setAttribute("dur", dur + "s");
-    anim.setAttribute("repeatCount", "indefinite");
-    anim.setAttribute("rotate", "auto");
-    anim.setAttribute("begin", (-i * (dur / count)) + "s");
-    if(reverse){
-      anim.setAttribute("keyPoints", "1;0");
-      anim.setAttribute("keyTimes", "0;1");
-      anim.setAttribute("calcMode", "linear");
-    }
-    const mp = document.createElementNS(SVGNS, "mpath");
-    mp.setAttributeNS("http://www.w3.org/1999/xlink", "href", href);
-    mp.setAttribute("href", href);
-    anim.appendChild(mp);
-    g.appendChild(anim);
+    const g = mk("g", {class:"rider"}, gE);
+    const inner = mk("g", {transform:offset ? `translate(${offset.x},${offset.y})` : null}, g);
+    make(inner, i);
+    /* a few per cent either side of the nominal pace keeps them from moving
+       as one block */
+    const wobble = seed == null ? 1
+      : 0.82 + (((Math.sin((seed + i * 3.7) * 311.7) * 43758.5453) % 1 + 1) % 1) * 0.36;
+    const d2 = dur * wobble;
+    g.style.offsetPath = `path("${edgeD}")`;
+    g.style.offsetRotate = "auto";
+    g.style.animation = `ride ${d2}s linear infinite`;
+    g.style.animationDelay = (-i * (d2 / count)) + "s";
+    if(reverse) g.style.animationDirection = "reverse";
   }
 }
 
-const ANT = "M0,0 m-5,0 a2.1,2.1 0 1,0 4.2,0 a2.1,2.1 0 1,0 -4.2,0 "
-          + "M0.4,0 a1.7,1.7 0 1,0 3.4,0 a1.7,1.7 0 1,0 -3.4,0 "
-          + "M4.6,0 a2.4,2.4 0 1,0 4.8,0 a2.4,2.4 0 1,0 -4.8,0";
-const ANT_LEGS = "M1,-1.5 l-2,-3 M1,1.5 l-2,3 M2.2,-1.6 l0.6,-3.4 M2.2,1.6 l0.6,3.4 "
-               + "M3.4,-1.5 l2.4,-2.8 M3.4,1.5 l2.4,2.8";
-const CAR = "M-7,-3 h11 q3,0 3,3 q0,3 -3,3 h-11 q-2,0 -2,-3 q0,-3 2,-3 z";
+const ANTS = [
+  { name:"worker", scale:1,
+    body:"M-5,0 a2.1,2.1 0 1,0 4.2,0 a2.1,2.1 0 1,0 -4.2,0 "
+       + "M0.4,0 a1.7,1.7 0 1,0 3.4,0 a1.7,1.7 0 1,0 -3.4,0 "
+       + "M4.6,0 a2.4,2.4 0 1,0 4.8,0 a2.4,2.4 0 1,0 -4.8,0",
+    legs:"M1,-1.5 l-2,-3 M1,1.5 l-2,3 M2.2,-1.6 l0.6,-3.4 M2.2,1.6 l0.6,3.4 "
+       + "M3.4,-1.5 l2.4,-2.8 M3.4,1.5 l2.4,2.8" },
+  { name:"soldier", scale:1.35,
+    body:"M-7,0 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0 "
+       + "M0.2,0 a1.8,1.8 0 1,0 3.6,0 a1.8,1.8 0 1,0 -3.6,0 "
+       + "M4.4,0 a2.6,2.6 0 1,0 5.2,0 a2.6,2.6 0 1,0 -5.2,0",
+    legs:"M1,-1.6 l-2,-3.4 M1,1.6 l-2,3.4 M2.4,-1.7 l0.7,-3.6 M2.4,1.7 l0.7,3.6 "
+       + "M3.6,-1.6 l2.6,-3 M3.6,1.6 l2.6,3",
+    extra:"M-6.4,-1.9 l-4,-2.6 M-6.4,1.9 l-4,2.6" },      // mandibles
+  { name:"queen", scale:1.6,
+    body:"M-5.4,0 a2.3,2.3 0 1,0 4.6,0 a2.3,2.3 0 1,0 -4.6,0 "
+       + "M0.2,0 a2,2 0 1,0 4,0 a2,2 0 1,0 -4,0 "
+       + "M4.6,0 a4,3 0 1,0 8,0 a4,3 0 1,0 -8,0",
+    legs:"M1,-1.8 l-2,-3.4 M1,1.8 l-2,3.4 M2.6,-1.8 l0.6,-3.6 M2.6,1.8 l0.6,3.6 "
+       + "M3.8,-1.8 l2.4,-3 M3.8,1.8 l2.4,3",
+    wings:"M3,-2 q7,-6 12,-2 q-6,3 -12,2 M3,2 q7,6 12,2 q-6,-3 -12,-2" }
+];
+const VEHICLES = [
+  { name:"car",  body:"M-7,-3 h11 q3,0 3,3 q0,3 -3,3 h-11 q-2,0 -2,-3 q0,-3 2,-3 z",
+    glass:{x:-2, y:-2, w:5, h:4} },
+  { name:"van",  body:"M-10,-3.6 h15 q3,0 3,3.6 q0,3.6 -3,3.6 h-15 q-2,0 -2,-3.6 q0,-3.6 2,-3.6 z",
+    glass:{x:2, y:-2.4, w:4, h:4.8} },
+  { name:"truck",body:"M-13,-4 h11 v8 h-11 z M0,-3.4 h6 q3,0 3,3.4 q0,3.4 -3,3.4 h-6 z",
+    glass:{x:2, y:-2.2, w:4, h:4.4} },
+  { name:"bus",  body:"M-12,-4.2 h20 q2,0 2,2 v4.4 q0,2 -2,2 h-20 q-2,0 -2,-2 v-4.4 q0,-2 2,-2 z",
+    glass:{x:5, y:-2.6, w:3.6, h:5.2} }
+];
 
-function march(gE, edgeId, color, reverse, count, offset){
-  rideAlong(gE, edgeId, g=>{
-    mk("path", {d:ANT_LEGS, fill:"none", stroke:color, "stroke-width":.8, opacity:.85}, g);
-    mk("path", {d:ANT, fill:color}, g);
-  }, count, 5.2, reverse, offset);
-}
-function drive(gE, edgeId, color, reverse, count, offset){
-  rideAlong(gE, edgeId, g=>{
-    mk("path", {d:CAR, fill:color}, g);
-    mk("rect", {x:-2, y:-2, width:5, height:4, rx:1, fill:"var(--paper)", opacity:.55}, g);
-  }, count, 3.1, reverse, offset);
+function pickIndex(seed, i, n){
+  const v = ((Math.sin((seed + i * 7.31) * 127.1) * 43758.5453) % 1 + 1) % 1;
+  return Math.floor(v * n) % n;
 }
 
-function swim(gE, edgeId, color, reverse, count, offset){
-  rideAlong(gE, edgeId, g=>{
+function march(gE, edgeD, color, reverse, count, offset, key){
+  const seed = hashOf(key + (reverse ? "r" : "f"));
+  rideAlong(gE, edgeD, (g, i)=>{
+    /* the queen is rare; most of the line is workers with the odd soldier */
+    const roll = pickIndex(seed, i, 10);
+    const a = ANTS[roll === 0 ? 2 : roll < 3 ? 1 : 0];
+    const inner = mk("g", {transform:`scale(${a.scale})`}, g);
+    if(a.wings) mk("path", {d:a.wings, fill:color, opacity:.28}, inner);
+    mk("path", {d:a.legs, fill:"none", stroke:color, "stroke-width":.8, opacity:.85}, inner);
+    if(a.extra) mk("path", {d:a.extra, fill:"none", stroke:color,
+      "stroke-width":1, "stroke-linecap":"round"}, inner);
+    mk("path", {d:a.body, fill:color}, inner);
+  }, count, 5.2, reverse, offset, seed);
+}
+
+function drive(gE, edgeD, color, reverse, count, offset, key){
+  const seed = hashOf(key + (reverse ? "r" : "f"));
+  rideAlong(gE, edgeD, (g, i)=>{
+    const v = VEHICLES[pickIndex(seed, i, VEHICLES.length)];
+    mk("path", {d:v.body, fill:color}, g);
+    mk("rect", {x:v.glass.x, y:v.glass.y, width:v.glass.w, height:v.glass.h,
+      rx:1, fill:"var(--paper)", opacity:.55}, g);
+  }, count, 3.1, reverse, offset, seed);
+}
+
+function swim(gE, edgeD, color, reverse, count, offset, key){
+  rideAlong(gE, edgeD, g=>{
     mk("path", {d:FISH, fill:color, opacity:.95}, g);
-  }, count, 3.6, reverse, offset);
+  }, count, 3.6, reverse, offset, hashOf(key || ""));
 }
 
-function shoot(gE, edgeId, color, reverse, lag, offset, lean){
-  rideAlong(gE, edgeId, g=>{
+function shoot(gE, edgeD, color, reverse, lag, offset, lean, key){
+  rideAlong(gE, edgeD, g=>{
     if(!lean) mk("circle", {r:6, fill:color, opacity:.20}, g);
     mk("circle", {r:2.7, fill:color, opacity:.95}, g);
-  }, lean ? 1 : 2, 2.2 + (lag ? .5 : 0), reverse, offset);
+  }, lean ? 1 : 2, 2.2 + (lag ? .5 : 0), reverse, offset, hashOf(key || ""));
 }
 
 function crossOffset(path){
@@ -3574,8 +3614,8 @@ function decorateSelection(){
 
   const touching = [...S.edges.values()].filter(e=>e.from === id || e.to === id);
   /* past a handful of links the animation costs more than it explains */
-  const lean = touching.length > 4;
-  const budget = 14;
+  const lean = touching.length > 8;
+  const budget = 40;
   let drawn = 0;
   for(const e of touching){
     if(drawn >= budget) break;
@@ -3583,23 +3623,27 @@ function decorateSelection(){
     if(!src) continue;
 
     const style = S.motion === "full" ? (activeTheme().beam || "dots") : "dots";
+    const ed = src.getAttribute("d");
     const send = (rev, n, off)=>{
       const colour = rev ? "var(--beam-in)" : "var(--beam-out)";
-      if(style === "fish") swim(gE, e.id, colour, rev, n, off);
-      else if(style === "ants") march(gE, e.id, colour, rev, n, off);
-      else if(style === "cars") drive(gE, e.id, colour, rev, n, off);
-      else shoot(gE, e.id, colour, rev, 0, off, lean);
+      if(style === "fish") swim(gE, ed, colour, rev, n, off, e.id);
+      else if(style === "ants") march(gE, ed, colour, rev, n, off, e.id);
+      else if(style === "cars") drive(gE, ed, colour, rev, n, off, e.id);
+      else shoot(gE, ed, colour, rev, 0, off, lean, e.id);
     };
+    const busy = (style === "ants" || style === "cars");
     if(e.link_type === "tree"){
       /* a branch always runs parent to child, whichever end you selected */
-      send(false, lean ? 1 : 2, null);
-      drawn += lean ? 1 : 2;
+      const n = lean ? (busy ? 2 : 1) : (busy ? 5 : 2);
+      send(false, n, null);
+      drawn += n;
     } else {
       /* a cross-link carries traffic both ways, on either side of the line */
       const off = crossOffset(src);
-      send(false, 1, off);
-      send(true, 1, {x:-off.x, y:-off.y});
-      drawn += lean ? 2 : 4;
+      const n = lean ? (busy ? 2 : 1) : (busy ? 3 : 1);
+      send(false, n, off);
+      send(true, n, {x:-off.x, y:-off.y});
+      drawn += n * 2;
     }
   }
   if(!S.pairArmed) drawStrip(g, S.nodes.get(id));
