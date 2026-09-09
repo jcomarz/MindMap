@@ -133,6 +133,9 @@ button{cursor:pointer}
 .tocitem:hover{background:var(--paper-2)}
 .tocitem.sel{background:var(--blueprint-soft);color:var(--blueprint)}
 .tocitem.retired{color:var(--retired)}
+/* an author rule that sets display on these children beats the browser's own
+   collapse rule, so say it explicitly */
+#tocOutline details:not([open]) > *:not(summary){display:none}
 .tocitem[draggable]{cursor:grab}
 .tocitem.dragging{opacity:.45}
 .tocitem.over-a{box-shadow:inset 0 2px 0 var(--blueprint)}
@@ -264,6 +267,11 @@ input[type=range],input[type=color],input[type=checkbox],input[type=file]{cursor
 .pairacts .btn{padding:5px 9px;font-size:12.5px}
 .node-g.pair .node-box{stroke:var(--blueprint);stroke-width:2.25;stroke-dasharray:6 3}
 .node-g.multi .node-box{stroke:var(--blueprint);stroke-width:2.25}
+/* focus: everything unrelated recedes rather than disappearing, so you keep
+   a sense of where you are on the map */
+.focusdim{opacity:.16;filter:blur(1.1px);transition:opacity .18s}
+html[data-motion="off"] .focusdim{filter:none;transition:none}
+body.focusing .node-g:not(.focusdim) .node-box{stroke-width:calc(var(--node-border, 1.25px) + .4px)}
 .node-g.multi .node-hit{fill:color-mix(in srgb, var(--blueprint) 12%, transparent)}
 .bandrect{fill:var(--blueprint);fill-opacity:.10;stroke:var(--blueprint);stroke-width:1.2;
   stroke-dasharray:5 4}
@@ -304,24 +312,16 @@ html[data-font="serif"] .node-note{font-family:Georgia,"Times New Roman",serif}
 
 /* light running along the links that touch the selected node: outward and
    inward read differently so the direction of the relationship is legible */
-@keyframes beamflow{ to{ stroke-dashoffset:-160 } }
-/* short bright rounds rather than a trickle: a soft halo underneath and a
-   hard core on top, fired down the line */
-.beam{fill:none;pointer-events:none;stroke-linecap:round;
-  stroke-dasharray:0.5 40;animation:beamflow .95s linear infinite}
-.beam.halo{stroke-width:8;opacity:.30;filter:blur(2.5px)}
-.beam.core{stroke-width:3.2;opacity:1}
-.beam.rev{animation-direction:reverse}
-.beam.lag{animation-delay:-.47s}
-.fish{pointer-events:none}
-html[data-motion="off"] .fish{display:none}
+/* Rounds and fish ride the line as small moving elements. Animating a dash
+   along the stroke instead meant repainting the whole path every frame. */
+.rider{pointer-events:none}
+html[data-motion="off"] .rider{display:none}
+html[data-motion="calm"] .rider{opacity:.5}
 @media (prefers-reduced-motion:reduce){
-  .beam{animation:none;opacity:.55}
+  .rider{opacity:.55}
   .node-g.sel .node-box{animation:none}
 }
 /* calm keeps the cues but stops them moving; off removes them entirely */
-html[data-motion="calm"] .beam{animation:none;opacity:.5}
-html[data-motion="calm"] .beam.halo{display:none}
 html[data-motion="calm"] .node-g.sel .node-box{animation:none}
 html[data-motion="off"] .beam{display:none}
 html[data-motion="off"] .node-g.sel .node-box{animation:none;filter:none}
@@ -866,6 +866,12 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
         <div class="row" style="margin-bottom:10px">
           <button class="btn wide" id="btnTidyLines">Reset every line to automatic</button>
         </div>
+        <label class="field"><span>When a node is selected</span>
+          <select id="focusMode">
+            <option value="off">Show the whole map</option>
+            <option value="linked">Dim all but its immediate links</option>
+            <option value="family">Dim all but its family and cross-links</option>
+          </select></label>
         <label class="field"><span>Movement</span>
           <select id="motionPref">
             <option value="full">Full — gliding, glow and beams</option>
@@ -1059,6 +1065,10 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
 
       <div class="group">
         <h2>Outline</h2>
+        <div class="row" style="margin:0 0 8px">
+          <button class="btn" id="foldAll">Collapse all</button>
+          <button class="btn" id="unfoldAll">Expand all</button>
+        </div>
         <div id="tocOutline"></div>
       </div>
     </div>
@@ -1459,6 +1469,7 @@ const S = {
   checkItems:[],               // things the host asks people to confirm
   checkoffs:[],                // who confirmed what
   personal:{bookmarks:[], searches:[], recent:[], ackNew:{}, recentBadge:"", newBadge:"", art:{}, useHostArt:true},
+  focusMode:"off",             // off | linked | family
   branchGrid:true,             // pack big fans into a grid rather than one column
   avoidNodes:true,             // steer links around nodes they do not touch
   showIds:false,               // node id and revision on the node face
@@ -1477,6 +1488,7 @@ const S = {
   tagPick:new Set(), tagMode:"any",
   areaHits:[], bmHits:[],
   expanded:new Set(),          // nodes showing their whole note
+  folded:new Set(), unfolded:new Set(),   // outline sections shut and opened by hand
   draft:false,
   hist:{q:"", cls:{functional:true, editorial:true, layout:false}, scope:"all", node:null},
   syncing:false
@@ -2530,15 +2542,48 @@ function roundedPath(pts, r){
 /* ---- steering links around nodes they have nothing to do with ---- */
 const AVOID_PAD = 26;
 
-function nodeRects(skipA, skipB){
-  const out = [];
+/* The obstacle set was being rebuilt for every single link — 387 rectangles
+   times 426 links. It is built once per render now and bucketed into a coarse
+   grid so each link only tests what is actually near it. */
+let rectStamp = -1, rectAll = null, rectGrid = null;
+const RECT_CELL = 500;
+
+function buildRectIndex(){
+  if(rectStamp === renderStamp) return;
+  rectStamp = renderStamp;
+  rectAll = [];
+  rectGrid = new Map();
   for(const id of visibleNodes()){
-    if(id === skipA || id === skipB) continue;
     const n = S.nodes.get(id);
     if(n._x == null) continue;
-    out.push({x:n._x - AVOID_PAD, y:n._y - AVOID_PAD,
-              w:NODE_W + AVOID_PAD*2, h:n._h + AVOID_PAD*2,
-              cx:n._x + NODE_W/2, cy:n._y + n._h/2});
+    const r = {id, x:n._x - AVOID_PAD, y:n._y - AVOID_PAD,
+               w:NODE_W + AVOID_PAD*2, h:n._h + AVOID_PAD*2,
+               cx:n._x + NODE_W/2, cy:n._y + n._h/2};
+    const i = rectAll.push(r) - 1;
+    const c0 = Math.floor(r.x / RECT_CELL), c1 = Math.floor((r.x + r.w) / RECT_CELL);
+    const r0 = Math.floor(r.y / RECT_CELL), r1 = Math.floor((r.y + r.h) / RECT_CELL);
+    for(let c = c0; c <= c1; c++) for(let q = r0; q <= r1; q++){
+      const k = c + ":" + q;
+      if(!rectGrid.has(k)) rectGrid.set(k, []);
+      rectGrid.get(k).push(i);
+    }
+  }
+}
+function nodeRects(skipA, skipB, box){
+  buildRectIndex();
+  if(!box) return rectAll.filter(r=>r.id !== skipA && r.id !== skipB);
+  const seen = new Set(), out = [];
+  const c0 = Math.floor(box.x0 / RECT_CELL), c1 = Math.floor(box.x1 / RECT_CELL);
+  const r0 = Math.floor(box.y0 / RECT_CELL), r1 = Math.floor(box.y1 / RECT_CELL);
+  for(let c = c0; c <= c1; c++) for(let q = r0; q <= r1; q++){
+    const list = rectGrid.get(c + ":" + q);
+    if(!list) continue;
+    for(const i of list){
+      if(seen.has(i)) continue;
+      seen.add(i);
+      const r = rectAll[i];
+      if(r.id !== skipA && r.id !== skipB) out.push(r);
+    }
   }
   return out;
 }
@@ -2609,7 +2654,11 @@ function pathHits(pts, p1, p2, rects){
    mostly vertical goes out past the side of the whole obstruction and comes
    back; a mostly horizontal one goes over or under it. */
 function avoidPath(p1, p2, skipA, skipB){
-  const rects = nodeRects(skipA, skipB);
+  /* only the neighbourhood of this link can possibly be in its way */
+  const pad = 220;
+  const rects = nodeRects(skipA, skipB, {
+    x0:Math.min(p1.x, p2.x) - pad, x1:Math.max(p1.x, p2.x) + pad,
+    y0:Math.min(p1.y, p2.y) - pad, y1:Math.max(p1.y, p2.y) + pad});
   if(!rects.length) return [p1, p2];
   let blocking = pathHits([p1, p2], p1, p2, rects);
   if(!blocking.length) return [p1, p2];
@@ -3275,51 +3324,57 @@ function decorateBadges(){
   }
 }
 
-/* Little fish, following the line itself rather than sliding along a dash. */
+/* Both the rounds and the fish ride the line as small moving elements.
+   Animating stroke-dashoffset instead meant repainting the whole path every
+   frame, which is what made a cross-linked node crawl. */
 const FISH = "M0,0 q7,-4.5 14,0 q-7,4.5 -14,0 z M0,0 l-5,-3.4 v6.8 z";
-function swim(gE, d, color, reverse, count, offset){
-  const id = "sw" + (SWIM_SEQ++);
-  const guide = mk("path",{id, d, fill:"none", stroke:"none", class:"swimpath"}, gE);
-  void guide;
+
+function rideAlong(gE, edgeId, make, count, dur, reverse, offset){
+  const href = "#ep-" + edgeId;
   for(let i = 0; i < count; i++){
-    const g = mk("g",{class:"fish", transform:offset ? `translate(${offset.x},${offset.y})` : null}, gE);
-    const body = mk("path",{d:FISH, fill:color, opacity:.95}, g);
-    void body;
+    const g = mk("g", {class:"rider",
+      transform:offset ? `translate(${offset.x},${offset.y})` : null}, gE);
+    make(g);
     const anim = document.createElementNS(SVGNS, "animateMotion");
-    anim.setAttribute("dur", (3.4 + i * 0.35) + "s");
+    anim.setAttribute("dur", dur + "s");
     anim.setAttribute("repeatCount", "indefinite");
     anim.setAttribute("rotate", "auto");
-    anim.setAttribute("begin", (-i * (3.4 / count)) + "s");
-    if(reverse) anim.setAttribute("keyPoints", "1;0"),
-                anim.setAttribute("keyTimes", "0;1"),
-                anim.setAttribute("calcMode", "linear");
+    anim.setAttribute("begin", (-i * (dur / count)) + "s");
+    if(reverse){
+      anim.setAttribute("keyPoints", "1;0");
+      anim.setAttribute("keyTimes", "0;1");
+      anim.setAttribute("calcMode", "linear");
+    }
     const mp = document.createElementNS(SVGNS, "mpath");
-    mp.setAttributeNS("http://www.w3.org/1999/xlink", "href", "#" + id);
-    mp.setAttribute("href", "#" + id);
+    mp.setAttributeNS("http://www.w3.org/1999/xlink", "href", href);
+    mp.setAttribute("href", href);
     anim.appendChild(mp);
     g.appendChild(anim);
   }
 }
-let SWIM_SEQ = 0;
 
-/* Two rounds per beam: a blurred halo and a hard core. */
-function shoot(gE, d, color, reverse, lag, offset){
-  const tx = offset ? `translate(${offset.x},${offset.y})` : null;
-  ["halo", "core"].forEach(k=>{
-    mk("path",{ d, class:"beam " + k + (reverse ? " rev" : "") + (lag ? " lag" : ""),
-      stroke:color, transform:tx }, gE);
-  });
+function swim(gE, edgeId, color, reverse, count, offset){
+  rideAlong(gE, edgeId, g=>{
+    mk("path", {d:FISH, fill:color, opacity:.95}, g);
+  }, count, 3.6, reverse, offset);
 }
-/* a couple of pixels either side of the line, square to its overall run */
+
+function shoot(gE, edgeId, color, reverse, lag, offset, lean){
+  rideAlong(gE, edgeId, g=>{
+    if(!lean) mk("circle", {r:6, fill:color, opacity:.20}, g);
+    mk("circle", {r:2.7, fill:color, opacity:.95}, g);
+  }, lean ? 1 : 2, 2.2 + (lag ? .5 : 0), reverse, offset);
+}
+
 function crossOffset(path){
-  try{
-    const L = path.getTotalLength();
-    const a = path.getPointAtLength(0), b = path.getPointAtLength(L);
-    const vx = b.x - a.x, vy = b.y - a.y;
-    const n = Math.hypot(vx, vy) || 1;
-    const d = 3.5;
-    return {x:-vy / n * d, y:vx / n * d};
-  }catch(e){ return {x:0, y:3.5}; }
+  const d = path.getAttribute("d") || "";
+  const nums = d.match(/-?\d+(?:\.\d+)?/g);
+  if(!nums || nums.length < 4) return {x:0, y:3.5};
+  const ax = +nums[0], ay = +nums[1];
+  const bx = +nums[nums.length-2], by = +nums[nums.length-1];
+  const vx = bx - ax, vy = by - ay;
+  const n = Math.hypot(vx, vy) || 1;
+  return {x:-vy / n * 3.5, y:vx / n * 3.5};
 }
 
 function drawBand(){
@@ -3331,44 +3386,102 @@ function drawBand(){
     width:Math.abs(b.x1-b.x0), height:Math.abs(b.y1-b.y0), rx:3}, gA);
 }
 
+/* Everything worth looking at when one node is the subject: the line of
+   parents above it, everything beneath it, and whatever is cross-linked
+   either way. */
+function focusFamily(id, mode){
+  const nodes = new Set([id]), edges = new Set();
+  if(mode === "family"){
+    let up = parentOf(id), guard = 0;
+    while(up && guard++ < 400){ nodes.add(up); up = parentOf(up); }
+    branchOf(id).forEach(k=>nodes.add(k));
+  } else {
+    const pa = parentOf(id);
+    if(pa) nodes.add(pa);
+    childrenOf(id).forEach(k=>nodes.add(k));
+  }
+  for(const e of S.edges.values()){
+    if(e.link_type === "cross" && (e.from === id || e.to === id)){
+      nodes.add(e.from); nodes.add(e.to);
+    }
+  }
+  for(const e of S.edges.values())
+    if(nodes.has(e.from) && nodes.has(e.to)) edges.add(e.id);
+  return {nodes, edges};
+}
+
+function applyFocus(){
+  const gN = el("gNodes"), gE = el("gEdges");
+  if(!gN || !gE) return;
+  const on = S.focusMode !== "off" && S.sel && S.nodes.has(S.sel);
+  document.body.classList.toggle("focusing", !!on);
+  if(!on){
+    gN.querySelectorAll(".focusdim").forEach(x=>x.classList.remove("focusdim"));
+    gE.querySelectorAll(".focusdim").forEach(x=>x.classList.remove("focusdim"));
+    return;
+  }
+  const fam = focusFamily(S.sel, S.focusMode);
+  gN.querySelectorAll(".node-g").forEach(g=>{
+    g.classList.toggle("focusdim", !fam.nodes.has(g.dataset.id));
+  });
+  gE.querySelectorAll("path.edge").forEach(pth=>{
+    pth.classList.toggle("focusdim", !fam.edges.has(pth.dataset.edge));
+  });
+  gE.querySelectorAll("text.edge-label, rect.edge-label-bg").forEach(x=>x.classList.add("focusdim"));
+  gE.querySelectorAll("path.edge:not(.focusdim)").forEach(pth=>{
+    const lbl = pth.nextElementSibling;
+    if(lbl && /text|rect/i.test(lbl.tagName)) lbl.classList.remove("focusdim");
+  });
+}
+
 function decorateSelection(){
   const gE = el("gEdges"), gN = el("gNodes");
   if(!gE || !gN) return;
-  gE.querySelectorAll("path.beam, g.fish, path.swimpath").forEach(b=>b.remove());
+  gE.querySelectorAll("g.rider").forEach(b=>b.remove());
   gN.querySelectorAll("g.strip").forEach(b=>b.remove());
   stripRef = null;
+  /* before the early return, so clearing the selection also clears the dimming */
+  applyFocus();
   const id = S.sel;
   if(!id || !S.nodes.has(id)) return;
   const g = gN.querySelector(`.node-g[data-id="${CSS.escape(id)}"]`);
   if(!g) return;
 
-  for(const e of S.edges.values()){
-    if(e.from !== id && e.to !== id) continue;
+  const touching = [...S.edges.values()].filter(e=>e.from === id || e.to === id);
+  /* past a handful of links the animation costs more than it explains */
+  const lean = touching.length > 4;
+  const budget = 14;
+  let drawn = 0;
+  for(const e of touching){
+    if(drawn >= budget) break;
     const src = gE.querySelector(`path.edge[data-edge="${CSS.escape(e.id)}"]`);
     if(!src) continue;
-    const d = src.getAttribute("d");
 
     const fish = (activeTheme().beam === "fish") && S.motion === "full";
     if(e.link_type === "tree"){
       /* a branch always runs parent to child, whichever end you selected */
-      if(fish) swim(gE, d, "var(--beam-out)", false, 3);
-      else shoot(gE, d, "var(--beam-out)", false, 0);
+      if(fish) swim(gE, e.id, "var(--beam-out)", false, lean ? 1 : 2);
+      else shoot(gE, e.id, "var(--beam-out)", false, 0, null, lean);
+      drawn += lean ? 1 : 2;
     } else {
       /* a cross-link carries traffic both ways, on either side of the line */
       const off = crossOffset(src);
       if(fish){
-        swim(gE, d, "var(--beam-out)", false, 2, off);
-        swim(gE, d, "var(--beam-in)", true, 2, {x:-off.x, y:-off.y});
+        swim(gE, e.id, "var(--beam-out)", false, 1, off);
+        swim(gE, e.id, "var(--beam-in)", true, 1, {x:-off.x, y:-off.y});
       } else {
-        shoot(gE, d, "var(--beam-out)", false, 0, off);
-        shoot(gE, d, "var(--beam-in)", true, 1, {x:-off.x, y:-off.y});
+        shoot(gE, e.id, "var(--beam-out)", false, 0, off, lean);
+        shoot(gE, e.id, "var(--beam-in)", true, 1, {x:-off.x, y:-off.y}, lean);
       }
+      drawn += lean ? 2 : 4;
     }
   }
   if(!S.pairArmed) drawStrip(g, S.nodes.get(id));
 }
 
+let renderStamp = 0;
 function render(){
+  renderStamp++;
   const gE = el("gEdges"), gN = el("gNodes"), gA = el("gAreas");
   gE.textContent = ""; gN.textContent = ""; gA.textContent = "";
   el("defs").querySelectorAll("clipPath").forEach(c=>c.remove());
@@ -3427,7 +3540,7 @@ function render(){
     }
 
     const p = mk("path",{
-      d, class:"edge", "data-edge":e.id, stroke:st.color, "stroke-width":st.width || 1.3,
+      d, id:"ep-" + e.id, class:"edge", "data-edge":e.id, stroke:st.color, "stroke-width":st.width || 1.3,
       "stroke-dasharray":dash || null,
       "marker-end": st.arrow === "no" ? null : "url(#"+ensureArrow(st.color)+")"
     }, gE);
@@ -3529,6 +3642,7 @@ function render(){
   }
   decorateSelection();
   decorateBadges();
+  applyFocus();
   applyView();
   updateChrome();
 }
@@ -3723,6 +3837,14 @@ function renderContents(){
       <span class="tocdot ${esc(n.type)}"></span>
       <span class="toclabel">${esc(n.label || n.id)}</span></div>`;
   };
+  /* every node on the way down to a search hit */
+  const hitPath = new Set();
+  if(S.hits.length){
+    S.hits.forEach(id=>{
+      let up = parentOf(id), guard = 0;
+      while(up && guard++ < 200){ hitPath.add(up); up = parentOf(up); }
+    });
+  }
   const walk = (id, depth) => {
     if(seen.has(id)) return "";
     seen.add(id);
@@ -3733,7 +3855,15 @@ function renderContents(){
     const hit = !q || [n.label, n.id, n.type, (n.tags||[]).join(" ")].join(" ").toLowerCase().includes(q);
     if(q && !hit && !inner) return "";
     if(!kids.length || !inner) return line(n, depth, false);
-    return `<details${(depth < 2 || q) ? " open" : ""}><summary>${line(n, depth, true)}</summary>${inner}</details>`;
+    /* what you fold stays folded through a redraw, so reordering a collapsed
+       section does not spring the whole outline open again */
+    /* a search reveals what it found, whatever was folded */
+    const open = (q || hitPath.has(id)) ? true
+      : S.unfolded.has(id) ? true
+      : S.folded.has(id) ? false
+      : depth < 2;
+    return `<details data-fold="${esc(id)}"${open ? " open" : ""}>`
+         + `<summary>${line(n, depth, true)}</summary>${inner}</details>`;
   };
 
   const rs = roots();
@@ -3749,6 +3879,13 @@ function renderContents(){
   const root = el("paneContents");
   /* reorder branches without hunting for them on the map */
   let dragId = null;
+  root.querySelectorAll("[data-fold]").forEach(d=>{
+    d.addEventListener("toggle", ()=>{
+      const id = d.dataset.fold;
+      if(d.open){ S.unfolded.add(id); S.folded.delete(id); }
+      else { S.folded.add(id); S.unfolded.delete(id); }
+    });
+  });
   root.querySelectorAll("[data-drag]").forEach(e=>{
     e.addEventListener("dragstart", ev=>{
       dragId = e.dataset.drag;
@@ -6465,6 +6602,7 @@ async function afterMapSwitch(){
   rememberKey();
   if(el("notesMode")) el("notesMode").value = S.notesMode;
   applyMotion();
+  if(el("focusMode")) el("focusMode").value = S.focusMode;
   if(el("showIds")) el("showIds").checked = S.showIds;
   if(el("avoidNodes")) el("avoidNodes").checked = S.avoidNodes;
   if(el("branchGrid")) el("branchGrid").checked = S.branchGrid;
@@ -7014,6 +7152,7 @@ async function loadPersonal(){
       S.showIds = !!rec.showIds;
       if(typeof rec.avoidNodes === "boolean") S.avoidNodes = rec.avoidNodes;
       if(typeof rec.branchGrid === "boolean") S.branchGrid = rec.branchGrid;
+      if(rec.focusMode) S.focusMode = rec.focusMode;
       S.personal.recent = Array.isArray(rec.recent) ? rec.recent : [];
       S.personal.ackNew = rec.ackNew && typeof rec.ackNew === "object" ? rec.ackNew : {};
       S.personal.recentBadge = rec.recentBadge || "";
@@ -7029,7 +7168,7 @@ async function savePersonal(){
     await Store.putKey(personalKey(), {
       bookmarks:S.personal.bookmarks, searches:S.personal.searches,
       who:S.who, mode:S.mode, notesMode:S.notesMode, motion:S.motion, showIds:S.showIds,
-      avoidNodes:S.avoidNodes, branchGrid:S.branchGrid,
+      avoidNodes:S.avoidNodes, branchGrid:S.branchGrid, focusMode:S.focusMode,
       recent:S.personal.recent, ackNew:S.personal.ackNew,
       recentBadge:S.personal.recentBadge || "", newBadge:S.personal.newBadge || "",
       art:S.personal.art, useHostArt:S.personal.useHostArt, at:nowISO()
@@ -8520,6 +8659,7 @@ async function boot(){
   el("branchGrid").onchange = e=>{ S.branchGrid = e.target.checked; savePersonal(); rebuild(); fitView(0.96,0.4); };
   el("avoidNodes").onchange = e=>{ S.avoidNodes = e.target.checked; savePersonal(); render(); };
   el("showIds").onchange = e=>{ S.showIds = e.target.checked; savePersonal(); rebuild(); };
+  el("focusMode").onchange = e=>{ S.focusMode = e.target.value; savePersonal(); decorateSelection(); };
   el("motionPref").onchange = e=>{ S.motion = e.target.value; applyMotion(); savePersonal(); render(); };
   el("routeTree").onchange = e=>{
     if(!canEdit()){ e.target.value = S.meta.routeTree; toast("Switch to editing mode."); return; }
@@ -8598,6 +8738,16 @@ async function boot(){
   el("tocQ").addEventListener("input", debounce(renderContents, 160));
   el("btnBookmark").onclick = ()=>addBookmark();
   el("btnAskQ").onclick = ()=>askQuestion(S.sel || S.lastNode || "");
+  el("foldAll").onclick = ()=>{
+    S.folded = new Set([...S.nodes.keys()].filter(id=>childrenOf(id).length));
+    S.unfolded.clear();
+    renderContents();
+  };
+  el("unfoldAll").onclick = ()=>{
+    S.unfolded = new Set([...S.nodes.keys()].filter(id=>childrenOf(id).length));
+    S.folded.clear();
+    renderContents();
+  };
   el("btnSignAll").onclick = ()=>{
     const list = newNodes().filter(isNewFor);
     if(!list.length){ toast("Nothing waiting to be signed off."); return; }
@@ -9115,6 +9265,7 @@ async function boot(){
   }
   if(el("notesMode")) el("notesMode").value = S.notesMode;
   applyMotion();
+  if(el("focusMode")) el("focusMode").value = S.focusMode;
   if(el("showIds")) el("showIds").checked = S.showIds;
   if(el("avoidNodes")) el("avoidNodes").checked = S.avoidNodes;
   if(el("branchGrid")) el("branchGrid").checked = S.branchGrid;
