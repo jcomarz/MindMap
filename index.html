@@ -416,6 +416,12 @@ html[data-motion="off"] *{transition:none !important}
 .mobile-tabs .mhits #mCount{font-family:var(--mono);font-size:11px;color:var(--graphite-60);
   min-width:34px;text-align:center}
 #topAdd{flex:0 0 auto}
+#searchScope{flex:0 0 auto;width:auto;max-width:150px;padding:6px 8px;font-size:12.5px}
+#tagPickCount{position:absolute;top:-4px;right:-4px;min-width:16px;padding:0 4px;border-radius:8px;
+  background:var(--blueprint);color:var(--paper);font-size:10px;font-family:var(--mono);
+  line-height:16px;text-align:center}
+#tagPickCount:empty{display:none}
+@media (max-width:820px){ #searchScope{max-width:104px;font-size:12px} }
 .iconbtn{flex:0 0 auto;padding:6px 10px;font-size:16px;line-height:1.1;position:relative}
 #newBadgeCount{position:absolute;top:-4px;right:-4px;min-width:16px;padding:0 4px;
   border-radius:8px;background:var(--flag);color:#fff;font-size:10px;font-family:var(--mono);
@@ -500,6 +506,16 @@ dialog#connDlg::backdrop{background:rgba(35,40,45,.42)}
 dialog#viewerKindDlg{border:1px solid var(--graphite);border-radius:3px;padding:0;
   background:var(--paper);width:min(560px,94vw);max-height:88dvh;color:var(--graphite)}
 dialog#viewerKindDlg::backdrop{background:rgba(35,40,45,.42)}
+dialog#tagDlg{border:1px solid var(--graphite);border-radius:3px;padding:0;background:var(--paper);
+  width:min(420px,94vw);max-height:86dvh;color:var(--graphite);display:flex;flex-direction:column}
+dialog#tagDlg::backdrop{background:rgba(35,40,45,.42)}
+dialog#tagDlg .dlg-body{flex:1;max-height:none}
+.tagpick{display:flex;align-items:center;gap:9px;padding:8px 4px;border-top:1px solid var(--rule-soft);
+  cursor:pointer;font-size:13px}
+.tagpick:first-child{border-top:0}
+.tagpick i{display:block;width:22px;flex:0 0 auto;border-top-width:2px;border-top-style:solid}
+.tagpick .cnt{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--graphite-60)}
+@media (max-width:820px){ dialog#tagDlg{width:100vw;height:100dvh;max-height:none;border:0;border-radius:0} }
 dialog#themeDlg{border:1px solid var(--graphite);border-radius:3px;padding:0;background:var(--paper);
   width:min(720px,96vw);max-height:88dvh;color:var(--graphite)}
 dialog#themeDlg::backdrop{background:rgba(35,40,45,.42)}
@@ -729,6 +745,13 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
     <button type="button" id="mNext" aria-label="Next match">&#8250;</button>
   </span>
   <button class="btn" id="topAdd">Add node</button>
+  <select id="searchScope" title="What to search">
+    <option value="all">Everything</option>
+    <option value="parents">Section heads</option>
+    <option value="areas">Areas</option>
+    <option value="bookmarks">Bookmarks</option>
+  </select>
+  <button class="btn iconbtn" id="tagPickBtn" title="Filter by tag">⛬<span id="tagPickCount"></span></button>
   <button class="btn iconbtn" id="topUpdates" title="New and recently opened" aria-label="Updates">
     ★<span id="newBadgeCount"></span></button>
   <button class="btn iconbtn" id="topToc" title="Contents, questions and bookmarks" aria-label="Contents">☰</button>
@@ -1156,6 +1179,22 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
   </div>
 </dialog>
 
+<dialog id="tagDlg">
+  <div class="dlg-head">
+    <h2>Filter by tag</h2>
+    <button class="btn" id="tagDlgClose">Done</button>
+  </div>
+  <div class="hist-controls">
+    <div class="row">
+      <button class="btn" id="tagAny">Any of them</button>
+      <button class="btn" id="tagAll">All of them</button>
+      <button class="btn" id="tagNone">Clear</button>
+    </div>
+    <p class="fineprint" id="tagMode" style="margin:8px 0 0"></p>
+  </div>
+  <div class="dlg-body" id="tagPickList"></div>
+</dialog>
+
 <dialog id="themeDlg">
   <div class="dlg-head">
     <h2>Themes</h2>
@@ -1433,6 +1472,9 @@ const S = {
   selQuestion:null,
   qHits:[],
   hitQuery:"",
+  searchScope:"all",           // all | parents | areas | bookmarks
+  tagPick:new Set(), tagMode:"any",
+  areaHits:[], bmHits:[],
   expanded:new Set(),          // nodes showing their whole note
   draft:false,
   hist:{q:"", cls:{functional:true, editorial:true, layout:false}, scope:"all", node:null},
@@ -3496,7 +3538,7 @@ function applyView(){
   el("zLvl").textContent = Math.round(S.view.k*100) + "%";
 }
 
-function rebuild(){ layout(); buildTagFilters(); render(); renderInspector(); renderContents();
+function rebuild(){ layout(); buildTagFilters(); updateTagCount(); render(); renderInspector(); renderContents();
   updateFab(); updateModeUI(); updateLinkBar(); }
 
 /* =====================================================================
@@ -3866,6 +3908,48 @@ function updateChrome(){
   el("tbCount").textContent = S.nodes.size;
   const last = [...S.nodes.values()].map(n=>n.modified).sort().pop();
   el("tbDate").textContent = (last||nowISO()).slice(0,10);
+}
+
+/* The tag list gets long, so choosing tags happens in its own panel rather
+   than as a row of chips squeezed into the search bar. */
+function allTagsWithCounts(){
+  const counts = new Map();
+  for(const n of S.nodes.values()) (n.tags||[]).forEach(t=>counts.set(t, (counts.get(t)||0) + 1));
+  for(const e of S.edges.values()) if(e.tag && !counts.has(e.tag)) counts.set(e.tag, 0);
+  return [...counts.entries()].sort((a,b)=>b[1] - a[1] || a[0].localeCompare(b[0]));
+}
+function openTagPicker(){
+  renderTagPicker();
+  el("tagDlg").showModal();
+}
+function renderTagPicker(){
+  const box = el("tagPickList");
+  const list = allTagsWithCounts();
+  box.innerHTML = list.length
+    ? list.map(([t, c])=>{
+        const st = styleFor(t);
+        return `<label class="tagpick">
+          <input type="checkbox" data-tagpick="${esc(t)}"${S.tagPick.has(t) ? " checked" : ""}>
+          <i style="border-top-style:${st.line==="solid"?"solid":st.line==="dotted"?"dotted":"dashed"};
+             border-color:${esc(themeColor(st.color))}"></i>
+          <span>${esc(t)}</span><span class="cnt">${c}</span></label>`;
+      }).join("")
+    : `<p class="histempty">No tags on this map yet.</p>`;
+  el("tagMode").textContent = S.tagPick.size
+    ? (S.tagMode === "all"
+        ? "Showing nodes carrying every tag ticked."
+        : "Showing nodes carrying any tag ticked.")
+    : "Tick tags to narrow the search. Nothing ticked means no tag filter.";
+  box.querySelectorAll("[data-tagpick]").forEach(c=>{
+    c.onchange = ()=>{
+      if(c.checked) S.tagPick.add(c.dataset.tagpick); else S.tagPick.delete(c.dataset.tagpick);
+      updateTagCount(); renderTagPicker(); runSearch();
+    };
+  });
+}
+function updateTagCount(){
+  const b = el("tagPickCount");
+  if(b) b.textContent = S.tagPick.size ? String(S.tagPick.size) : "";
 }
 
 function buildTagFilters(){
@@ -5148,46 +5232,95 @@ function connRow(e, dir){
 /* =====================================================================
    SEARCH
    ===================================================================== */
+/* Everything the current search matched, in one list, so Next and Previous
+   walk nodes, areas and bookmarks the same way. */
+function searchTargets(){
+  return S.hits.map(id=>({kind:"node", id}))
+    .concat(S.areaHits.map(id=>({kind:"area", id})))
+    .concat(S.bmHits.map(id=>({kind:"bookmark", id})));
+}
+function tagsPass(n){
+  if(!S.tagPick.size) return true;
+  const has = new Set(n.tags || []);
+  const picked = [...S.tagPick];
+  return S.tagMode === "all" ? picked.every(t=>has.has(t)) : picked.some(t=>has.has(t));
+}
+
 function runSearch(){
   const q = el("q").value.trim().toLowerCase();
   S.hitQuery = q;
-  if(!q){ S.hits = []; S.qHits = []; S.hitIx = -1; el("hitCount").textContent = "—"; syncHitChrome();
-    layout(); render(); renderContents(); return; }
-  const terms = q.split(/\s+/);
-  S.qHits = S.questions.filter(x=>questionMatches(x, terms)).map(x=>x.id);
-  /* a question that matches drags its pinned answers into the results, so
-     searching a question takes you to the nodes that answer it */
-  const viaQuestions = new Set();
-  S.qHits.forEach(qid=>pinsFor(qid).forEach(p=>{
-    if(S.nodes.has(p.node)) viaQuestions.add(p.node);
-  }));
-  S.hits = [...S.nodes.values()].filter(n=>{
-    const hay = [n.label, n.body, n.id, n.type, n.status, (n.tags||[]).join(" "),
-                 (n.image||"").startsWith("data:") ? "photo image" : (n.image||"")].join(" ").toLowerCase();
-    return viaQuestions.has(n.id) || terms.every(t=>hay.includes(t));
-  }).map(n=>n.id);
-  S.hitIx = S.hits.length ? 0 : -1;
-  el("hitCount").textContent = S.hits.length ? "1 / " + S.hits.length : "no matches";
-  if(S.hits.length) rememberSearch(q);
+  S.hits = []; S.qHits = []; S.areaHits = []; S.bmHits = [];
+  const scope = S.searchScope;
+  const filtering = S.tagPick.size > 0 || scope !== "all";
+
+  if(!q && !filtering){
+    S.hitIx = -1; el("hitCount").textContent = "—"; syncHitChrome();
+    layout(); render(); renderContents(); return;
+  }
+  const terms = q ? q.split(/\s+/) : [];
+  const matches = hay => terms.every(t=>hay.toLowerCase().includes(t));
+
+  if(scope === "areas"){
+    S.areaHits = [...S.areas.values()]
+      .filter(a=>matches([a.label, a.note].join(" "))).map(a=>a.id);
+  } else if(scope === "bookmarks"){
+    S.bmHits = S.bookmarks.concat(S.personal.bookmarks)
+      .filter(b=>matches([b.label, nodeName(b.node)].join(" "))).map(b=>b.id);
+  } else {
+    S.qHits = terms.length
+      ? S.questions.filter(x=>questionMatches(x, terms)).map(x=>x.id) : [];
+    const viaQuestions = new Set();
+    S.qHits.forEach(qid=>pinsFor(qid).forEach(pn=>{
+      if(S.nodes.has(pn.node)) viaQuestions.add(pn.node);
+    }));
+    S.hits = [...S.nodes.values()].filter(n=>{
+      if(scope === "parents" && !childrenOf(n.id).length) return false;
+      if(!tagsPass(n)) return false;
+      if(!terms.length) return true;
+      const hay = [n.label, n.body, n.id, n.type, n.status, (n.tags||[]).join(" "),
+        (n.image||"").startsWith("data:") ? "photo image" : (n.image||"")].join(" ");
+      return viaQuestions.has(n.id) || matches(hay);
+    }).map(n=>n.id);
+  }
+
+  const all = searchTargets();
+  S.hitIx = all.length ? 0 : -1;
+  el("hitCount").textContent = all.length ? "1 / " + all.length : "no matches";
+  if(all.length && q) rememberSearch(q);
   syncHitChrome();
-  /* the layout has to run again because an opened note makes a node taller */
   layout(); render(); renderContents();
-  if(S.hits.length) centerOn(S.hits[0], Math.max(S.view.k, .8));
+  if(all.length) goToTarget(all[0]);
+}
+
+function goToTarget(t){
+  if(!t) return;
+  if(t.kind === "node") return centerOn(t.id, Math.max(S.view.k, .8));
+  if(t.kind === "area") return zoomToArea(t.id);
+  const b = S.bookmarks.concat(S.personal.bookmarks).find(x=>x.id === t.id);
+  if(b) gotoBookmark(b.id);
 }
 function stepHit(d){
-  if(!S.hits.length) return;
-  S.hitIx = (S.hitIx + d + S.hits.length) % S.hits.length;
-  el("hitCount").textContent = (S.hitIx+1) + " / " + S.hits.length;
+  const all = searchTargets();
+  if(!all.length) return;
+  S.hitIx = (S.hitIx + d + all.length) % all.length;
+  const t = all[S.hitIx];
+  if(t.kind === "node"){
+    if(window.matchMedia("(max-width:820px)").matches) focusNode(t.id);
+    else { centerOn(t.id, Math.max(S.view.k, .8)); select(t.id); }
+  } else {
+    goToTarget(t);
+  }
+  /* written last: focusing can redraw the chrome underneath it */
+  el("hitCount").textContent = (S.hitIx+1) + " / " + all.length;
   syncHitChrome();
-  if(window.matchMedia("(max-width:820px)").matches) focusNode(S.hits[S.hitIx]);
-  else { centerOn(S.hits[S.hitIx], Math.max(S.view.k, .8)); select(S.hits[S.hitIx]); }
 }
 
 function syncHitChrome(){
   const box = el("mHits");
-  if(!S.hits.length){ box.hidden = true; return; }
+  const n = searchTargets().length;
+  if(!n){ box.hidden = true; return; }
   box.hidden = false;
-  el("mCount").textContent = (Math.max(S.hitIx,0)+1) + "/" + S.hits.length;
+  el("mCount").textContent = (Math.max(S.hitIx,0)+1) + "/" + n;
 }
 
 /* =====================================================================
@@ -8589,6 +8722,20 @@ async function boot(){
   };
   el("imgClose").onclick = ()=>{ el("imgDlg").close(); imgPick = null; };
 
+  el("searchScope").onchange = e=>{
+    S.searchScope = e.target.value;
+    el("q").placeholder = e.target.value === "areas" ? "Search area names"
+      : e.target.value === "bookmarks" ? "Search bookmarks"
+      : e.target.value === "parents" ? "Search section heads"
+      : "Search labels, notes, tags, IDs";
+    runSearch();
+  };
+  el("tagPickBtn").onclick = openTagPicker;
+  el("tagDlgClose").onclick = ()=>el("tagDlg").close();
+  el("tagAny").onclick = ()=>{ S.tagMode = "any"; renderTagPicker(); runSearch(); };
+  el("tagAll").onclick = ()=>{ S.tagMode = "all"; renderTagPicker(); runSearch(); };
+  el("tagNone").onclick = ()=>{ S.tagPick.clear(); updateTagCount(); renderTagPicker(); runSearch(); };
+
   el("themePick").onclick = openThemes;
   el("themeClose").onclick = ()=>el("themeDlg").close();
   el("themeEdit").onclick = openThemeEditor;
@@ -8738,6 +8885,8 @@ async function boot(){
   document.addEventListener("keydown", ev=>{
     const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
     if(ev.key === "/" && !typing){ ev.preventDefault(); el("q").focus(); }
+    if(ev.key === "Escape" && S.tagPick.size && document.activeElement === el("q")){
+      S.tagPick.clear(); updateTagCount(); runSearch(); return; }
     if(ev.key === "Escape"){ clearPair();
       S.areaMode=false; el("btnArea").classList.remove("primary"); svg().style.cursor="";
       el("q").blur(); deselect(); }
