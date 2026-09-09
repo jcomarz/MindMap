@@ -309,6 +309,8 @@ html[data-motion="off"] *{transition:none !important}
 
 /* the strip that appears under a selected node */
 .strip-bg{fill:var(--paper);stroke:var(--rule);stroke-width:1}
+.strip.side .pill{fill:var(--paper);stroke:var(--rule)}
+.strip.side .strip-num{font-size:8px}
 .strip-btn{cursor:pointer}
 .strip-btn .pill{fill:var(--paper-2);stroke:var(--rule);stroke-width:.9}
 .strip-btn:hover .pill{fill:var(--blueprint-soft);stroke:var(--blueprint)}
@@ -2147,6 +2149,7 @@ function noteLinesFor(n, q, isHit){
   const mode = S.notesMode;
   const matches = q && body.toLowerCase().includes(q);
   const forced = S.expanded.has(n.id);
+  const cap = forced ? 600 : NOTE_MAX;
   if(!forced){
     if(mode === "off" && !(matches && isHit)) return [];
     if(mode === "search" && !(matches && isHit)) return [];
@@ -2172,10 +2175,10 @@ function noteLinesFor(n, q, isHit){
     }
     block.split(/\n/).forEach(para=>{ wrapAll(para, NODE_W - 26).forEach(l=>all.push(l)); });
   });
-  if(!matches) return all.slice(0, NOTE_MAX);
+  if(forced || !matches) return all.slice(0, cap);
 
   const first = all.findIndex(l=>l.toLowerCase().includes(q));
-  if(first < 0) return all.slice(0, NOTE_MAX);
+  if(first < 0) return all.slice(0, cap);
   const start = Math.max(0, first - 1);
   const out = all.slice(start, start + NOTE_SNIPPET);
   if(start > 0) out.unshift("…");
@@ -2788,37 +2791,65 @@ function updatePasteButton(){
 
 /* Beams and the control strip depend on which node is selected, so they are
    drawn on their own. Selecting must not redraw the whole map. */
+const TALL_NODE = 150;
+let stripRef = null;
+
 function drawStrip(g, n){
-  const id = n.id, sy = n._h + 5, sh = 22;
-  const strip = mk("g",{class:"strip", transform:`translate(0,${sy})`}, g);
+  const id = n.id, sh = 22;
+  /* a long note would leave the controls stranded at the bottom, so on a tall
+     node they run down the right edge and follow the viewport instead */
+  const tall = n._h > TALL_NODE;
+  const strip = mk("g",{class:"strip" + (tall ? " side" : ""),
+    transform:tall ? `translate(${NODE_W + 8},0)` : `translate(0,${n._h + 5})`}, g);
   const openNote = S.expanded.has(id);
-  const btn = (x, w, label, count, onClick, on)=>{
-    const b = mk("g",{class:"strip-btn" + (on ? " on" : ""), transform:`translate(${x},0)`}, strip);
-    mk("rect",{class:"pill", width:w, height:sh, rx:sh/2}, b);
-    const t = mk("text",{class:"strip-ico", x:w/2 - (count ? 5 : 0), y:sh/2 + 4,
-      "text-anchor":"middle"}, b);
+  let x = 0, y = 0;
+  const btn = (w, label, count, onClick, on)=>{
+    const b = mk("g",{class:"strip-btn" + (on ? " on" : ""),
+      transform:tall ? `translate(0,${y})` : `translate(${x},0)`}, strip);
+    mk("rect",{class:"pill", width:tall ? 34 : w, height:sh, rx:sh/2}, b);
+    const t = mk("text",{class:"strip-ico", x:(tall ? 34 : w)/2 - (count && !tall ? 5 : 0),
+      y:sh/2 + 4, "text-anchor":"middle"}, b);
     t.textContent = label;
     if(count){
-      const c = mk("text",{class:"strip-num", x:w - 8, y:sh/2 + 4, "text-anchor":"end"}, b);
+      const c = mk("text",{class:"strip-num", x:tall ? 30 : w - 8, y:tall ? sh - 1 : sh/2 + 4,
+        "text-anchor":"end"}, b);
       c.textContent = count;
     }
     b.addEventListener("pointerup", ev=>{ ev.stopPropagation(); onClick(); });
     b.addEventListener("pointerdown", ev=>ev.stopPropagation());
+    if(tall) y += sh + 6; else x += w + 4;
   };
-  let x = 0;
   if(n.body){
-    btn(x, 30, openNote ? "\u25B4" : "\u25BE", 0, ()=>{
+    btn(30, openNote ? "\u25B4" : "\u25BE", 0, ()=>{
       if(openNote) S.expanded.delete(id); else S.expanded.add(id);
       rebuild();
     }, openNote);
-    x += 34;
   }
   const sug = suggestionsFor(id).filter(z=>z.status === "open").length;
   const qs = questionsForNode(id).length;
   const chk = itemsFor(id).length;
-  btn(x, 42, "\u270E", sug || "", ()=>openPanelFor(id, "suggest"), !!sug); x += 46;
-  btn(x, 42, "?",       qs  || "", ()=>openPanelFor(id, "question"), !!qs); x += 46;
-  btn(x, 42, "\u2713", chk || "", ()=>openPanelFor(id, "check"), !!chk);
+  btn(42, "\u270E", sug || "", ()=>openPanelFor(id, "suggest"), !!sug);
+  btn(42, "?",       qs  || "", ()=>openPanelFor(id, "question"), !!qs);
+  btn(42, "\u2713", chk || "", ()=>openPanelFor(id, "check"), !!chk);
+
+  stripRef = tall ? {el:strip, node:n, height:y - 6} : null;
+  if(tall) stickStrip();
+}
+
+/* Keep a side strip beside whatever part of the node is on screen. */
+function stickStrip(){
+  if(!stripRef || !stripRef.el.isConnected){ stripRef = null; return; }
+  const n = stripRef.node;
+  if(!n || n._x == null) return;
+  const k = S.view.k, s = svgSize();
+  const top = n._y * k + S.view.y;
+  const bottom = (n._y + n._h) * k + S.view.y;
+  const pad = 10 * k, hh = stripRef.height * k;
+  /* where the middle of the strip should sit on screen */
+  const want = Math.min(Math.max(s.h / 2, top + pad + hh / 2), bottom - pad - hh / 2);
+  const clamped = Math.min(Math.max(want, top + pad + hh / 2), Math.max(top + pad + hh / 2, bottom - pad - hh / 2));
+  const worldY = (clamped - S.view.y) / k - n._y - stripRef.height / 2;
+  stripRef.el.setAttribute("transform", `translate(${NODE_W + 8},${worldY})`);
 }
 
 /* Badges sit above the top-right corner. They are per person for recency and
@@ -2954,6 +2985,7 @@ function decorateSelection(){
   if(!gE || !gN) return;
   gE.querySelectorAll("path.beam, g.fish, path.swimpath").forEach(b=>b.remove());
   gN.querySelectorAll("g.strip").forEach(b=>b.remove());
+  stripRef = null;
   const id = S.sel;
   if(!id || !S.nodes.has(id)) return;
   const g = gN.querySelector(`.node-g[data-id="${CSS.escape(id)}"]`);
@@ -3145,6 +3177,7 @@ function render(){
 }
 
 function applyView(){
+  stickStrip();
   el("world").setAttribute("transform",
     `translate(${S.view.x},${S.view.y}) scale(${S.view.k})`);
   el("zLvl").textContent = Math.round(S.view.k*100) + "%";
