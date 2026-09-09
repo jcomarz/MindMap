@@ -218,7 +218,22 @@ label.field>span{display:block;font-size:12px;color:var(--graphite-60);margin-bo
 #svg{position:relative;z-index:1;width:100%;height:100%;display:block;touch-action:none;
   cursor:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2228%22%20height%3D%2228%22%20viewBox%3D%220%200%2028%2028%22%3E%3Cpath%20d%3D%22M9.5%2013.5V6.2a2.1%202.1%200%200%201%204.2%200v5.1V4.6a2.1%202.1%200%200%201%204.2%200v6.7V7.4a2.1%202.1%200%200%201%204.2%200v9.4c0%204.3-3.1%207.4-7.4%207.4h-1.6c-2.9%200-4.8-1.7-6-3.9l-3-5.6a2.1%202.1%200%200%201%203.3-2.4l2.1%202.6z%22%20fill%3D%22%2320262c%22%20stroke%3D%22%23fff%22%20stroke-width%3D%221.7%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E") 13 12, grab}
 #svg.panning{cursor:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2228%22%20height%3D%2228%22%20viewBox%3D%220%200%2028%2028%22%3E%3Cpath%20d%3D%22M9.5%2013.2v-2.6a2%202%200%200%201%204%200v1.6v-2.4a2%202%200%200%201%204%200v2.4v-1.4a2%202%200%200%201%204%200v6c0%204.2-3%207.3-7.2%207.3h-1.6c-2.8%200-4.7-1.7-5.8-3.8l-2.9-5.5a2%202%200%200%201%203.2-2.3l2%202.5z%22%20fill%3D%22%2320262c%22%20stroke%3D%22%23fff%22%20stroke-width%3D%221.7%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E") 13 12, grabbing}
+/* The pointer and the caret are drawn by us across the whole interface, not
+   just the map: a pale system cursor vanishes on light panels. */
+html[data-theme="light"] body,
+html[data-theme="light"] button,
+html[data-theme="light"] select,
+html[data-theme="light"] a{cursor:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20d%3D%22M4.5%202.2%2018.6%2012.4l-6.2.5%203.4%207.2-2.6%201.2-3.4-7.2-4.3%204z%22%20fill%3D%22%2315191d%22%20stroke%3D%22%23fff%22%20stroke-width%3D%221.6%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E") 3 2, default}
+html[data-theme="dark"] body,
+html[data-theme="dark"] button,
+html[data-theme="dark"] select,
+html[data-theme="dark"] a{cursor:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20d%3D%22M4.5%202.2%2018.6%2012.4l-6.2.5%203.4%207.2-2.6%201.2-3.4-7.2-4.3%204z%22%20fill%3D%22%23f2f5f7%22%20stroke%3D%22%230d1114%22%20stroke-width%3D%221.6%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E") 3 2, default}
+html[data-theme="light"] input,html[data-theme="light"] textarea{
+  cursor:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2218%22%20height%3D%2226%22%20viewBox%3D%220%200%2018%2026%22%3E%3Cg%20stroke%3D%22%23fff%22%20stroke-width%3D%223.4%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M9%203v20M5.4%203h7.2M5.4%2023h7.2%22%2F%3E%3C%2Fg%3E%3Cg%20stroke%3D%22%2315191d%22%20stroke-width%3D%221.7%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M9%203v20M5.4%203h7.2M5.4%2023h7.2%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") 9 13, text}
+html[data-theme="dark"] input,html[data-theme="dark"] textarea{
+  cursor:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2218%22%20height%3D%2226%22%20viewBox%3D%220%200%2018%2026%22%3E%3Cg%20stroke%3D%22%230d1114%22%20stroke-width%3D%223.4%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M9%203v20M5.4%203h7.2M5.4%2023h7.2%22%2F%3E%3C%2Fg%3E%3Cg%20stroke%3D%22%23f2f5f7%22%20stroke-width%3D%221.7%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M9%203v20M5.4%203h7.2M5.4%2023h7.2%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") 9 13, text}
 input,textarea,select{caret-color:var(--graphite)}
+input[type=range],input[type=color],input[type=checkbox],input[type=file]{cursor:pointer}
 
 .titleblock{
   position:absolute;right:14px;bottom:14px;background:var(--paper);
@@ -817,6 +832,8 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
             <option value="calm">Calm — no movement, cues stay</option>
             <option value="off">Off — nothing moves or glows</option>
           </select></label>
+        <label class="check"><input type="checkbox" id="avoidNodes" checked>
+          Steer links around nodes they are not connected to</label>
         <label class="check"><input type="checkbox" id="showIds"> Show node IDs and versions on the map</label>
         <label class="field"><span>Notes on the map</span>
           <select id="notesMode">
@@ -1358,6 +1375,7 @@ const S = {
   checkItems:[],               // things the host asks people to confirm
   checkoffs:[],                // who confirmed what
   personal:{bookmarks:[], searches:[], recent:[], ackNew:{}, recentBadge:"", newBadge:"", art:{}, useHostArt:true},
+  avoidNodes:true,             // steer links around nodes they do not touch
   showIds:false,               // node id and revision on the node face
   notesMode:"search",          // off | always | search — how much of a note the map shows
   themeMode:"auto",            // auto | light | dark, kept per device
@@ -1423,7 +1441,7 @@ const AREA_COLORS = ["#14549B","#B4472A","#2E7D5B","#6C4AB0","#8A6A1F","#1F7A8C"
 function newArea(o={}){
   return Object.assign({
     id:uid("A-"), label:"New area", x:0, y:0, w:520, h:320,
-    color:AREA_COLORS[S.areas.size % AREA_COLORS.length], note:"", moveContents:true
+    color:AREA_COLORS[S.areas.size % AREA_COLORS.length], note:"", moveContents:true, holds:true
   }, o);
 }
 function newBookmark(o={}){
@@ -1644,10 +1662,24 @@ function ensureTagStyle(tag, patch){
 }
 
 /* --------------------------- graph helpers --------------------------- */
+/* Children come back in the order they sit around their parent, read
+   clockwise from twelve. Move one above another on the map and the outline,
+   the printed sheets and Tab all follow. */
 function childrenOf(id){
   const out=[];
   for(const e of S.edges.values()) if(e.link_type==="tree" && e.from===id) out.push(e.to);
-  return out;
+  if(out.length < 2) return out;
+  const p = S.nodes.get(id);
+  if(!p || p._x == null) return out;
+  const px = p._x + NODE_W/2, py = p._y + (p._h || 46)/2;
+  const placed = out.filter(k=>{ const n = S.nodes.get(k); return n && n._x != null; });
+  if(placed.length !== out.length) return out;
+  const angle = k=>{
+    const n = S.nodes.get(k);
+    const a = Math.atan2((n._x + NODE_W/2) - px, -((n._y + (n._h||46)/2) - py));
+    return (a + Math.PI*2) % (Math.PI*2);          // 0 = straight up, then clockwise
+  };
+  return out.slice().sort((a,b)=>angle(a) - angle(b));
 }
 function parentOf(id){
   for(const e of S.edges.values()) if(e.link_type==="tree" && e.to===id) return e.from;
@@ -1755,7 +1787,7 @@ const HDR = {
   Revisions:["rev_id","node_id","timestamp","author","field","class","note","folded","old_value","new_value"],
   TagStyles:["tag","color","line_style","width","arrow","applies_to"],
   Sync:["name","endpoint","spreadsheet_id","prefix","token","viewer_token","mode","last_sync"],
-  Areas:["area_id","label","x","y","w","h","color","move_contents","note"],
+  Areas:["area_id","label","x","y","w","h","color","move_contents","holds","note"],
   Bookmarks:["bookmark_id","label","node_id","x","y","zoom","icon"],
   Suggestions:["suggestion_id","node_id","person","timestamp","kind","text","status","resolved_by","resolved_at"],
   CheckItems:["item_id","node_id","label","created","author"],
@@ -1799,7 +1831,8 @@ function toSheets(){
   }));
   const areas = [...S.areas.values()].map(a=>({
     area_id:a.id, label:a.label, x:round(a.x), y:round(a.y), w:round(a.w), h:round(a.h),
-    color:a.color, move_contents:a.moveContents ? "yes" : "", note:a.note||""
+    color:a.color, move_contents:a.moveContents ? "yes" : "",
+    holds:a.holds === false ? "" : "yes", note:a.note||""
   }));
   const bookmarks = S.bookmarks.map(b=>({
     bookmark_id:b.id, label:b.label, node_id:b.node||"",
@@ -1931,7 +1964,8 @@ function tablesToModel(t){
       x:Number(r.x)||0, y:Number(r.y)||0,
       w:Math.max(80, Number(r.w)||400), h:Math.max(60, Number(r.h)||260),
       color:String(r.color||"#14549B"), note:String(r.note||""),
-      moveContents:/^(yes|true|1|y)$/i.test(String(r.move_contents ?? "yes"))
+      moveContents:/^(yes|true|1|y)$/i.test(String(r.move_contents ?? "yes")),
+      holds:/^(yes|true|1|y)$/i.test(String(r.holds ?? "yes"))
     });
     M.areas.set(a.id, a);
   }
@@ -2296,6 +2330,82 @@ function roundedPath(pts, r){
   }
   const last = pts[pts.length-1];
   return d + ` L${last.x},${last.y}`;
+}
+
+/* ---- steering links around nodes they have nothing to do with ---- */
+const AVOID_PAD = 26;
+
+function nodeRects(skipA, skipB){
+  const out = [];
+  for(const id of visibleNodes()){
+    if(id === skipA || id === skipB) continue;
+    const n = S.nodes.get(id);
+    if(n._x == null) continue;
+    out.push({x:n._x - AVOID_PAD, y:n._y - AVOID_PAD,
+              w:NODE_W + AVOID_PAD*2, h:n._h + AVOID_PAD*2,
+              cx:n._x + NODE_W/2, cy:n._y + n._h/2});
+  }
+  return out;
+}
+function segHitsRect(a, b, r){
+  /* quick reject, then a coarse walk along the segment */
+  const minX = Math.min(a.x,b.x), maxX = Math.max(a.x,b.x);
+  const minY = Math.min(a.y,b.y), maxY = Math.max(a.y,b.y);
+  if(maxX < r.x || minX > r.x + r.w || maxY < r.y || minY > r.y + r.h) return false;
+  const steps = Math.max(8, Math.ceil(Math.hypot(b.x-a.x, b.y-a.y) / 14));
+  for(let i = 0; i <= steps; i++){
+    const t = i / steps, x = a.x + (b.x-a.x)*t, y = a.y + (b.y-a.y)*t;
+    if(x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) return true;
+  }
+  return false;
+}
+/* Returns a list of points from p1 to p2 that misses everything in the way. */
+function avoidPath(p1, p2, skipA, skipB){
+  const rects = nodeRects(skipA, skipB);
+  if(!rects.length) return [p1, p2];
+  let pts = [p1, p2];
+  for(let pass = 0; pass < 3; pass++){
+    let changed = false;
+    const next = [pts[0]];
+    for(let i = 0; i < pts.length - 1; i++){
+      const a = pts[i], b = pts[i+1];
+      /* the nearest obstacle on this leg decides the detour */
+      let worst = null, worstD = Infinity;
+      for(const r of rects){
+        if(!segHitsRect(a, b, r)) continue;
+        const d = Math.hypot(r.cx - a.x, r.cy - a.y);
+        if(d < worstD){ worstD = d; worst = r; }
+      }
+      if(!worst){ next.push(b); continue; }
+      /* go over or under, whichever is the shorter way round */
+      const overY = worst.y - 6, underY = worst.y + worst.h + 6;
+      const mx = worst.cx;
+      const over = Math.abs(overY - (a.y + b.y)/2), under = Math.abs(underY - (a.y + b.y)/2);
+      const wy = over <= under ? overY : underY;
+      next.push({x:mx, y:wy});
+      next.push(b);
+      changed = true;
+    }
+    pts = next;
+    if(!changed) break;
+    if(pts.length > 8) break;
+  }
+  return pts;
+}
+/* a smooth line through the waypoints */
+function smoothThrough(pts, p1, p2){
+  if(pts.length === 2){
+    const reach = Math.max(45, Math.hypot(p2.x-p1.x, p2.y-p1.y) * 0.42);
+    return `M${p1.x},${p1.y} C${p1.x + p1.dx*reach},${p1.y + p1.dy*reach} `
+         + `${p2.x + p2.dx*reach},${p2.y + p2.dy*reach} ${p2.x},${p2.y}`;
+  }
+  let d = `M${pts[0].x},${pts[0].y}`;
+  for(let i = 1; i < pts.length; i++){
+    const prev = pts[i-1], cur = pts[i];
+    const cx = (prev.x + cur.x)/2;
+    d += ` C${cx},${prev.y} ${cx},${cur.y} ${cur.x},${cur.y}`;
+  }
+  return d;
 }
 
 function edgePathD(p1, p2, route, bow){
@@ -3067,7 +3177,13 @@ function render(){
     const route = (e.route && e.route !== "auto")
       ? e.route
       : (e.link_type === "tree" ? (S.meta.routeTree || "curve") : (S.meta.routeCross || "curve"));
-    const d = edgePathD(p1, p2, route, e.bow);
+    let d;
+    if(S.avoidNodes && route === "curve" && !e.bow){
+      const pts = avoidPath(p1, p2, e.from, e.to);
+      d = smoothThrough(pts, p1, p2);
+    } else {
+      d = edgePathD(p1, p2, route, e.bow);
+    }
 
     const p = mk("path",{
       d, class:"edge", "data-edge":e.id, stroke:st.color, "stroke-width":st.width || 1.3,
@@ -3624,10 +3740,13 @@ const MIN_K = 0.05, MAX_K = 6;
 
   function abortNodeDrag(){
     if(dragNode && moved){
-      const n = S.nodes.get(dragNode.id);
-      if(n){ n._x = dragNode.ox; n._y = dragNode.oy;
-        const g = svg().querySelector(`.node-g[data-id="${CSS.escape(dragNode.id)}"]`);
-        if(g) g.setAttribute("transform", `translate(${n._x},${n._y})`); }
+      const put = (node, x, y)=>{
+        node._x = x; node._y = y;
+        const g = svg().querySelector(`.node-g[data-id="${CSS.escape(node.id)}"]`);
+        if(g) g.setAttribute("transform", `translate(${x},${y})`);
+      };
+      if(dragNode.group) dragNode.group.forEach(m=>put(m.n, m.ox, m.oy));
+      else { const n = S.nodes.get(dragNode.id); if(n) put(n, dragNode.ox, dragNode.oy); }
     }
     dragNode = null;
   }
@@ -3667,7 +3786,12 @@ const MIN_K = 0.05, MAX_K = 6;
     } else if(g){
       const id = g.dataset.id, n = S.nodes.get(id);
       const w = toWorld(ev.clientX, ev.clientY);
-      dragNode = {id, dx:w.x - n._x, dy:w.y - n._y, ox:n._x, oy:n._y};
+      /* grabbing any node of a selection moves the whole selection */
+      const group = (S.multi.size > 1 && S.multi.has(id))
+        ? [...S.multi].filter(x=>S.nodes.has(x)).map(x=>{
+            const m = S.nodes.get(x); return {n:m, ox:m._x, oy:m._y}; })
+        : null;
+      dragNode = {id, dx:w.x - n._x, dy:w.y - n._y, ox:n._x, oy:n._y, group};
       mode = "node";
     } else if(ag && canEdit()){
       const id = ag.dataset.area, a = S.areas.get(id);
@@ -3774,9 +3898,15 @@ const MIN_K = 0.05, MAX_K = 6;
     } else if(mode === "node" && dragNode && moved){
       const w = toWorld(ev.clientX, ev.clientY);
       const n = S.nodes.get(dragNode.id);
-      n._x = w.x - dragNode.dx; n._y = w.y - dragNode.dy;
-      const g = svg().querySelector(`.node-g[data-id="${CSS.escape(dragNode.id)}"]`);
-      if(g) g.setAttribute("transform", `translate(${n._x},${n._y})`);
+      const nx = w.x - dragNode.dx, ny = w.y - dragNode.dy;
+      const shiftX = nx - dragNode.ox, shiftY = ny - dragNode.oy;
+      const move = (node, x, y)=>{
+        node._x = x; node._y = y;
+        const gg = svg().querySelector(`.node-g[data-id="${CSS.escape(node.id)}"]`);
+        if(gg) gg.setAttribute("transform", `translate(${x},${y})`);
+      };
+      if(dragNode.group) dragNode.group.forEach(m=>move(m.n, m.ox + shiftX, m.oy + shiftY));
+      else move(n, nx, ny);
     }
   });
 
@@ -3854,10 +3984,14 @@ const MIN_K = 0.05, MAX_K = 6;
 
     if(mode === "node" && dragNode){
       if(moved){
-        const n = S.nodes.get(dragNode.id);
-        n.pinned = true; n.x = n._x; n.y = n._y;
-        logRev(n.id, "position", "auto", Math.round(n.x)+","+Math.round(n.y));
-        n.modified = nowISO(); markDirty();
+        const pinOne = node=>{
+          node.pinned = true; node.x = node._x; node.y = node._y;
+          logRev(node.id, "position", "auto", Math.round(node.x)+","+Math.round(node.y));
+          node.modified = nowISO();
+        };
+        if(dragNode.group) dragNode.group.forEach(m=>pinOne(m.n));
+        else pinOne(S.nodes.get(dragNode.id));
+        markDirty();
         render(); renderInspector();
       } else if(wasTap){
         const id = dragNode.id;
@@ -4012,7 +4146,7 @@ function updateLinkBar(){
   el("pairActs").hidden = S.multi.size !== 2;
   bar.hidden = false;
   if(S.multi.size !== 2){
-    el("pairA").textContent = S.multi.size + " nodes chosen";
+    el("pairA").textContent = S.multi.size + " chosen · drag one to move them together";
     el("pairArrow").textContent = "";
     el("pairB").textContent = "";
     return;
@@ -4307,8 +4441,11 @@ function renderAreaInspector(a){
         </select></label>
       <label class="check"><input type="checkbox" id="aMove"${a.moveContents?" checked":""}>
         Move the nodes inside when the box moves</label>
+      <label class="check"><input type="checkbox" id="aHolds"${a.holds!==false?" checked":""}>
+        Keep the nodes inside where they are, even when the layout is reset</label>
       <p style="font-size:12px;color:var(--graphite-60);margin:8px 0 0">
-        ${inside.length} node${inside.length===1?"":"s"} inside. Drag the corner square to resize.</p>
+        ${inside.length} node${inside.length===1?"":"s"} inside${a.holds!==false ? ", held in place" : ""}.
+        Drag the corner square to resize.</p>
       <div class="row" style="margin-top:10px">
         <button class="btn" id="aZoom">Zoom to it</button>
         <button class="btn" id="aFit">Wrap the nodes inside</button>
@@ -4330,6 +4467,7 @@ function renderAreaInspector(a){
   el("aNote").onchange  = e=>{ a.note = e.target.value; markDirty(); };
   el("aColor").onchange = e=>{ a.color = e.target.value; commit(); };
   el("aMove").onchange  = e=>{ a.moveContents = e.target.checked; markDirty(); };
+  el("aHolds").onchange = e=>{ a.holds = e.target.checked; markDirty(); rebuild(); };
   el("aZoom").onclick   = ()=>zoomToArea(a.id);
   el("aFit").onclick    = ()=>{
     const ns = nodesInArea(a);
@@ -4803,6 +4941,21 @@ function ensureVisible(id, pad=48){
   if(left < pad) dx = pad - left; else if(right > s.w - pad) dx = (s.w - pad) - right;
   if(top < pad) dy = pad - top;  else if(bottom > s.h - pad) dy = (s.h - pad) - bottom;
   if(dx || dy) animateView({k, x:S.view.x + dx, y:S.view.y + dy}, 260);
+}
+
+/* A node standing inside an area that holds is treated as placed, so tidying
+   the layout never drags it out of the box someone drew around it. */
+function inHoldingArea(n){
+  if(!n || n.x == null || n.y == null) return null;
+  const cx = n.x + NODE_W/2, cy = n.y + (n._h || 46)/2;
+  for(const a of S.areas.values()){
+    if(a.holds === false) continue;
+    if(cx >= a.x && cx <= a.x + a.w && cy >= a.y && cy <= a.y + a.h) return a;
+  }
+  return null;
+}
+function heldNodes(){
+  return [...S.nodes.values()].filter(n=>n.pinned && inHoldingArea(n));
 }
 
 function nodesInArea(a){
@@ -5654,7 +5807,7 @@ function buildWorkbook(){
     Revisions:[8,14,19,10,14,11,26,7,30,30],
     TagStyles:[16,10,11,7,7,10],
     Sync:[18,54,44,14,14,14,10,19],
-    Areas:[14,30,8,8,8,8,10,14,40],
+    Areas:[14,30,8,8,8,8,10,14,8,40],
     Bookmarks:[14,30,14,8,8,7,40],
     Questions:[14,56,16,19,10,34],
     QuestionPins:[14,14,14,16,19,30],
@@ -5797,6 +5950,7 @@ async function afterMapSwitch(){
   if(el("notesMode")) el("notesMode").value = S.notesMode;
   applyMotion();
   if(el("showIds")) el("showIds").checked = S.showIds;
+  if(el("avoidNodes")) el("avoidNodes").checked = S.avoidNodes;
   if(el("routeTree")) el("routeTree").value = S.meta.routeTree || "curve";
   if(el("routeCross")) el("routeCross").value = S.meta.routeCross || "curve";
   if(el("crossLine")) el("crossLine").value = S.meta.crossLine || "dashed";
@@ -6260,6 +6414,7 @@ async function loadPersonal(){
       if(rec.notesMode) S.notesMode = rec.notesMode;
       if(rec.motion) S.motion = rec.motion;
       S.showIds = !!rec.showIds;
+      if(typeof rec.avoidNodes === "boolean") S.avoidNodes = rec.avoidNodes;
       S.personal.recent = Array.isArray(rec.recent) ? rec.recent : [];
       S.personal.ackNew = rec.ackNew && typeof rec.ackNew === "object" ? rec.ackNew : {};
       S.personal.recentBadge = rec.recentBadge || "";
@@ -6275,6 +6430,7 @@ async function savePersonal(){
     await Store.putKey(personalKey(), {
       bookmarks:S.personal.bookmarks, searches:S.personal.searches,
       who:S.who, mode:S.mode, notesMode:S.notesMode, motion:S.motion, showIds:S.showIds,
+      avoidNodes:S.avoidNodes,
       recent:S.personal.recent, ackNew:S.personal.ackNew,
       recentBadge:S.personal.recentBadge || "", newBadge:S.personal.newBadge || "",
       art:S.personal.art, useHostArt:S.personal.useHostArt, at:nowISO()
@@ -7691,6 +7847,7 @@ async function boot(){
   el("dimOthers").onchange = render;
   el("showScope").onchange = ()=>rebuild();
   el("notesMode").onchange = e=>{ S.notesMode = e.target.value; savePersonal(); rebuild(); };
+  el("avoidNodes").onchange = e=>{ S.avoidNodes = e.target.checked; savePersonal(); render(); };
   el("showIds").onchange = e=>{ S.showIds = e.target.checked; savePersonal(); rebuild(); };
   el("motionPref").onchange = e=>{ S.motion = e.target.value; applyMotion(); savePersonal(); render(); };
   el("routeTree").onchange = e=>{
@@ -7844,10 +8001,18 @@ async function boot(){
     clearPair(); clearMulti();
   };
   el("btnUnpin").onclick = ()=>{
-    let k=0;
-    for(const n of S.nodes.values()) if(n.pinned){ n.pinned=false; n.x=null; n.y=null; k++; }
+    let k = 0, held = 0;
+    for(const n of S.nodes.values()){
+      if(!n.pinned) continue;
+      if(inHoldingArea(n)){ held++; continue; }   // inside an area that holds
+      n.pinned = false; n.x = null; n.y = null; k++;
+    }
     if(k){ markDirty(); rebuild(); fitView(0.96, 0.6); }
-    toast(k ? k + " nodes back on auto layout" : "Nothing was pinned");
+    toast(k
+      ? k + " node" + (k===1?"":"s") + " back on auto layout"
+        + (held ? ", " + held + " left in place inside areas" : "")
+      : held ? "Everything pinned is inside an area that holds it."
+             : "Nothing was pinned");
   };
 
   /* the image picker */
@@ -8243,6 +8408,7 @@ async function boot(){
   if(el("notesMode")) el("notesMode").value = S.notesMode;
   applyMotion();
   if(el("showIds")) el("showIds").checked = S.showIds;
+  if(el("avoidNodes")) el("avoidNodes").checked = S.avoidNodes;
   if(el("routeTree")) el("routeTree").value = S.meta.routeTree || "curve";
   if(el("routeCross")) el("routeCross").value = S.meta.routeCross || "curve";
   if(el("crossLine")) el("crossLine").value = S.meta.crossLine || "dashed";
