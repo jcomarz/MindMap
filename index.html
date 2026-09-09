@@ -341,6 +341,10 @@ html[data-motion="off"] *{transition:none !important}
 .badge-pill{fill:var(--paper);stroke:var(--graphite-60);stroke-width:1}
 .badge-new .badge-pill{fill:var(--flag);stroke:var(--flag)}
 .badge-node{pointer-events:none}
+.sevdot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+.badge-sev{pointer-events:none}
+.badge-sev .badge-pill{stroke:none}
+.badge-sev .badge-text{fill:#fff;font-weight:700;letter-spacing:.5px}
 .badge-text{font-family:var(--sans);font-size:10px;font-weight:600;fill:var(--graphite-60);
   pointer-events:none}
 .badge-new .badge-text{fill:#fff}
@@ -378,6 +382,8 @@ html[data-motion="off"] *{transition:none !important}
 .area-g.sel .area-box{stroke-width:2.5;stroke-dasharray:none}
 .area-grab{cursor:nwse-resize}
 .edge{fill:none}
+.edge.thin{opacity:.34;stroke-width:1 !important}
+.edge-casing,.edge-surface,.edge-centreline{pointer-events:none}
 .edge.dim{opacity:.1}
 .edge-label{font-family:var(--sans);font-size:10.5px;fill:var(--graphite-60)}
 .edge-label-bg{fill:var(--paper)}
@@ -751,6 +757,7 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
     <option value="parents">Section heads</option>
     <option value="areas">Areas</option>
     <option value="bookmarks">Bookmarks</option>
+    <option value="flagged">Needs attention</option>
   </select>
   <button class="btn iconbtn" id="tagPickBtn" title="Filter by tag">⛬<span id="tagPickCount"></span></button>
   <button class="btn iconbtn" id="topUpdates" title="New and recently opened" aria-label="Updates">
@@ -1984,7 +1991,7 @@ function toSheets(){
     {key:"cross_line", value:S.meta.crossLine || "dashed"},
     {key:"cross_color", value:S.meta.crossColor || ""},
     {key:"new_badge_image", value:S.meta.newBadgeImage || ""}
-  ];
+  ].concat(SEVERITIES.map(sv=>({key:sv.key, value:(S.meta.sevArt || {})[sv.key] || ""})));
   const sync = S.connections.filter(c=>(c.endpoint||"").trim()).map(c=>({
     name:c.name, endpoint:c.endpoint, spreadsheet_id:c.id||"", prefix:c.prefix||"",
     token:c.token||"", viewer_token:c.viewerToken||"", mode:c.mode, last_sync:c.last_sync||""
@@ -2835,6 +2842,31 @@ const PRESETS = [
   node:{shape:"rect",radius:0,border:1,depth:0,fill:"flat"},
   bg:{pattern:"dots",scale:18,strength:.35}, font:"mono" },
 
+{ id:"antfarm", name:"Ant farm", note:"Chambers dug into the soil, with ants working the tunnels.",
+  light:{paper:"#C9A981",paper2:"#B8946A",ink:"#3A2A18",ink60:"#7A6247",rule:"#9C7B55",
+         accent:"#8A4A22",edge:"#7A5B3A",hit:"#F2DFA6",hitLine:"#D8B45C",flag:"#A83A24",
+         casing:"#6B4A2C",surface:"#D9BE92",centre:"#B08A5E",
+         beamOut:"#211408",beamIn:"#9E3B1E"},
+  dark: {paper:"#211508",paper2:"#2C1D0C",ink:"#EBD9B6",ink60:"#A78E67",rule:"#4A3218",
+         accent:"#D98A4A",edge:"#6B5236",hit:"#3E3517",hitLine:"#6E5F26",flag:"#E0764F",
+         casing:"#14100A",surface:"#5A4126",centre:"#8A6B45",
+         beamOut:"#0C0803",beamIn:"#D2593A"},
+  node:{shape:"burrow",radius:20,border:1.6,depth:3,fill:"custom",
+        color:"#E4CDA2",colorDark:"#6B4F2E",stroke:"#6B4A2C",vary:true},
+  bg:{pattern:"soil",scale:16,strength:.7}, beam:"ants", edgeStyle:"tunnel", font:"sans" },
+
+{ id:"simcity", name:"City", note:"Blocks and roads, with traffic running between them.",
+  light:{paper:"#DFE3E0",paper2:"#CFD5D1",ink:"#22282C",ink60:"#6B767C",rule:"#AEB7B2",
+         accent:"#1F6FA8",edge:"#8D989C",hit:"#FBE9A8",hitLine:"#E4B93F",flag:"#B4402A",
+         casing:"#4C555A",surface:"#9AA4A8",centre:"#F2D14B",
+         beamOut:"#2F3D45",beamIn:"#B4402A"},
+  dark: {paper:"#0E1417",paper2:"#151D21",ink:"#DCE6EA",ink60:"#8496A0",rule:"#243036",
+         accent:"#5AB0E8",edge:"#4A585F",hit:"#3A3517",hitLine:"#6B5F26",flag:"#EE7C5A",
+         casing:"#05090B",surface:"#2A343A",centre:"#E8C33F",
+         beamOut:"#C8D6DC",beamIn:"#EE7C5A"},
+  node:{shape:"block",radius:0,border:1.3,depth:2,fill:"soft",stroke:"#22282C"},
+  bg:{pattern:"citygrid",scale:14,strength:.55}, beam:"cars", edgeStyle:"road", font:"sans" },
+
 { id:"dusk", name:"Dusk", note:"Deep violet with a glow. Built for a dark room.",
   light:{paper:"#F8F6FC",paper2:"#EDE9F7",ink:"#2A2440",ink60:"#6F6791",rule:"#D3CCE8",
          accent:"#6C4AB0",edge:"#9A93B6",hit:"#F6E6C3",hitLine:"#DCB552",flag:"#B4472A"},
@@ -2866,8 +2898,11 @@ function applyThemeVars(){
   set("--img-bg", c.paper2); set("--retired", c.ink60);
   set("--glow-a", hexA(c.accent, dark ? .75 : .85));
   set("--glow-b", hexA(c.accent, dark ? .40 : .45));
-  set("--beam-out", dark ? mixHex(c.accent,"#ffffff",.35) : c.accent);
-  set("--beam-in", c.flag);
+  set("--beam-out", c.beamOut || (dark ? mixHex(c.accent,"#ffffff",.35) : c.accent));
+  set("--beam-in", c.beamIn || c.flag);
+  set("--edge-casing", c.casing || mixHex(c.ink, c.paper, .55));
+  set("--edge-surface", c.surface || mixHex(c.paper, c.ink, .12));
+  set("--edge-centre", c.centre || c.hitLine);
   const nd = t.node || {};
   r.setProperty("--node-border", (nd.border || 1.25) + "px");
   const stroke = nd.stroke === "accent" ? c.accent
@@ -2906,6 +2941,21 @@ function applyBackground(t, c){
   } else if(bg.pattern === "rules"){
     img = `linear-gradient(${line} 1px, transparent 1px)`;
     size = `100% ${s}px`;
+  } else if(bg.pattern === "soil"){
+    const grit = hexA(c.ink, (Number(bg.strength) || .4) * .30);
+    const grit2 = hexA(c.paper2, .55);
+    img = `radial-gradient(${grit} 1.4px, transparent 1.6px),`
+        + `radial-gradient(${grit} 1px, transparent 1.2px),`
+        + `radial-gradient(ellipse ${s*3}px ${s*.7}px at 30% 20%, ${grit2} 0 45%, transparent 47%)`;
+    size = `${s}px ${s}px, ${Math.round(s*.63)}px ${Math.round(s*.71)}px, ${s*5}px ${s*3}px`;
+  } else if(bg.pattern === "citygrid"){
+    const road = hexA(c.ink, (Number(bg.strength) || .4) * .22);
+    const kerb = hexA(c.ink, (Number(bg.strength) || .4) * .09);
+    img = `linear-gradient(${road} 2px, transparent 2px),`
+        + `linear-gradient(90deg, ${road} 2px, transparent 2px),`
+        + `linear-gradient(${kerb} 1px, transparent 1px),`
+        + `linear-gradient(90deg, ${kerb} 1px, transparent 1px)`;
+    size = `${s*4}px ${s*4}px, ${s*4}px ${s*4}px, ${s}px ${s}px, ${s}px ${s}px`;
   } else if(bg.pattern === "waves"){
     const a = hexA(c.ink, (Number(bg.strength) || .4) * .16);
     const b2 = hexA(c.paper2, .85);
@@ -2992,6 +3042,28 @@ function nodePath(n){
   if(shape === "hex"){
     const c = Math.min(h/2, Math.max(12, rr));
     return `M${c},0 L${w-c},0 L${w},${h/2} L${w-c},${h} L${c},${h} L0,${h/2} Z`;
+  }
+  if(shape === "burrow"){
+    /* a chamber dug out of the soil: bulging walls, a flattened floor and a
+       mouth on the left where the tunnel comes in */
+    const seed = hashOf(n.id);
+    const j = (i, amp) => ((Math.sin(seed * (i+1) * 91.7) * 4137.13) % 1 + 1) % 1 * amp - amp/2;
+    const r = Math.max(18, rr);
+    return `M0,${h*.5} `
+         + `C${-6 + j(1,7)},${h*.24} ${r*.3},${-8 + j(2,6)} ${w*.34},${j(3,5)} `
+         + `C${w*.62},${-9 + j(4,8)} ${w + 6 + j(5,7)},${h*.16} ${w + 2 + j(6,6)},${h*.52} `
+         + `C${w + j(7,6)},${h*.86} ${w*.66},${h + 7 + j(8,6)} ${w*.36},${h + j(9,5)} `
+         + `C${r*.3},${h - j(10,6)} ${-5 + j(11,6)},${h*.78} 0,${h*.5} Z`;
+  }
+  if(shape === "block"){
+    /* a city block: the full body squared off, with a stepped roofline sitting
+       above it so nothing eats into the label */
+    const seed = hashOf(n.id);
+    const a = 7 + Math.round(seed * 9), b2 = 4 + Math.round(seed * 13);
+    const x1 = Math.round(w * (.22 + seed * .16));
+    const x2 = Math.round(w * (.55 + seed * .18));
+    return `M0,0 L${x1},0 L${x1},${-a} L${x2},${-a} L${x2},${-b2} `
+         + `L${w},${-b2} L${w},${h} L0,${h} Z`;
   }
   if(shape === "island"){
     /* a landmass rather than a box: every edge bulges a little, and the
@@ -3254,6 +3326,28 @@ function stickStrip(){
 
 /* Badges sit above the top-right corner. They are per person for recency and
    sign-off, so they are drawn separately from the map itself. */
+/* Three levels of "someone needs to look at this", each with its own artwork
+   stored with the map so everyone sees the same thing. */
+const SEVERITIES = [
+  {id:"mishap", name:"Slight mishap",  short:"!",   colour:"#C79A2E", key:"sev_low_image"},
+  {id:"moderate", name:"Moderate",     short:"!!",  colour:"#D2762E", key:"sev_mid_image"},
+  {id:"dumpsterfire", name:"Dumpster fire", short:"!!!", colour:"#B4362A", key:"sev_high_image"}
+];
+function severityOf(n){
+  if(!n) return null;
+  const hit = SEVERITIES.find(sv=>sv.id === n.flag);
+  if(hit) return hit;
+  /* maps made before the levels existed used a single "attention" flag */
+  if(n.flag === "attention") return SEVERITIES[1];
+  return null;
+}
+function severityArt(sv){ return (S.meta.sevArt || {})[sv.key] || ""; }
+function flaggedNodes(){
+  const rank = id => SEVERITIES.findIndex(x=>x.id === id);
+  return [...S.nodes.values()].filter(n=>severityOf(n))
+    .sort((a,b)=>rank(severityOf(b).id) - rank(severityOf(a).id));
+}
+
 /* Three marks, three corners, so they never fight for the same spot:
    the node's own badge hangs off the left edge, an update sits at the top
    right, and your own recency mark at the bottom right. */
@@ -3299,6 +3393,17 @@ function decorateBadges(){
       const sz = 34;
       drawMark(g, {x:-sz + 6, y:(n._h - sz)/2, w:sz, h:sz, img:nodeBadge,
         cls:"badge-node", tip:"Badge for this node"});
+    }
+
+    /* how badly it needs attention, top left */
+    const sv = severityOf(n);
+    if(sv){
+      const img = severityArt(sv);
+      const w = img ? 34 : 30, h = img ? 34 : 20;
+      const g2 = drawMark(g, {x:-4, y:-h/2 - 3, w, h, img, label:sv.short,
+        cls:"badge-sev sev-" + sv.id, tip:sv.name});
+      const pill = g2.querySelector(".badge-pill");
+      if(pill) pill.setAttribute("fill", sv.colour);
     }
 
     /* an update, top right */
@@ -3351,6 +3456,26 @@ function rideAlong(gE, edgeId, make, count, dur, reverse, offset){
     anim.appendChild(mp);
     g.appendChild(anim);
   }
+}
+
+const ANT = "M0,0 m-5,0 a2.1,2.1 0 1,0 4.2,0 a2.1,2.1 0 1,0 -4.2,0 "
+          + "M0.4,0 a1.7,1.7 0 1,0 3.4,0 a1.7,1.7 0 1,0 -3.4,0 "
+          + "M4.6,0 a2.4,2.4 0 1,0 4.8,0 a2.4,2.4 0 1,0 -4.8,0";
+const ANT_LEGS = "M1,-1.5 l-2,-3 M1,1.5 l-2,3 M2.2,-1.6 l0.6,-3.4 M2.2,1.6 l0.6,3.4 "
+               + "M3.4,-1.5 l2.4,-2.8 M3.4,1.5 l2.4,2.8";
+const CAR = "M-7,-3 h11 q3,0 3,3 q0,3 -3,3 h-11 q-2,0 -2,-3 q0,-3 2,-3 z";
+
+function march(gE, edgeId, color, reverse, count, offset){
+  rideAlong(gE, edgeId, g=>{
+    mk("path", {d:ANT_LEGS, fill:"none", stroke:color, "stroke-width":.8, opacity:.85}, g);
+    mk("path", {d:ANT, fill:color}, g);
+  }, count, 5.2, reverse, offset);
+}
+function drive(gE, edgeId, color, reverse, count, offset){
+  rideAlong(gE, edgeId, g=>{
+    mk("path", {d:CAR, fill:color}, g);
+    mk("rect", {x:-2, y:-2, width:5, height:4, rx:1, fill:"var(--paper)", opacity:.55}, g);
+  }, count, 3.1, reverse, offset);
 }
 
 function swim(gE, edgeId, color, reverse, count, offset){
@@ -3457,22 +3582,23 @@ function decorateSelection(){
     const src = gE.querySelector(`path.edge[data-edge="${CSS.escape(e.id)}"]`);
     if(!src) continue;
 
-    const fish = (activeTheme().beam === "fish") && S.motion === "full";
+    const style = S.motion === "full" ? (activeTheme().beam || "dots") : "dots";
+    const send = (rev, n, off)=>{
+      const colour = rev ? "var(--beam-in)" : "var(--beam-out)";
+      if(style === "fish") swim(gE, e.id, colour, rev, n, off);
+      else if(style === "ants") march(gE, e.id, colour, rev, n, off);
+      else if(style === "cars") drive(gE, e.id, colour, rev, n, off);
+      else shoot(gE, e.id, colour, rev, 0, off, lean);
+    };
     if(e.link_type === "tree"){
       /* a branch always runs parent to child, whichever end you selected */
-      if(fish) swim(gE, e.id, "var(--beam-out)", false, lean ? 1 : 2);
-      else shoot(gE, e.id, "var(--beam-out)", false, 0, null, lean);
+      send(false, lean ? 1 : 2, null);
       drawn += lean ? 1 : 2;
     } else {
       /* a cross-link carries traffic both ways, on either side of the line */
       const off = crossOffset(src);
-      if(fish){
-        swim(gE, e.id, "var(--beam-out)", false, 1, off);
-        swim(gE, e.id, "var(--beam-in)", true, 1, {x:-off.x, y:-off.y});
-      } else {
-        shoot(gE, e.id, "var(--beam-out)", false, 0, off, lean);
-        shoot(gE, e.id, "var(--beam-in)", true, 1, {x:-off.x, y:-off.y}, lean);
-      }
+      send(false, 1, off);
+      send(true, 1, {x:-off.x, y:-off.y});
       drawn += lean ? 2 : 4;
     }
   }
@@ -3539,8 +3665,25 @@ function render(){
       d = edgePathD(p1, p2, route, e.bow);
     }
 
+    /* a tunnel or a road is the same line drawn two or three times: a wide
+       casing underneath, the surface on top, and for a road a dashed centre */
+    const treat = activeTheme().edgeStyle || "plain";
+    if(treat === "tunnel" || treat === "road"){
+      const wide = treat === "tunnel" ? 15 : 13;
+      mk("path",{d, class:"edge-casing", fill:"none",
+        stroke:"var(--edge-casing)", "stroke-width":wide,
+        "stroke-linecap":"round", "stroke-linejoin":"round"}, gE);
+      mk("path",{d, class:"edge-surface", fill:"none",
+        stroke:"var(--edge-surface)", "stroke-width":wide - 4,
+        "stroke-linecap":"round", "stroke-linejoin":"round"}, gE);
+      if(treat === "road")
+        mk("path",{d, class:"edge-centreline", fill:"none",
+          stroke:"var(--edge-centre)", "stroke-width":1.1,
+          "stroke-dasharray":"7 8"}, gE);
+    }
     const p = mk("path",{
-      d, id:"ep-" + e.id, class:"edge", "data-edge":e.id, stroke:st.color, "stroke-width":st.width || 1.3,
+      d, id:"ep-" + e.id, class:"edge" + (treat !== "plain" ? " thin" : ""),
+      "data-edge":e.id, stroke:st.color, "stroke-width":st.width || 1.3,
       "stroke-dasharray":dash || null,
       "marker-end": st.arrow === "no" ? null : "url(#"+ensureArrow(st.color)+")"
     }, gE);
@@ -3759,6 +3902,18 @@ function renderContents(){
       <div class="row">
         <button class="btn wide" id="mnUp">${myNew ? "Change my New badge" : "Use my own New badge"}</button>
       </div>
+      ${isRoot() ? SEVERITIES.map(sv=>{
+        const art = (S.meta.sevArt||{})[sv.key] || "";
+        return `<div class="badgeset" style="margin-top:12px">
+          <div class="badgeprev">${art ? `<img src="${esc(art)}" alt="">`
+            : `<span style="color:${sv.colour}">${esc(sv.short)}</span>`}</div>
+          <div class="badgeinfo"><strong>${esc(sv.name)}</strong>
+            <span>${art ? "custom, everyone sees it" : "plain marker"}</span></div>
+        </div>
+        <div class="row">
+          <button class="btn wide" data-sevart="${sv.key}">${art ? "Change it" : "Use a GIF or image"}</button>
+        </div>`;
+      }).join("") : ""}
       ${isRoot() ? `
       <div class="badgeset" style="margin-top:12px">
         <div class="badgeprev">${theirs ? `<img src="${esc(theirs)}" alt="">` : `<span>NEW</span>`}</div>
@@ -3774,6 +3929,15 @@ function renderContents(){
       else { S.personal.recentBadge = data; savePersonal(); }
       decorateBadges(); renderContents();
     };
+    bs.querySelectorAll("[data-sevart]").forEach(btn=>{
+      const key = btn.dataset.sevart;
+      const sv = SEVERITIES.find(x=>x.key === key);
+      btn.onclick = ()=>pickImage("Marker for " + sv.name, (S.meta.sevArt||{})[key] || "",
+        v=>{ S.meta.sevArt = S.meta.sevArt || {}; S.meta.sevArt[key] = v;
+             markDirty(); decorateBadges(); renderContents(); },
+        ()=>{ if(S.meta.sevArt) delete S.meta.sevArt[key];
+              markDirty(); decorateBadges(); renderContents(); });
+    });
     el("rbUp").onclick = ()=>pickImage("My recent badge, on this device", mine,
       v=>takeBadge(v, false), ()=>takeBadge("", false));
     const uh = el("useHostArt");
@@ -5181,7 +5345,8 @@ function renderInspector(){
       <label class="field" style="margin-top:10px"><span>Flag</span>
         <select id="fFlag">
           <option value="">none</option>
-          ${["attention","review","blocked","validated"].map(t=>`<option value="${t}"${n.flag===t?" selected":""}>${t}</option>`).join("")}
+          ${SEVERITIES.map(sv=>`<option value="${sv.id}"${n.flag===sv.id?" selected":""}>${esc(sv.name)}</option>`).join("")}
+          ${["review","blocked","validated"].map(t=>`<option value="${t}"${n.flag===t?" selected":""}>${t}</option>`).join("")}
         </select>
       <div class="row">
         <button class="btn" id="fRetire">${n.status==="retired"?"Restore node":"Retire node"}</button>
@@ -5415,9 +5580,10 @@ function runSearch(){
     /* Labels only and Section heads look at the name of the node, not what is
        written inside it — searching a section head is about getting there, not
        finding every note that mentions the word. */
-    const titleOnly = (scope === "labels" || scope === "parents");
+    const titleOnly = (scope === "labels" || scope === "parents" || scope === "flagged");
     S.hits = [...S.nodes.values()].filter(n=>{
       if(scope === "parents" && !childrenOf(n.id).length) return false;
+      if(scope === "flagged" && !severityOf(n)) return false;
       if(!tagsPass(n)) return false;
       if(!terms.length) return true;
       if(titleOnly) return matches([n.label, (n.tags||[]).join(" ")].join(" "));
@@ -7008,7 +7174,8 @@ function openThemeEditor(){
     <h2 style="margin:18px 0 2px;font-size:13px">Nodes</h2>
     <div class="themerow">
       <label><span>Shape</span><select data-t="node.shape">
-        ${[["rect","Square corners"],["round","Rounded"],["pill","Pill"],["island","Island"],["hex","Hexagon"]]
+        ${[["rect","Square corners"],["round","Rounded"],["pill","Pill"],["island","Island"],
+           ["burrow","Burrow chamber"],["block","City block"],["hex","Hexagon"]]
           .map(([v,l])=>`<option value="${v}"${t.node.shape===v?" selected":""}>${l}</option>`).join("")}
       </select></label>
       <label><span>Fill</span><select data-t="node.fill">
@@ -7029,7 +7196,8 @@ function openThemeEditor(){
     <h2 style="margin:18px 0 2px;font-size:13px">Background</h2>
     <div class="themerow">
       <label><span>Pattern</span><select data-t="bg.pattern">
-        ${[["none","Plain"],["grid","Grid"],["dots","Dots"],["rules","Ruled lines"]]
+        ${[["none","Plain"],["grid","Grid"],["dots","Dots"],["rules","Ruled lines"],
+           ["waves","Water"],["soil","Soil"],["citygrid","City grid"]]
           .map(([v,l])=>`<option value="${v}"${t.bg.pattern===v?" selected":""}>${l}</option>`).join("")}
       </select></label>
       <label><span>Spacing ${t.bg.scale}</span>
@@ -7050,8 +7218,12 @@ function openThemeEditor(){
       <label><span>Node outline colour</span>
         <input type="color" class="swatchin" style="width:100%" data-t="node.stroke"
           value="${esc((t.node.stroke||"").startsWith("#") ? t.node.stroke : "#23282D")}"></label>
+      <label><span>Connector shape</span><select data-t="edgeStyle">
+        ${[["plain","Plain line"],["tunnel","Tunnel"],["road","Road"]].map(([v,l])=>
+          `<option value="${v}"${(t.edgeStyle||"plain")===v?" selected":""}>${l}</option>`).join("")}
+      </select></label>
       <label><span>Connector life</span><select data-t="beam">
-        ${[["dots","Light pulses"],["fish","Fish"]].map(([v,l])=>
+        ${[["dots","Light pulses"],["fish","Fish"],["ants","Ants"],["cars","Traffic"]].map(([v,l])=>
           `<option value="${v}"${(t.beam||"dots")===v?" selected":""}>${l}</option>`).join("")}
       </select></label>
     </div>
@@ -7572,6 +7744,18 @@ function renderUpdates(){
   const recents = (S.personal.recent || []).filter(r=>S.nodes.has(r.id));
   let html = "";
 
+  const flagged = flaggedNodes();
+  if(flagged.length){
+    html += `<h2 style="margin:4px 0 6px;font-size:13px">Needs attention</h2>`;
+    html += flagged.map(n=>{
+      const sv = severityOf(n);
+      return `<div class="tocrow" data-updgo="${esc(n.id)}">
+        <span class="sevdot" style="background:${sv.colour}"></span>
+        <span class="toclabel">${esc(n.label || n.id)}</span>
+        <span class="fold">${esc(sv.name)}</span>
+      </div>`;
+    }).join("");
+  }
   html += `<div class="row" style="margin:2px 0 10px">
       <button class="btn wide" id="updBadges">Change the New and recent badges</button></div>`;
   html += `<div class="diagbox"><b>${unread.length}</b> update${unread.length===1?"":"s"} to sign off
@@ -8885,6 +9069,7 @@ async function boot(){
       : e.target.value === "bookmarks" ? "Search bookmarks"
       : e.target.value === "parents" ? "Search the names of section heads"
       : e.target.value === "labels" ? "Search node names only"
+      : e.target.value === "flagged" ? "Search flagged nodes"
       : "Search labels, notes, tags, IDs";
     runSearch();
   };
