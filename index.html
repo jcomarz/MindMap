@@ -2151,7 +2151,9 @@ function copyTsv(){
 /* =====================================================================
    LAYOUT — tidy left-to-right tree, with pinned nodes honoured
    ===================================================================== */
-const NODE_W = 208, COL_GAP = 96, ROW_GAP = 20, LINE_H = 16, PAD_Y = 13;
+/* the row gap has to clear the control strip that appears under a selected
+   node, otherwise the pills sit on top of whatever is below */
+const NODE_W = 208, COL_GAP = 110, ROW_GAP = 46, LINE_H = 16, PAD_Y = 13;
 const NOTE_LH = 13, NOTE_MAX = 14, NOTE_SNIPPET = 8;
 const CHAR_W = 6.35;
 /* monospace and serif are wider than the condensed sans the wrap was tuned
@@ -2289,6 +2291,43 @@ function layout(){
     n._x = n.pinned && n.x != null ? n.x : (n._lx||0);
     n._y = n.pinned && n.y != null ? n.y : (n._ly||0) - n._h/2;
   }
+  keepOutOfAreas(vis);
+}
+
+/* An area is space someone claimed. Nothing the layout places may drift into
+   it — a node gets there by being dragged, not by being arranged. */
+function keepOutOfAreas(vis){
+  if(!S.areas.size) return;
+  const boxes = [...S.areas.values()].map(a=>({x:a.x - 12, y:a.y - 12,
+    w:a.w + 24, h:a.h + 24, bottom:a.y + a.h + 12, top:a.y - 12}));
+  const loose = [...vis].map(id=>S.nodes.get(id)).filter(n=>!n.pinned && n._x != null);
+
+  loose.forEach(n=>{
+    for(let pass = 0; pass < 4; pass++){
+      const b = boxes.find(r=>n._x < r.x + r.w && n._x + NODE_W > r.x
+                           && n._y < r.y + r.h && n._y + n._h > r.y);
+      if(!b) break;
+      /* leave by the nearest horizontal edge, since the layout stacks downward */
+      const down = b.bottom + 8, up = b.top - n._h - 8;
+      n._y = (Math.abs(down - n._y) <= Math.abs(n._y - up)) ? down : up;
+    }
+  });
+
+  /* nudging them out can leave two in the same place, so settle the column */
+  const cols = new Map();
+  loose.forEach(n=>{
+    const k = Math.round(n._x / 40);
+    if(!cols.has(k)) cols.set(k, []);
+    cols.get(k).push(n);
+  });
+  cols.forEach(list=>{
+    list.sort((a,b)=>a._y - b._y);
+    for(let i = 1; i < list.length; i++){
+      const prev = list[i-1], cur = list[i];
+      const need = prev._y + prev._h + ROW_GAP;
+      if(cur._y < need) cur._y = need;
+    }
+  });
 }
 
 /* Where a line meets a node, and how it gets there. Auto keeps the tidy
@@ -2359,53 +2398,98 @@ function segHitsRect(a, b, r){
   }
   return false;
 }
-/* Returns a list of points from p1 to p2 that misses everything in the way. */
+/* Build the cubic segments a set of waypoints turns into, so the real curve
+   can be tested rather than the straight line between them. */
+function cubicsThrough(pts, p1, p2){
+  if(pts.length === 2){
+    const reach = Math.max(45, Math.hypot(p2.x-p1.x, p2.y-p1.y) * 0.42);
+    return [[p1, {x:p1.x + p1.dx*reach, y:p1.y + p1.dy*reach},
+                 {x:p2.x + p2.dx*reach, y:p2.y + p2.dy*reach}, p2]];
+  }
+  /* bend each leg along its own run: a vertical leg gets vertical handles,
+     otherwise the curve snaps back across whatever it just went around */
+  const out = [];
+  for(let i = 1; i < pts.length; i++){
+    const a = pts[i-1], b = pts[i];
+    if(Math.abs(b.y - a.y) > Math.abs(b.x - a.x)){
+      const cy = (a.y + b.y)/2;
+      out.push([a, {x:a.x, y:cy}, {x:b.x, y:cy}, b]);
+    } else {
+      const cx = (a.x + b.x)/2;
+      out.push([a, {x:cx, y:a.y}, {x:cx, y:b.y}, b]);
+    }
+  }
+  return out;
+}
+function cubicsToD(segs){
+  let d = `M${segs[0][0].x},${segs[0][0].y}`;
+  segs.forEach(sg=>{ d += ` C${sg[1].x},${sg[1].y} ${sg[2].x},${sg[2].y} ${sg[3].x},${sg[3].y}`; });
+  return d;
+}
+function sampleCubics(segs, per){
+  const pts = [];
+  segs.forEach(sg=>{
+    for(let i = 0; i <= per; i++){
+      const t = i/per, u = 1-t;
+      pts.push({
+        x: u*u*u*sg[0].x + 3*u*u*t*sg[1].x + 3*u*t*t*sg[2].x + t*t*t*sg[3].x,
+        y: u*u*u*sg[0].y + 3*u*u*t*sg[1].y + 3*u*t*t*sg[2].y + t*t*t*sg[3].y });
+    }
+  });
+  return pts;
+}
+function pathHits(pts, p1, p2, rects){
+  const sp = sampleCubics(cubicsThrough(pts, p1, p2), 20);
+  const out = [];
+  for(const p of sp)
+    for(const r of rects)
+      if(p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h){
+        if(out.indexOf(r) < 0) out.push(r);
+      }
+  return out;
+}
+
+/* Take the link clear of everything it is not attached to. A run that is
+   mostly vertical goes out past the side of the whole obstruction and comes
+   back; a mostly horizontal one goes over or under it. */
 function avoidPath(p1, p2, skipA, skipB){
   const rects = nodeRects(skipA, skipB);
   if(!rects.length) return [p1, p2];
+  let blocking = pathHits([p1, p2], p1, p2, rects);
+  if(!blocking.length) return [p1, p2];
+
+  const vertical = Math.abs(p2.y - p1.y) > Math.abs(p2.x - p1.x);
   let pts = [p1, p2];
-  for(let pass = 0; pass < 3; pass++){
-    let changed = false;
-    const next = [pts[0]];
-    for(let i = 0; i < pts.length - 1; i++){
-      const a = pts[i], b = pts[i+1];
-      /* the nearest obstacle on this leg decides the detour */
-      let worst = null, worstD = Infinity;
-      for(const r of rects){
-        if(!segHitsRect(a, b, r)) continue;
-        const d = Math.hypot(r.cx - a.x, r.cy - a.y);
-        if(d < worstD){ worstD = d; worst = r; }
-      }
-      if(!worst){ next.push(b); continue; }
-      /* go over or under, whichever is the shorter way round */
-      const overY = worst.y - 6, underY = worst.y + worst.h + 6;
-      const mx = worst.cx;
-      const over = Math.abs(overY - (a.y + b.y)/2), under = Math.abs(underY - (a.y + b.y)/2);
-      const wy = over <= under ? overY : underY;
-      next.push({x:mx, y:wy});
-      next.push(b);
-      changed = true;
+
+  for(let attempt = 0; attempt < 5; attempt++){
+    const clear = 46 + attempt * 40;
+    if(vertical){
+      const right = Math.max(...blocking.map(r=>r.x + r.w)) + clear;
+      const left  = Math.min(...blocking.map(r=>r.x)) - clear;
+      const mid = (p1.x + p2.x)/2;
+      const lane = Math.abs(right - mid) <= Math.abs(left - mid) ? right : left;
+      const lo = Math.min(p1.y, p2.y), hi = Math.max(p1.y, p2.y);
+      const a = {x:lane, y:lo + (hi - lo) * 0.18};
+      const b = {x:lane, y:lo + (hi - lo) * 0.82};
+      pts = p1.y <= p2.y ? [p1, a, b, p2] : [p1, b, a, p2];
+    } else {
+      const below = Math.max(...blocking.map(r=>r.y + r.h)) + clear;
+      const above = Math.min(...blocking.map(r=>r.y)) - clear;
+      const mid = (p1.y + p2.y)/2;
+      const lane = Math.abs(below - mid) <= Math.abs(above - mid) ? below : above;
+      const lo = Math.min(p1.x, p2.x), hi = Math.max(p1.x, p2.x);
+      const a = {x:lo + (hi - lo) * 0.18, y:lane};
+      const b = {x:lo + (hi - lo) * 0.82, y:lane};
+      pts = p1.x <= p2.x ? [p1, a, b, p2] : [p1, b, a, p2];
     }
-    pts = next;
-    if(!changed) break;
-    if(pts.length > 8) break;
+    const still = pathHits(pts, p1, p2, rects);
+    if(!still.length) return pts;
+    blocking = blocking.concat(still.filter(r=>blocking.indexOf(r) < 0));
   }
   return pts;
 }
-/* a smooth line through the waypoints */
 function smoothThrough(pts, p1, p2){
-  if(pts.length === 2){
-    const reach = Math.max(45, Math.hypot(p2.x-p1.x, p2.y-p1.y) * 0.42);
-    return `M${p1.x},${p1.y} C${p1.x + p1.dx*reach},${p1.y + p1.dy*reach} `
-         + `${p2.x + p2.dx*reach},${p2.y + p2.dy*reach} ${p2.x},${p2.y}`;
-  }
-  let d = `M${pts[0].x},${pts[0].y}`;
-  for(let i = 1; i < pts.length; i++){
-    const prev = pts[i-1], cur = pts[i];
-    const cx = (prev.x + cur.x)/2;
-    d += ` C${cx},${prev.y} ${cx},${cur.y} ${cur.x},${cur.y}`;
-  }
-  return d;
+  return cubicsToD(cubicsThrough(pts, p1, p2));
 }
 
 function edgePathD(p1, p2, route, bow){
@@ -3178,7 +3262,7 @@ function render(){
       ? e.route
       : (e.link_type === "tree" ? (S.meta.routeTree || "curve") : (S.meta.routeCross || "curve"));
     let d;
-    if(S.avoidNodes && route === "curve" && !e.bow){
+    if(S.avoidNodes && route !== "straight" && !e.bow){
       const pts = avoidPath(p1, p2, e.from, e.to);
       d = smoothThrough(pts, p1, p2);
     } else {
@@ -3947,6 +4031,9 @@ const MIN_K = 0.05, MAX_K = 6;
       if(w > 40 && h > 30){
         const a = newArea({x, y, w, h});
         S.areas.set(a.id, a);
+        /* whatever it was drawn around belongs to it now, so the layout
+           will not shuffle those nodes back out */
+        nodesInArea(a).forEach(n=>{ n.pinned = true; n.x = n._x; n.y = n._y; });
         markDirty(); rebuild(); selectArea(a.id);
         if(window.matchMedia("(max-width:820px)").matches){
           el("inspector").classList.add("open"); el("scrim").classList.add("on");
