@@ -1221,8 +1221,8 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
  */
 var TOKEN        = 'change-me';                // full access: reads and rewrites the map
 var VIEWER_TOKEN = '';                         // hand this one out: read, and add suggestions only
-var BUILD = 'b4';                              // lets the app confirm which version is deployed
-var TABS  = ['Nodes','Links','Areas','Bookmarks','Questions','QuestionPins','Suggestions','CheckItems','Checkoffs','Revisions','TagStyles','Settings'];
+var BUILD = 'b5';                              // lets the app confirm which version is deployed
+var TABS  = ['Nodes','Links','Areas','Bookmarks','Questions','QuestionPins','Suggestions','CheckItems','Checkoffs','Revisions','TagStyles','Settings','Overflow'];
 
 function doGet(e)  { return handle(e, null); }
 function doPost(e) { return handle(e, JSON.parse((e.postData && e.postData.contents) || '{}')); }
@@ -1293,7 +1293,7 @@ function readAll(ss, prefix) {
 /* Adds or updates rows on the two contribution tabs and touches nothing else,
    so a viewer token cannot damage the map however it is used. */
 function contribute(ss, prefix, tables) {
-  ['Suggestions', 'Checkoffs', 'Questions', 'QuestionPins'].forEach(function (name) {
+  ['Suggestions', 'Checkoffs', 'Questions', 'QuestionPins', 'Overflow'].forEach(function (name) {
     var rows = (tables && tables[name]) || [];
     if (!rows.length) return;
     var sh = ss.getSheetByName(prefix + name) || ss.insertSheet(prefix + name);
@@ -1793,6 +1793,7 @@ const HDR = {
   CheckItems:["item_id","node_id","label","created","author"],
   Checkoffs:["check_id","item_id","node_id","person","checked","timestamp","note"],
   Settings:["key","value"],
+  Overflow:["ref_id","table","column","seq","text"],
   Questions:["question_id","text","person","timestamp","status","note"],
   QuestionPins:["pin_id","question_id","node_id","person","timestamp","note"]
 };
@@ -1874,7 +1875,7 @@ function toSheets(){
   return { Nodes:nodes, Links:links, Revisions:S.revisions.slice(), TagStyles:styles,
            Areas:areas, Bookmarks:bookmarks, Suggestions:suggestions,
            CheckItems:checkItems, Checkoffs:checkoffs, Questions:questions,
-           QuestionPins:pins, Settings:settings, Sync:sync };
+           QuestionPins:pins, Settings:settings, Overflow:[], Sync:sync };
 }
 function round(v){ return v==null?"":Math.round(v*10)/10; }
 
@@ -1895,6 +1896,7 @@ function exportXlsx(){
 /* Rows in, model out. Shared by the Excel reader and the Sheets sync so
    both paths agree on what a workbook means. */
 function tablesToModel(t){
+  mergeOverflow(t);
   const nodes = t.Nodes || [], links = (t.Links && t.Links.length) ? t.Links : (t.Edges || []),
         revs = t.Revisions || [], styles = t.TagStyles || [];
   const M = { nodes:new Map(), edges:new Map(), revisions:[], tagStyles:new Map(),
@@ -2138,8 +2140,8 @@ function importXlsx(file){
 function copyTsv(){
   const d = toSheets();
   let out = "";
-  for(const name of ["Nodes","Links","Areas","Bookmarks","Questions","QuestionPins","Suggestions","CheckItems","Checkoffs","Revisions","TagStyles","Settings","Sync"]){
-    if(!d[name].length && name!=="Nodes" && name!=="Links") continue;
+  for(const name of ["Nodes","Links","Areas","Bookmarks","Questions","QuestionPins","Suggestions","CheckItems","Checkoffs","Revisions","TagStyles","Settings","Overflow","Sync"]){
+    if(!(d[name]||[]).length && name!=="Nodes" && name!=="Links") continue;
     out += "### " + name + "\n" + HDR[name].join("\t") + "\n";
     for(const row of d[name]) out += HDR[name].map(h=>String(row[h]??"").replace(/[\t\n]/g," ")).join("\t") + "\n";
     out += "\n";
@@ -2941,6 +2943,7 @@ async function viewerSend(){
                 Questions:t.Questions, QuestionPins:t.QuestionPins};
   if(!only.Suggestions.length && !only.Checkoffs.length
      && !only.Questions.length && !only.QuestionPins.length) return;
+  splitForCells(only, SHEET_CELL);
   viewerBusy = true;
   try{
     const res = await callBridge(conn, "contribute", only);
@@ -5872,21 +5875,93 @@ const Store = {
 let fileHandle = null, fileName = "", filePending = false;
 const canLinkFile = typeof window.showSaveFilePicker === "function";
 
-function buildWorkbook(){
-  const data = toSheets();
-  /* a cell cannot hold a large image, so those are left out rather than
-     writing a file the spreadsheet will reject */
-  let dropped = 0;
-  ["image", "badge_image"].forEach(col=>{
-    (data.Nodes || []).forEach(r=>{
-      if(r[col] && String(r[col]).length > CELL_LIMIT){ r[col] = ""; dropped++; }
+/* Google Sheets refuses any cell over 50,000 characters and rejects the whole
+   write, so nothing oversized may leave here. Excel's ceiling is lower again. */
+const SHEET_CELL = 45000, XLSX_CELL = 32000;
+
+/* Which column identifies a row, so a continuation can be matched back to it */
+const ID_COL = {Nodes:"node_id", Links:"edge_id", Areas:"area_id", Bookmarks:"bookmark_id",
+  Questions:"question_id", QuestionPins:"pin_id", Suggestions:"suggestion_id",
+  CheckItems:"item_id", Checkoffs:"check_id", Revisions:"rev_id", Settings:"key",
+  Sync:"name", TagStyles:"tag"};
+
+const MAX_PARTS = 12;   // roughly half a megabyte in one field
+
+/* Anything too long for a cell is cut into pieces: the first stays where it
+   belongs and the rest go on an Overflow sheet, to be stitched back together
+   on the way in. Nothing is lost, and the sheet stays valid. */
+function splitForCells(tables, limit){
+  const chunk = Math.max(2000, limit - 120);
+  const spill = [];
+  const report = {split:0, dropped:0, names:[]};
+  Object.keys(tables).forEach(name=>{
+    if(name === "Overflow") return;
+    const idCol = ID_COL[name];
+    (tables[name] || []).forEach((row, i)=>{
+      Object.keys(row).forEach(k=>{
+        const v = row[k];
+        if(typeof v !== "string" || v.length <= limit) return;
+        const ref = String((idCol && row[idCol]) || (name + ":" + i));
+        const parts = [];
+        for(let at = 0; at < v.length; at += chunk) parts.push(v.slice(at, at + chunk));
+        if(parts.length > MAX_PARTS){
+          row[k] = ""; report.dropped++;
+          report.names.push(String(row.label || ref).slice(0, 34));
+          return;
+        }
+        row[k] = parts[0];
+        for(let n = 1; n < parts.length; n++)
+          spill.push({ref_id:ref, table:name, column:k, seq:n + 1, text:parts[n]});
+        report.split++;
+        report.names.push(String(row.label || ref).slice(0, 34));
+      });
     });
   });
-  (data.Settings || []).forEach(r=>{
-    if(r.key === "new_badge_image" && String(r.value).length > CELL_LIMIT){ r.value = ""; dropped++; }
+  tables.Overflow = spill;
+  return report;
+}
+
+/* Put the pieces back before anything reads the rows. */
+function mergeOverflow(t){
+  const rows = t && t.Overflow;
+  if(!rows || !rows.length) return;
+  const byTable = {};
+  rows.forEach(r=>{
+    const name = String(r.table || ""), col = String(r.column || "");
+    const ref = String(r.ref_id || "");
+    if(!name || !col || !ref) return;
+    (byTable[name] = byTable[name] || []).push({ref, col, seq:Number(r.seq) || 0,
+      text:String(r.text == null ? "" : r.text)});
   });
-  if(dropped) setTimeout(()=>toast(dropped + " image" + (dropped===1?" was":"s were")
-    + " too large for a spreadsheet and left out of the file."), 400);
+  Object.keys(byTable).forEach(name=>{
+    const idCol = ID_COL[name];
+    const list = (t[name] || []);
+    const index = {};
+    list.forEach((row, i)=>{
+      const key = String((idCol && row[idCol]) || (name + ":" + i));
+      index[key] = row;
+    });
+    byTable[name].sort((a,b)=>a.seq - b.seq).forEach(piece=>{
+      const row = index[piece.ref];
+      if(!row) return;
+      row[piece.col] = String(row[piece.col] == null ? "" : row[piece.col]) + piece.text;
+    });
+  });
+  t.Overflow = [];
+}
+
+function reportTrim(r, where){
+  if(!r || (!r.split && !r.dropped)) return;
+  const bits = [];
+  if(r.split) bits.push(r.split + " long value" + (r.split===1?"":"s")
+    + " sent in parts and rejoined when read back");
+  if(r.dropped) bits.push(r.dropped + " enormous value" + (r.dropped===1?"":"s") + " left out");
+  setTimeout(()=>toast("For " + where + ": " + bits.join("; ") + "."), 400);
+}
+
+function buildWorkbook(){
+  const data = toSheets();
+  reportTrim(splitForCells(data, XLSX_CELL), "a spreadsheet file");
   const wb = XLSX.utils.book_new();
   const widths = {
     Nodes:[14,34,44,11,20,9,10,40,8,19,19,6,6,10,9,19,40,8,8,8,14,7,60],
@@ -5903,8 +5978,9 @@ function buildWorkbook(){
     Checkoffs:[14,14,14,16,9,19,30],
     Settings:[14,44]
   };
-  for(const name of ["Nodes","Links","Areas","Bookmarks","Questions","QuestionPins","Suggestions","CheckItems","Checkoffs","Revisions","TagStyles","Settings","Sync"]){
+  for(const name of ["Nodes","Links","Areas","Bookmarks","Questions","QuestionPins","Suggestions","CheckItems","Checkoffs","Revisions","TagStyles","Settings","Overflow","Sync"]){
     if(name === "Sync" && !data.Sync.length) continue;
+    if(name === "Overflow" && !(data.Overflow||[]).length) continue;
     const ws = XLSX.utils.json_to_sheet(data[name], {header:HDR[name]});
     ws["!cols"] = widths[name].map(w=>({wch:w}));
     ws["!autofilter"] = {ref: XLSX.utils.encode_range({s:{r:0,c:0},e:{r:Math.max(data[name].length,1), c:HDR[name].length-1}})};
@@ -7411,7 +7487,7 @@ async function ungzipB64(b64){
    else. The choice is deliberate because a link is a copy that cannot be
    revoked. */
 async function buildTransferLink(dropImages, sync){
-  const tables = toSheets();
+  const tables = toSheets();   // links have no cell limit; nothing is trimmed here
   sync = sync || "none";
   if(sync === "none"){
     delete tables.Sync;
@@ -7628,10 +7704,13 @@ async function callBridge(conn, action, tables){
 }
 
 function tokenHint(err, res){
+  if(err && /50000 characters|maximum of 50000/i.test(String(err)))
+    return "A cell was over Google's 50,000 character limit. Update the bridge script to the "
+         + "current one and try again — this copy trims oversized cells before sending.";
   if(res && res.deployed === "placeholder")
     return "The deployed script still has the placeholder token. Editing the code is not "
          + "enough — Deploy \u2192 Manage deployments \u2192 edit \u2192 Version: New version.";
-  if(res && res.build && res.build !== "b4")
+  if(res && res.build && res.build !== "b5")
     return "An older copy of the script is live. Copy the bridge script again, paste it over, "
          + "then deploy a New version. Use Test this connection to confirm.";
   if(err && /token/i.test(String(err)))
@@ -7657,6 +7736,7 @@ async function runSync(kind){
       const t = toSheets();
       const only = {Suggestions:t.Suggestions, Checkoffs:t.Checkoffs,
                     Questions:t.Questions, QuestionPins:t.QuestionPins};
+      reportTrim(splitForCells(only, SHEET_CELL), "the sheet");   // adds only.Overflow
       if(!only.Suggestions.length && !only.Checkoffs.length
          && !only.Questions.length && !only.QuestionPins.length){
         toast("Nothing to send yet. Tick something or leave a suggestion first.");
@@ -7682,6 +7762,7 @@ async function runSync(kind){
       }
       const t = toSheets();
       delete t.Sync;
+      reportTrim(splitForCells(t, SHEET_CELL), "the sheet");
       const res = await callBridge(conn, "write", t);
       if(!res.ok) throw new Error(tokenHint(res.error, res) || "The sheet refused the write");
       conn.last_sync = nowISO();
@@ -7819,7 +7900,7 @@ function renderConnList(){
             <em>Anyone with the link</em>.</span>`);
           return;
         }
-        if(res.build !== "b4"){
+        if(res.build !== "b5"){
           say(`<span style="color:var(--flag)">An older copy of the script is live${res.build?" (build "+esc(res.build)+")":""}.
             Apps Script keeps serving the version you deployed, not the code in the editor.
             Copy the bridge script again, paste it over, then Deploy \u2192 Manage deployments
