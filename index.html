@@ -133,6 +133,10 @@ button{cursor:pointer}
 .tocitem:hover{background:var(--paper-2)}
 .tocitem.sel{background:var(--blueprint-soft);color:var(--blueprint)}
 .tocitem.retired{color:var(--retired)}
+.tocitem[draggable]{cursor:grab}
+.tocitem.dragging{opacity:.45}
+.tocitem.over-a{box-shadow:inset 0 2px 0 var(--blueprint)}
+.tocitem.over-b{box-shadow:inset 0 -2px 0 var(--blueprint)}
 .tocitem.retired .toclabel{text-decoration:line-through;text-decoration-color:var(--rule)}
 .toclabel{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tocdot{width:7px;height:7px;flex:0 0 auto;border:1px solid var(--graphite-60)}
@@ -832,6 +836,8 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
             <option value="calm">Calm — no movement, cues stay</option>
             <option value="off">Off — nothing moves or glows</option>
           </select></label>
+        <label class="check"><input type="checkbox" id="branchGrid" checked>
+          Pack big branches into a grid instead of one long column</label>
         <label class="check"><input type="checkbox" id="avoidNodes" checked>
           Steer links around nodes they are not connected to</label>
         <label class="check"><input type="checkbox" id="showIds"> Show node IDs and versions on the map</label>
@@ -1375,6 +1381,7 @@ const S = {
   checkItems:[],               // things the host asks people to confirm
   checkoffs:[],                // who confirmed what
   personal:{bookmarks:[], searches:[], recent:[], ackNew:{}, recentBadge:"", newBadge:"", art:{}, useHostArt:true},
+  branchGrid:true,             // pack big fans into a grid rather than one column
   avoidNodes:true,             // steer links around nodes they do not touch
   showIds:false,               // node id and revision on the node face
   notesMode:"search",          // off | always | search — how much of a note the map shows
@@ -1401,7 +1408,7 @@ function newNode(o={}){
   return Object.assign({
     id:uid("N-"), label:"New node", body:"", type:"step", tags:[],
     status:"active", flag:"", image:"", imageH:120, edit:0,
-    badge:"", badgeAt:"", badgeImage:"",
+    badge:"", badgeAt:"", badgeImage:"", order:"",
     created:nowISO(), modified:nowISO(),
     rev:1, author:S.meta.author, x:null, y:null, pinned:false, collapsed:false
   }, o);
@@ -1668,7 +1675,23 @@ function ensureTagStyle(tag, patch){
 function childrenOf(id){
   const out=[];
   for(const e of S.edges.values()) if(e.link_type==="tree" && e.from===id) out.push(e.to);
+  return orderSiblings(out, id);
+}
+
+/* An order set by hand wins; otherwise the clock decides. */
+function orderSiblings(out, parentId){
   if(out.length < 2) return out;
+  const hasOrder = out.some(k=>{ const n = S.nodes.get(k);
+    return n && n.order !== "" && n.order != null; });
+  if(hasOrder){
+    return out.slice().sort((a, b)=>{
+      const na = S.nodes.get(a), nb = S.nodes.get(b);
+      const oa = (na.order === "" || na.order == null) ? 1e9 : Number(na.order);
+      const ob = (nb.order === "" || nb.order == null) ? 1e9 : Number(nb.order);
+      return oa - ob;
+    });
+  }
+  const id = parentId;
   const p = S.nodes.get(id);
   if(!p || p._x == null) return out;
   const px = p._x + NODE_W/2, py = p._y + (p._h || 46)/2;
@@ -1688,7 +1711,7 @@ function parentOf(id){
 function roots(){
   const withParent = new Set();
   for(const e of S.edges.values()) if(e.link_type==="tree") withParent.add(e.to);
-  return [...S.nodes.keys()].filter(id=>!withParent.has(id));
+  return orderSiblings([...S.nodes.keys()].filter(id=>!withParent.has(id)), null);
 }
 function descendants(id, acc=new Set()){
   for(const c of childrenOf(id)){ if(!acc.has(c)){ acc.add(c); descendants(c, acc); } }
@@ -1782,7 +1805,7 @@ function seed(){
    Kept human-readable so the workbook stands on its own.
    ===================================================================== */
 const HDR = {
-  Nodes:["node_id","label","body","type","tags","status","flag","image","image_h","created","modified","rev","edit","author","badge","badge_at","badge_image","x","y","pinned","parent_id","depth","path"],
+  Nodes:["node_id","label","body","type","tags","status","flag","image","image_h","created","modified","rev","edit","author","badge","badge_at","badge_image","order","x","y","pinned","parent_id","depth","path"],
   Links:["edge_id","from_id","to_id","link_type","tag","label","condition","route","from_side","to_side","bow","color","line_style","width","arrow"],
   Revisions:["rev_id","node_id","timestamp","author","field","class","note","folded","old_value","new_value"],
   TagStyles:["tag","color","line_style","width","arrow","applies_to"],
@@ -1816,6 +1839,7 @@ function toSheets(){
     image:n.image||"", image_h:n.image?(n.imageH||120):"",
     created:n.created, modified:n.modified, rev:n.rev, edit:n.edit|0, author:n.author,
     badge:n.badge||"", badge_at:n.badgeAt||"", badge_image:n.badgeImage||"",
+    order:(n.order === "" || n.order == null) ? "" : Number(n.order),
     x:n.pinned?round(n.x):"", y:n.pinned?round(n.y):"", pinned:n.pinned?"yes":"",
     parent_id:parentOf(n.id)||"", depth:depthOf(n.id), path:pathOf(n.id)
   }));
@@ -1914,6 +1938,7 @@ function tablesToModel(t){
       created:String(r.created||nowISO()), modified:String(r.modified||nowISO()),
       rev:Number(r.rev)||1, edit:Number(r.edit)||0, author:String(r.author||S.meta.author),
       badge:String(r.badge||""), badgeAt:String(r.badge_at||""), badgeImage:String(r.badge_image||""),
+      order:(r.order === "" || r.order == null) ? "" : Number(r.order),
       x:(r.x===""||r.x==null)?null:Number(r.x), y:(r.y===""||r.y==null)?null:Number(r.y),
       pinned:/^(yes|true|1|y)$/i.test(String(r.pinned||""))
     });
@@ -2250,54 +2275,96 @@ function visibleNodes(){
   return set;
 }
 
+/* Lay a branch out on its own, then pack the branches. A single tall column
+   is unreadable once a map has a few hundred nodes, so a node whose children
+   carry a lot of weight arranges them in a grid that grows squarer as it
+   fills: two across, then three, then four. */
+const GRID_MIN_CHILDREN = 4, GRID_MIN_HEIGHT = 900, BLOCK_GAP = 70;
+
 function layout(){
   const vis = visibleNodes();
   const q = (S.hitQuery || "").toLowerCase();
   const hitSet = new Set(S.hits);
   for(const n of S.nodes.values()){
     n._lines = wrap(n.label, NODE_W - 22);
-    n._art = artFor(n, "image");
-    n._imgH = n._art ? Math.max(40, Math.min(400, Number(n.imageH)||120)) : 0;
+    n._imgH = (n._art = artFor(n, "image")) ? Math.max(40, Math.min(400, Number(n.imageH)||120)) : 0;
     n._tabular = looksLikeTable(n.body);
     n._note = noteLinesFor(n, q, hitSet.has(n.id));
     n._h = Math.max(40, n._lines.length * LINE_H + PAD_Y*2 + (S.showIds ? 9 : -4))
          + (n._imgH ? n._imgH + 8 : 0)
          + (n._note.length ? n._note.length * NOTE_LH + 8 : 0);
   }
-  let cursor = 0;
-  const visiting = new Set();
 
-  function place(id, depth){
+  const seen = new Set();
+  const build = id=>{
+    if(seen.has(id) || !vis.has(id)) return null;
+    seen.add(id);
     const n = S.nodes.get(id);
-    if(!n || visiting.has(id)) return;
-    visiting.add(id);
-    const kids = childrenOf(id).filter(k=>vis.has(k) && !visiting.has(k));
-    n._depth = depth;
-    if(!kids.length || n.collapsed){
-      n._ly = cursor + n._h/2;
-      cursor += n._h + ROW_GAP;
-    } else {
-      for(const k of kids) place(k, depth+1);
-      const ys = kids.map(k=>S.nodes.get(k)._ly).filter(v=>typeof v === "number");
-      n._ly = ys.length ? (Math.min(...ys) + Math.max(...ys))/2 : cursor;
-    }
-    n._lx = depth * (NODE_W + COL_GAP);
-  }
+    const kids = childrenOf(id).map(build).filter(Boolean);
+    let region = {w:0, h:0, cells:[]};
+    if(kids.length) region = (S.branchGrid && wantsGrid(kids)) ? packGrid(kids) : packColumn(kids);
+    return {id, n, kids, region,
+            w:NODE_W + (kids.length ? COL_GAP + region.w : 0),
+            h:Math.max(n._h, region.h)};
+  };
 
-  const rs = roots().filter(id=>vis.has(id));
-  for(const r of rs){ place(r, 0); cursor += ROW_GAP*2; }
-  for(const id of vis){ const n = S.nodes.get(id); if(n._ly === undefined) place(id, 0); }
+  const blocks = roots().map(build).filter(Boolean);
+  for(const id of vis) if(!seen.has(id)){ const bl = build(id); if(bl) blocks.push(bl); }
+
+  /* the top level packs the same way, so a wide map does not run off downward */
+  const top = (S.branchGrid && wantsGrid(blocks)) ? packGrid(blocks) : packColumn(blocks);
+  top.cells.forEach(c=>placeBlock(c.block, c.x, c.y));
 
   for(const id of vis){
     const n = S.nodes.get(id);
-    n._x = n.pinned && n.x != null ? n.x : (n._lx||0);
-    n._y = n.pinned && n.y != null ? n.y : (n._ly||0) - n._h/2;
+    /* both coordinates or neither: a half-pinned node used to emit
+       translate(x,null) and the whole group vanished */
+    if(n.pinned && n.x != null && n.y != null){ n._x = n.x; n._y = n.y; }
+    if(!isFinite(n._x)) n._x = 0;
+    if(!isFinite(n._y)) n._y = 0;
   }
   keepOutOfAreas(vis);
 }
 
-/* An area is space someone claimed. Nothing the layout places may drift into
-   it — a node gets there by being dragged, not by being arranged. */
+function wantsGrid(list){
+  if(list.length < GRID_MIN_CHILDREN) return false;
+  const total = list.reduce((a, b)=>a + b.h + ROW_GAP, 0);
+  return total > GRID_MIN_HEIGHT;
+}
+function packColumn(list){
+  let y = 0, w = 0;
+  const cells = list.map(b=>{
+    const cell = {block:b, x:0, y};
+    y += b.h + ROW_GAP;
+    w = Math.max(w, b.w);
+    return cell;
+  });
+  return {w, h:Math.max(0, y - ROW_GAP), cells};
+}
+function packGrid(list){
+  const cols = Math.ceil(Math.sqrt(list.length));
+  const rows = Math.ceil(list.length / cols);
+  const colW = new Array(cols).fill(0), rowH = new Array(rows).fill(0);
+  list.forEach((b, i)=>{
+    const c = i % cols, r = Math.floor(i / cols);
+    colW[c] = Math.max(colW[c], b.w);
+    rowH[r] = Math.max(rowH[r], b.h);
+  });
+  const xs = [], ys = [];
+  let x = 0; for(let c = 0; c < cols; c++){ xs.push(x); x += colW[c] + BLOCK_GAP; }
+  let y = 0; for(let r = 0; r < rows; r++){ ys.push(y); y += rowH[r] + BLOCK_GAP; }
+  const cells = list.map((b, i)=>({block:b, x:xs[i % cols], y:ys[Math.floor(i / cols)]}));
+  return {w:Math.max(0, x - BLOCK_GAP), h:Math.max(0, y - BLOCK_GAP), cells};
+}
+function placeBlock(b, x, y){
+  b.n._x = x;
+  b.n._y = y + (b.h - b.n._h) / 2;
+  if(!b.kids.length) return;
+  const rx = x + NODE_W + COL_GAP;
+  const ry = y + (b.h - b.region.h) / 2;
+  b.region.cells.forEach(c=>placeBlock(c.block, rx + c.x, ry + c.y));
+}
+
 function keepOutOfAreas(vis){
   if(!S.areas.size) return;
   const boxes = [...S.areas.values()].map(a=>({x:a.x - 12, y:a.y - 12,
@@ -3392,6 +3459,28 @@ function rebuild(){ layout(); buildTagFilters(); render(); renderInspector(); re
 /* =====================================================================
    CONTENTS — bookmarks, areas and an outline of the whole map
    ===================================================================== */
+/* Put one node before or after another among its siblings, and write the
+   resulting order down so it survives a reload. */
+function reorderSibling(moveId, targetId, after){
+  if(!canEdit()){ toast("Switch to editing mode to reorder."); return; }
+  const parent = parentOf(moveId);
+  if(parent !== parentOf(targetId)) return;
+  const sibs = parent ? childrenOf(parent) : roots();
+  const list = sibs.filter(x=>x !== moveId);
+  const at = list.indexOf(targetId);
+  if(at < 0) return;
+  list.splice(after ? at + 1 : at, 0, moveId);
+  list.forEach((id, i)=>{
+    const n = S.nodes.get(id);
+    if(!n) return;
+    /* an unset order reads as 0, so test for "unset" before comparing */
+    const unset = (n.order === "" || n.order == null);
+    if(unset || Number(n.order) !== i){ n.order = i; n.modified = nowISO(); }
+  });
+  logRev(moveId, "order", "", "moved " + (after ? "after " : "before ") + targetId);
+  markDirty(); rebuild();
+}
+
 function renderContents(){
   const q = (el("tocQ").value || "").trim().toLowerCase();
 
@@ -3541,7 +3630,8 @@ function renderContents(){
   const seen = new Set();
   const line = (n, depth, hasKids) => {
     const cls = "tocitem" + (n.status === "retired" ? " retired" : "") + (S.sel === n.id ? " sel" : "");
-    return `<div class="${cls}" data-jump="${esc(n.id)}" style="padding-left:${4 + depth*11}px">
+    return `<div class="${cls}" data-jump="${esc(n.id)}" draggable="true"
+      data-drag="${esc(n.id)}" style="padding-left:${4 + depth*11}px">
       ${hasKids ? `<span class="toctwist">&#9656;</span>` : `<span class="toctwist"></span>`}
       <span class="tocdot ${esc(n.type)}"></span>
       <span class="toclabel">${esc(n.label || n.id)}</span></div>`;
@@ -3570,6 +3660,36 @@ function renderContents(){
   el("tocOutline").innerHTML = html || `<p class="tocempty">Nothing matches.</p>`;
 
   const root = el("paneContents");
+  /* reorder branches without hunting for them on the map */
+  let dragId = null;
+  root.querySelectorAll("[data-drag]").forEach(e=>{
+    e.addEventListener("dragstart", ev=>{
+      dragId = e.dataset.drag;
+      ev.dataTransfer.effectAllowed = "move";
+      try{ ev.dataTransfer.setData("text/plain", dragId); }catch(err){}
+      e.classList.add("dragging");
+    });
+    e.addEventListener("dragend", ()=>{ dragId = null;
+      root.querySelectorAll(".tocitem").forEach(x=>x.classList.remove("dragging","over-a","over-b")); });
+    e.addEventListener("dragover", ev=>{
+      if(!dragId || dragId === e.dataset.drag) return;
+      if(parentOf(dragId) !== parentOf(e.dataset.drag)) return;   // siblings only
+      ev.preventDefault();
+      const r = e.getBoundingClientRect();
+      const after = (ev.clientY - r.top) > r.height/2;
+      e.classList.toggle("over-a", !after);
+      e.classList.toggle("over-b", after);
+    });
+    e.addEventListener("dragleave", ()=>e.classList.remove("over-a","over-b"));
+    e.addEventListener("drop", ev=>{
+      ev.preventDefault();
+      const target = e.dataset.drag;
+      const after = e.classList.contains("over-b");
+      e.classList.remove("over-a","over-b");
+      if(!dragId || dragId === target) return;
+      reorderSibling(dragId, target, after);
+    });
+  });
   root.querySelectorAll("[data-jump]").forEach(e=>{
     e.onclick = ev=>{ ev.preventDefault(); ev.stopPropagation();
       const id = e.dataset.jump;
@@ -5964,7 +6084,7 @@ function buildWorkbook(){
   reportTrim(splitForCells(data, XLSX_CELL), "a spreadsheet file");
   const wb = XLSX.utils.book_new();
   const widths = {
-    Nodes:[14,34,44,11,20,9,10,40,8,19,19,6,6,10,9,19,40,8,8,8,14,7,60],
+    Nodes:[14,34,44,11,20,9,10,40,8,19,19,6,6,10,9,19,40,7,8,8,8,14,7,60],
     Links:[14,14,14,10,14,20,24,10,10,10,7,10,11,7,7],
     Revisions:[8,14,19,10,14,11,26,7,30,30],
     TagStyles:[16,10,11,7,7,10],
@@ -5976,13 +6096,14 @@ function buildWorkbook(){
     Suggestions:[14,14,16,19,11,52,10,14,19],
     CheckItems:[14,14,34,19,14],
     Checkoffs:[14,14,14,16,9,19,30],
-    Settings:[14,44]
+    Settings:[14,44],
+    Overflow:[16,14,14,6,70]
   };
   for(const name of ["Nodes","Links","Areas","Bookmarks","Questions","QuestionPins","Suggestions","CheckItems","Checkoffs","Revisions","TagStyles","Settings","Overflow","Sync"]){
     if(name === "Sync" && !data.Sync.length) continue;
     if(name === "Overflow" && !(data.Overflow||[]).length) continue;
     const ws = XLSX.utils.json_to_sheet(data[name], {header:HDR[name]});
-    ws["!cols"] = widths[name].map(w=>({wch:w}));
+    ws["!cols"] = (widths[name] || cols.map(()=>14)).map(w=>({wch:w}));
     ws["!autofilter"] = {ref: XLSX.utils.encode_range({s:{r:0,c:0},e:{r:Math.max(data[name].length,1), c:HDR[name].length-1}})};
     XLSX.utils.book_append_sheet(wb, ws, name);
   }
@@ -6114,6 +6235,7 @@ async function afterMapSwitch(){
   applyMotion();
   if(el("showIds")) el("showIds").checked = S.showIds;
   if(el("avoidNodes")) el("avoidNodes").checked = S.avoidNodes;
+  if(el("branchGrid")) el("branchGrid").checked = S.branchGrid;
   if(el("routeTree")) el("routeTree").value = S.meta.routeTree || "curve";
   if(el("routeCross")) el("routeCross").value = S.meta.routeCross || "curve";
   if(el("crossLine")) el("crossLine").value = S.meta.crossLine || "dashed";
@@ -6578,6 +6700,7 @@ async function loadPersonal(){
       if(rec.motion) S.motion = rec.motion;
       S.showIds = !!rec.showIds;
       if(typeof rec.avoidNodes === "boolean") S.avoidNodes = rec.avoidNodes;
+      if(typeof rec.branchGrid === "boolean") S.branchGrid = rec.branchGrid;
       S.personal.recent = Array.isArray(rec.recent) ? rec.recent : [];
       S.personal.ackNew = rec.ackNew && typeof rec.ackNew === "object" ? rec.ackNew : {};
       S.personal.recentBadge = rec.recentBadge || "";
@@ -6593,7 +6716,7 @@ async function savePersonal(){
     await Store.putKey(personalKey(), {
       bookmarks:S.personal.bookmarks, searches:S.personal.searches,
       who:S.who, mode:S.mode, notesMode:S.notesMode, motion:S.motion, showIds:S.showIds,
-      avoidNodes:S.avoidNodes,
+      avoidNodes:S.avoidNodes, branchGrid:S.branchGrid,
       recent:S.personal.recent, ackNew:S.personal.ackNew,
       recentBadge:S.personal.recentBadge || "", newBadge:S.personal.newBadge || "",
       art:S.personal.art, useHostArt:S.personal.useHostArt, at:nowISO()
@@ -7719,6 +7842,17 @@ function tokenHint(err, res){
   return err;
 }
 
+/* Ask the sheet which build of the script is live, without needing a token. */
+async function scriptIsCurrent(conn){
+  try{
+    const u = new URL((conn.endpoint||"").trim());
+    u.searchParams.set("action", "ping");
+    const r = await fetch(u.toString(), {method:"GET", redirect:"follow"});
+    const j = await r.json();
+    return j && j.build === "b5";
+  }catch(e){ return true; }   // unreachable: let the write speak for itself
+}
+
 async function runSync(kind){
   const conn = activeConnection();
   if(!conn){ toast("Set up a sheet first"); return; }
@@ -7762,7 +7896,25 @@ async function runSync(kind){
       }
       const t = toSheets();
       delete t.Sync;
-      reportTrim(splitForCells(t, SHEET_CELL), "the sheet");
+      const split = splitForCells(t, SHEET_CELL);
+      /* An older script has no Overflow tab, so it would take the first piece
+         of a long value and quietly bin the rest. Check before writing. */
+      if((t.Overflow || []).length && !(await scriptIsCurrent(conn))){
+        const ok = confirm(
+          "The script deployed on this sheet is an older version.\n\n"
+          + split.split + " long value" + (split.split===1?"":"s") + " had to be sent in parts, "
+          + "and that version does not know about the Overflow tab. It would save the first "
+          + "part and throw the rest away, so those notes and images would come back "
+          + "shortened.\n\n"
+          + "Copy the bridge script again and deploy a new version first.\n\n"
+          + "Push anyway?");
+        if(!ok){
+          el("syncNote").innerHTML = `<span style="color:var(--flag)">Push cancelled.</span> `
+            + `Copy the bridge script again and deploy a new version, then try Push.`;
+          return;
+        }
+      }
+      reportTrim(split, "the sheet");
       const res = await callBridge(conn, "write", t);
       if(!res.ok) throw new Error(tokenHint(res.error, res) || "The sheet refused the write");
       conn.last_sync = nowISO();
@@ -7902,7 +8054,9 @@ function renderConnList(){
         }
         if(res.build !== "b5"){
           say(`<span style="color:var(--flag)">An older copy of the script is live${res.build?" (build "+esc(res.build)+")":""}.
-            Apps Script keeps serving the version you deployed, not the code in the editor.
+            Long notes and images cannot round-trip until it is updated, because the Overflow
+            tab is missing. Apps Script keeps serving the version you deployed, not the code
+            in the editor.
             Copy the bridge script again, paste it over, then Deploy \u2192 Manage deployments
             \u2192 edit \u2192 Version: <em>New version</em>.</span>`);
           return;
@@ -8015,6 +8169,7 @@ async function boot(){
   el("dimOthers").onchange = render;
   el("showScope").onchange = ()=>rebuild();
   el("notesMode").onchange = e=>{ S.notesMode = e.target.value; savePersonal(); rebuild(); };
+  el("branchGrid").onchange = e=>{ S.branchGrid = e.target.checked; savePersonal(); rebuild(); fitView(0.96,0.4); };
   el("avoidNodes").onchange = e=>{ S.avoidNodes = e.target.checked; savePersonal(); render(); };
   el("showIds").onchange = e=>{ S.showIds = e.target.checked; savePersonal(); rebuild(); };
   el("motionPref").onchange = e=>{ S.motion = e.target.value; applyMotion(); savePersonal(); render(); };
@@ -8577,6 +8732,7 @@ async function boot(){
   applyMotion();
   if(el("showIds")) el("showIds").checked = S.showIds;
   if(el("avoidNodes")) el("avoidNodes").checked = S.avoidNodes;
+  if(el("branchGrid")) el("branchGrid").checked = S.branchGrid;
   if(el("routeTree")) el("routeTree").value = S.meta.routeTree || "curve";
   if(el("routeCross")) el("routeCross").value = S.meta.routeCross || "curve";
   if(el("crossLine")) el("crossLine").value = S.meta.crossLine || "dashed";
