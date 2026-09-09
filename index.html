@@ -189,6 +189,8 @@ input[type=url],select,textarea{
 }
 input[type=number]{max-width:96px}
 textarea{resize:vertical;min-height:64px;line-height:1.45}
+/* the notes box is where the long writing happens, so it starts taller */
+textarea.notebox{min-height:132px;max-height:46vh;font-size:12.5px;line-height:1.5}
 label.field{display:block;margin-bottom:10px}
 label.field>span{display:block;font-size:12px;color:var(--graphite-60);margin-bottom:3px}
 
@@ -348,6 +350,13 @@ html[data-motion="off"] *{transition:none !important}
 .badge:hover .badge-x{opacity:1}
 @media (hover:none){ .badge-x{opacity:.9} }
 .noteview{font-size:13px;line-height:1.5;margin:10px 0 0}
+.tablepeek{margin:-2px 0 10px}
+.tablepeek>summary{cursor:pointer;list-style:none;font-size:12px;color:var(--graphite-60);padding:4px 0}
+.tablepeek>summary::-webkit-details-marker{display:none}
+.tablepeek>summary::before{content:"\25B8 ";font-size:9px}
+.tablepeek[open]>summary::before{content:"\25BE "}
+.tablepeek .noteview{max-height:280px;overflow:auto;margin:4px 0 0;
+  border:1px solid var(--rule-soft);border-radius:2px;padding:8px}
 .notepara{margin:0 0 8px;white-space:pre-wrap}
 .tablewrap{overflow-x:auto;margin:0 0 10px;border:1px solid var(--rule);border-radius:2px}
 .notetable{border-collapse:collapse;width:100%;font-size:12.5px}
@@ -488,6 +497,9 @@ dialog#connDlg::backdrop{background:rgba(35,40,45,.42)}
 .conn .hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}
 .conn .hdr strong{font-size:13px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+dialog#viewerKindDlg{border:1px solid var(--graphite);border-radius:3px;padding:0;
+  background:var(--paper);width:min(560px,94vw);max-height:88dvh;color:var(--graphite)}
+dialog#viewerKindDlg::backdrop{background:rgba(35,40,45,.42)}
 dialog#themeDlg{border:1px solid var(--graphite);border-radius:3px;padding:0;background:var(--paper);
   width:min(720px,96vw);max-height:88dvh;color:var(--graphite)}
 dialog#themeDlg::backdrop{background:rgba(35,40,45,.42)}
@@ -1115,6 +1127,32 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
       Sheets are saved with the map and written to the Sync tab of your workbook.
       Use <em>Copy a link to this setup</em> to carry the same connection to another device.
     </p>
+  </div>
+</dialog>
+
+<dialog id="viewerKindDlg">
+  <div class="dlg-head">
+    <h2>Build a viewer copy</h2>
+    <button class="btn" id="vkCancel">Cancel</button>
+  </div>
+  <div class="dlg-body">
+    <div class="conn">
+      <div class="hdr"><strong>A link to the live tool</strong><span class="status-pill">2 KB</span></div>
+      <p class="fineprint" style="margin:0 0 10px">Tiny. Opens the hosted version, so everyone
+        gets your changes to the tool automatically. Needs the tool to be reachable at a web
+        address from wherever they open it.</p>
+      <button class="btn primary wide" id="vkLauncher">Build the link</button>
+    </div>
+    <div class="conn">
+      <div class="hdr"><strong>A self-contained file</strong><span class="status-pill">~400 KB</span></div>
+      <p class="fineprint" style="margin:0 0 10px">The whole tool and the map in one file. Opens
+        straight from a folder or a network share, with no web address involved. It stays on the
+        version you built it from, so hand out a fresh one when you want people to have your
+        latest changes.</p>
+      <button class="btn wide" id="vkStandalone">Build the file</button>
+    </div>
+    <p class="fineprint">Either way it opens read-only and can only add suggestions, questions
+      and check-offs — and either way the sheet connection has to be reachable for syncing.</p>
   </div>
 </dialog>
 
@@ -1904,6 +1942,11 @@ function toSheets(){
 function round(v){ return v==null?"":Math.round(v*10)/10; }
 
 function exportXlsx(){
+  if(typeof XLSX === "undefined"){
+    toast("The spreadsheet library could not be loaded, so .xlsx is unavailable here. "
+        + "Copy as TSV works offline, and the map is still saved in this browser.");
+    return;
+  }
   if(typeof XLSX === "undefined"){
     toast("Excel library did not load. Use Copy as TSV and paste into a sheet.");
     return;
@@ -3790,7 +3833,10 @@ function updateModeUI(){
   v.classList.toggle("on", !isRoot());
   document.body.classList.toggle("viewing", !isRoot());
   if(S.viewerBuild){
-    note.innerHTML = `This is a viewing copy. The map cannot be changed here, and the sheet
+    note.innerHTML = (typeof XLSX === "undefined"
+      ? `<span style="color:var(--flag)">Running without an internet connection, so saving to
+         .xlsx is unavailable.</span> ` : "")
+      + `This is a viewing copy. The map cannot be changed here, and the sheet
       connection only lets it add suggestions, questions and check-offs. Everything personal —
       bookmarks, badges, your own pictures, themes — is yours and stays on this device.`;
     lock.disabled = true;
@@ -4575,12 +4621,24 @@ function parseTable(block){
     .filter(l=>!/^\|?\s*:?-{2,}/.test(l.replace(/\|/g, "")))
     .map(l=>l.replace(/^\||\|$/g, "").split("|").map(c=>c.trim()));
 }
+function noteHasTable(text){
+  if(!looksLikeTable(text)) return false;
+  return String(text||"").split(/\n{2,}/).some(block=>{
+    if(!looksLikeTable(block)) return false;
+    const rows = parseTable(block);
+    if(rows.length < 2 || rows[0].length < 2) return false;
+    /* a real table has the same number of cells on every line; prose that
+       happens to contain a pipe does not */
+    return rows.every(r=>r.length === rows[0].length);
+  });
+}
 function noteToHtml(text){
   const out = [];
   String(text||"").split(/\n{2,}/).forEach(block=>{
     if(looksLikeTable(block)){
       const rows = parseTable(block);
-      if(rows.length){
+      if(rows.length >= 2 && rows[0].length >= 2
+         && rows.every(r=>r.length === rows[0].length)){
         const head = rows[0], body = rows.slice(1);
         out.push(`<div class="tablewrap"><table class="notetable">
           <thead><tr>${head.map(c=>`<th>${esc(c)}</th>`).join("")}</tr></thead>
@@ -4854,8 +4912,11 @@ function renderInspector(){
   body.innerHTML = `
     <div class="group">
       <label class="field"><span>Label</span><input type="text" id="fLabel" value="${esc(n.label)}"></label>
-      <label class="field"><span>Notes</span><textarea id="fBody">${esc(n.body)}</textarea></label>
-      ${looksLikeTable(n.body) ? `<div class="noteview" style="margin:-4px 0 10px">${noteToHtml(n.body)}</div>` : ""}
+      <label class="field"><span>Notes${n.body && n.body.length > 600
+        ? ` <span class="fold">${(n.body.length/1000).toFixed(1)}k characters</span>` : ""}</span>
+        <textarea id="fBody" class="notebox">${esc(n.body)}</textarea></label>
+      ${noteHasTable(n.body) ? `<details class="tablepeek"><summary>Table preview</summary>
+        <div class="noteview">${noteToHtml(n.body)}</div></details>` : ""}
       <label class="field"><span>Type</span>
         <select id="fType">
           ${["start","decision","step","end","note"].map(t=>`<option value="${t}"${n.type===t?" selected":""}>${t}</option>`).join("")}
@@ -6154,7 +6215,8 @@ const FILE_MIN_GAP = 15000;
 async function writeLinkedFile(force){
   if(!fileHandle || filePending) return;
   if(typeof XLSX === "undefined"){
-    fileError = "the spreadsheet library did not load"; updateSaveNote(); return;
+    fileError = "the spreadsheet library could not be loaded, so no file can be written";
+    updateSaveNote(); return;
   }
   if(fileWriting){ fileQueued = true; return; }
   if(!force && fileLastWrite && Date.now() - fileLastWrite < FILE_MIN_GAP){
@@ -6424,6 +6486,69 @@ async function hashText(t){
 }
 
 async function buildViewerFile(){
+  const kind = await askViewerKind();
+  if(!kind) return;
+  if(kind === "standalone") return buildStandaloneViewer();
+  return buildViewerLauncher();
+}
+
+function askViewerKind(){
+  return new Promise(res=>{
+    const dlg = el("viewerKindDlg");
+    el("vkLauncher").onclick = ()=>{ dlg.close(); res("launcher"); };
+    el("vkStandalone").onclick = ()=>{ dlg.close(); res("standalone"); };
+    el("vkCancel").onclick = ()=>{ dlg.close(); res(null); };
+    dlg.showModal();
+  });
+}
+
+/* Everything in one file: the app, the map, the connection. Opens from a
+   folder with no web address behind it, at the cost of being frozen at the
+   version it was built from. */
+async function buildStandaloneViewer(){
+  const conn = activeConnection();
+  if(!conn || !(conn.endpoint||"").trim()){ toast("Set up the sheet first, in Manage sheets."); return; }
+  if(!(conn.viewerToken||"").trim()){
+    toast("Give the connection a viewer token first."); return;
+  }
+  let src;
+  try{
+    const r = await fetch(location.href, {cache:"no-store"});
+    src = await r.text();
+    if(!/id="viewerSlot"/.test(src)) throw new Error("unexpected source");
+  }catch(e){
+    toast("Could not read this page's own source. Build the self-contained copy from the "
+        + "tool's web address, then hand the file out."); return;
+  }
+  const tables = toSheets();
+  delete tables.Sync;
+  splitForCells(tables, 200000);
+  const cfg = {
+    v:3, standalone:true, madeAt:nowISO(), title:S.meta.title || "Map",
+    mapKey:"V-" + (await hashText((S.meta.title||"") + "|" + (conn.endpoint||"")
+                                 + "|" + (conn.prefix||"") + "|" + (conn.id||""))),
+    theme:{ id:S.themeId, custom:(S.customThemes||[]).find(t=>t.id === S.themeId) || null },
+    connection:{ name:(conn.name || "Sheet") + " (viewing)", endpoint:conn.endpoint.trim(),
+                 id:conn.id||"", prefix:conn.prefix||"", token:conn.viewerToken.trim(),
+                 mode:"merge", auto:true },
+    map:await gzipB64(JSON.stringify(tables))
+  };
+  const tag = '<script id="viewerConfig" type="application/json">'
+            + JSON.stringify(cfg).replace(/<\//g, "<\\/") + '<\/script>';
+  const out = src.replace('<div id="viewerSlot"></div>', '<div id="viewerSlot"></div>' + tag)
+                 .replace(/<title>[^<]*<\/title>/, "<title>" + esc(S.meta.title || "MindMap") + " — viewing<\/title>");
+  const safe = (S.meta.title || "mindmap").replace(/[^\w\- ]+/g,"").trim().replace(/\s+/g,"-") || "mindmap";
+  const blob = new Blob([out], {type:"text/html"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = safe + "-viewer-offline.html";
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 6000);
+  toast("Self-contained copy saved, " + Math.round(out.length/1024) + " KB. It opens from a "
+      + "folder and carries the map with it.");
+}
+
+async function buildViewerLauncher(){
   const conn = activeConnection();
   if(!conn || !(conn.endpoint||"").trim()){
     toast("Set up the sheet first, in Manage sheets."); return;
@@ -6501,6 +6626,12 @@ async function buildViewerFile(){
 /* A viewer arrives either with #v= in the address or with the lock already
    recorded against this map on this device. */
 async function loadViewerConfig(){
+  /* a self-contained copy carries its config in the page itself */
+  const tag = document.getElementById("viewerConfig");
+  if(tag){
+    try{ return applyViewerConfig(JSON.parse(tag.textContent)); }
+    catch(e){ console.warn("embedded viewer config unreadable", e); }
+  }
   const m = /[#&]v=([^&]+)/.exec(bootHash || "");
   if(!m) return null;
   let cfg = null;
@@ -8773,6 +8904,20 @@ async function boot(){
     }
   }catch(e){}
 
+  if(!restored && viewerCfg && viewerCfg.map){
+    try{
+      const tables = JSON.parse(await ungzipB64(viewerCfg.map));
+      const M = tablesToModel(tables);
+      if(M.nodes.size){
+        adoptModel(M, true);
+        S.meta.title = viewerCfg.title || S.meta.title;
+        S.meta.key = viewerCfg.mapKey || uid("M-");
+        S.meta.provisional = false;
+        restored = true;
+        markDirty(); rebuild(); fitView(0.96, 0.5);
+      }
+    }catch(e){ console.warn("embedded map failed to open", e); }
+  }
   if(!restored && viewerCfg){
     /* nothing stored here yet. Clear the sample the boot drew as a placeholder
        and wait for the sheet rather than showing someone else's map. */
