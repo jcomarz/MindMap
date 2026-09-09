@@ -747,6 +747,7 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
   <button class="btn" id="topAdd">Add node</button>
   <select id="searchScope" title="What to search">
     <option value="all">Everything</option>
+    <option value="labels">Labels only</option>
     <option value="parents">Section heads</option>
     <option value="areas">Areas</option>
     <option value="bookmarks">Bookmarks</option>
@@ -2295,7 +2296,8 @@ function noteLinesFor(n, q, isHit){
   const body = String(n.body || "").trim();
   if(!body) return [];
   const mode = S.notesMode;
-  const matches = q && body.toLowerCase().includes(q);
+  const matches = q && body.toLowerCase().includes(q)
+    && S.searchScope !== "labels" && S.searchScope !== "parents";
   const forced = S.expanded.has(n.id);
   const cap = forced ? 600 : NOTE_MAX;
   if(!forced){
@@ -5267,16 +5269,21 @@ function runSearch(){
     S.bmHits = S.bookmarks.concat(S.personal.bookmarks)
       .filter(b=>matches([b.label, nodeName(b.node)].join(" "))).map(b=>b.id);
   } else {
-    S.qHits = terms.length
+    S.qHits = (terms.length && scope === "all")
       ? S.questions.filter(x=>questionMatches(x, terms)).map(x=>x.id) : [];
     const viaQuestions = new Set();
     S.qHits.forEach(qid=>pinsFor(qid).forEach(pn=>{
       if(S.nodes.has(pn.node)) viaQuestions.add(pn.node);
     }));
+    /* Labels only and Section heads look at the name of the node, not what is
+       written inside it — searching a section head is about getting there, not
+       finding every note that mentions the word. */
+    const titleOnly = (scope === "labels" || scope === "parents");
     S.hits = [...S.nodes.values()].filter(n=>{
       if(scope === "parents" && !childrenOf(n.id).length) return false;
       if(!tagsPass(n)) return false;
       if(!terms.length) return true;
+      if(titleOnly) return matches([n.label, (n.tags||[]).join(" ")].join(" "));
       const hay = [n.label, n.body, n.id, n.type, n.status, (n.tags||[]).join(" "),
         (n.image||"").startsWith("data:") ? "photo image" : (n.image||"")].join(" ");
       return viaQuestions.has(n.id) || matches(hay);
@@ -8726,7 +8733,8 @@ async function boot(){
     S.searchScope = e.target.value;
     el("q").placeholder = e.target.value === "areas" ? "Search area names"
       : e.target.value === "bookmarks" ? "Search bookmarks"
-      : e.target.value === "parents" ? "Search section heads"
+      : e.target.value === "parents" ? "Search the names of section heads"
+      : e.target.value === "labels" ? "Search node names only"
       : "Search labels, notes, tags, IDs";
     runSearch();
   };
