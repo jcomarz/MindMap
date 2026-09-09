@@ -6125,7 +6125,10 @@ async function linkFile(){
     try{ await Store.putKey("fileHandle", fileHandle); }catch(e){}
     await writeLinkedFile(true);
     updateSaveNote();
-    toast("Linked to " + fileName + ". It is rewritten as you work.");
+    toast(fileError
+      ? "Linked to " + fileName + ", but the first write failed: " + fileError
+      : "Saved to " + fileName + (fileBytes ? ", " + Math.round(fileBytes/1024) + " KB" : "")
+        + ". It is rewritten as you work.");
   }catch(e){ if(e.name !== "AbortError") toast(String(e.message||e)); }
 }
 
@@ -6142,18 +6145,45 @@ async function reconnectFile(){
   }catch(e){ return false; }
 }
 
+let fileLastWrite = null, fileError = "", fileWriting = false, fileQueued = null;
+
+/* Rewrites the bound .xlsx in place. Throttled, because building a workbook
+   for every keystroke would be wasteful, but not so slow that the file on
+   disk lags behind by minutes. */
+const FILE_MIN_GAP = 15000;
 async function writeLinkedFile(force){
-  if(!fileHandle || typeof XLSX === "undefined" || filePending) return;
+  if(!fileHandle || filePending) return;
+  if(typeof XLSX === "undefined"){
+    fileError = "the spreadsheet library did not load"; updateSaveNote(); return;
+  }
+  if(fileWriting){ fileQueued = true; return; }
+  if(!force && fileLastWrite && Date.now() - fileLastWrite < FILE_MIN_GAP){
+    clearTimeout(fileQueued);
+    fileQueued = setTimeout(()=>writeLinkedFile(true), FILE_MIN_GAP);
+    return;
+  }
+  fileWriting = true;
   try{
     const perm = await fileHandle.queryPermission({mode:"readwrite"});
     if(perm !== "granted"){ filePending = true; updateSaveNote(); return; }
-    filePending = false;
     const out = XLSX.write(buildWorkbook(), {bookType:"xlsx", type:"array"});
     const w = await fileHandle.createWritable();
     await w.write(new Blob([out]));
     await w.close();
-  }catch(e){ console.warn("linked file write failed", e); }
+    fileLastWrite = Date.now();
+    fileError = "";
+    fileBytes = out.byteLength || out.length || 0;
+  }catch(e){
+    /* a failure here used to be swallowed while the panel still said it was
+       writing, which is worse than no feature at all */
+    fileError = String(e && e.message || e);
+    console.warn("linked file write failed", e);
+  }finally{
+    fileWriting = false;
+    updateSaveNote();
+  }
 }
+let fileBytes = 0;
 
 let saveTimer = null, lastSnapshotAt = 0, editsSinceSnapshot = 0, lastSavedAt = null, saveFailed = "", oversized = "";
 
@@ -6212,8 +6242,8 @@ async function saveNow(force){
       }
       lastSnapshotAt = Date.now();
       editsSinceSnapshot = 0;
-      writeLinkedFile();
     }
+    writeLinkedFile();
     updateSaveNote();
     return true;
   }catch(e){
@@ -6302,8 +6332,20 @@ function ago(iso){
 function updateSaveNote(){
   const el2 = el("saveNote");
   if(!el2) return;
-  const lf = fileName ? (filePending ? ` Linked file <code>${esc(fileName)}</code> needs permission again.`
-                                     : ` Also writing to <code>${esc(fileName)}</code>.`) : "";
+  let lf = "";
+  if(fileName){
+    if(filePending)
+      lf = ` <span style="color:var(--flag)">The file <code>${esc(fileName)}</code> needs permission
+             again — press Keep a live file on disk to reconnect.</span>`;
+    else if(fileError)
+      lf = ` <span style="color:var(--flag)">Could not write <code>${esc(fileName)}</code>:
+             ${esc(fileError)}</span>`;
+    else if(fileLastWrite)
+      lf = ` <code>${esc(fileName)}</code> written ${esc(ago(new Date(fileLastWrite).toISOString()))}`
+         + (fileBytes ? `, ${Math.round(fileBytes/1024)} KB.` : ".");
+    else
+      lf = ` Waiting to write <code>${esc(fileName)}</code>.`;
+  }
   if(Store.mode === "blocked"){
     el2.innerHTML = `<strong style="color:var(--flag)">Storage is not open, so nothing is being saved.</strong>
       Your maps are still in this browser. Close any other MindMap tabs and reload.${lf}`;
@@ -7801,6 +7843,24 @@ function targetOf(conn){
   return [(conn.endpoint||"").trim(), (conn.id||"").trim(), (conn.prefix||"").trim()].join("|");
 }
 
+/* Nothing waits forever. A request that never answers is reported as one. */
+const NET_TIMEOUT = 20000;
+async function fetchWithTimeout(url, opts, ms){
+  const ctl = (typeof AbortController !== "undefined") ? new AbortController() : null;
+  const t = setTimeout(()=>{ try{ ctl && ctl.abort(); }catch(e){} }, ms || NET_TIMEOUT);
+  try{
+    return await fetch(url, Object.assign({}, opts, ctl ? {signal:ctl.signal} : {}));
+  }catch(e){
+    if(e && (e.name === "AbortError" || /abort/i.test(String(e.message||""))))
+      throw new Error("No answer in " + Math.round((ms || NET_TIMEOUT)/1000)
+        + " seconds. Check the deployment is set to “Anyone with the link” and that the "
+        + "address ends in /exec.");
+    throw new Error("Could not reach the script: " + (e.message || e)
+      + ". If this is a fresh deployment, open the /exec address in a tab once and accept "
+      + "the permissions prompt.");
+  }finally{ clearTimeout(t); }
+}
+
 async function callBridge(conn, action, tables){
   const base = (conn.endpoint||"").trim();
   if(!/^https:\/\/script\.google(usercontent)?\.com\//.test(base))
@@ -7811,19 +7871,38 @@ async function callBridge(conn, action, tables){
     if(conn.token) u.searchParams.set("token", conn.token);
     if(conn.id) u.searchParams.set("id", conn.id);
     if(conn.prefix) u.searchParams.set("prefix", conn.prefix);
-    const r = await fetch(u.toString(), {method:"GET", redirect:"follow"});
+    const r = await fetchWithTimeout(u.toString(), {method:"GET", redirect:"follow"});
     if(!r.ok) throw new Error("The sheet replied " + r.status);
-    return await r.json();
+    const text = await r.text();
+    try{ return JSON.parse(text); }
+    catch(e){ throw new Error(nonJsonHint(text)); }
   }
   /* No custom headers, so the browser sends a simple request and Apps
      Script never has to answer a preflight it cannot answer. */
-  const r = await fetch(base, {
+  const r = await fetchWithTimeout(base, {
     method:"POST", redirect:"follow",
     body: JSON.stringify({action, token:conn.token||"", id:conn.id||"",
                           prefix:conn.prefix||"", tables})
-  });
+  }, 45000);
   if(!r.ok) throw new Error("The sheet replied " + r.status);
-  return await r.json();
+  const text = await r.text();
+  try{ return JSON.parse(text); }
+  catch(e){ throw new Error(nonJsonHint(text)); }
+}
+
+function nonJsonHint(text){
+  const t = String(text || "").slice(0, 400);
+  if(/accounts\.google\.com|Sign in|signin/i.test(t))
+    return "The script asked for a Google sign-in, which means the deployment is not open. "
+         + "Redeploy with “Who has access: Anyone with the link”.";
+  if(/Authorization is required|authorize/i.test(t))
+    return "The script has not been authorised yet. Open the /exec address in a browser tab "
+         + "once, allow the permissions, then try again.";
+  if(/Script function not found|doGet/i.test(t))
+    return "The deployment does not point at this script. Deploy → Manage deployments → edit, "
+         + "and make sure the type is Web app.";
+  return "The address answered with a page rather than data. Check it is the /exec address "
+       + "from Deploy → Manage deployments.";
 }
 
 function tokenHint(err, res){
@@ -7847,7 +7926,7 @@ async function scriptIsCurrent(conn){
   try{
     const u = new URL((conn.endpoint||"").trim());
     u.searchParams.set("action", "ping");
-    const r = await fetch(u.toString(), {method:"GET", redirect:"follow"});
+    const r = await fetchWithTimeout(u.toString(), {method:"GET", redirect:"follow"}, 12000);
     const j = await r.json();
     return j && j.build === "b5";
   }catch(e){ return true; }   // unreachable: let the write speak for itself
@@ -8007,7 +8086,7 @@ function renderConnList(){
     const slot = box.querySelector(`[data-owner="${i}"]`);
     if(!slot) return;
     if(!(c.endpoint||"").trim()){
-      slot.textContent = "Four tabs are used: Nodes, Links, Areas, Bookmarks, Revisions, TagStyles.";
+      slot.textContent = "Thirteen tabs are used, from Nodes and Links through to Overflow.";
       return;
     }
     const owner = await Store.ownerOfTarget(targetOf(c));
@@ -8016,9 +8095,9 @@ function renderConnList(){
         \u201c${esc(owner.title || "another map")}\u201d. Set a tab prefix below to keep both
         maps in the same spreadsheet, or point this one at a different Spreadsheet ID.</span>`;
     } else {
-      slot.textContent = "Writes to " + (c.prefix ? c.prefix + "Nodes, " + c.prefix + "Links…"
-                                                  : "Nodes, Links, Areas, Bookmarks, Revisions, TagStyles")
-        + (c.id ? " in the spreadsheet you named." : " in the bound spreadsheet.");
+      const px = c.prefix || "";
+      slot.textContent = "Writes " + px + "Nodes, " + px + "Links and 11 more tabs"
+        + (c.id ? " to the spreadsheet you named." : " to the bound spreadsheet.");
     }
   });
 
@@ -8042,14 +8121,12 @@ function renderConnList(){
            genuine token mismatch */
         const u = new URL(c.endpoint.trim());
         u.searchParams.set("action", "ping");
-        const r = await fetch(u.toString(), {method:"GET", redirect:"follow"});
+        const r = await fetchWithTimeout(u.toString(), {method:"GET", redirect:"follow"}, 12000);
         const text = await r.text();
         let res = null;
         try{ res = JSON.parse(text); }catch(e){}
         if(!res){
-          say(`<span style="color:var(--flag)">The URL answered with a web page, not data.
-            The deployment is probably set to <em>Only myself</em>. Redeploy with access set to
-            <em>Anyone with the link</em>.</span>`);
+          say(`<span style="color:var(--flag)">${esc(nonJsonHint(text))}</span>`);
           return;
         }
         if(res.build !== "b5"){
@@ -8596,7 +8673,13 @@ async function boot(){
   refreshSyncUI();
   updateHistNote();
 
-  el("btnLinkFile").onclick = ()=>{ if(fileHandle && filePending) reconnectFile(); else linkFile(); };
+  el("btnLinkFile").onclick = async ()=>{
+    if(fileHandle && filePending){
+      if(await reconnectFile()) writeLinkedFile(true);
+      return;
+    }
+    linkFile();
+  };
   el("bannerHide").onclick = hideBanner;
 
   bootHash = takeHash();
