@@ -5591,19 +5591,45 @@ function markMatches(root, q){
   });
 }
 /* keep it beside its node as the map moves */
+/* Beside the node, never over it or its pills. The candidates are tried in
+   order and the first that clears everything wins. */
 function placeNote(){
   const o = el("noteOverlay");
   if(!o || o.hidden || !noteFor) return;
   const n = S.nodes.get(noteFor);
   if(!n || n._x == null){ closeNote(); return; }
   const s = svgSize(), k = S.view.k;
-  const left = n._x * k + S.view.x;
-  const top = (n._y + n._h) * k + S.view.y + 8;
-  const w = Math.max(300, Math.min(460, NODE_W * k));
+  const w = Math.max(300, Math.min(430, NODE_W * k));
   o.style.width = w + "px";
-  o.style.left = Math.max(8, Math.min(s.w - w - 8, left)) + "px";
-  const maxH = s.h * 0.62;
-  o.style.top = Math.max(8, Math.min(s.h - Math.min(maxH, o.offsetHeight) - 8, top)) + "px";
+  const h = Math.min(o.offsetHeight || 260, s.h * 0.62);
+
+  const tall = n._h > TALL_NODE;
+  /* the node plus wherever its controls sit */
+  const keep = {
+    left:n._x * k + S.view.x - 6,
+    right:(n._x + NODE_W) * k + S.view.x + (tall ? 52 * k : 6),
+    top:n._y * k + S.view.y - 6,
+    bottom:(n._y + n._h) * k + S.view.y + (tall ? 6 : 40 * k)
+  };
+  const gap = 14;
+  const clamp = (v, lo, hi)=>Math.max(lo, Math.min(hi, v));
+  const midY = clamp(keep.top, 8, Math.max(8, s.h - h - 8));
+
+  const tries = [
+    {x:keep.right + gap,     y:midY},                       // to the right
+    {x:keep.left - gap - w,  y:midY},                       // to the left
+    {x:clamp(keep.left, 8, s.w - w - 8), y:keep.bottom + gap},   // underneath
+    {x:clamp(keep.left, 8, s.w - w - 8), y:keep.top - gap - h}   // above
+  ];
+  const clears = t =>
+    t.x >= 8 && t.x + w <= s.w - 8 && t.y >= 8 && t.y + h <= s.h - 8 &&
+    (t.x + w <= keep.left || t.x >= keep.right ||
+     t.y + h <= keep.top  || t.y >= keep.bottom);
+
+  const pick = tries.find(clears)
+    || {x:clamp(keep.right + gap, 8, s.w - w - 8), y:clamp(midY, 8, s.h - h - 8)};
+  o.style.left = Math.round(pick.x) + "px";
+  o.style.top = Math.round(pick.y) + "px";
 }
 
 function openPanelFor(nodeId, which){
@@ -8071,8 +8097,10 @@ async function loadPersonal(){
       if(rec.focusMode) S.focusMode = rec.focusMode;
       if(rec.pickZoom) S.pickZoom = rec.pickZoom;
       if(typeof rec.followOutline === "boolean") S.followOutline = rec.followOutline;
-      /* settings used to live here; move them across once and keep them
-         with the device from now on */
+      /* settings used to live here; move them across once and keep them with
+         the device from now on. followOutline is deliberately not carried:
+         it used to be set by a heuristic rather than by choice. */
+      S.followOutline = true;
       Store.getKey("prefs").then(p=>{ if(!p) savePrefs(); }).catch(()=>{});
       S.personal.recent = Array.isArray(rec.recent) ? rec.recent : [];
       S.personal.ackNew = rec.ackNew && typeof rec.ackNew === "object" ? rec.ackNew : {};
