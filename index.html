@@ -288,6 +288,33 @@ body.focusing .node-g:not(.focusdim) .node-box{stroke-width:calc(var(--node-bord
 .zoombar .lvl{font-family:var(--mono);font-size:11px;padding:4px 6px;color:var(--graphite-60);align-self:center;min-width:46px;text-align:center}
 
 /* ---------- svg content ---------- */
+/* theme decoration */
+.beach{fill:var(--decor-beach, #EFDCAE);stroke:none}
+.shallows{fill:var(--decor-shallow, #9AD3E6);opacity:.55;stroke:none}
+@keyframes rippleout{
+  0%{transform-box:fill-box;opacity:.55}
+  100%{opacity:0}
+}
+.ripple{fill:none;stroke:var(--decor-shallow, #9AD3E6);stroke-width:2;opacity:0;
+  animation:rippleout 2.6s ease-out infinite}
+html[data-motion="off"] .ripple{display:none}
+.palm{fill:none;stroke:var(--decor-palm, #2F7A4F);stroke-width:1.6;stroke-linecap:round}
+.spoil{fill:var(--decor-spoil, #A8814F);stroke:none;opacity:.9}
+.rim{fill:var(--decor-rim, #C9A472);stroke:none}
+.pebble{fill:var(--decor-pebble, #7A5A34);opacity:.65}
+.leaf{fill:var(--decor-leaf, #4E7A32);stroke:var(--decor-leaf, #4E7A32);stroke-width:.7;opacity:.9}
+.roof{fill:var(--decor-roof, #8A5040);stroke:var(--node-stroke, var(--graphite));stroke-width:1}
+.chimney{fill:var(--decor-roof, #6B5248);stroke:var(--node-stroke, var(--graphite));stroke-width:1}
+@keyframes puff{
+  0%{opacity:.5;transform:scale(.4) translateY(0)}
+  100%{opacity:0;transform:scale(1.6) translateY(-10px)}
+}
+.smoke{fill:var(--decor-smoke, #C7CFD2);opacity:0;transform-box:fill-box;
+  transform-origin:center;animation:puff 3.4s ease-out infinite}
+html[data-motion="off"] .smoke{display:none}
+.window{fill:var(--decor-window, #6B767C);opacity:.5}
+.window.lit{fill:var(--decor-lit, #F2D14B);opacity:.85}
+.sawtooth{stroke:var(--node-stroke, var(--graphite));stroke-width:1.1;opacity:.7}
 .node-box{fill:var(--node-fill, var(--paper));stroke:var(--node-stroke, var(--graphite));
   stroke-width:var(--node-border, 1.25px);filter:var(--node-shadow, none)}
 html[data-font="mono"] .node-label,html[data-font="mono"] .node-note{font-family:var(--mono)}
@@ -2397,7 +2424,8 @@ function layout(){
     n._imgH = (n._art = artFor(n, "image")) ? Math.max(40, Math.min(400, Number(n.imageH)||120)) : 0;
     n._tabular = looksLikeTable(n.body);
     n._note = noteLinesFor(n, q, hitSet.has(n.id));
-    n._h = Math.max(40, n._lines.length * LINE_H + PAD_Y*2 + (S.showIds ? 9 : -4))
+    n._h = Math.max(40, n._lines.length * LINE_H + PAD_Y*2 + (S.showIds ? 9 : -4)
+                       + (Number((activeTheme().node||{}).padBottom) || 0))
          + (n._imgH ? n._imgH + 8 : 0)
          + (n._note.length ? n._note.length * NOTE_LH + 8 : 0);
   }
@@ -2812,12 +2840,14 @@ const PRESETS = [
 
 { id:"islands", name:"Islands", note:"Sand islands on open water, with fish along the currents.",
   light:{paper:"#BFE3EF",paper2:"#A9D8E8",ink:"#4A3B22",ink60:"#8A7A5A",rule:"#8FC6D8",
-         accent:"#1B7F9B",edge:"#4E93A8",hit:"#FFE9A8",hitLine:"#E8BE4A",flag:"#C2532F"},
+         accent:"#1B7F9B",edge:"#4E93A8",hit:"#FFE9A8",hitLine:"#E8BE4A",flag:"#C2532F",
+         decor_beach:"#F0DCA8",decor_shallow:"#8FCFE4",decor_palm:"#2F7A4F"},
   dark: {paper:"#0B2A38",paper2:"#0E3444",ink:"#F2E4C6",ink60:"#B8A98A",rule:"#175064",
-         accent:"#63C8E0",edge:"#3E7E95",hit:"#3E3517",hitLine:"#6E5F26",flag:"#EE8A63"},
+         accent:"#63C8E0",edge:"#3E7E95",hit:"#3E3517",hitLine:"#6E5F26",flag:"#EE8A63",
+         decor_beach:"#8A7448",decor_shallow:"#1E5E75",decor_palm:"#3E8A5C"},
   node:{shape:"island",radius:24,border:1.2,depth:4,fill:"custom",
         color:"#E8D5A8",colorDark:"#C9AE78",stroke:"#B49A63",vary:true},
-  bg:{pattern:"waves",scale:30,strength:.5}, beam:"fish", font:"sans" },
+  bg:{pattern:"waves",scale:30,strength:.5}, beam:"fish", decor:"island", font:"sans" },
 
 { id:"blueprint", name:"Blueprint", note:"Grid paper and cyan lines. Schematic feel.",
   light:{paper:"#F3F7FC",paper2:"#E6EFF9",ink:"#123A63",ink60:"#5A7EA3",rule:"#B7CCE3",
@@ -2847,26 +2877,32 @@ const PRESETS = [
   light:{paper:"#C9A981",paper2:"#B8946A",ink:"#3A2A18",ink60:"#7A6247",rule:"#9C7B55",
          accent:"#8A4A22",edge:"#7A5B3A",hit:"#F2DFA6",hitLine:"#D8B45C",flag:"#A83A24",
          casing:"#6B4A2C",surface:"#D9BE92",centre:"#B08A5E",
-         beamOut:"#211408",beamIn:"#9E3B1E"},
+         beamOut:"#211408",beamIn:"#9E3B1E",
+         decor_spoil:"#A8814F",decor_rim:"#CDA876",decor_pebble:"#7A5A34",decor_leaf:"#4E7A32"},
   dark: {paper:"#211508",paper2:"#2C1D0C",ink:"#EBD9B6",ink60:"#A78E67",rule:"#4A3218",
          accent:"#D98A4A",edge:"#6B5236",hit:"#3E3517",hitLine:"#6E5F26",flag:"#E0764F",
          casing:"#14100A",surface:"#5A4126",centre:"#8A6B45",
-         beamOut:"#0C0803",beamIn:"#D2593A"},
+         beamOut:"#0C0803",beamIn:"#D2593A",
+         decor_spoil:"#3A2812",decor_rim:"#54391B",decor_pebble:"#1C1408",decor_leaf:"#4A6B2E"},
   node:{shape:"burrow",radius:20,border:1.6,depth:3,fill:"custom",
         color:"#E4CDA2",colorDark:"#6B4F2E",stroke:"#6B4A2C",vary:true},
-  bg:{pattern:"soil",scale:16,strength:.7}, beam:"ants", edgeStyle:"tunnel", font:"sans" },
+  bg:{pattern:"soil",scale:16,strength:.7}, beam:"ants", edgeStyle:"tunnel",
+  decor:"burrow", font:"sans" },
 
 { id:"simcity", name:"City", note:"Blocks and roads, with traffic running between them.",
   light:{paper:"#DFE3E0",paper2:"#CFD5D1",ink:"#22282C",ink60:"#6B767C",rule:"#AEB7B2",
          accent:"#1F6FA8",edge:"#8D989C",hit:"#FBE9A8",hitLine:"#E4B93F",flag:"#B4402A",
          casing:"#4C555A",surface:"#9AA4A8",centre:"#F2D14B",
-         beamOut:"#2F3D45",beamIn:"#B4402A"},
+         beamOut:"#2F3D45",beamIn:"#B4402A",
+         decor_roof:"#8A5040",decor_smoke:"#BFC8CC",decor_window:"#6B767C",decor_lit:"#F2D14B"},
   dark: {paper:"#0E1417",paper2:"#151D21",ink:"#DCE6EA",ink60:"#8496A0",rule:"#243036",
          accent:"#5AB0E8",edge:"#4A585F",hit:"#3A3517",hitLine:"#6B5F26",flag:"#EE7C5A",
          casing:"#05090B",surface:"#2A343A",centre:"#E8C33F",
-         beamOut:"#C8D6DC",beamIn:"#EE7C5A"},
-  node:{shape:"block",radius:0,border:1.3,depth:2,fill:"soft",stroke:"#22282C"},
-  bg:{pattern:"citygrid",scale:14,strength:.55}, beam:"cars", edgeStyle:"road", font:"sans" },
+         beamOut:"#C8D6DC",beamIn:"#EE7C5A",
+         decor_roof:"#4A2E26",decor_smoke:"#3A464C",decor_window:"#2E3A40",decor_lit:"#FFD65A"},
+  node:{shape:"block",radius:0,border:1.3,depth:2,fill:"soft",stroke:"#22282C",padBottom:16},
+  bg:{pattern:"citygrid",scale:14,strength:.55}, beam:"cars", edgeStyle:"road",
+  decor:"city", font:"sans" },
 
 { id:"dusk", name:"Dusk", note:"Deep violet with a glow. Built for a dark room.",
   light:{paper:"#F8F6FC",paper2:"#EDE9F7",ink:"#2A2440",ink60:"#6F6791",rule:"#D3CCE8",
@@ -2904,6 +2940,8 @@ function applyThemeVars(){
   set("--edge-casing", c.casing || mixHex(c.ink, c.paper, .55));
   set("--edge-surface", c.surface || mixHex(c.paper, c.ink, .12));
   set("--edge-centre", c.centre || c.hitLine);
+  ["beach","shallow","palm","spoil","rim","pebble","leaf","roof","smoke","window","lit"]
+    .forEach(k=>{ if(c["decor_" + k]) r.setProperty("--decor-" + k, c["decor_" + k]); });
   const nd = t.node || {};
   r.setProperty("--node-border", (nd.border || 1.25) + "px");
   const stroke = nd.stroke === "accent" ? c.accent
@@ -3024,6 +3062,140 @@ function roundRect(w, h, r){
   return `M${r},0 L${w-r},0 Q${w},0 ${w},${r} L${w},${h-r} Q${w},${h} ${w-r},${h} `
        + `L${r},${h} Q0,${h} 0,${h-r} L0,${r} Q0,0 ${r},0 Z`;
 }
+/* ---------------------------------------------------------------
+   Theme decoration. Layers drawn under and over the node body so a
+   theme can look like the thing it is imitating rather than a box
+   in a new colour.
+   --------------------------------------------------------------- */
+const SMOKE_MAX = 8;
+let smokers = 0;
+/* Fine detail — windows, pebbles, leaves — is thousands of extra shapes on a
+   large map, and invisible at the zoom you view one at. It is dropped past a
+   few hundred nodes; the silhouettes stay. */
+function fineDetail(){ return S.nodes.size <= 220; }
+
+function scaledAround(d, w, h, k){
+  const cx = w/2, cy = h/2;
+  return {d, transform:`translate(${cx},${cy}) scale(${k}) translate(${-cx},${-cy})`};
+}
+function rnd(seed, i){
+  return ((Math.sin((seed + i * 12.9898) * 78.233) * 43758.5453) % 1 + 1) % 1;
+}
+
+function drawNodeUnder(g, n){
+  const decor = activeTheme().decor;
+  if(!decor) return;
+  const d = nodePath(n), w = NODE_W, h = n._h, seed = hashOf(n.id);
+
+  if(decor === "island"){
+    /* a beach ring and the shallows; the ripples arrive with the selection */
+    const shallow = scaledAround(d, w, h, 1.16);
+    mk("path",{d:shallow.d, transform:shallow.transform, class:"shallows"}, g);
+    const beach = scaledAround(d, w, h, 1.07);
+    mk("path",{d:beach.d, transform:beach.transform, class:"beach"}, g);
+  }
+
+  if(decor === "burrow"){
+    /* spoil heaped around the mouth, with a few pebbles in it */
+    const mound = scaledAround(d, w, h, 1.16);
+    mk("path",{d:mound.d, transform:mound.transform, class:"spoil"}, g);
+    const rim = scaledAround(d, w, h, 1.06);
+    mk("path",{d:rim.d, transform:rim.transform, class:"rim"}, g);
+    for(let i = 0; fineDetail() && i < 7; i++){
+      const a = rnd(seed, i) * Math.PI * 2;
+      const rad = 0.56 + rnd(seed, i + 30) * .12;
+      mk("circle",{class:"pebble",
+        cx:w/2 + Math.cos(a) * w * rad,
+        cy:h/2 + Math.sin(a) * h * (rad + .18),
+        r:1.1 + rnd(seed, i + 60) * 1.8}, g);
+    }
+  }
+
+  if(decor === "city"){
+    const kind = buildingKind(n, seed);
+    if(kind === "industrial"){
+      /* a chimney behind the block. Only a few of them smoke: an animated
+         puff on every factory in a large map costs more than it adds. */
+      const x = w * (.72 + rnd(seed, 3) * .12);
+      mk("rect",{class:"chimney", x, y:-26, width:7, height:28}, g);
+      if(smokers < SMOKE_MAX && S.motion === "full"){
+        smokers++;
+        mk("circle",{class:"smoke", cx:x + 3.5, cy:-30, r:4}, g);
+        mk("circle",{class:"smoke", cx:x + 7, cy:-38, r:5,
+          style:"animation-delay:.8s"}, g);
+      }
+    }
+    if(kind === "housing"){
+      /* a pitched roof sitting on top */
+      const x0 = w * .1, x1 = w * .9;
+      mk("path",{class:"roof", d:`M${x0},0 L${(x0+x1)/2},-15 L${x1},0 Z`}, g);
+    }
+  }
+}
+
+function buildingKind(n, seed){
+  if(n.type === "decision") return "commercial";
+  if(n.type === "start" || n.type === "end") return "civic";
+  return rnd(seed, 1) < .42 ? "housing" : rnd(seed, 2) < .55 ? "industrial" : "commercial";
+}
+
+function drawNodeOver(g, n){
+  const decor = activeTheme().decor;
+  if(!decor) return;
+  const w = NODE_W, h = n._h, seed = hashOf(n.id);
+
+  if(decor === "city"){
+    /* windows along the lower band, so they never sit under the label */
+    const kind = buildingKind(n, seed);
+    if(!fineDetail()) return;
+    const bh = 7;
+    /* the windows go in whatever is left below the writing, and are left out
+       altogether when there is no room — a lit window over the label is just
+       a mess */
+    const textBottom = PAD_Y + n._lines.length * LINE_H + 6
+      + (n._imgH ? n._imgH + 8 : 0) + (n._note.length ? n._note.length * NOTE_LH + 8 : 0);
+    const room = h - textBottom - 8;
+    if(room < bh + 2) return;
+    const rows = (kind === "commercial" && room > bh * 2 + 6) ? 2 : 1;
+    const cols = kind === "housing" ? 4 : kind === "industrial" ? 5 : 7;
+    const bw = kind === "commercial" ? 9 : 11;
+    const gap = (w - 24 - cols * bw) / Math.max(1, cols - 1);
+    const base = h - 8 - rows * (bh + 4);
+    for(let r = 0; r < rows; r++) for(let c = 0; c < cols; c++){
+      const lit = rnd(seed, r * 13 + c) > .55;
+      mk("rect",{class:"window" + (lit ? " lit" : ""), rx:1,
+        x:12 + c * (bw + gap), y:base + r * (bh + 4), width:bw, height:bh}, g);
+    }
+    if(kind === "industrial"){
+      /* a sawtooth roofline along the top edge */
+      let d = `M8,2`;
+      for(let i = 0; i < 5; i++) d += ` l10,-7 l0,7`;
+      mk("path",{class:"sawtooth", d, fill:"none"}, g);
+    }
+  }
+
+  if(decor === "burrow"){
+    /* a couple of leaves caught on the rim */
+    for(let i = 0; fineDetail() && i < 2; i++){
+      const a = rnd(seed, i + 90) * Math.PI * 2;
+      const x = w/2 + Math.cos(a) * w * .48, y = h/2 + Math.sin(a) * h * .62;
+      const rot = Math.round(rnd(seed, i + 120) * 360);
+      mk("path",{class:"leaf", transform:`translate(${x},${y}) rotate(${rot})`,
+        d:"M0,0 q5,-4.5 11,0 q-6,4.5 -11,0 z M0,0 l11,0"}, g);
+    }
+  }
+
+  if(decor === "island"){
+    /* a scrap of palm on the larger islands */
+    if(fineDetail() && h > 46 && rnd(seed, 5) > .45){
+      const x = w * (.08 + rnd(seed, 6) * .1), y = h * .3;
+      mk("path",{class:"palm", transform:`translate(${x},${y})`,
+        d:"M0,0 l0,-16 M0,-16 q-9,-5 -13,1 M0,-16 q9,-5 13,1 M0,-16 q-6,-9 -1,-12 "
+         + "M0,-16 q6,-9 1,-12"}, g);
+    }
+  }
+}
+
 function nodePath(n){
   const w = NODE_W, h = n._h;
   const t = activeTheme().node || {};
@@ -3603,6 +3775,7 @@ function decorateSelection(){
   const gE = el("gEdges"), gN = el("gNodes");
   if(!gE || !gN) return;
   gE.querySelectorAll("g.rider").forEach(b=>b.remove());
+  gN.querySelectorAll("path.ripple").forEach(b=>b.remove());
   gN.querySelectorAll("g.strip").forEach(b=>b.remove());
   stripRef = null;
   /* before the early return, so clearing the selection also clears the dimming */
@@ -3647,11 +3820,24 @@ function decorateSelection(){
     }
   }
   if(!S.pairArmed) drawStrip(g, S.nodes.get(id));
+
+  /* water pushing out from the island that is chosen */
+  if(activeTheme().decor === "island"){
+    const n = S.nodes.get(id);
+    const d = nodePath(n);
+    [1.36, 1.2].forEach((k, i)=>{
+      const r = scaledAround(d, NODE_W, n._h, k);
+      const rp = mk("path",{d:r.d, transform:r.transform, class:"ripple",
+        style:`animation-delay:${i * .9}s`}, g);
+      g.insertBefore(rp, g.firstChild);
+    });
+  }
 }
 
 let renderStamp = 0;
 function render(){
   renderStamp++;
+  smokers = 0;
   const gE = el("gEdges"), gN = el("gNodes"), gA = el("gAreas");
   gE.textContent = ""; gN.textContent = ""; gA.textContent = "";
   el("defs").querySelectorAll("clipPath").forEach(c=>c.remove());
@@ -3762,7 +3948,9 @@ function render(){
     const tagColor = (n.tags||[]).map(t=>S.tagStyles.get(t)).find(Boolean);
     mk("rect",{x:-10, y:-10, width:NODE_W+20, height:n._h+20,
       fill:"transparent", class:"node-hit"}, g);
+    drawNodeUnder(g, n);
     mk("path",{d:nodePath(n), class:"node-box"}, g);
+    drawNodeOver(g, n);
     if(tagColor){
       const inset = n.type === "decision" ? 9 : (n.type==="start"||n.type==="end") ? 6 : 0;
       mk("rect",{x:0, y:inset, width:4, height:n._h - inset*2, fill:themeColor(tagColor.color),
@@ -7262,6 +7450,11 @@ function openThemeEditor(){
       <label><span>Node outline colour</span>
         <input type="color" class="swatchin" style="width:100%" data-t="node.stroke"
           value="${esc((t.node.stroke||"").startsWith("#") ? t.node.stroke : "#23282D")}"></label>
+      <label><span>Node dressing</span><select data-t="decor">
+        ${[["","Plain"],["island","Island and shore"],["burrow","Burrow and spoil"],
+           ["city","Buildings"]].map(([v,l])=>
+          `<option value="${v}"${(t.decor||"")===v?" selected":""}>${l}</option>`).join("")}
+      </select></label>
       <label><span>Connector shape</span><select data-t="edgeStyle">
         ${[["plain","Plain line"],["tunnel","Tunnel"],["road","Road"]].map(([v,l])=>
           `<option value="${v}"${(t.edgeStyle||"plain")===v?" selected":""}>${l}</option>`).join("")}
