@@ -3679,13 +3679,13 @@ function drawStrip(g, n){
     b.addEventListener("pointerdown", ev=>ev.stopPropagation());
     if(tall) y += sh + 6; else x += w + 4;
   };
-  if(n.body){
-    const showing = noteFor === id;
-    btn(30, showing ? "\u25B4" : "\u25BE", 0, ()=>{
-      if(showing) closeNote(); else openNote(id, true);
-      decorateSelection();
-    }, showing);
-  }
+  /* the chevron duplicated something that opens on its own; a bookmark is the
+     thing you actually reach for while reading */
+  const marked = isNodeBookmarked(id);
+  btn(30, marked ? "\u2605" : "\u2606", 0, ()=>{
+    toggleNodeBookmark(id);
+    decorateSelection();
+  }, marked);
   const sug = suggestionsFor(id).filter(z=>z.status === "open").length;
   const qs = questionsForNode(id).length;
   const chk = itemsFor(id).length;
@@ -5269,7 +5269,12 @@ function pickNode(id){
   requestAnimationFrame(()=>{
     select(id);
     revealInOutline(id, true);
-    if(move && S.pickZoom === "note" && n.body) setTimeout(()=>openNote(id, true), 260);
+    /* In viewing the panel is actions only, so a search match has nowhere to
+       show unless the note itself opens. */
+    const q = (S.hitQuery || "").toLowerCase();
+    const matched = q && n && n.body && n.body.toLowerCase().includes(q);
+    if(move && n && n.body && (S.pickZoom === "note" || (matched && !canEdit())))
+      setTimeout(()=>openNote(id, true), 260);
   });
 }
 
@@ -5552,6 +5557,30 @@ function esc(s){ return String(s??"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&
    --------------------------------------------------------------- */
 let noteFor = null;
 
+function isNodeBookmarked(id){
+  return S.bookmarks.concat(S.personal.bookmarks).some(b=>b.node === id);
+}
+/* An editor's bookmark belongs to the map; a viewer's belongs to them. */
+function toggleNodeBookmark(id){
+  const n = S.nodes.get(id);
+  if(!n) return;
+  const mine = S.personal.bookmarks.filter(b=>b.node === id);
+  const theirs = S.bookmarks.filter(b=>b.node === id);
+  if(mine.length || theirs.length){
+    S.personal.bookmarks = S.personal.bookmarks.filter(b=>b.node !== id);
+    if(theirs.length && canEdit()){ S.bookmarks = S.bookmarks.filter(b=>b.node !== id); markDirty(); }
+    savePersonal(); renderContents();
+    toast("Bookmark removed");
+    return;
+  }
+  const bm = newBookmark({label:n.label || n.id, node:id,
+    x:S.view.x, y:S.view.y, k:S.view.k});
+  if(canEdit()){ S.bookmarks.push(bm); markDirty(); }
+  else { S.personal.bookmarks.push(bm); savePersonal(); }
+  renderContents();
+  toast(canEdit() ? "Bookmarked on the map" : "Bookmarked, on this device");
+}
+
 function openNote(id, scrollToHit){
   const n = S.nodes.get(id);
   if(!n || !n.body){ closeNote(); return; }
@@ -5821,7 +5850,8 @@ function renderViewerInspector(n){
         <button class="btn" id="vArt" style="flex:0 0 auto;padding:3px 8px;font-size:11px">Change</button>
       </div>` : `<div class="row" style="margin-top:10px">
         <button class="btn wide" id="vArt">Put my own picture on this node</button></div>`}
-      ${n.body ? `<div class="noteview">${noteToHtml(n.body)}</div>` : ""}
+      ${n.body ? `<div class="row" style="margin-top:10px">
+        <button class="btn wide" id="vRead">Read the note</button></div>` : ""}
       ${(n.tags||[]).length ? `<div class="taglist" style="margin-top:10px">${(n.tags||[]).map(t=>`<span class="tagchip">${esc(t)}</span>`).join("")}</div>` : ""}
       ${parent ? `<p style="font-size:12px;color:var(--graphite-60);margin:10px 0 0">Follows
         <a href="#" data-jump="${esc(parent)}" style="color:var(--blueprint)">${esc((S.nodes.get(parent)||{}).label||parent)}</a></p>` : ""}
@@ -5829,7 +5859,7 @@ function renderViewerInspector(n){
         <button class="btn primary wide" id="vSign">Sign off — I have read this update</button></div>` : ""}
       <div class="row" style="margin-top:10px">
         <button class="btn" id="vZoom">Zoom to it</button>
-        <button class="btn" id="vMark">Bookmark this</button>
+        <button class="btn" id="vMark">${isNodeBookmarked(n.id) ? "Remove bookmark" : "Bookmark this"}</button>
       </div>
     </div>
     ${contributionBlock(n)}`;
@@ -5839,10 +5869,10 @@ function renderViewerInspector(n){
       v=>setOwnArt(n.id, "image", v), ()=>{ if(S.personal.art) delete S.personal.art[n.id];
         savePersonal(); rebuild(); });
   };
-  highlightPanelMatch(body);
+  if(el("vRead")) el("vRead").onclick = ()=>openNote(n.id, true);
   if(el("vSign")) el("vSign").onclick = ()=>{ signOffNew(n.id); renderInspector(); };
   el("vZoom").onclick = ()=>focusNode(n.id);
-  el("vMark").onclick = ()=>addBookmark(n.label);
+  el("vMark").onclick = ()=>{ toggleNodeBookmark(n.id); renderInspector(); decorateSelection(); };
   body.querySelectorAll("[data-jump]").forEach(a=>{
     a.onclick = ev=>{ ev.preventDefault(); focusNode(a.dataset.jump); };
   });
