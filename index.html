@@ -4310,6 +4310,11 @@ function focusFamily(id, mode){
 }
 
 let focusTimer = null;
+let lastLayerShown = null, redrawPending = null;
+function redrawSoon(){
+  clearTimeout(redrawPending);
+  redrawPending = setTimeout(()=>{ redrawPending = null; render(); }, 0);
+}
 /* Hold ctrl (or cmd) to see the whole map for a moment — for picking out the
    node you want to link to while another one is selected. */
 let peeking = false;
@@ -4370,7 +4375,14 @@ function decorateSelection(){
   if(S.sel && isLayer(S.sel)){
     const lg = gN.querySelector(`.node-g[data-id="${CSS.escape(S.sel)}"]`);
     if(lg && lg.parentNode) lg.parentNode.appendChild(lg);
+    if(!lg || !lg.querySelector(".retband")) redrawSoon();
   }
+  /* and the band of a layer just left behind has to go */
+  if(lastLayerShown && lastLayerShown !== S.sel){
+    const old = gN.querySelector(`.node-g[data-id="${CSS.escape(lastLayerShown)}"] .retband`);
+    if(old) old.remove();
+  }
+  lastLayerShown = (S.sel && isLayer(S.sel)) ? S.sel : null;
   const id = S.sel;
   if(!id || !S.nodes.has(id)) return;
   const g = gN.querySelector(`.node-g[data-id="${CSS.escape(id)}"]`);
@@ -4639,7 +4651,10 @@ function render(){
         }
       });
     }
-    if(n.status === "retired"){
+    /* A card in a pile shows its band only while it is the one being looked at.
+       Relying on a stylesheet rule for this was not enough — the band is not
+       built at all now. */
+    if(n.status === "retired" && (!isLayer(id) || S.sel === id)){
       /* a dashed edge was too quiet, especially under a theme that fills the
          node with scenery: this says it outright */
       const band = mk("g",{class:"retband"}, g);
