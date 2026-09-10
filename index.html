@@ -1038,6 +1038,8 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
             <option value="calm">Calm — no movement, cues stay</option>
             <option value="off">Off — nothing moves or glows</option>
           </select></label>
+        <label class="check"><input type="checkbox" id="followOutline" checked>
+          Show the picked node in the outline, switching the panel if needed</label>
         <label class="check"><input type="checkbox" id="branchGrid" checked>
           Pack big branches into a grid instead of one long column</label>
         <label class="check"><input type="checkbox" id="avoidNodes" checked>
@@ -4459,7 +4461,7 @@ function renderContents(){
     const uh = el("useHostArt");
     if(uh){
       uh.checked = S.personal.useHostArt !== false;
-      uh.onchange = ()=>{ S.personal.useHostArt = uh.checked; savePersonal(); rebuild(); };
+      uh.onchange = ()=>{ S.personal.useHostArt = uh.checked; savePrefs(); rebuild(); };
     }
     const cma = el("clearMyArt");
     if(cma) cma.onclick = ()=>{
@@ -7508,6 +7510,7 @@ async function afterMapSwitch(){
   if(el("showIds")) el("showIds").checked = S.showIds;
   if(el("avoidNodes")) el("avoidNodes").checked = S.avoidNodes;
   if(el("branchGrid")) el("branchGrid").checked = S.branchGrid;
+  if(el("followOutline")) el("followOutline").checked = S.followOutline;
   if(el("routeTree")) el("routeTree").value = S.meta.routeTree || "curve";
   if(el("routeCross")) el("routeCross").value = S.meta.routeCross || "curve";
   if(el("crossLine")) el("crossLine").value = S.meta.crossLine || "dashed";
@@ -8068,6 +8071,9 @@ async function loadPersonal(){
       if(rec.focusMode) S.focusMode = rec.focusMode;
       if(rec.pickZoom) S.pickZoom = rec.pickZoom;
       if(typeof rec.followOutline === "boolean") S.followOutline = rec.followOutline;
+      /* settings used to live here; move them across once and keep them
+         with the device from now on */
+      Store.getKey("prefs").then(p=>{ if(!p) savePrefs(); }).catch(()=>{});
       S.personal.recent = Array.isArray(rec.recent) ? rec.recent : [];
       S.personal.ackNew = rec.ackNew && typeof rec.ackNew === "object" ? rec.ackNew : {};
       S.personal.recentBadge = rec.recentBadge || "";
@@ -8078,6 +8084,26 @@ async function loadPersonal(){
     }
   }catch(e){}
 }
+/* How you like the tool to behave belongs to you, not to one map: keeping
+   these in the per-map record meant they reset every time you opened a
+   different map. */
+const PREF_KEYS = ["notesMode","motion","showIds","avoidNodes","branchGrid",
+                   "focusMode","pickZoom","followOutline"];
+async function savePrefs(){
+  const out = {};
+  PREF_KEYS.forEach(k=>{ out[k] = S[k]; });
+  try{ await Store.putKey("prefs", out); }catch(e){}
+}
+async function loadPrefs(){
+  try{
+    const rec = await Store.getKey("prefs");
+    if(!rec) return;
+    PREF_KEYS.forEach(k=>{
+      if(rec[k] !== undefined && rec[k] !== null) S[k] = rec[k];
+    });
+  }catch(e){}
+}
+
 async function savePersonal(){
   try{
     await Store.putKey(personalKey(), {
@@ -9591,13 +9617,14 @@ async function boot(){
   el("prevHit").onclick = ()=>stepHit(-1);
   el("dimOthers").onchange = render;
   el("showScope").onchange = ()=>rebuild();
-  el("notesMode").onchange = e=>{ S.notesMode = e.target.value; savePersonal(); rebuild(); };
-  el("branchGrid").onchange = e=>{ S.branchGrid = e.target.checked; savePersonal(); rebuild(); fitView(0.96,0.4); };
-  el("avoidNodes").onchange = e=>{ S.avoidNodes = e.target.checked; savePersonal(); render(); };
-  el("showIds").onchange = e=>{ S.showIds = e.target.checked; savePersonal(); rebuild(); };
-  el("pickZoom").onchange = e=>{ S.pickZoom = e.target.value; savePersonal(); };
-  el("focusMode").onchange = e=>{ S.focusMode = e.target.value; savePersonal(); decorateSelection(); };
-  el("motionPref").onchange = e=>{ S.motion = e.target.value; applyMotion(); savePersonal(); render(); };
+  el("notesMode").onchange = e=>{ S.notesMode = e.target.value; savePrefs(); rebuild(); };
+  el("followOutline").onchange = e=>{ S.followOutline = e.target.checked; savePrefs(); };
+  el("branchGrid").onchange = e=>{ S.branchGrid = e.target.checked; savePrefs(); rebuild(); fitView(0.96,0.4); };
+  el("avoidNodes").onchange = e=>{ S.avoidNodes = e.target.checked; savePrefs(); render(); };
+  el("showIds").onchange = e=>{ S.showIds = e.target.checked; savePrefs(); rebuild(); };
+  el("pickZoom").onchange = e=>{ S.pickZoom = e.target.value; savePrefs(); };
+  el("focusMode").onchange = e=>{ S.focusMode = e.target.value; savePrefs(); decorateSelection(); };
+  el("motionPref").onchange = e=>{ S.motion = e.target.value; applyMotion(); savePrefs(); render(); };
   el("routeTree").onchange = e=>{
     if(!canEdit()){ e.target.value = S.meta.routeTree; toast("Switch to editing mode."); return; }
     S.meta.routeTree = e.target.value; markDirty(); rebuild();
@@ -9666,10 +9693,6 @@ async function boot(){
 
   document.querySelectorAll(".railtab").forEach(t=>{
     t.onclick = ()=>{
-      /* Choosing a tab by hand settles the argument: the outline stops
-         grabbing the panel back if you have gone to Tools yourself. */
-      if(t.dataset.pane === "Tools") S.followOutline = false;
-      if(t.dataset.pane === "Contents") S.followOutline = true;
       document.querySelectorAll(".railtab").forEach(x=>x.classList.toggle("on", x === t));
       el("paneTools").hidden = t.dataset.pane !== "Tools";
       el("paneContents").hidden = t.dataset.pane !== "Contents";
@@ -10080,6 +10103,7 @@ async function boot(){
     if(id) S.themeId = id;
     const custom = await Store.getKey("themes");
     if(Array.isArray(custom)) S.customThemes = custom;
+    await loadPrefs();
     applyTheme(S.themeMode);
   }catch(e){}
   await Store.requestPersist();
@@ -10210,6 +10234,7 @@ async function boot(){
   if(el("showIds")) el("showIds").checked = S.showIds;
   if(el("avoidNodes")) el("avoidNodes").checked = S.avoidNodes;
   if(el("branchGrid")) el("branchGrid").checked = S.branchGrid;
+  if(el("followOutline")) el("followOutline").checked = S.followOutline;
   if(el("routeTree")) el("routeTree").value = S.meta.routeTree || "curve";
   if(el("routeCross")) el("routeCross").value = S.meta.routeCross || "curve";
   if(el("crossLine")) el("crossLine").value = S.meta.crossLine || "dashed";
