@@ -290,7 +290,7 @@ body.focusing .node-g:not(.focusdim) .node-box{stroke-width:calc(var(--node-bord
 /* ---------- svg content ---------- */
 /* theme decoration */
 .beach{fill:var(--decor-beach, #EFDCAE);stroke:none}
-.shallows{fill:var(--decor-shallow, #9AD3E6);opacity:.55;stroke:none}
+.shallows{fill:var(--decor-shallow, #9AD3E6);fill-opacity:.55;stroke:none}
 @keyframes rippleout{
   0%{transform-box:fill-box;opacity:.55}
   100%{opacity:0}
@@ -299,10 +299,10 @@ body.focusing .node-g:not(.focusdim) .node-box{stroke-width:calc(var(--node-bord
   animation:rippleout 2.6s ease-out infinite}
 html[data-motion="off"] .ripple{display:none}
 .palm{fill:none;stroke:var(--decor-palm, #2F7A4F);stroke-width:1.6;stroke-linecap:round}
-.spoil{fill:var(--decor-spoil, #A8814F);stroke:none;opacity:.9}
+.spoil{fill:var(--decor-spoil, #A8814F);stroke:none;fill-opacity:.9}
 .rim{fill:var(--decor-rim, #C9A472);stroke:none}
-.pebble{fill:var(--decor-pebble, #7A5A34);opacity:.65}
-.leaf{fill:var(--decor-leaf, #4E7A32);stroke:var(--decor-leaf, #4E7A32);stroke-width:.7;opacity:.9}
+.pebble{fill:var(--decor-pebble, #7A5A34);fill-opacity:.65}
+.leaf{fill:var(--decor-leaf, #4E7A32);stroke:var(--decor-leaf, #4E7A32);stroke-width:.7;fill-opacity:.9}
 .roof{fill:var(--decor-roof, #8A5040);stroke:var(--node-stroke, var(--graphite));stroke-width:1}
 .chimney{fill:var(--decor-roof, #6B5248);stroke:var(--node-stroke, var(--graphite));stroke-width:1}
 @keyframes puff{
@@ -312,8 +312,22 @@ html[data-motion="off"] .ripple{display:none}
 .smoke{fill:var(--decor-smoke, #C7CFD2);opacity:0;transform-box:fill-box;
   transform-origin:center;animation:puff 3.4s ease-out infinite}
 html[data-motion="off"] .smoke{display:none}
-.window{fill:var(--decor-window, #6B767C);opacity:.5}
-.window.lit{fill:var(--decor-lit, #F2D14B);opacity:.85}
+.zoneband{fill-opacity:.30}
+.zoneband.zone-res{fill:var(--zone-res, #4E9A4E)}
+.zoneband.zone-com{fill:var(--zone-com, #3D74B8)}
+.zoneband.zone-ind{fill:var(--zone-ind, #C9A227)}
+.zoneband.zone-civ{fill:var(--zone-civ, #8A8F94)}
+.bldg{stroke:var(--node-stroke, var(--graphite));stroke-width:.9}
+.bldg.zone-res{fill:var(--zone-res, #4E9A4E)}
+.bldg.zone-com{fill:var(--zone-com, #3D74B8)}
+.bldg.zone-ind{fill:var(--zone-ind, #C9A227)}
+.bldg.zone-civ{fill:var(--zone-civ, #8A8F94)}
+.bldg-roof{stroke:var(--node-stroke, var(--graphite));stroke-width:.9}
+.bldg-roof.zone-res{fill:var(--decor-roof, #8A5040)}
+.stack{fill:var(--decor-roof, #6B5248)}
+.tree{fill:var(--decor-tree, #2F7A3F)}
+.window{fill:var(--decor-window, #6B767C);fill-opacity:.5}
+.window.lit{fill:var(--decor-lit, #F2D14B);fill-opacity:.85}
 .sawtooth{stroke:var(--node-stroke, var(--graphite));stroke-width:1.1;opacity:.7}
 .node-box{fill:var(--node-fill, var(--paper));stroke:var(--node-stroke, var(--graphite));
   stroke-width:var(--node-border, 1.25px);filter:var(--node-shadow, none)}
@@ -343,6 +357,14 @@ html[data-font="serif"] .node-note{font-family:Georgia,"Times New Roman",serif}
    along the stroke instead meant repainting the whole path every frame. */
 @keyframes ride{ from{offset-distance:0%} to{offset-distance:100%} }
 .rider{pointer-events:none;will-change:offset-distance}
+@keyframes fishwag{
+  0%,100%{transform:scaleY(1) rotate(0deg)}
+  25%{transform:scaleY(.78) rotate(5deg)}
+  75%{transform:scaleY(.78) rotate(-5deg)}
+}
+.fishbody{transform-box:fill-box;transform-origin:70% 50%;
+  animation:fishwag .5s ease-in-out infinite}
+html[data-motion="off"] .fishbody{animation:none}
 html[data-motion="off"] .rider{display:none}
 html[data-motion="calm"] .rider{opacity:.5}
 @media (prefers-reduced-motion:reduce){
@@ -2894,13 +2916,15 @@ const PRESETS = [
          accent:"#1F6FA8",edge:"#8D989C",hit:"#FBE9A8",hitLine:"#E4B93F",flag:"#B4402A",
          casing:"#4C555A",surface:"#9AA4A8",centre:"#F2D14B",
          beamOut:"#2F3D45",beamIn:"#B4402A",
-         decor_roof:"#8A5040",decor_smoke:"#BFC8CC",decor_window:"#6B767C",decor_lit:"#F2D14B"},
+         decor_roof:"#8A5040",decor_smoke:"#BFC8CC",decor_window:"#3A464C",decor_lit:"#F2D14B",
+         decor_tree:"#2F7A3F"},
   dark: {paper:"#0E1417",paper2:"#151D21",ink:"#DCE6EA",ink60:"#8496A0",rule:"#243036",
          accent:"#5AB0E8",edge:"#4A585F",hit:"#3A3517",hitLine:"#6B5F26",flag:"#EE7C5A",
          casing:"#05090B",surface:"#2A343A",centre:"#E8C33F",
          beamOut:"#C8D6DC",beamIn:"#EE7C5A",
-         decor_roof:"#4A2E26",decor_smoke:"#3A464C",decor_window:"#2E3A40",decor_lit:"#FFD65A"},
-  node:{shape:"block",radius:0,border:1.3,depth:2,fill:"soft",stroke:"#22282C",padBottom:16},
+         decor_roof:"#4A2E26",decor_smoke:"#3A464C",decor_window:"#1A2429",decor_lit:"#FFD65A",
+         decor_tree:"#2A5E36"},
+  node:{shape:"block",radius:0,border:1.3,depth:2,fill:"soft",stroke:"#22282C",padBottom:34},
   bg:{pattern:"citygrid",scale:14,strength:.55}, beam:"cars", edgeStyle:"road",
   decor:"city", font:"sans" },
 
@@ -2940,7 +2964,7 @@ function applyThemeVars(){
   set("--edge-casing", c.casing || mixHex(c.ink, c.paper, .55));
   set("--edge-surface", c.surface || mixHex(c.paper, c.ink, .12));
   set("--edge-centre", c.centre || c.hitLine);
-  ["beach","shallow","palm","spoil","rim","pebble","leaf","roof","smoke","window","lit"]
+  ["beach","shallow","palm","spoil","rim","pebble","leaf","roof","smoke","window","lit","tree"]
     .forEach(k=>{ if(c["decor_" + k]) r.setProperty("--decor-" + k, c["decor_" + k]); });
   const nd = t.node || {};
   r.setProperty("--node-border", (nd.border || 1.25) + "px");
@@ -3112,31 +3136,14 @@ function drawNodeUnder(g, n){
   }
 
   if(decor === "city"){
-    const kind = buildingKind(n, seed);
-    if(kind === "industrial"){
-      /* a chimney behind the block. Only a few of them smoke: an animated
-         puff on every factory in a large map costs more than it adds. */
-      const x = w * (.72 + rnd(seed, 3) * .12);
-      mk("rect",{class:"chimney", x, y:-26, width:7, height:28}, g);
-      if(smokers < SMOKE_MAX && S.motion === "full"){
-        smokers++;
-        mk("circle",{class:"smoke", cx:x + 3.5, cy:-30, r:4}, g);
-        mk("circle",{class:"smoke", cx:x + 7, cy:-38, r:5,
-          style:"animation-delay:.8s"}, g);
-      }
-    }
-    if(kind === "housing"){
-      /* a pitched roof sitting on top */
-      const x0 = w * .1, x1 = w * .9;
-      mk("path",{class:"roof", d:`M${x0},0 L${(x0+x1)/2},-15 L${x1},0 Z`}, g);
-    }
+    /* nothing behind the block: the zone is built along the bottom of it */
   }
 }
 
 function buildingKind(n, seed){
   if(n.type === "decision") return "commercial";
   if(n.type === "start" || n.type === "end") return "civic";
-  return rnd(seed, 1) < .42 ? "housing" : rnd(seed, 2) < .55 ? "industrial" : "commercial";
+  return rnd(seed, 1) < .42 ? "residential" : rnd(seed, 2) < .55 ? "industrial" : "commercial";
 }
 
 function drawNodeOver(g, n){
@@ -3145,32 +3152,58 @@ function drawNodeOver(g, n){
   const w = NODE_W, h = n._h, seed = hashOf(n.id);
 
   if(decor === "city"){
-    /* windows along the lower band, so they never sit under the label */
+    /* A zone, not a building: a little row of premises along the bottom of the
+       block, coloured the way the old game did it — green for housing, blue
+       for shops, yellow for works. */
     const kind = buildingKind(n, seed);
-    if(!fineDetail()) return;
-    const bh = 7;
-    /* the windows go in whatever is left below the writing, and are left out
-       altogether when there is no room — a lit window over the label is just
-       a mess */
+    const zone = kind === "residential" ? "res" : kind === "industrial" ? "ind"
+               : kind === "civic" ? "civ" : "com";
     const textBottom = PAD_Y + n._lines.length * LINE_H + 6
       + (n._imgH ? n._imgH + 8 : 0) + (n._note.length ? n._note.length * NOTE_LH + 8 : 0);
-    const room = h - textBottom - 8;
-    if(room < bh + 2) return;
-    const rows = (kind === "commercial" && room > bh * 2 + 6) ? 2 : 1;
-    const cols = kind === "housing" ? 4 : kind === "industrial" ? 5 : 7;
-    const bw = kind === "commercial" ? 9 : 11;
-    const gap = (w - 24 - cols * bw) / Math.max(1, cols - 1);
-    const base = h - 8 - rows * (bh + 4);
-    for(let r = 0; r < rows; r++) for(let c = 0; c < cols; c++){
-      const lit = rnd(seed, r * 13 + c) > .55;
-      mk("rect",{class:"window" + (lit ? " lit" : ""), rx:1,
-        x:12 + c * (bw + gap), y:base + r * (bh + 4), width:bw, height:bh}, g);
-    }
-    if(kind === "industrial"){
-      /* a sawtooth roofline along the top edge */
-      let d = `M8,2`;
-      for(let i = 0; i < 5; i++) d += ` l10,-7 l0,7`;
-      mk("path",{class:"sawtooth", d, fill:"none"}, g);
+    const room = Math.min(34, h - textBottom - 6);
+    if(room < 12) return;
+    const floor = h - 5;
+    mk("rect",{class:"zoneband zone-" + zone, x:6, y:floor - room - 1,
+      width:w - 12, height:room + 1, rx:1}, g);
+
+    /* on a large map the individual premises are sub-pixel anyway: the
+       coloured zone band alone still reads, and costs one shape a node */
+    if(!fineDetail()) return;
+
+    let x = 9;
+    let i = 0;
+    while(x < w - 20 && i < 9){
+      const bw = 12 + Math.round(rnd(seed, i) * (kind === "industrial" ? 20 : 12));
+      const bh = Math.max(7, Math.round(room * (0.42 + rnd(seed, i + 20) * 0.55)));
+      const y = floor - bh;
+      mk("rect",{class:"bldg zone-" + zone, x, y, width:bw, height:bh}, g);
+
+      if(kind === "residential" && bh > 10)
+        mk("path",{class:"bldg-roof zone-" + zone,
+          d:`M${x - 1.5},${y} L${x + bw/2},${y - 5} L${x + bw + 1.5},${y} Z`}, g);
+      if(kind === "industrial" && rnd(seed, i + 40) > .55){
+        mk("rect",{class:"stack", x:x + bw - 5, y:y - 9, width:3.4, height:10}, g);
+        if(smokers < SMOKE_MAX && S.motion === "full"){
+          smokers++;
+          mk("circle",{class:"smoke", cx:x + bw - 3.3, cy:y - 12, r:3.4}, g);
+        }
+      }
+      if(fineDetail() && bh > 11){
+        const rows = bh > 18 ? 2 : 1;
+        const cols = Math.max(1, Math.floor((bw - 5) / 5));
+        for(let r = 0; r < rows; r++) for(let c = 0; c < cols; c++){
+          const lit = rnd(seed, i * 17 + r * 5 + c) > .55;
+          mk("rect",{class:"window" + (lit ? " lit" : ""),
+            x:x + 3 + c * 5, y:y + 4 + r * 6, width:2.6, height:3.4}, g);
+        }
+      }
+      x += bw + 3;
+      /* a tree or two between the houses */
+      if(fineDetail() && kind === "residential" && rnd(seed, i + 60) > .5 && x < w - 26){
+        mk("circle",{class:"tree", cx:x + 2.5, cy:floor - 5, r:3.4}, g);
+        x += 8;
+      }
+      i++;
     }
   }
 
@@ -3196,10 +3229,14 @@ function drawNodeOver(g, n){
   }
 }
 
+const ORGANIC_MAX_H = 150;
 function nodePath(n){
   const w = NODE_W, h = n._h;
   const t = activeTheme().node || {};
-  void n;
+  /* the organic outlines pinch in at the top and bottom, which is fine on a
+     label but throws long text outside the shape once a note is opened */
+  if(h > ORGANIC_MAX_H && ["island","burrow","block","hex"].indexOf(t.shape || "") >= 0)
+    return roundRect(w, h, Math.min(18, Number(t.radius) || 10));
   const shape = t.shape || "rect";
   const rr = Number(t.radius) || 0;
 
@@ -3609,6 +3646,28 @@ const FISH = "M0,0 q7,-4.5 14,0 q-7,4.5 -14,0 z M0,0 l-5,-3.4 v6.8 z";
 
 /* Riders follow the line with a CSS motion path rather than SMIL: the browser
    can run offset-distance off the main thread, so a busy tunnel stays smooth. */
+/* Everything moves at a speed, not in a fixed number of seconds — otherwise a
+   short hop crawls while a long link across the map is a blur. */
+/* Sum of the control polygon, trimmed a little: within a few per cent of the
+   real arc length for the curves drawn here, and free. */
+function approxPathLength(d){
+  const nums = String(d || "").match(/-?\d+(?:\.\d+)?/g);
+  if(!nums || nums.length < 4) return 300;
+  let total = 0;
+  for(let i = 2; i + 1 < nums.length; i += 2){
+    const dx = +nums[i] - +nums[i-2], dy = +nums[i+1] - +nums[i-1];
+    total += Math.hypot(dx, dy);
+  }
+  return total * 0.86;
+}
+
+function paceFor(len, pxPerSecond){
+  const L = Math.max(40, Number(len) || 300);
+  /* a wide clamp: it only exists to stop a degenerate path freezing or
+     flickering, not to flatten the speed of a long link */
+  return Math.min(180, Math.max(0.9, L / pxPerSecond));
+}
+
 function rideAlong(gE, edgeD, make, count, dur, reverse, offset, seed){
   for(let i = 0; i < count; i++){
     const g = mk("g", {class:"rider"}, gE);
@@ -3665,7 +3724,7 @@ function pickIndex(seed, i, n){
   return Math.floor(v * n) % n;
 }
 
-function march(gE, edgeD, color, reverse, count, offset, key){
+function march(gE, edgeD, color, reverse, count, offset, key, len){
   const seed = hashOf(key + (reverse ? "r" : "f"));
   rideAlong(gE, edgeD, (g, i)=>{
     /* the queen is rare; most of the line is workers with the odd soldier */
@@ -3677,30 +3736,31 @@ function march(gE, edgeD, color, reverse, count, offset, key){
     if(a.extra) mk("path", {d:a.extra, fill:"none", stroke:color,
       "stroke-width":1, "stroke-linecap":"round"}, inner);
     mk("path", {d:a.body, fill:color}, inner);
-  }, count, 5.2, reverse, offset, seed);
+  }, count, paceFor(len, 26), reverse, offset, seed);
 }
 
-function drive(gE, edgeD, color, reverse, count, offset, key){
+function drive(gE, edgeD, color, reverse, count, offset, key, len){
   const seed = hashOf(key + (reverse ? "r" : "f"));
   rideAlong(gE, edgeD, (g, i)=>{
     const v = VEHICLES[pickIndex(seed, i, VEHICLES.length)];
     mk("path", {d:v.body, fill:color}, g);
     mk("rect", {x:v.glass.x, y:v.glass.y, width:v.glass.w, height:v.glass.h,
       rx:1, fill:"var(--paper)", opacity:.55}, g);
-  }, count, 3.1, reverse, offset, seed);
+  }, count, paceFor(len, 110), reverse, offset, seed);
 }
 
-function swim(gE, edgeD, color, reverse, count, offset, key){
-  rideAlong(gE, edgeD, g=>{
-    mk("path", {d:FISH, fill:color, opacity:.95}, g);
-  }, count, 3.6, reverse, offset, hashOf(key || ""));
+function swim(gE, edgeD, color, reverse, count, offset, key, len){
+  rideAlong(gE, edgeD, (g, i)=>{
+    const f = mk("path", {d:FISH, fill:color, opacity:.95, class:"fishbody"}, g);
+    f.style.animationDelay = (-i * 0.17) + "s";
+  }, count, paceFor(len, 46), reverse, offset, hashOf(key || ""));
 }
 
-function shoot(gE, edgeD, color, reverse, lag, offset, lean, key){
+function shoot(gE, edgeD, color, reverse, lag, offset, lean, key, len){
   rideAlong(gE, edgeD, g=>{
     if(!lean) mk("circle", {r:6, fill:color, opacity:.20}, g);
     mk("circle", {r:2.7, fill:color, opacity:.95}, g);
-  }, lean ? 1 : 2, 2.2 + (lag ? .5 : 0), reverse, offset, hashOf(key || ""));
+  }, lean ? 1 : 2, paceFor(len, 240) + (lag ? .3 : 0), reverse, offset, hashOf(key || ""));
 }
 
 function crossOffset(path){
@@ -3797,12 +3857,15 @@ function decorateSelection(){
 
     const style = S.motion === "full" ? (activeTheme().beam || "dots") : "dots";
     const ed = src.getAttribute("d");
+    /* getTotalLength forces the browser to lay the whole drawing out again,
+       once per link. The path data gives a good enough figure for nothing. */
+    const len = approxPathLength(ed);
     const send = (rev, n, off)=>{
       const colour = rev ? "var(--beam-in)" : "var(--beam-out)";
-      if(style === "fish") swim(gE, ed, colour, rev, n, off, e.id);
-      else if(style === "ants") march(gE, ed, colour, rev, n, off, e.id);
-      else if(style === "cars") drive(gE, ed, colour, rev, n, off, e.id);
-      else shoot(gE, ed, colour, rev, 0, off, lean, e.id);
+      if(style === "fish") swim(gE, ed, colour, rev, n, off, e.id, len);
+      else if(style === "ants") march(gE, ed, colour, rev, n, off, e.id, len);
+      else if(style === "cars") drive(gE, ed, colour, rev, n, off, e.id, len);
+      else shoot(gE, ed, colour, rev, 0, off, lean, e.id, len);
     };
     const busy = (style === "ants" || style === "cars");
     if(e.link_type === "tree"){
@@ -3978,14 +4041,16 @@ function render(){
     if(n._note && n._note.length){
       const q = (S.hitQuery || "").toLowerCase();
       const noteTop = textTop + PAD_Y + 11 + n._lines.length * LINE_H - 2;
+      /* one text element with a tspan per line: a separate <text> per line was
+         hundreds of elements on an opened note, and that is what made it crawl */
+      const block = mk("text",{class:"node-note" + (n._tabular ? " tab" : ""), x:13, y:noteTop}, g);
       n._note.forEach((line, i)=>{
         const y = noteTop + i * NOTE_LH;
         const lower = line.toLowerCase();
         const hit = q && lower.includes(q);
         if(hit) mk("rect",{x:11, y:y - NOTE_LH + 3, width:NODE_W - 22, height:NOTE_LH,
           fill:"var(--hit-line)", "fill-opacity":.85, rx:1}, g);
-        const t = mk("text",{class:"node-note" + (/\u2500|  /.test(line) && n._tabular ? " tab" : ""),
-          x:13, y}, g);
+        const t = mk("tspan",{x:13, y}, block);
         if(!hit){ t.textContent = line; return; }
         /* split the line so the matched words can be picked out in place */
         let from = 0;
