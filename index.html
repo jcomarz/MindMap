@@ -778,6 +778,11 @@ dialog#connDlg::backdrop{background:rgba(35,40,45,.42)}
 dialog#viewerKindDlg{border:1px solid var(--graphite);border-radius:3px;padding:0;
   background:var(--paper);width:min(560px,94vw);max-height:88dvh;color:var(--graphite)}
 dialog#viewerKindDlg::backdrop{background:rgba(35,40,45,.42)}
+dialog#bulkDlg{border:1px solid var(--graphite);border-radius:3px;padding:0;background:var(--paper);
+  width:min(440px,94vw);max-height:86dvh;color:var(--graphite);display:flex;flex-direction:column}
+dialog#bulkDlg::backdrop{background:rgba(35,40,45,.42)}
+dialog#bulkDlg .dlg-body{flex:1;max-height:none}
+@media (max-width:820px){ dialog#bulkDlg{width:100vw;height:100dvh;max-height:none;border:0;border-radius:0} }
 dialog#tagDlg{border:1px solid var(--graphite);border-radius:3px;padding:0;background:var(--paper);
   width:min(420px,94vw);max-height:86dvh;color:var(--graphite);display:flex;flex-direction:column}
 dialog#tagDlg::backdrop{background:rgba(35,40,45,.42)}
@@ -1400,6 +1405,10 @@ body.viewing.panelaway #panelHide{display:none}
         <button class="btn" id="pairSupersede">Replace</button>
       </div>
       <div class="pairacts" id="multiActs">
+        <button class="btn" id="mChild">Make children of the first</button>
+        <button class="btn" id="mCross">Cross-link to the first</button>
+        <button class="btn" id="mUnlink">Unlink from the first</button>
+        <button class="btn" id="mTag">Tags…</button>
         <button class="btn" id="mCopy">Copy</button>
         <button class="btn" id="mCopyBranch">Copy with children</button>
         <button class="btn" id="mRetire">Retire</button>
@@ -1507,6 +1516,24 @@ body.viewing.panelaway #panelHide{display:none}
     <button class="btn wide" id="resClear">Clear the filter</button>
   </div>
 </div>
+
+<dialog id="bulkDlg">
+  <div class="dlg-head">
+    <h2>Tags for the selection</h2>
+    <button class="btn" id="bulkClose">Done</button>
+  </div>
+  <div class="hist-controls">
+    <p class="fineprint" id="bulkWho"></p>
+    <label class="check"><input type="checkbox" id="bulkKids">
+      Include everything underneath them</label>
+    <label class="field" style="margin-top:8px"><span>Add these tags</span>
+      <input type="text" id="bulkAdd" placeholder="huddle/2026-08-19, acc3"></label>
+    <div class="row">
+      <button class="btn wide primary" id="bulkApply">Add to them all</button>
+    </div>
+  </div>
+  <div class="dlg-body" id="bulkList"></div>
+</dialog>
 
 <dialog id="tagDlg">
   <div class="dlg-head">
@@ -5277,6 +5304,71 @@ function dropTag(tag){
   for(const e of S.edges.values()) if(e.tag === tag) e.tag = "";
   markDirty();
 }
+/* Tagging a whole selection at once, optionally reaching down through
+   everything beneath it. */
+function bulkTargets(){
+  const base = S.multi.size ? [...S.multi] : (S.sel ? [S.sel] : []);
+  if(!el("bulkKids") || !el("bulkKids").checked) return base.filter(id=>S.nodes.has(id));
+  const out = new Set();
+  base.forEach(id=>{
+    out.add(id);
+    branchOf(id).forEach(k=>out.add(k));
+  });
+  return [...out].filter(id=>S.nodes.has(id));
+}
+function openBulkTags(){
+  if(!canEdit()){ toast("Switch to editing mode first."); return; }
+  renderBulkTags();
+  el("bulkDlg").showModal();
+}
+function renderBulkTags(){
+  const ids = bulkTargets();
+  el("bulkWho").textContent = ids.length
+    ? ids.length + " node" + (ids.length===1?"":"s") + " selected"
+    : "Nothing selected.";
+  const counts = new Map();
+  ids.forEach(id=>(S.nodes.get(id).tags||[]).forEach(t=>counts.set(t, (counts.get(t)||0)+1)));
+  const rows = [...counts.entries()].sort((a,b)=>b[1]-a[1] || a[0].localeCompare(b[0]));
+  el("bulkList").innerHTML = rows.length
+    ? `<p class="fineprint" style="margin:2px 0 8px">Tags already on them — tap to take one off</p>`
+      + rows.map(([t,c])=>`<div class="tagpick">
+          <span>${esc(t)}</span>
+          <span class="cnt">${c} of ${ids.length}</span>
+          <button class="kill" data-bulkdrop="${esc(t)}" title="Remove from all">&times;</button>
+        </div>`).join("")
+    : `<p class="histempty">None of them carry a tag yet.</p>`;
+  el("bulkList").querySelectorAll("[data-bulkdrop]").forEach(b=>{
+    b.onclick = ()=>{
+      const tag = b.dataset.bulkdrop;
+      let n = 0;
+      bulkTargets().forEach(id=>{
+        const node = S.nodes.get(id);
+        if((node.tags||[]).includes(tag)){
+          setField(node, "tags", node.tags.filter(t=>t !== tag)); n++;
+        }
+      });
+      markDirty(); rebuild(); renderBulkTags();
+      toast(tag + " removed from " + n + " node" + (n===1?"":"s"));
+    };
+  });
+}
+function applyBulkTags(){
+  const raw = (el("bulkAdd").value || "").split(",").map(t=>t.trim()).filter(Boolean);
+  if(!raw.length){ toast("Type a tag first."); return; }
+  const ids = bulkTargets();
+  let n = 0;
+  ids.forEach(id=>{
+    const node = S.nodes.get(id);
+    const have = new Set(node.tags || []);
+    const before = have.size;
+    raw.forEach(t=>have.add(t));
+    if(have.size !== before){ setField(node, "tags", [...have]); n++; }
+  });
+  el("bulkAdd").value = "";
+  markDirty(); rebuild(); renderBulkTags();
+  toast(raw.join(", ") + " added to " + n + " node" + (n===1?"":"s"));
+}
+
 function purgeUnusedTags(){
   if(!canEdit()){ toast("Switch to editing mode first."); return; }
   const gone = unusedTags();
@@ -6210,6 +6302,57 @@ function updateLinkBar(){
     ? "That node already has a parent; a cross-link keeps its place in the tree"
     : "";
 }
+/* The node you had selected first is the one the others attach to. */
+function multiAnchor(){
+  const list = [...S.multi];
+  if(S.sel && list.indexOf(S.sel) === 0) return S.sel;
+  return list[0] || S.sel;
+}
+function multiOthers(){
+  const a = multiAnchor();
+  return [...S.multi].filter(id=>id !== a && S.nodes.has(id));
+}
+
+function linkAllTo(kind){
+  if(!canEdit()) return;
+  const a = multiAnchor();
+  const others = multiOthers();
+  if(!a || !others.length) return;
+  let made = 0, skipped = 0;
+  others.forEach(id=>{
+    if(kind === "tree"){
+      /* a node has one parent; moving it is a real change, so it is offered
+         rather than done quietly */
+      const up = parentOf(id);
+      if(up && up !== a){ skipped++; return; }
+      if(up === a) return;
+    }
+    const dup = [...S.edges.values()].some(e=>
+      e.from === a && e.to === id && e.link_type === kind);
+    if(dup) return;
+    const e = newEdge({from:a, to:id, link_type:kind});
+    S.edges.set(e.id, e);
+    made++;
+  });
+  markDirty(); rebuild();
+  toast(made + (kind === "tree" ? " now hang off " : " cross-linked to ") + nodeName(a)
+    + (skipped ? ", " + skipped + " left alone (already has a parent)" : ""));
+}
+
+function unlinkAllFrom(){
+  if(!canEdit()) return;
+  const a = multiAnchor();
+  const others = new Set(multiOthers());
+  if(!a || !others.size) return;
+  let cut = 0;
+  [...S.edges.values()].forEach(e=>{
+    const touches = (e.from === a && others.has(e.to)) || (e.to === a && others.has(e.from));
+    if(touches){ S.edges.delete(e.id); cut++; }
+  });
+  markDirty(); rebuild();
+  toast(cut ? cut + " link" + (cut===1?"":"s") + " removed" : "Nothing was linked");
+}
+
 function pairLink(kind){
   const a = S.sel, b = S.sel2;
   if(!a || !b || !canEdit()) return;
@@ -6935,6 +7078,9 @@ function renderInspector(){
         ${layersUnder(n.id).map(x=>`<a href="#" data-goto="${esc(x)}">${esc(nodeName(x))}</a>`).join(", ")}.
       </div>` : ""}
       <div class="row" style="margin-top:6px">
+        <button class="btn" id="fBulkTags">Tag this and everything under it</button>
+      </div>
+      <div class="row" style="margin-top:6px">
         <button class="btn" id="fZoom">Zoom to node</button>
         <button class="btn" id="fPair">Link with another node</button>
       </div>
@@ -7042,6 +7188,10 @@ function renderInspector(){
   if(el("fUnSupersede")) el("fUnSupersede").onclick = ()=>{
     unSupersede(n.id);
     toast("Back on its own. It is still retired — use Restore to bring it back.");
+  };
+  if(el("fBulkTags")) el("fBulkTags").onclick = ()=>{
+    if(el("bulkKids")) el("bulkKids").checked = true;
+    openBulkTags();
   };
   el("fZoom").onclick   = ()=>focusNode(n.id);
   el("fPair").onclick = ()=>{
@@ -10710,6 +10860,10 @@ async function boot(){
     S.multi.clear(); S.sel = null; S.sel2 = null;
     markDirty(); rebuild();
   };
+  el("mChild").onclick  = ()=>linkAllTo("tree");
+  el("mCross").onclick  = ()=>linkAllTo("cross");
+  el("mUnlink").onclick = unlinkAllFrom;
+  el("mTag").onclick    = openBulkTags;
   el("pairChild").onclick = ()=>pairLink("tree");
   el("pairCross").onclick = ()=>pairLink("cross");
   el("pairSwap").onclick  = pairSwap;
@@ -10810,6 +10964,12 @@ async function boot(){
   el("tagNone").onclick = ()=>{ S.tagPick.clear(); S.tagOnly = false; afterTagChange(); };
   el("tagOnly").onchange = e=>{ S.tagOnly = e.target.checked; afterTagChange(); };
   el("tagPurge").onclick = purgeUnusedTags;
+  el("bulkClose").onclick = ()=>el("bulkDlg").close();
+  el("bulkApply").onclick = applyBulkTags;
+  el("bulkKids").onchange = renderBulkTags;
+  el("bulkAdd").addEventListener("keydown", ev=>{
+    if(ev.key === "Enter"){ ev.preventDefault(); applyBulkTags(); }
+  });
   el("panelHide").onclick = ()=>showPanel(false);
   el("resClose").onclick = closeResults;
   el("resClear").onclick = ()=>{
