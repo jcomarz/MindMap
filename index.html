@@ -299,6 +299,15 @@ body.focusing .node-g:not(.focusdim) .node-box{stroke-width:calc(var(--node-bord
   animation:rippleout 2.6s ease-out infinite}
 html[data-motion="off"] .ripple{display:none}
 .palm{fill:none;stroke:var(--decor-palm, #2F7A4F);stroke-width:1.6;stroke-linecap:round}
+.coconut{fill:var(--decor-coconut, #6B4A2C)}
+.shell{fill:var(--decor-shell, #F3E2CB);stroke:var(--decor-shellline, #C7A97F);stroke-width:.7}
+@keyframes palmsway{
+  0%,100%{transform:rotate(-2.5deg)}
+  50%{transform:rotate(2.5deg)}
+}
+.node-g.sel .palm-g{transform-box:fill-box;transform-origin:bottom center;
+  animation:palmsway 3.4s ease-in-out infinite}
+html[data-motion="off"] .node-g.sel .palm-g{animation:none}
 .spoil{fill:var(--decor-spoil, #A8814F);stroke:none;fill-opacity:.9}
 .rim{fill:var(--decor-rim, #C9A472);stroke:none}
 .pebble{fill:var(--decor-pebble, #7A5A34);fill-opacity:.65}
@@ -328,6 +337,15 @@ html[data-motion="off"] .smoke{display:none}
 .tree{fill:var(--decor-tree, #2F7A3F)}
 .window{fill:var(--decor-window, #6B767C);fill-opacity:.5}
 .window.lit{fill:var(--decor-lit, #F2D14B);fill-opacity:.85}
+@keyframes windowflick{
+  0%,38%{fill-opacity:.85}
+  40%,52%{fill-opacity:.12}
+  54%,88%{fill-opacity:.85}
+  90%,96%{fill-opacity:.12}
+  98%,100%{fill-opacity:.85}
+}
+.window.flicker{animation:windowflick 9s steps(1, end) infinite}
+html[data-motion="off"] .window.flicker{animation:none}
 .sawtooth{stroke:var(--node-stroke, var(--graphite));stroke-width:1.1;opacity:.7}
 .node-box{fill:var(--node-fill, var(--paper));stroke:var(--node-stroke, var(--graphite));
   stroke-width:var(--node-border, 1.25px);filter:var(--node-shadow, none)}
@@ -365,6 +383,17 @@ html[data-font="serif"] .node-note{font-family:Georgia,"Times New Roman",serif}
 .fishbody{transform-box:fill-box;transform-origin:70% 50%;
   animation:fishwag .5s ease-in-out infinite}
 html[data-motion="off"] .fishbody{animation:none}
+
+@keyframes scuttle{
+  0%{transform:translateY(0) rotate(0deg)}
+  25%{transform:translateY(-.5px) rotate(7deg)}
+  50%{transform:translateY(.4px) rotate(0deg)}
+  75%{transform:translateY(-.3px) rotate(-7deg)}
+  100%{transform:translateY(0) rotate(0deg)}
+}
+.antbody{transform-box:fill-box;transform-origin:center;
+  animation:scuttle .34s ease-in-out infinite}
+html[data-motion="off"] .antbody{animation:none}
 html[data-motion="off"] .rider{display:none}
 html[data-motion="calm"] .rider{opacity:.5}
 @media (prefers-reduced-motion:reduce){
@@ -2863,10 +2892,12 @@ const PRESETS = [
 { id:"islands", name:"Islands", note:"Sand islands on open water, with fish along the currents.",
   light:{paper:"#BFE3EF",paper2:"#A9D8E8",ink:"#4A3B22",ink60:"#8A7A5A",rule:"#8FC6D8",
          accent:"#1B7F9B",edge:"#4E93A8",hit:"#FFE9A8",hitLine:"#E8BE4A",flag:"#C2532F",
-         decor_beach:"#F0DCA8",decor_shallow:"#8FCFE4",decor_palm:"#2F7A4F"},
+         decor_beach:"#F0DCA8",decor_shallow:"#8FCFE4",decor_palm:"#2F7A4F",
+         decor_coconut:"#6B4A2C",decor_shell:"#FBEFD8",decor_shellline:"#C7A97F"},
   dark: {paper:"#0B2A38",paper2:"#0E3444",ink:"#F2E4C6",ink60:"#B8A98A",rule:"#175064",
          accent:"#63C8E0",edge:"#3E7E95",hit:"#3E3517",hitLine:"#6E5F26",flag:"#EE8A63",
-         decor_beach:"#8A7448",decor_shallow:"#1E5E75",decor_palm:"#3E8A5C"},
+         decor_beach:"#8A7448",decor_shallow:"#1E5E75",decor_palm:"#3E8A5C",
+         decor_coconut:"#3A2A18",decor_shell:"#C9B48E",decor_shellline:"#7A6647"},
   node:{shape:"island",radius:24,border:1.2,depth:4,fill:"custom",
         color:"#E8D5A8",colorDark:"#C9AE78",stroke:"#B49A63",vary:true},
   bg:{pattern:"waves",scale:30,strength:.5}, beam:"fish", decor:"island", font:"sans" },
@@ -2964,7 +2995,7 @@ function applyThemeVars(){
   set("--edge-casing", c.casing || mixHex(c.ink, c.paper, .55));
   set("--edge-surface", c.surface || mixHex(c.paper, c.ink, .12));
   set("--edge-centre", c.centre || c.hitLine);
-  ["beach","shallow","palm","spoil","rim","pebble","leaf","roof","smoke","window","lit","tree"]
+  ["beach","shallow","palm","spoil","rim","pebble","leaf","roof","smoke","window","lit","tree","coconut","shell","shellline"]
     .forEach(k=>{ if(c["decor_" + k]) r.setProperty("--decor-" + k, c["decor_" + k]); });
   const nd = t.node || {};
   r.setProperty("--node-border", (nd.border || 1.25) + "px");
@@ -3091,8 +3122,8 @@ function roundRect(w, h, r){
    theme can look like the thing it is imitating rather than a box
    in a new colour.
    --------------------------------------------------------------- */
-const SMOKE_MAX = 8;
-let smokers = 0;
+const SMOKE_MAX = 8, FLICKER_MAX = 40;
+let smokers = 0, flickers = 0;
 /* Fine detail — windows, pebbles, leaves — is thousands of extra shapes on a
    large map, and invisible at the zoom you view one at. It is dropped past a
    few hundred nodes; the silhouettes stay. */
@@ -3192,9 +3223,18 @@ function drawNodeOver(g, n){
         const rows = bh > 18 ? 2 : 1;
         const cols = Math.max(1, Math.floor((bw - 5) / 5));
         for(let r = 0; r < rows; r++) for(let c = 0; c < cols; c++){
-          const lit = rnd(seed, i * 17 + r * 5 + c) > .55;
-          mk("rect",{class:"window" + (lit ? " lit" : ""),
+          const roll = rnd(seed, i * 17 + r * 5 + c);
+          const lit = roll > .55;
+          const win = mk("rect",{class:"window" + (lit ? " lit" : ""),
             x:x + 3 + c * 5, y:y + 4 + r * 6, width:2.6, height:3.4}, g);
+          /* a few windows in the city are on a timer; lighting every one would
+             be thousands of animations */
+          if(lit && flickers < FLICKER_MAX && S.motion === "full" && roll > .82){
+            flickers++;
+            win.classList.add("flicker");
+            win.style.animationDelay = (-roll * 14) + "s";
+            win.style.animationDuration = (7 + roll * 9) + "s";
+          }
         }
       }
       x += bw + 3;
@@ -3219,12 +3259,32 @@ function drawNodeOver(g, n){
   }
 
   if(decor === "island"){
-    /* a scrap of palm on the larger islands */
-    if(fineDetail() && h > 46 && rnd(seed, 5) > .45){
-      const x = w * (.08 + rnd(seed, 6) * .1), y = h * .3;
-      mk("path",{class:"palm", transform:`translate(${x},${y})`,
-        d:"M0,0 l0,-16 M0,-16 q-9,-5 -13,1 M0,-16 q9,-5 13,1 M0,-16 q-6,-9 -1,-12 "
-         + "M0,-16 q6,-9 1,-12"}, g);
+    if(!fineDetail()) return;
+    /* palms along the shore, and a few shells washed up on the sand */
+    const palms = h > 90 ? 3 : h > 52 ? 2 : 1;
+    for(let i = 0; i < palms; i++){
+      if(rnd(seed, i + 5) < .28) continue;
+      const side = i % 2 ? 1 : -1;
+      const x = w * (.5 + side * (.30 + rnd(seed, i + 6) * .14));
+      const y = h * (.30 + rnd(seed, i + 16) * .42);
+      const lean = (rnd(seed, i + 26) - .5) * 16;
+      const sc = 0.75 + rnd(seed, i + 36) * .5;
+      const pg = mk("g",{class:"palm-g",
+        transform:`translate(${x},${y}) rotate(${lean}) scale(${sc})`}, g);
+      pg.style.animationDelay = (-rnd(seed, i + 46) * 3) + "s";
+      mk("path",{class:"palm",
+        d:"M0,0 q-1.5,-8 0,-16 M0,-16 q-9,-5 -13,1 M0,-16 q9,-5 13,1 "
+         + "M0,-16 q-6,-9 -1,-12 M0,-16 q6,-9 1,-12 M0,-16 q4,-8 9,-9"}, pg);
+      mk("circle",{class:"coconut", cx:-1.6, cy:-15, r:1.5}, pg);
+      mk("circle",{class:"coconut", cx:1.8, cy:-14.2, r:1.4}, pg);
+    }
+    for(let i = 0; i < 3; i++){
+      if(rnd(seed, i + 70) < .45) continue;
+      const a = rnd(seed, i + 80) * Math.PI * 2;
+      const x = w/2 + Math.cos(a) * w * .49, y = h/2 + Math.sin(a) * h * .55;
+      const rot = Math.round(rnd(seed, i + 90) * 360);
+      mk("path",{class:"shell", transform:`translate(${x},${y}) rotate(${rot})`,
+        d:"M0,0 q-4,-4.5 0,-7 q4,2.5 0,7 z M0,-7 l-3,6 M0,-7 l3,6"}, g);
     }
   }
 }
@@ -3668,7 +3728,7 @@ function paceFor(len, pxPerSecond){
   return Math.min(180, Math.max(0.9, L / pxPerSecond));
 }
 
-function rideAlong(gE, edgeD, make, count, dur, reverse, offset, seed){
+function rideAlong(gE, edgeD, make, count, dur, reverse, offset, seed, timing){
   for(let i = 0; i < count; i++){
     const g = mk("g", {class:"rider"}, gE);
     const inner = mk("g", {transform:offset ? `translate(${offset.x},${offset.y})` : null}, g);
@@ -3679,8 +3739,12 @@ function rideAlong(gE, edgeD, make, count, dur, reverse, offset, seed){
       : 0.82 + (((Math.sin((seed + i * 3.7) * 311.7) * 43758.5453) % 1 + 1) % 1) * 0.36;
     const d2 = dur * wobble;
     g.style.offsetPath = `path("${edgeD}")`;
-    g.style.offsetRotate = "auto";
+    /* a reversed rider still points along the path's forward tangent, which
+       reads as travelling backwards; turn it about */
+    g.style.offsetRotate = reverse ? "auto 180deg" : "auto";
     g.style.animation = `ride ${d2}s linear infinite`;
+    /* an ant advances in little rushes rather than gliding */
+    if(timing) g.style.animationTimingFunction = timing;
     g.style.animationDelay = (-i * (d2 / count)) + "s";
     if(reverse) g.style.animationDirection = "reverse";
   }
@@ -3730,13 +3794,14 @@ function march(gE, edgeD, color, reverse, count, offset, key, len){
     /* the queen is rare; most of the line is workers with the odd soldier */
     const roll = pickIndex(seed, i, 10);
     const a = ANTS[roll === 0 ? 2 : roll < 3 ? 1 : 0];
-    const inner = mk("g", {transform:`scale(${a.scale})`}, g);
+    const inner = mk("g", {class:"antbody", transform:`scale(${a.scale})`}, g);
+    inner.style.animationDelay = (-rnd(seed, i + 200) * .6) + "s";
     if(a.wings) mk("path", {d:a.wings, fill:color, opacity:.28}, inner);
     mk("path", {d:a.legs, fill:"none", stroke:color, "stroke-width":.8, opacity:.85}, inner);
     if(a.extra) mk("path", {d:a.extra, fill:"none", stroke:color,
       "stroke-width":1, "stroke-linecap":"round"}, inner);
     mk("path", {d:a.body, fill:color}, inner);
-  }, count, paceFor(len, 26), reverse, offset, seed);
+  }, count, paceFor(len, 26), reverse, offset, seed, "steps(46, end)");
 }
 
 function drive(gE, edgeD, color, reverse, count, offset, key, len){
@@ -3867,16 +3932,16 @@ function decorateSelection(){
       else if(style === "cars") drive(gE, ed, colour, rev, n, off, e.id, len);
       else shoot(gE, ed, colour, rev, 0, off, lean, e.id, len);
     };
-    const busy = (style === "ants" || style === "cars");
+    const busy = (style === "ants" || style === "cars" || style === "fish");
     if(e.link_type === "tree"){
       /* a branch always runs parent to child, whichever end you selected */
-      const n = lean ? (busy ? 2 : 1) : (busy ? 5 : 2);
+      const n = lean ? (busy ? 2 : 1) : (style === "fish" ? 6 : busy ? 5 : 2);
       send(false, n, null);
       drawn += n;
     } else {
       /* a cross-link carries traffic both ways, on either side of the line */
       const off = crossOffset(src);
-      const n = lean ? (busy ? 2 : 1) : (busy ? 3 : 1);
+      const n = lean ? (busy ? 2 : 1) : (style === "fish" ? 4 : busy ? 3 : 1);
       send(false, n, off);
       send(true, n, {x:-off.x, y:-off.y});
       drawn += n * 2;
@@ -3901,6 +3966,7 @@ let renderStamp = 0;
 function render(){
   renderStamp++;
   smokers = 0;
+  flickers = 0;
   const gE = el("gEdges"), gN = el("gNodes"), gA = el("gAreas");
   gE.textContent = ""; gN.textContent = ""; gA.textContent = "";
   el("defs").querySelectorAll("clipPath").forEach(c=>c.remove());
