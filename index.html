@@ -1012,6 +1012,12 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
         <div class="row" style="margin-bottom:10px">
           <button class="btn wide" id="btnTidyLines">Reset every line to automatic</button>
         </div>
+        <label class="field"><span>When you pick a node</span>
+          <select id="pickZoom">
+            <option value="in">Move in close enough to read it</option>
+            <option value="note">Move in and open its note</option>
+            <option value="off">Leave the view alone</option>
+          </select></label>
         <label class="field"><span>When a node is selected</span>
           <select id="focusMode">
             <option value="off">Show the whole map</option>
@@ -1623,6 +1629,7 @@ const S = {
   checkItems:[],               // things the host asks people to confirm
   checkoffs:[],                // who confirmed what
   personal:{bookmarks:[], searches:[], recent:[], ackNew:{}, recentBadge:"", newBadge:"", art:{}, useHostArt:true},
+  pickZoom:"in",               // off | in | note
   focusMode:"off",             // off | linked | family
   branchGrid:true,             // pack big fans into a grid rather than one column
   avoidNodes:true,             // steer links around nodes they do not touch
@@ -5143,7 +5150,7 @@ const MIN_K = 0.05, MAX_K = 6;
         const id = dragNode.id;
         const now = Date.now();
         if(lastTapId === id && now - lastTapTime < 340) focusNode(id);
-        else select(id);
+        else pickNode(id);
         lastTapId = id; lastTapTime = now;
       }
     } else if(mode === "tap-node" && dragNode && wasTap){
@@ -5180,6 +5187,26 @@ const MIN_K = 0.05, MAX_K = 6;
     zoomAt(ev.deltaY < 0 ? 1.12 : 1/1.12, ev.clientX, ev.clientY);
   }, {passive:false});
 })();
+
+/* Choosing a node brings it close enough to read, without ever pulling back —
+   stepping away is what widens the view again. */
+function pickNode(id){
+  select(id);
+  if(!S.nodes.has(id)) return;
+  if(S.pickZoom === "off" || S.multi.size > 1 || S.pairArmed || S.selectMode) return;
+  const n = S.nodes.get(id);
+  if(n._x == null) return;
+  const s = svgSize();
+  /* big enough that the label reads, small enough that its neighbours are
+     still on the edges of the screen */
+  const fit = Math.min((s.h * 0.55) / Math.max(60, n._h), (s.w * 0.62) / NODE_W);
+  const target = Math.min(1.7, Math.max(0.95, fit));
+  const k = Math.max(S.view.k, target);
+  animateView({k,
+    x:s.w/2 - (n._x + NODE_W/2) * k,
+    y:s.h/2 - (n._y + n._h/2) * k}, 380);
+  if(S.pickZoom === "note" && n.body) setTimeout(()=>openNote(id, true), 300);
+}
 
 /* Fill the viewport with one node, which is what "look at this bit" means
    on a phone. */
@@ -5855,7 +5882,7 @@ function wireContributions(n){
   });
   body.querySelectorAll("[data-hop]").forEach(e=>{
     e.onclick = ()=>{ const id = e.dataset.hop;
-      if(S.nodes.has(id)){ select(id); ensureVisible(id); } };
+      if(S.nodes.has(id)) pickNode(id); };
   });
   const ask = el("askAboutNode");
   if(ask) ask.onclick = ()=>askQuestion(n.id);
@@ -7395,6 +7422,7 @@ async function afterMapSwitch(){
   if(el("notesMode")) el("notesMode").value = S.notesMode;
   applyMotion();
   if(el("focusMode")) el("focusMode").value = S.focusMode;
+  if(el("pickZoom")) el("pickZoom").value = S.pickZoom;
   if(el("showIds")) el("showIds").checked = S.showIds;
   if(el("avoidNodes")) el("avoidNodes").checked = S.avoidNodes;
   if(el("branchGrid")) el("branchGrid").checked = S.branchGrid;
@@ -7956,6 +7984,7 @@ async function loadPersonal(){
       if(typeof rec.avoidNodes === "boolean") S.avoidNodes = rec.avoidNodes;
       if(typeof rec.branchGrid === "boolean") S.branchGrid = rec.branchGrid;
       if(rec.focusMode) S.focusMode = rec.focusMode;
+      if(rec.pickZoom) S.pickZoom = rec.pickZoom;
       S.personal.recent = Array.isArray(rec.recent) ? rec.recent : [];
       S.personal.ackNew = rec.ackNew && typeof rec.ackNew === "object" ? rec.ackNew : {};
       S.personal.recentBadge = rec.recentBadge || "";
@@ -7972,6 +8001,7 @@ async function savePersonal(){
       bookmarks:S.personal.bookmarks, searches:S.personal.searches,
       who:S.who, mode:S.mode, notesMode:S.notesMode, motion:S.motion, showIds:S.showIds,
       avoidNodes:S.avoidNodes, branchGrid:S.branchGrid, focusMode:S.focusMode,
+      pickZoom:S.pickZoom,
       recent:S.personal.recent, ackNew:S.personal.ackNew,
       recentBadge:S.personal.recentBadge || "", newBadge:S.personal.newBadge || "",
       art:S.personal.art, useHostArt:S.personal.useHostArt, at:nowISO()
@@ -9474,6 +9504,7 @@ async function boot(){
   el("branchGrid").onchange = e=>{ S.branchGrid = e.target.checked; savePersonal(); rebuild(); fitView(0.96,0.4); };
   el("avoidNodes").onchange = e=>{ S.avoidNodes = e.target.checked; savePersonal(); render(); };
   el("showIds").onchange = e=>{ S.showIds = e.target.checked; savePersonal(); rebuild(); };
+  el("pickZoom").onchange = e=>{ S.pickZoom = e.target.value; savePersonal(); };
   el("focusMode").onchange = e=>{ S.focusMode = e.target.value; savePersonal(); decorateSelection(); };
   el("motionPref").onchange = e=>{ S.motion = e.target.value; applyMotion(); savePersonal(); render(); };
   el("routeTree").onchange = e=>{
@@ -10090,6 +10121,7 @@ async function boot(){
   if(el("notesMode")) el("notesMode").value = S.notesMode;
   applyMotion();
   if(el("focusMode")) el("focusMode").value = S.focusMode;
+  if(el("pickZoom")) el("pickZoom").value = S.pickZoom;
   if(el("showIds")) el("showIds").checked = S.showIds;
   if(el("avoidNodes")) el("avoidNodes").checked = S.avoidNodes;
   if(el("branchGrid")) el("branchGrid").checked = S.branchGrid;
