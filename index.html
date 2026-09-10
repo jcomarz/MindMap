@@ -5760,11 +5760,23 @@ const MIN_K = 0.05, MAX_K = 6;
       mode = "tap-node";
       dragNode = {id:g.dataset.id};
     } else if(g){
-      const id = g.dataset.id, n = S.nodes.get(id);
+      let id = g.dataset.id;
+      /* a card in a pile is not dragged out of it: grabbing any layer moves
+         the whole stack, led by the current version */
+      if(isLayer(id)) id = topOfStack(id);
+      const n = S.nodes.get(id);
       const w = toWorld(ev.clientX, ev.clientY);
       /* grabbing any node of a selection moves the whole selection */
-      const group = (S.multi.size > 1 && S.multi.has(id))
-        ? [...S.multi].filter(x=>S.nodes.has(x)).map(x=>{
+      const inSel = S.multi.size > 1 && S.multi.has(id);
+      const members = inSel ? [...S.multi].filter(x=>S.nodes.has(x)) : [id];
+      /* whatever moves takes its layers with it */
+      const withLayers = new Set();
+      members.forEach(x=>{
+        withLayers.add(x);
+        layersUnder(x).forEach(l=>{ if(S.nodes.has(l)) withLayers.add(l); });
+      });
+      const group = (withLayers.size > 1)
+        ? [...withLayers].map(x=>{
             const m = S.nodes.get(x); return {n:m, ox:m._x, oy:m._y}; })
         : null;
       dragNode = {id, dx:w.x - n._x, dy:w.y - n._y, ox:n._x, oy:n._y, group};
@@ -5964,6 +5976,9 @@ const MIN_K = 0.05, MAX_K = 6;
     if(mode === "node" && dragNode){
       if(moved){
         const pinOne = node=>{
+          /* layers have no position of their own — they are placed from the
+             node above them on every layout */
+          if(isLayer(node.id)) return;
           node.pinned = true; node.x = node._x; node.y = node._y;
           logRev(node.id, "position", "auto", Math.round(node.x)+","+Math.round(node.y));
           node.modified = nowISO();
