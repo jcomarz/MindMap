@@ -134,6 +134,12 @@ button{cursor:pointer}
 .tocitem.sel{background:var(--blueprint-soft);color:var(--blueprint)}
 .tocitem.retired{color:var(--retired)}
 .tocitem.here{background:var(--blueprint-soft);border-radius:2px;font-weight:600}
+.resrow{padding:7px 4px;border-top:1px solid var(--rule-soft);cursor:pointer;border-radius:2px}
+.resrow:first-of-type{border-top:0}
+.resrow:hover{background:var(--paper-2)}
+.resrow .toclabel{display:block;font-size:12.5px;line-height:1.35}
+.restrail{display:block;font-size:10.5px;color:var(--graphite-60);margin-top:2px;
+  font-family:var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* an author rule that sets display on these children beats the browser's own
    collapse rule, so say it explicitly */
 #tocOutline details:not([open]) > *:not(summary){display:none}
@@ -422,6 +428,17 @@ html[data-font="serif"] .node-note{font-family:Georgia,"Times New Roman",serif}
 .note-hit{font-weight:600;fill:var(--graphite)}
 .node-g.retired .node-note{fill:var(--retired)}
 .node-g.retired .node-box{stroke:var(--retired);stroke-dasharray:5 3;fill:var(--paper-2)}
+/* a superseded node is a card in the pile: only its edge shows */
+.node-g.layer .node-label,.node-g.layer .node-note,.node-g.layer .node-id{display:none}
+.node-g.layer .node-box{fill:var(--paper-2);stroke:var(--retired);stroke-dasharray:none;
+  stroke-width:1}
+.node-g.layer.sel .node-box{stroke:var(--blueprint);stroke-width:2}
+.stacktab{font-family:var(--sans);font-size:9.5px;fill:var(--retired);pointer-events:none}
+.supersede-note{margin:10px 0 0;padding:9px 11px;border-radius:3px;font-size:12.5px;
+  line-height:1.45;background:color-mix(in srgb, var(--flag) 12%, transparent);
+  border-left:3px solid var(--flag)}
+.supersede-note.current{background:var(--blueprint-soft);border-left-color:var(--blueprint)}
+.supersede-note a{color:var(--blueprint);font-weight:600}
 .node-g.retired .node-label{fill:var(--retired)}
 .node-g.sel .node-box{stroke:var(--blueprint);stroke-width:2.5}
 /* light paper swallows a soft glow, so it gets a tighter, stronger one */
@@ -1012,7 +1029,7 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
 
       <div class="group">
         <h2>Show</h2>
-        <label class="field"><span>Appearance</span>
+        <label class="field"><span>Light or dark</span>
           <select id="themePref">
             <option value="auto">Match the device</option>
             <option value="light">Light</option>
@@ -1251,6 +1268,11 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
         <button class="btn wide" id="btnArea" style="margin-top:8px">Draw an area</button>
       </div>
 
+      <div class="group" id="resultsGroup" hidden>
+        <h2>Results</h2>
+        <div id="tocResults"></div>
+      </div>
+
       <div class="group">
         <h2>Outline</h2>
         <div class="row" style="margin:0 0 8px">
@@ -1290,6 +1312,7 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
         <button class="btn" id="pairCross">Cross-link</button>
         <button class="btn" id="pairSwap">Swap direction</button>
         <button class="btn" id="pairCut">Unlink</button>
+        <button class="btn" id="pairSupersede">Replace</button>
       </div>
       <div class="pairacts" id="multiActs">
         <button class="btn" id="mCopy">Copy</button>
@@ -1669,6 +1692,7 @@ const S = {
   checkItems:[],               // things the host asks people to confirm
   checkoffs:[],                // who confirmed what
   personal:{bookmarks:[], searches:[], recent:[], ackNew:{}, recentBadge:"", newBadge:"", art:{}, useHostArt:true},
+  railOpen:["Mode", "Outline", "Results"],
   followOutline:true,          // the outline keeps up with the selection
   pickZoom:"in",               // off | in | note
   focusMode:"off",             // off | linked | family
@@ -1703,7 +1727,7 @@ function newNode(o={}){
   return Object.assign({
     id:uid("N-"), label:"New node", body:"", type:"step", tags:[],
     status:"active", flag:"", image:"", imageH:120, edit:0,
-    badge:"", badgeAt:"", badgeImage:"", order:"",
+    badge:"", badgeAt:"", badgeImage:"", supersededBy:"", order:"",
     created:nowISO(), modified:nowISO(),
     rev:1, author:S.meta.author, x:null, y:null, pinned:false, collapsed:false
   }, o);
@@ -1915,6 +1939,56 @@ function setOwnArt(id, which, value){
   savePersonal(); rebuild();
 }
 
+/* ---------------------------------------------------------------
+   Superseding. A retired node keeps its place by sitting underneath
+   whatever replaced it, so looking up the old thing shows the new one
+   in the same breath.
+   --------------------------------------------------------------- */
+function replacementOf(id){
+  const n = S.nodes.get(id);
+  const to = n && n.supersededBy;
+  return (to && S.nodes.has(to) && to !== id) ? to : "";
+}
+function layersUnder(id, seen){
+  seen = seen || new Set([id]);
+  const out = [];
+  for(const n of S.nodes.values()){
+    if(n.supersededBy !== id || seen.has(n.id)) continue;
+    seen.add(n.id);
+    out.push(n.id);
+    layersUnder(n.id, seen).forEach(x=>out.push(x));
+  }
+  return out;
+}
+function topOfStack(id){
+  let cur = id, guard = 0;
+  while(guard++ < 50){
+    const up = replacementOf(cur);
+    if(!up) return cur;
+    cur = up;
+  }
+  return cur;
+}
+function isLayer(id){ return !!replacementOf(id); }
+
+function supersede(oldId, newId){
+  if(!canEdit() || oldId === newId) return;
+  if(topOfStack(newId) === oldId){ toast("Those two already replace each other."); return; }
+  const n = S.nodes.get(oldId);
+  if(!n) return;
+  setField(n, "supersededBy", newId);
+  if(n.status !== "retired") setField(n, "status", "retired");
+  markDirty(); rebuild();
+  toast("“" + (n.label || oldId) + "” now sits under “"
+    + (S.nodes.get(newId).label || newId) + "”");
+}
+function unSupersede(id){
+  const n = S.nodes.get(id);
+  if(!n || !canEdit()) return;
+  setField(n, "supersededBy", "");
+  markDirty(); rebuild();
+}
+
 function isRoot(){ return S.mode === "root" && !S.viewerBuild; }
 /* A viewer build has no editing at all — not a mode you can switch out of. */
 function canEdit(){ return S.mode === "root" && !S.viewerBuild; }
@@ -2108,7 +2182,7 @@ function seed(){
    Kept human-readable so the workbook stands on its own.
    ===================================================================== */
 const HDR = {
-  Nodes:["node_id","label","body","type","tags","status","flag","image","image_h","created","modified","rev","edit","author","badge","badge_at","badge_image","order","x","y","pinned","parent_id","depth","path"],
+  Nodes:["node_id","label","body","type","tags","status","flag","image","image_h","created","modified","rev","edit","author","badge","badge_at","badge_image","superseded_by","order","x","y","pinned","parent_id","depth","path"],
   Links:["edge_id","from_id","to_id","link_type","tag","label","condition","route","from_side","to_side","bow","color","line_style","width","arrow"],
   Revisions:["rev_id","node_id","timestamp","author","field","class","note","folded","old_value","new_value"],
   TagStyles:["tag","color","line_style","width","arrow","applies_to"],
@@ -2142,6 +2216,7 @@ function toSheets(){
     image:n.image||"", image_h:n.image?(n.imageH||120):"",
     created:n.created, modified:n.modified, rev:n.rev, edit:n.edit|0, author:n.author,
     badge:n.badge||"", badge_at:n.badgeAt||"", badge_image:n.badgeImage||"",
+    superseded_by:n.supersededBy || "",
     order:(n.order === "" || n.order == null) ? "" : Number(n.order),
     x:n.pinned?round(n.x):"", y:n.pinned?round(n.y):"", pinned:n.pinned?"yes":"",
     parent_id:parentOf(n.id)||"", depth:depthOf(n.id), path:pathOf(n.id)
@@ -2246,6 +2321,7 @@ function tablesToModel(t){
       created:String(r.created||nowISO()), modified:String(r.modified||nowISO()),
       rev:Number(r.rev)||1, edit:Number(r.edit)||0, author:String(r.author||S.meta.author),
       badge:String(r.badge||""), badgeAt:String(r.badge_at||""), badgeImage:String(r.badge_image||""),
+      supersededBy:String(r.superseded_by || ""),
       order:(r.order === "" || r.order == null) ? "" : Number(r.order),
       x:(r.x===""||r.x==null)?null:Number(r.x), y:(r.y===""||r.y==null)?null:Number(r.y),
       pinned:/^(yes|true|1|y)$/i.test(String(r.pinned||""))
@@ -2593,6 +2669,18 @@ function visibleNodes(){
     if(only && !tagsPass(n)) continue;
     set.add(n.id);
   }
+  /* a retired node filed under a current one stays on the map even when
+     retired things are hidden: that is the whole point of the pile */
+  /* a chain can be several deep, so keep going until nothing new is added */
+  let added = true, guard = 0;
+  while(added && guard++ < 50){
+    added = false;
+    for(const n of S.nodes.values()){
+      if(set.has(n.id)) continue;
+      const up = replacementOf(n.id);
+      if(up && set.has(up)){ set.add(n.id); added = true; }
+    }
+  }
   return set;
 }
 
@@ -2614,6 +2702,7 @@ function tagLeaf(tag){
    carry a lot of weight arranges them in a grid that grows squarer as it
    fills: two across, then three, then four. */
 const GRID_MIN_CHILDREN = 4, GRID_MIN_HEIGHT = 900, BLOCK_GAP = 70;
+const LAYER_STEP = 9;
 
 function layout(){
   const vis = visibleNodes();
@@ -2631,8 +2720,12 @@ function layout(){
   }
 
   const seen = new Set();
+  /* a superseded node has no place of its own: it is stacked under its
+     replacement once everything else has been laid out */
+  const stacked = new Set();
+  for(const id of vis) if(isLayer(id) && vis.has(replacementOf(id))) stacked.add(id);
   const build = id=>{
-    if(seen.has(id) || !vis.has(id)) return null;
+    if(seen.has(id) || !vis.has(id) || stacked.has(id)) return null;
     seen.add(id);
     const n = S.nodes.get(id);
     const kids = childrenOf(id).map(build).filter(Boolean);
@@ -2644,7 +2737,9 @@ function layout(){
   };
 
   const blocks = roots().map(build).filter(Boolean);
-  for(const id of vis) if(!seen.has(id)){ const bl = build(id); if(bl) blocks.push(bl); }
+  for(const id of vis) if(!seen.has(id) && !stacked.has(id)){
+    const bl = build(id); if(bl) blocks.push(bl);
+  }
 
   /* the top level packs the same way, so a wide map does not run off downward */
   const top = (S.branchGrid && wantsGrid(blocks)) ? packGrid(blocks) : packColumn(blocks);
@@ -2654,11 +2749,23 @@ function layout(){
     const n = S.nodes.get(id);
     /* both coordinates or neither: a half-pinned node used to emit
        translate(x,null) and the whole group vanished */
-    if(n.pinned && n.x != null && n.y != null){ n._x = n.x; n._y = n.y; }
+    if(!stacked.has(id) && n.pinned && n.x != null && n.y != null){ n._x = n.x; n._y = n.y; }
     if(!isFinite(n._x)) n._x = 0;
     if(!isFinite(n._y)) n._y = 0;
   }
-  keepOutOfAreas(vis);
+  keepOutOfAreas(vis, stacked);
+  /* the pile is placed last: it rides with whatever ended up on top, after
+     everything else has finished moving */
+  for(const id of vis){
+    if(stacked.has(id)) continue;
+    const pile = layersUnder(id).filter(x=>vis.has(x));
+    const top = S.nodes.get(id);
+    pile.forEach((lid, i)=>{
+      const l = S.nodes.get(lid);
+      l._x = top._x + (i + 1) * LAYER_STEP;
+      l._y = top._y + (i + 1) * LAYER_STEP;
+    });
+  }
 }
 
 function wantsGrid(list){
@@ -2700,11 +2807,12 @@ function placeBlock(b, x, y){
   b.region.cells.forEach(c=>placeBlock(c.block, rx + c.x, ry + c.y));
 }
 
-function keepOutOfAreas(vis){
+function keepOutOfAreas(vis, skip){
   if(!S.areas.size) return;
   const boxes = [...S.areas.values()].map(a=>({x:a.x - 12, y:a.y - 12,
     w:a.w + 24, h:a.h + 24, bottom:a.y + a.h + 12, top:a.y - 12}));
-  const loose = [...vis].map(id=>S.nodes.get(id)).filter(n=>!n.pinned && n._x != null);
+  const loose = [...vis].map(id=>S.nodes.get(id))
+    .filter(n=>!n.pinned && n._x != null && !(skip && skip.has(n.id)));
 
   loose.forEach(n=>{
     for(let pass = 0; pass < 4; pass++){
@@ -4265,10 +4373,17 @@ function render(){
   }
 
   /* ---- nodes ---- */
-  for(const id of vis){
+  /* older layers are drawn first so the current version sits on top of them */
+  const drawOrder = [...vis].sort((a, b)=>{
+    const da = isLayer(a) ? 0 : 1, db = isLayer(b) ? 0 : 1;
+    return da - db;
+  });
+  for(const id of drawOrder){
     const n = S.nodes.get(id);
     const g = mk("g",{class:"node-g", transform:`translate(${n._x},${n._y})`, "data-id":id}, gN);
     if(n.status === "retired") g.classList.add("retired");
+    if(isLayer(id)) g.classList.add("layer");
+    if(!isLayer(id) && layersUnder(id).some(x=>vis.has(x))) g.classList.add("hasstack");
     if(S.sel === id) g.classList.add("sel");
     if(S.sel2 === id) g.classList.add("pair");
     if(S.multi.size > 1 && S.multi.has(id)) g.classList.add("multi");
@@ -4327,6 +4442,12 @@ function render(){
           from = at + q.length;
         }
       });
+    }
+    const pile = isLayer(id) ? [] : layersUnder(id).filter(x=>vis.has(x));
+    if(pile.length){
+      const t = mk("text",{class:"stacktab", x:NODE_W - 8, y:n._h + 12,
+        "text-anchor":"end"}, g);
+      t.textContent = pile.length + " earlier version" + (pile.length===1 ? "" : "s");
     }
     if(S.showIds){
       const meta = mk("text",{class:"node-id", x:px, y:n._h - 8}, g);
@@ -4409,6 +4530,54 @@ function renderContents(){
           <span class="toclabel">${esc(q)}</span>
           <button class="kill" data-killsearch="${esc(q)}" title="Remove">&times;</button></div>`).join("")
       : `<p class="tocempty">Searches you run are listed here, on this device only.</p>`;
+  }
+
+  /* A separate, temporary list of whatever the search or the tag filter turned
+     up, so the main outline is left alone and results are easy to walk. */
+  const rg = el("resultsGroup");
+  if(rg){
+    const hasQuery = !!(S.hitQuery || "").trim();
+    const targets = searchTargets();
+    const showing = hasQuery || S.tagPick.size;
+    const wrap = (rg.tagName === "DETAILS") ? rg : (rg.closest("details") || rg);
+    wrap.hidden = !showing;
+    if(showing){
+      if(wrap.tagName === "DETAILS" && !wrap.open) wrap.open = true;
+      const label = hasQuery
+        ? `${targets.length} match${targets.length===1?"":"es"} for “${esc(S.hitQuery)}”`
+        : `${targets.length} node${targets.length===1?"":"s"} tagged `
+          + esc([...S.tagPick].map(tagLeaf).join(", "));
+      const row = t=>{
+        if(t.kind === "area"){
+          const a = S.areas.get(t.id);
+          return a ? `<div class="tocrow" data-res="area:${esc(t.id)}">
+            <span class="tocdot filled"></span><span class="toclabel">${esc(a.label)}</span>
+            <span class="fold">area</span></div>` : "";
+        }
+        if(t.kind === "bookmark"){
+          const bm = S.bookmarks.concat(S.personal.bookmarks).find(x=>x.id === t.id);
+          return bm ? `<div class="tocrow" data-res="bm:${esc(t.id)}">
+            <span class="tocdot"></span><span class="toclabel">${esc(bm.label)}</span>
+            <span class="fold">bookmark</span></div>` : "";
+        }
+        const n = S.nodes.get(t.id);
+        if(!n) return "";
+        const trail = [];
+        let up = parentOf(t.id), guard = 0;
+        while(up && guard++ < 6){ trail.unshift(nodeName(up)); up = parentOf(up); }
+        return `<div class="resrow" data-res="node:${esc(t.id)}">
+          <span class="toclabel">${esc(n.label || n.id)}</span>
+          ${trail.length ? `<span class="restrail">${esc(trail.slice(-2).join(" › "))}</span>` : ""}
+        </div>`;
+      };
+      el("tocResults").innerHTML =
+        `<p class="tocempty" style="margin:0 0 6px">${label}</p>`
+        + (targets.length ? targets.slice(0, 300).map(row).join("")
+                          : `<p class="tocempty">Nothing matched.</p>`)
+        + (targets.length > 300 ? `<p class="tocempty">Showing the first 300.</p>` : "")
+        + `<div class="row" style="margin-top:8px">
+             <button class="btn wide" id="resClear">Clear the filter</button></div>`;
+    }
   }
 
   /* what is new, and where you have been */
@@ -4568,9 +4737,16 @@ function renderContents(){
       while(up && guard++ < 200){ hitPath.add(up); up = parentOf(up); }
     });
   }
-  /* the outline lists what the map is showing, so narrowing by tag narrows
-     the directory tree with it */
-  const shown = visibleNodes();
+  /* the main outline stays whole: what a filter turned up lives in Results,
+     so the directory tree does not rearrange itself under you */
+  const scopeOnly = el("showScope").value;
+  const shown = new Set();
+  for(const n of S.nodes.values()){
+    const retired = n.status === "retired";
+    if(scopeOnly === "active" && retired) continue;
+    if(scopeOnly === "retired" && !retired) continue;
+    shown.add(n.id);
+  }
   const walk = (id, depth) => {
     if(seen.has(id)) return "";
     seen.add(id);
@@ -4663,6 +4839,20 @@ function renderContents(){
       }
     };
   });
+  root.querySelectorAll("[data-res]").forEach(e=>{
+    e.onclick = ()=>{
+      const [kind, id] = e.dataset.res.split(/:(.+)/);
+      if(kind === "node" && S.nodes.has(id)) pickNode(id);
+      else if(kind === "area") zoomToArea(id);
+      else if(kind === "bm") gotoBookmark(id);
+    };
+  });
+  const rc = el("resClear");
+  if(rc) rc.onclick = ()=>{
+    el("q").value = ""; S.tagPick.clear(); S.tagOnly = false;
+    updateTagCount(); renderTagPicker();
+    keepingPlace(()=>{ runSearch(); rebuild(); });
+  };
   root.querySelectorAll("[data-signoff]").forEach(e=>{
     e.onclick = ev=>{ ev.stopPropagation(); signOffNew(e.dataset.signoff); };
   });
@@ -4909,6 +5099,83 @@ function reducedMotion(){
   try{ return matchMedia("(prefers-reduced-motion: reduce)").matches; }catch(e){ return false; }
 }
 /* how tall the top bar is, so the drawers can start underneath it */
+/* ---------------------------------------------------------------
+   The side panel starts quiet. Every section folds, related things
+   are gathered under one heading, and what you leave open is
+   remembered.
+   --------------------------------------------------------------- */
+const RAIL_OPEN_BY_DEFAULT = ["Mode", "Outline", "Results"];
+
+function groupByHeading(text){
+  return [...document.querySelectorAll(".rail .group")]
+    .find(g=>{ const h = g.querySelector("h2");
+      return h && h.textContent.trim() === text; });
+}
+function subHeading(text){
+  const p = document.createElement("p");
+  p.className = "subhead";
+  p.textContent = text;
+  return p;
+}
+
+function organiseRail(){
+  /* everything to do with files and other devices under one heading */
+  const files = groupByHeading("Workbook");
+  const sheets = groupByHeading("Google Sheets");
+  if(files && sheets){
+    files.querySelector("h2").textContent = "Sharing and files";
+    files.appendChild(subHeading("Google Sheets"));
+    [...sheets.childNodes].forEach(node=>{
+      if(node.nodeType === 1 && node.tagName === "H2") return;
+      files.appendChild(node);
+    });
+    sheets.remove();
+    /* the workbook buttons get their own label now they share a section */
+    const first = files.querySelector(".row");
+    if(first) files.insertBefore(subHeading("This device"), first);
+  }
+
+  /* all the standing artwork in one place, beside the other settings */
+  const badges = groupByHeading("Badges");
+  const show = groupByHeading("Show");
+  if(badges && show){
+    badges.querySelector("h2").textContent = "Badges and pictures";
+    show.parentNode.insertBefore(badges, show.nextSibling);
+  }
+  if(show) show.querySelector("h2").textContent = "Appearance";
+
+  /* fold them all, and remember what you leave open */
+  const open = new Set(Array.isArray(S.railOpen) ? S.railOpen : RAIL_OPEN_BY_DEFAULT);
+  [...document.querySelectorAll(".rail .group")].forEach(g=>{
+    const h = g.querySelector("h2");
+    if(!h || g.dataset.folded) return;
+    const title = h.textContent.trim();
+    const d = document.createElement("details");
+    d.className = "group foldgroup";
+    d.dataset.section = title;
+    /* the original element is replaced, so anything that looks the group up by
+       id — Results, the badge panel — has to find it here instead */
+    if(g.id){ d.id = g.id; g.removeAttribute("id"); }
+    if(g.hidden) d.hidden = true;
+    if(open.has(title)) d.open = true;
+    const sum = document.createElement("summary");
+    sum.innerHTML = `<span class="secname">${esc(title)}</span><span class="secmark"></span>`;
+    d.appendChild(sum);
+    while(g.firstChild){
+      const node = g.firstChild;
+      if(node === h){ g.removeChild(node); continue; }
+      d.appendChild(node);
+    }
+    g.parentNode.replaceChild(d, g);
+    d.addEventListener("toggle", ()=>{
+      const list = [...document.querySelectorAll(".rail details.foldgroup")]
+        .filter(x=>x.open).map(x=>x.dataset.section);
+      S.railOpen = list;
+      savePrefs();
+    });
+  });
+}
+
 function measureBar(){
   const bar = document.querySelector(".mobile-tabs");
   if(!bar) return;
@@ -5542,6 +5809,9 @@ function updateLinkBar(){
   el("pairCut").disabled = !existing.length;
   el("pairSwap").disabled = !existing.length;
   el("pairChild").disabled = !!existing.length;
+  el("pairSupersede").disabled = false;
+  el("pairSupersede").title = "Retire “" + (a.label||a.id) + "” and stack it under “"
+    + (b.label||b.id) + "”";
   el("pairCross").disabled = !!existing.length;
   el("pairChild").title = parentOf(b.id) && parentOf(b.id) !== a.id
     ? "That node already has a parent; a cross-link keeps its place in the tree"
@@ -5943,6 +6213,14 @@ function renderViewerInspector(n){
       ${(n.tags||[]).length ? `<div class="taglist" style="margin-top:10px">${(n.tags||[]).map(t=>`<span class="tagchip">${esc(t)}</span>`).join("")}</div>` : ""}
       ${parent ? `<p style="font-size:12px;color:var(--graphite-60);margin:10px 0 0">Follows
         <a href="#" data-jump="${esc(parent)}" style="color:var(--blueprint)">${esc((S.nodes.get(parent)||{}).label||parent)}</a></p>` : ""}
+      ${replacementOf(n.id) ? `<div class="supersede-note">
+        <b>This is retired.</b> The current version is
+        <a href="#" data-goto="${esc(replacementOf(n.id))}">${esc(nodeName(replacementOf(n.id)))}</a>.
+      </div>` : ""}
+      ${layersUnder(n.id).length ? `<div class="supersede-note current">
+        <b>Current version</b>, replacing
+        ${layersUnder(n.id).map(x=>`<a href="#" data-goto="${esc(x)}">${esc(nodeName(x))}</a>`).join(", ")}.
+      </div>` : ""}
       ${isNewFor(n) ? `<div class="row" style="margin-top:10px">
         <button class="btn primary wide" id="vSign">Sign off — I have read this update</button></div>` : ""}
       <div class="row" style="margin-top:10px">
@@ -5957,6 +6235,11 @@ function renderViewerInspector(n){
       v=>setOwnArt(n.id, "image", v), ()=>{ if(S.personal.art) delete S.personal.art[n.id];
         savePersonal(); rebuild(); });
   };
+  body.querySelectorAll("[data-goto]").forEach(e=>{
+    e.onclick = ev=>{ ev.preventDefault();
+      const id = e.dataset.goto;
+      if(S.nodes.has(id)) pickNode(id); };
+  });
   if(el("vRead")) el("vRead").onclick = ()=>openNote(n.id, true);
   if(el("vSign")) el("vSign").onclick = ()=>{ signOffNew(n.id); renderInspector(); };
   el("vZoom").onclick = ()=>focusNode(n.id);
@@ -6238,6 +6521,15 @@ function renderInspector(){
         <button class="btn" id="fRetire">${n.status==="retired"?"Restore node":"Retire node"}</button>
         <button class="btn" id="fUnpin"${n.pinned?"":" disabled"}>Release position</button>
       </div>
+      ${replacementOf(n.id) ? `<div class="supersede-note">
+        <b>Retired.</b> Replaced by
+        <a href="#" data-goto="${esc(replacementOf(n.id))}">${esc(nodeName(replacementOf(n.id)))}</a>.
+        <button class="btn" id="fUnSupersede" style="margin-top:8px">Put it back on its own</button>
+      </div>` : ""}
+      ${layersUnder(n.id).length ? `<div class="supersede-note current">
+        <b>Current version.</b> It replaces
+        ${layersUnder(n.id).map(x=>`<a href="#" data-goto="${esc(x)}">${esc(nodeName(x))}</a>`).join(", ")}.
+      </div>` : ""}
       <div class="row" style="margin-top:6px">
         <button class="btn" id="fZoom">Zoom to node</button>
         <button class="btn" id="fPair">Link with another node</button>
@@ -6270,6 +6562,13 @@ function renderInspector(){
       </details>
     </div>
     ${contributionBlock(n)}`;
+
+  /* the replaced-by and replaces links, in the editing panel too */
+  body.querySelectorAll("[data-goto]").forEach(e=>{
+    e.onclick = ev=>{ ev.preventDefault();
+      const id = e.dataset.goto;
+      if(S.nodes.has(id)) pickNode(id); };
+  });
 
   const commit = (field, val)=>{ if(setField(n, field, val)){ rebuild(); } };
   el("fLabel").onchange = e=>commit("label", e.target.value);
@@ -6538,7 +6837,9 @@ function runSearch(){
   syncHitChrome();
   if(all.length){
     layout(); render(); renderContents();
-    goToTarget(all[0]);
+    /* a tag filter on its own should not fling you at its first match */
+    if(q) goToTarget(all[0]);
+    else keepingPlace(()=>{});
   } else {
     /* nothing found: stay where you are rather than drifting */
     keepingPlace(()=>{ layout(); render(); renderContents(); });
@@ -7531,7 +7832,7 @@ function buildWorkbook(){
   reportTrim(splitForCells(data, XLSX_CELL), "a spreadsheet file");
   const wb = XLSX.utils.book_new();
   const widths = {
-    Nodes:[14,34,44,11,20,9,10,40,8,19,19,6,6,10,9,19,40,7,8,8,8,14,7,60],
+    Nodes:[14,34,44,11,20,9,10,40,8,19,19,6,6,10,9,19,40,14,7,8,8,8,14,7,60],
     Links:[14,14,14,10,14,20,24,10,10,10,7,10,11,7,7],
     Revisions:[8,14,19,10,14,11,26,7,30,30],
     TagStyles:[16,10,11,7,7,10],
@@ -8296,7 +8597,7 @@ async function loadPersonal(){
    these in the per-map record meant they reset every time you opened a
    different map. */
 const PREF_KEYS = ["notesMode","motion","showIds","avoidNodes","branchGrid",
-                   "focusMode","pickZoom","followOutline"];
+                   "focusMode","pickZoom","followOutline","railOpen"];
 async function savePrefs(){
   const out = {};
   PREF_KEYS.forEach(k=>{ out[k] = S[k]; });
@@ -9980,6 +10281,15 @@ async function boot(){
   el("pairCross").onclick = ()=>pairLink("cross");
   el("pairSwap").onclick  = pairSwap;
   el("pairCut").onclick   = pairUnlink;
+  el("pairSupersede").onclick = ()=>{
+    if(!S.sel || !S.sel2) return;
+    const a = nodeName(S.sel), b = nodeName(S.sel2);
+    if(!confirm("Retire “" + a + "” and file it under “" + b + "”?\n\n"
+      + "It stays on the map, stacked beneath the newer one, so anyone who "
+      + "looks it up sees the replacement.")) return;
+    supersede(S.sel, S.sel2);
+    clearPair(); select(S.sel2);
+  };
   el("pairClear").onclick = ()=>{ setSelectMode(false); clearPair(); clearMulti(); };
   el("modeFlag").onclick = ()=>{ setSelectMode(false); clearPair(); };
   el("tagFlag").onclick = ()=>{ S.tagPick.clear(); S.tagOnly = false;
@@ -10054,8 +10364,13 @@ async function boot(){
   };
   el("tagPickBtn").onclick = openTagPicker;
   el("tagDlgClose").onclick = ()=>el("tagDlg").close();
-  const afterTagChange = ()=>{ renderTagPicker(); updateTagCount();
-    if(S.tagOnly) { rebuild(); fitView(0.96, 0.4); } else runSearch(); };
+  const afterTagChange = ()=>{
+    renderTagPicker(); updateTagCount();
+    /* runSearch fills the Results list from the tags; rebuild redraws the map
+       when the filter is hiding things */
+    runSearch();
+    if(S.tagOnly){ rebuild(); fitView(0.96, 0.4); }
+  };
   el("tagAny").onclick = ()=>{ S.tagMode = "any"; afterTagChange(); };
   el("tagAll").onclick = ()=>{ S.tagMode = "all"; afterTagChange(); };
   el("tagNone").onclick = ()=>{ S.tagPick.clear(); S.tagOnly = false; afterTagChange(); };
@@ -10317,6 +10632,7 @@ async function boot(){
     const custom = await Store.getKey("themes");
     if(Array.isArray(custom)) S.customThemes = custom;
     await loadPrefs();
+    organiseRail();
     applyTheme(S.themeMode);
   }catch(e){}
   await Store.requestPersist();
