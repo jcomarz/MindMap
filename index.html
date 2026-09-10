@@ -338,13 +338,15 @@ html[data-motion="off"] .smoke{display:none}
 .window{fill:var(--decor-window, #6B767C);fill-opacity:.5}
 .window.lit{fill:var(--decor-lit, #F2D14B);fill-opacity:.85}
 @keyframes windowflick{
-  0%,38%{fill-opacity:.85}
-  40%,52%{fill-opacity:.12}
-  54%,88%{fill-opacity:.85}
-  90%,96%{fill-opacity:.12}
-  98%,100%{fill-opacity:.85}
+  0%,26%{fill-opacity:.88}
+  28%,44%{fill-opacity:.10}
+  46%,58%{fill-opacity:.88}
+  60%,70%{fill-opacity:.10}
+  72%,92%{fill-opacity:.88}
+  94%,100%{fill-opacity:.10}
 }
 .window.flicker{animation:windowflick 9s steps(1, end) infinite}
+.window.flicker.lit{fill:var(--decor-lit, #F2D14B)}
 html[data-motion="off"] .window.flicker{animation:none}
 .sawtooth{stroke:var(--node-stroke, var(--graphite));stroke-width:1.1;opacity:.7}
 .node-box{fill:var(--node-fill, var(--paper));stroke:var(--node-stroke, var(--graphite));
@@ -3229,12 +3231,7 @@ function drawNodeOver(g, n){
             x:x + 3 + c * 5, y:y + 4 + r * 6, width:2.6, height:3.4}, g);
           /* a few windows in the city are on a timer; lighting every one would
              be thousands of animations */
-          if(lit && flickers < FLICKER_MAX && S.motion === "full" && roll > .82){
-            flickers++;
-            win.classList.add("flicker");
-            win.style.animationDelay = (-roll * 14) + "s";
-            win.style.animationDuration = (7 + roll * 9) + "s";
-          }
+          void roll;
         }
       }
       x += bw + 3;
@@ -3261,12 +3258,13 @@ function drawNodeOver(g, n){
   if(decor === "island"){
     if(!fineDetail()) return;
     /* palms along the shore, and a few shells washed up on the sand */
+    /* the shore only: the middle of the island is where the writing goes */
     const palms = h > 90 ? 3 : h > 52 ? 2 : 1;
     for(let i = 0; i < palms; i++){
       if(rnd(seed, i + 5) < .28) continue;
       const side = i % 2 ? 1 : -1;
-      const x = w * (.5 + side * (.30 + rnd(seed, i + 6) * .14));
-      const y = h * (.30 + rnd(seed, i + 16) * .42);
+      const x = side < 0 ? -2 - rnd(seed, i + 6) * 5 : w + 2 + rnd(seed, i + 6) * 5;
+      const y = h * (.34 + rnd(seed, i + 16) * .38);
       const lean = (rnd(seed, i + 26) - .5) * 16;
       const sc = 0.75 + rnd(seed, i + 36) * .5;
       const pg = mk("g",{class:"palm-g",
@@ -3278,10 +3276,12 @@ function drawNodeOver(g, n){
       mk("circle",{class:"coconut", cx:-1.6, cy:-15, r:1.5}, pg);
       mk("circle",{class:"coconut", cx:1.8, cy:-14.2, r:1.4}, pg);
     }
-    for(let i = 0; i < 3; i++){
-      if(rnd(seed, i + 70) < .45) continue;
-      const a = rnd(seed, i + 80) * Math.PI * 2;
-      const x = w/2 + Math.cos(a) * w * .49, y = h/2 + Math.sin(a) * h * .55;
+    for(let i = 0; i < 4; i++){
+      if(rnd(seed, i + 70) < .4) continue;
+      /* shells sit on the sand above and below, clear of the label */
+      const top = i % 2 === 0;
+      const x = w * (.16 + rnd(seed, i + 80) * .68);
+      const y = top ? -3 - rnd(seed, i + 84) * 4 : h + 3 + rnd(seed, i + 84) * 4;
       const rot = Math.round(rnd(seed, i + 90) * 360);
       mk("path",{class:"shell", transform:`translate(${x},${y}) rotate(${rot})`,
         d:"M0,0 q-4,-4.5 0,-7 q4,2.5 0,7 z M0,-7 l-3,6 M0,-7 l3,6"}, g);
@@ -3901,6 +3901,10 @@ function decorateSelection(){
   if(!gE || !gN) return;
   gE.querySelectorAll("g.rider").forEach(b=>b.remove());
   gN.querySelectorAll("path.ripple").forEach(b=>b.remove());
+  gN.querySelectorAll("rect.window.flicker").forEach(b=>{
+    b.classList.remove("flicker");
+    b.style.animationDelay = ""; b.style.animationDuration = "";
+  });
   gN.querySelectorAll("g.strip").forEach(b=>b.remove());
   stripRef = null;
   /* before the early return, so clearing the selection also clears the dimming */
@@ -3913,10 +3917,31 @@ function decorateSelection(){
   const touching = [...S.edges.values()].filter(e=>e.from === id || e.to === id);
   /* past a handful of links the animation costs more than it explains */
   const lean = touching.length > 8;
-  const budget = 40;
+  const RIDER_BUDGET = 34;
+
+  /* Work out what each link would like, then share the budget out in
+     proportion — otherwise a node with several long links asks for a hundred
+     travellers and the map stutters. */
+  const style0 = S.motion === "full" ? (activeTheme().beam || "dots") : "dots";
+  const spacing0 = style0 === "ants" ? 64 : style0 === "cars" ? 130
+                 : style0 === "fish" ? 150 : 95;
+  let wanted = 0;
+  const want = new Map();
+  touching.forEach(e=>{
+    const pth = gE.querySelector(`path.edge[data-edge="${CSS.escape(e.id)}"]`);
+    const L = pth ? approxPathLength(pth.getAttribute("d")) : 300;
+    const room = Math.max(1, Math.round(L / spacing0));
+    const n = e.link_type === "tree"
+      ? Math.max(1, Math.min(lean ? 3 : 10, room))
+      : Math.max(1, Math.min(lean ? 2 : 6, Math.round(room * .6))) * 2;
+    want.set(e.id, n);
+    wanted += n;
+  });
+  const share = wanted > RIDER_BUDGET ? RIDER_BUDGET / wanted : 1;
+
   let drawn = 0;
   for(const e of touching){
-    if(drawn >= budget) break;
+    if(drawn >= RIDER_BUDGET) break;
     const src = gE.querySelector(`path.edge[data-edge="${CSS.escape(e.id)}"]`);
     if(!src) continue;
 
@@ -3932,22 +3957,34 @@ function decorateSelection(){
       else if(style === "cars") drive(gE, ed, colour, rev, n, off, e.id, len);
       else shoot(gE, ed, colour, rev, 0, off, lean, e.id, len);
     };
-    const busy = (style === "ants" || style === "cars" || style === "fish");
+    const allowed = Math.max(1, Math.round((want.get(e.id) || 1) * share));
     if(e.link_type === "tree"){
       /* a branch always runs parent to child, whichever end you selected */
-      const n = lean ? (busy ? 2 : 1) : (style === "fish" ? 6 : busy ? 5 : 2);
-      send(false, n, null);
-      drawn += n;
+      send(false, allowed, null);
+      drawn += allowed;
     } else {
       /* a cross-link carries traffic both ways, on either side of the line */
       const off = crossOffset(src);
-      const n = lean ? (busy ? 2 : 1) : (style === "fish" ? 4 : busy ? 3 : 1);
+      const n = Math.max(1, Math.round(allowed / 2));
       send(false, n, off);
       send(true, n, {x:-off.x, y:-off.y});
       drawn += n * 2;
     }
   }
   if(!S.pairArmed) drawStrip(g, S.nodes.get(id));
+
+  /* the block you are looking at comes to life: windows going on and off at
+     their own intervals, rather than a token few scattered across the map */
+  if(activeTheme().decor === "city" && S.motion === "full"){
+    const wins = [...g.querySelectorAll("rect.window")];
+    wins.forEach((win, i)=>{
+      const roll = rnd(hashOf(id), i + 300);
+      if(roll < .45) return;
+      win.classList.add("flicker");
+      win.style.animationDelay = (-roll * 11) + "s";
+      win.style.animationDuration = (2.6 + roll * 5.5) + "s";
+    });
+  }
 
   /* water pushing out from the island that is chosen */
   if(activeTheme().decor === "island"){
