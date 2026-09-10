@@ -5181,7 +5181,18 @@ const MIN_K = 0.05, MAX_K = 6;
         lastTapId = id; lastTapTime = now;
       }
     } else if(mode === "tap-node" && dragNode && wasTap){
-      select(dragNode.id);
+      /* Viewing used this branch too and only ever plain-selected, so none of
+         the moving in, the outline following or the note opening happened.
+         Arming a pair or choosing several still routes through select. */
+      const id = dragNode.id;
+      if(S.pairArmed || S.pairShift || S.selectMode){
+        select(id);
+      } else {
+        const now = Date.now();
+        if(lastTapId === id && now - lastTapTime < 340) focusNode(id);
+        else pickNode(id);
+        lastTapId = id; lastTapTime = now;
+      }
       if(!canEdit() && window.matchMedia("(max-width:820px)").matches){
         el("inspector").classList.add("open"); el("scrim").classList.add("on");
         el("fab").style.display = "none";
@@ -5234,7 +5245,7 @@ function pickNode(id){
   /* only the deliberate modes hold the view still; a leftover multi-selection
      from an earlier action must not silently disable this for good */
   const move = n && n._x != null && S.pickZoom !== "off"
-    && !S.pairArmed && !S.selectMode;
+    && !S.pairArmed && !S.selectMode && !S.pairShift;
 
   /* Start the movement before the selection work. Redrawing the panel and the
      outline takes long enough to eat the first frames, which is what made the
