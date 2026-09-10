@@ -1770,7 +1770,7 @@ function writeAll(ss, prefix, tables) {
 const S = {
   meta:{ title:"Sample accessioning", author:"jerico", created:nowISO(), key:null,
          lastEdited:null, lastOpened:null, bytes:0, provisional:false,
-         locked:false, rootHash:"", routeTree:"curve", routeCross:"curve", crossLine:"dashed", crossColor:"", newBadgeImage:"" },
+         locked:false, rootHash:"", routeTree:"curve", routeCross:"curve", crossLine:"dashed", crossColor:"", newBadgeImage:"", sevArt:{} },
   nodes:new Map(),      // id -> node
   areas:new Map(),      // id -> labelled region drawn behind the map
   bookmarks:[],         // saved viewpoints
@@ -2564,6 +2564,12 @@ function adoptModel(M, keepConnections){
   S.meta.crossLine = M.settings.cross_line || "dashed";
   S.meta.crossColor = M.settings.cross_color || "";
   S.meta.newBadgeImage = M.settings.new_badge_image || "";
+  /* the severity artwork was written to the sheet but never read back, so it
+     survived a save and vanished on the next open */
+  S.meta.sevArt = {};
+  SEVERITIES.forEach(sv=>{
+    if(M.settings[sv.key]) S.meta.sevArt[sv.key] = M.settings[sv.key];
+  });
   S.mode = S.meta.locked ? "viewer" : "root";
   S.selArea = null;
   /* Always take the incoming map's connections, even when it has none.
@@ -4256,6 +4262,9 @@ function focusFamily(id, mode){
 }
 
 let focusTimer = null;
+/* Hold ctrl (or cmd) to see the whole map for a moment — for picking out the
+   node you want to link to while another one is selected. */
+let peeking = false;
 
 function clearFocus(){
   const gN = el("gNodes"), gE = el("gEdges");
@@ -4271,7 +4280,8 @@ function applyFocus(){
   clearTimeout(focusTimer);
   /* Never while you are picking a second node or building a selection: the
      whole job is looking at the others, and dimming them defeats it. */
-  const choosing = S.pairArmed || S.pairShift || S.selectMode || S.multi.size > 1;
+  const choosing = S.pairArmed || S.pairShift || S.selectMode || S.multi.size > 1
+                || peeking;
   const on = S.focusMode !== "off" && S.sel && S.nodes.has(S.sel) && !choosing;
   document.body.classList.toggle("focusing", !!on);
   if(!on){ clearFocus(); return; }
@@ -10967,7 +10977,17 @@ async function boot(){
 
 
 
+  document.addEventListener("keyup", ev=>{
+    if(peeking && (ev.key === "Control" || ev.key === "Meta")){
+      peeking = false; applyFocus();
+    }
+  });
+  window.addEventListener("blur", ()=>{ if(peeking){ peeking = false; applyFocus(); } });
   document.addEventListener("keydown", ev=>{
+    if((ev.key === "Control" || ev.key === "Meta") && !peeking
+       && document.body.classList.contains("focusing")){
+      peeking = true; clearFocus();
+    }
     const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
     if(ev.key === "/" && !typing){ ev.preventDefault(); el("q").focus(); }
     if(ev.key === "Escape" && S.selectMode){ setSelectMode(false); clearPair(); return; }
