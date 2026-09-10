@@ -4276,9 +4276,6 @@ function render(){
     if(n.flag) mk("path",{d:`M${NODE_W-16},2 L${NODE_W-2},2 L${NODE_W-2},16 Z`, class:"flagmark"}, g);
     if(n.pinned) mk("circle",{class:"pin", cx:NODE_W-9, cy:n._h-9, r:2.6, fill:"#14549B"}, g);
 
-    const ttl = mk("title",{}, g);
-    ttl.textContent = (n.body ? n.label + "\n\n" + n.body : n.label)
-      + "\n\ntags: " + (n.tags||[]).join(", ") + "\nmodified: " + n.modified;
   }
   decorateSelection();
   decorateBadges();
@@ -5190,22 +5187,36 @@ const MIN_K = 0.05, MAX_K = 6;
 
 /* Choosing a node brings it close enough to read, without ever pulling back —
    stepping away is what widens the view again. */
-function pickNode(id){
-  select(id);
-  if(!S.nodes.has(id)) return;
-  if(S.pickZoom === "off" || S.multi.size > 1 || S.pairArmed || S.selectMode) return;
-  const n = S.nodes.get(id);
-  if(n._x == null) return;
+function readingZoom(n){
   const s = svgSize();
   /* big enough that the label reads, small enough that its neighbours are
      still on the edges of the screen */
   const fit = Math.min((s.h * 0.55) / Math.max(60, n._h), (s.w * 0.62) / NODE_W);
-  const target = Math.min(1.7, Math.max(0.95, fit));
-  const k = Math.max(S.view.k, target);
-  animateView({k,
-    x:s.w/2 - (n._x + NODE_W/2) * k,
-    y:s.h/2 - (n._y + n._h/2) * k}, 380);
-  if(S.pickZoom === "note" && n.body) setTimeout(()=>openNote(id, true), 300);
+  return Math.min(1.7, Math.max(0.95, fit));
+}
+
+function pickNode(id){
+  const n = S.nodes.get(id);
+  const move = n && n._x != null && S.pickZoom !== "off"
+    && S.multi.size <= 1 && !S.pairArmed && !S.selectMode;
+
+  /* Start the movement before the selection work. Redrawing the panel and the
+     outline takes long enough to eat the first frames, which is what made the
+     zoom in look like a jump while the zoom out looked smooth. */
+  if(move){
+    const s = svgSize();
+    /* always the same reading distance, not "no closer than you already are",
+       which is why it stopped doing anything after a few picks */
+    const k = readingZoom(n);
+    animateView({k,
+      x:s.w/2 - (n._x + NODE_W/2) * k,
+      y:s.h/2 - (n._y + n._h/2) * k}, 420);
+  }
+  requestAnimationFrame(()=>{
+    select(id);
+    revealInOutline(id, true);
+    if(move && S.pickZoom === "note" && n.body) setTimeout(()=>openNote(id, true), 260);
+  });
 }
 
 /* Fill the viewport with one node, which is what "look at this bit" means
@@ -5260,23 +5271,36 @@ function select(id){
 
 /* Open the outline down to whatever is selected and scroll it into view, so
    the panel is always showing the part of the map you are standing in. */
-function revealInOutline(id){
+function revealInOutline(id, bringToFront){
   if(!id) return;
+  /* the outline is the directory tree, so picking a node shows it there */
+  if(bringToFront && !window.matchMedia("(max-width:820px)").matches){
+    const tab = [...document.querySelectorAll(".railtab")].find(t=>t.dataset.pane === "Contents");
+    if(tab && !tab.classList.contains("on")) tab.click();
+  }
+  const pane = el("paneContents");
+  /* rebuilding the outline is the expensive part of choosing a node on a big
+     map, so it is only done when the outline is actually on screen */
+  if(!pane || !pane.getClientRects().length) return;
   let up = parentOf(id), guard = 0, opened = false;
   while(up && guard++ < 200){
     if(S.folded.has(up)){ S.folded.delete(up); S.unfolded.add(up); opened = true; }
     up = parentOf(up);
   }
   if(opened) renderContents();
-  const pane = el("paneContents");
-  if(!pane || !pane.getClientRects().length) return;
   const row = pane.querySelector(`.tocitem[data-jump="${CSS.escape(id)}"]`);
   if(!row) return;
   pane.querySelectorAll(".tocitem.here").forEach(x=>x.classList.remove("here"));
   row.classList.add("here");
-  const rr = row.getBoundingClientRect(), pr = pane.getBoundingClientRect();
-  if(rr.top < pr.top + 8 || rr.bottom > pr.bottom - 8)
-    row.scrollIntoView({block:"center", behavior:reducedMotion() ? "auto" : "smooth"});
+  /* offsetTop is already known; asking for bounding boxes here forced a full
+     layout on every click */
+  const top = row.offsetTop, h = row.offsetHeight;
+  const view = pane.clientHeight;
+  if(top < pane.scrollTop + 8 || top + h > pane.scrollTop + view - 8){
+    const want = Math.max(0, top - view / 2 + h / 2);
+    if(reducedMotion()) pane.scrollTop = want;
+    else pane.scrollTo({top:want, behavior:"smooth"});
+  }
 }
 
 /* Clearing the selection turns the + button back into "make a loose node". */
@@ -5408,7 +5432,7 @@ function deselect(){
   /* pull back a little so the surroundings come into view again */
   if(prev && S.view.k > MIN_K * 1.3 && !reducedMotion()){
     const s = svgSize();
-    const k = Math.max(MIN_K, S.view.k * 0.78);
+    const k = Math.max(MIN_K, S.view.k * 0.7);
     const cx = s.w/2, cy = s.h/2;
     animateView({k,
       x:cx - (cx - S.view.x) * (k / S.view.k),
@@ -5423,7 +5447,10 @@ function deselect(){
     if(g) g.classList.remove("sel");
   }
   renderInspector();
-  renderContents();
+  /* clearing a selection only changes one highlight, so the whole outline
+     does not need rebuilding — on a large map that alone cost 50ms a click */
+  const pane = el("paneContents");
+  if(pane) pane.querySelectorAll(".tocitem.here").forEach(x=>x.classList.remove("here"));
   updateFab();
   decorateSelection();
 }
@@ -5797,26 +5824,6 @@ function contributionBlock(n){
     </div>
 
     <div class="group">
-      <h2>Nearby</h2>
-      ${(()=>{
-        const up = parentOf(n.id);
-        const kids = childrenOf(n.id);
-        const cross = [...S.edges.values()].filter(e=>e.link_type === "cross"
-          && (e.from === n.id || e.to === n.id))
-          .map(e=>({id:e.from === n.id ? e.to : e.from, out:e.from === n.id}));
-        const row = (id, tag)=>`<div class="tocrow" data-hop="${esc(id)}">
-          <span class="tocdot ${tag === "up" ? "filled" : ""}"></span>
-          <span class="toclabel">${esc(nodeName(id))}</span>
-          <span class="fold">${tag}</span></div>`;
-        let out = "";
-        if(up) out += row(up, "up");
-        kids.forEach(k=>{ out += row(k, "down"); });
-        cross.forEach(c=>{ out += row(c.id, c.out ? "to" : "from"); });
-        return out || `<p class="tocempty">Nothing links to this yet.</p>`;
-      })()}
-    </div>
-
-    <div class="group">
       <h2>Questions</h2>
       ${questionsForNode(n.id).length
         ? questionsForNode(n.id).map(q=>`<div class="qrow" data-q="${esc(q.id)}">
@@ -5879,10 +5886,6 @@ function wireContributions(n){
       markContribution();
       renderInspector();
     };
-  });
-  body.querySelectorAll("[data-hop]").forEach(e=>{
-    e.onclick = ()=>{ const id = e.dataset.hop;
-      if(S.nodes.has(id)) pickNode(id); };
   });
   const ask = el("askAboutNode");
   if(ask) ask.onclick = ()=>askQuestion(n.id);
@@ -6041,6 +6044,23 @@ function renderInspector(){
   const commit = (field, val)=>{ if(setField(n, field, val)){ rebuild(); } };
   el("fLabel").onchange = e=>commit("label", e.target.value);
   el("fBody").onchange  = e=>commit("body", e.target.value);
+  /* When a search brought you here, put the cursor on the match so it is
+     there to read and to copy without hunting for it. */
+  const q = (S.hitQuery || "").toLowerCase();
+  if(q && n.body){
+    const at = n.body.toLowerCase().indexOf(q);
+    if(at >= 0){
+      const ta = el("fBody");
+      setTimeout(()=>{
+        ta.focus({preventScroll:true});
+        ta.setSelectionRange(at, at + q.length);
+        /* put the line roughly a third down rather than at the very bottom */
+        const line = n.body.slice(0, at).split("\n").length;
+        const lh = parseFloat(getComputedStyle(ta).lineHeight) || 18;
+        ta.scrollTop = Math.max(0, (line - 3) * lh);
+      }, 40);
+    }
+  }
   el("fType").onchange  = e=>commit("type", e.target.value);
   el("fFlag").onchange  = e=>commit("flag", e.target.value);
   el("fTags").onchange  = e=>{
@@ -8009,13 +8029,20 @@ async function savePersonal(){
   }catch(e){}
 }
 const RECENT_MAX = 40;
+let personalTimer = null;
+/* Writing the whole personal record to storage on every click was the most
+   expensive part of choosing a node. It can wait a moment. */
+function savePersonalSoon(){
+  clearTimeout(personalTimer);
+  personalTimer = setTimeout(()=>savePersonal(), 1200);
+}
 function markVisited(id){
   if(!id || !S.nodes.has(id)) return;
   const now = nowISO();
   S.personal.recent = [{id, at:now}]
     .concat((S.personal.recent || []).filter(r=>r.id !== id))
     .slice(0, RECENT_MAX);
-  savePersonal();
+  savePersonalSoon();
 }
 function isRecent(id){ return (S.personal.recent || []).some(r=>r.id === id); }
 function forgetVisited(id){
@@ -10175,7 +10202,10 @@ async function boot(){
   /* flush on the way out, and whenever the tab is backgrounded, which is
      when a phone is most likely to kill it */
   document.addEventListener("visibilitychange", ()=>{ if(document.hidden) saveNow(false); });
-  window.addEventListener("pagehide", ()=>{ saveNow(false); writeLinkedFile(); });
+  window.addEventListener("pagehide", ()=>{
+    clearTimeout(personalTimer); savePersonal();
+    saveNow(false); writeLinkedFile();
+  });
   window.addEventListener("blur", ()=>{ if(S.dirty) saveNow(false); });
   setInterval(()=>{ if(S.dirty) saveNow(false); }, 45000);
   setInterval(updateSaveNote, 30000);
