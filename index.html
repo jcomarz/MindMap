@@ -271,6 +271,10 @@ input[type=range],input[type=color],input[type=checkbox],input[type=file]{cursor
 @media (max-width:820px){
   #noteOverlay{left:8px !important;right:8px;width:auto !important;max-height:58%}
 }
+#modeFlag{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:22;
+  background:var(--blueprint);color:var(--paper);border:0;border-radius:20px;
+  padding:8px 16px;font-size:12.5px;font-weight:600;box-shadow:0 3px 12px rgba(0,0,0,.24)}
+#modeFlag[hidden]{display:none}
 .linkbar{
   position:absolute;left:50%;top:14px;transform:translateX(-50%);z-index:20;
   background:var(--paper);border:1px solid var(--graphite);border-radius:3px;
@@ -311,6 +315,10 @@ body.focusing .node-g:not(.focusdim) .node-box{stroke-width:calc(var(--node-bord
 @media (max-width:820px){
   #noteOverlay{left:8px !important;right:8px;width:auto !important;max-height:58%}
 }
+#modeFlag{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:22;
+  background:var(--blueprint);color:var(--paper);border:0;border-radius:20px;
+  padding:8px 16px;font-size:12.5px;font-weight:600;box-shadow:0 3px 12px rgba(0,0,0,.24)}
+#modeFlag[hidden]{display:none}
 .linkbar{left:8px;right:8px;transform:none;max-width:none}
   .pairacts .btn{flex:1 1 auto;padding:9px 8px;font-size:13px}
 }
@@ -1245,6 +1253,7 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
       <div><b>Revised</b><span id="tbDate">—</span></div>
     </div>
 
+    <button id="modeFlag" hidden></button>
     <div class="linkbar" id="linkBar" hidden>
       <div class="pairnames"><b id="pairA">—</b><span id="pairArrow">→</span><b id="pairB">—</b></div>
       <div class="pairacts" id="pairActs">
@@ -1629,6 +1638,7 @@ const S = {
   checkItems:[],               // things the host asks people to confirm
   checkoffs:[],                // who confirmed what
   personal:{bookmarks:[], searches:[], recent:[], ackNew:{}, recentBadge:"", newBadge:"", art:{}, useHostArt:true},
+  followOutline:true,          // the outline keeps up with the selection
   pickZoom:"in",               // off | in | note
   focusMode:"off",             // off | linked | family
   branchGrid:true,             // pack big fans into a grid rather than one column
@@ -1883,6 +1893,14 @@ function checkoffFor(itemId, person){
   return S.checkoffs.find(x=>x.item === itemId && x.person === (person || S.who));
 }
 function checkCount(itemId){ return S.checkoffs.filter(x=>x.item === itemId && x.checked === "yes").length; }
+
+/* Accepts the current hash, and the weak numeric one that briefly got written
+   while the two hash functions were tangled, so nobody is locked out. */
+function passwordMatches(hash, plain){
+  const want = String(S.meta.rootHash == null ? "" : S.meta.rootHash);
+  if(String(hash) === want) return true;
+  return String(seedOf(String(plain))) === want;
+}
 
 async function hashOf(text){
   try{
@@ -3191,7 +3209,10 @@ function ensureArrow(color){
   return id;
 }
 
-function hashOf(str){
+/* Deterministic seed for shapes and traffic. Named apart from hashOf, which
+   hashes passwords — declaring both meant this one quietly replaced it and a
+   locked map could not be reopened after a reload. */
+function seedOf(str){
   let h = 0;
   for(let i = 0; i < String(str).length; i++) h = (h * 31 + str.charCodeAt(i)) % 100000;
   return h / 100000;
@@ -3232,7 +3253,7 @@ function rnd(seed, i){
 function drawNodeUnder(g, n){
   const decor = activeTheme().decor;
   if(!decor) return;
-  const d = nodePath(n), w = NODE_W, h = n._h, seed = hashOf(n.id);
+  const d = nodePath(n), w = NODE_W, h = n._h, seed = seedOf(n.id);
 
   if(decor === "island"){
     /* a beach ring and the shallows; the ripples arrive with the selection */
@@ -3272,7 +3293,7 @@ function buildingKind(n, seed){
 function drawNodeOver(g, n){
   const decor = activeTheme().decor;
   if(!decor) return;
-  const w = NODE_W, h = n._h, seed = hashOf(n.id);
+  const w = NODE_W, h = n._h, seed = seedOf(n.id);
 
   if(decor === "city"){
     /* A zone, not a building: a little row of premises along the bottom of the
@@ -3406,7 +3427,7 @@ function nodePath(n){
   if(shape === "burrow"){
     /* a chamber dug out of the soil: bulging walls, a flattened floor and a
        mouth on the left where the tunnel comes in */
-    const seed = hashOf(n.id);
+    const seed = seedOf(n.id);
     const j = (i, amp) => ((Math.sin(seed * (i+1) * 91.7) * 4137.13) % 1 + 1) % 1 * amp - amp/2;
     const r = Math.max(18, rr);
     return `M0,${h*.5} `
@@ -3418,7 +3439,7 @@ function nodePath(n){
   if(shape === "block"){
     /* a city block: the full body squared off, with a stepped roofline sitting
        above it so nothing eats into the label */
-    const seed = hashOf(n.id);
+    const seed = seedOf(n.id);
     const a = 7 + Math.round(seed * 9), b2 = 4 + Math.round(seed * 13);
     const x1 = Math.round(w * (.22 + seed * .16));
     const x2 = Math.round(w * (.55 + seed * .18));
@@ -3428,7 +3449,7 @@ function nodePath(n){
   if(shape === "island"){
     /* a landmass rather than a box: every edge bulges a little, and the
        amount is derived from the node id so no two are the same shape */
-    const seed = t.vary === false ? 0 : hashOf(n.id);
+    const seed = t.vary === false ? 0 : seedOf(n.id);
     const j = (i, amp) => t.vary === false ? 0
       : ((Math.sin(seed * (i + 1) * 12.9898) * 43758.5453) % 1 + 1) % 1 * amp - amp/2;
     const r = Math.max(16, rr);
@@ -3880,7 +3901,7 @@ function pickIndex(seed, i, n){
 }
 
 function march(gE, edgeD, color, reverse, count, offset, key, len){
-  const seed = hashOf(key + (reverse ? "r" : "f"));
+  const seed = seedOf(key + (reverse ? "r" : "f"));
   rideAlong(gE, edgeD, (g, i)=>{
     /* the queen is rare; most of the line is workers with the odd soldier */
     const roll = pickIndex(seed, i, 10);
@@ -3900,7 +3921,7 @@ function march(gE, edgeD, color, reverse, count, offset, key, len){
 }
 
 function drive(gE, edgeD, color, reverse, count, offset, key, len){
-  const seed = hashOf(key + (reverse ? "r" : "f"));
+  const seed = seedOf(key + (reverse ? "r" : "f"));
   rideAlong(gE, edgeD, (g, i)=>{
     const v = VEHICLES[pickIndex(seed, i, VEHICLES.length)];
     mk("path", {d:v.body, fill:color}, g);
@@ -3913,14 +3934,14 @@ function swim(gE, edgeD, color, reverse, count, offset, key, len){
   rideAlong(gE, edgeD, (g, i)=>{
     const f = mk("path", {d:FISH, fill:color, opacity:.95, class:"fishbody"}, g);
     f.style.animationDelay = (-i * 0.17) + "s";
-  }, count, paceFor(len, 46), reverse, offset, hashOf(key || ""));
+  }, count, paceFor(len, 46), reverse, offset, seedOf(key || ""));
 }
 
 function shoot(gE, edgeD, color, reverse, lag, offset, lean, key, len){
   rideAlong(gE, edgeD, g=>{
     if(!lean) mk("circle", {r:6, fill:color, opacity:.20}, g);
     mk("circle", {r:2.7, fill:color, opacity:.95}, g);
-  }, lean ? 1 : 2, paceFor(len, 240) + (lag ? .3 : 0), reverse, offset, hashOf(key || ""));
+  }, lean ? 1 : 2, paceFor(len, 240) + (lag ? .3 : 0), reverse, offset, seedOf(key || ""));
 }
 
 function crossOffset(path){
@@ -4074,7 +4095,7 @@ function decorateSelection(){
     const wins = [...g.querySelectorAll("rect.window")];
     const share = isHandheld() ? .78 : .45;
     wins.forEach((win, i)=>{
-      const roll = rnd(hashOf(id), i + 300);
+      const roll = rnd(seedOf(id), i + 300);
       if(roll < share) return;
       win.classList.add("flicker");
       win.style.animationDelay = (-roll * 11) + "s";
@@ -4659,7 +4680,7 @@ async function setMode(mode){
     const pass = prompt("This map is locked. Enter the editing password.");
     if(pass == null) return false;
     const h = await hashOf(pass);
-    if(h !== S.meta.rootHash){ toast("That password does not match."); return false; }
+    if(!passwordMatches(h, pass)){ toast("That password does not match."); return false; }
   }
   S.mode = mode;
   S.selArea = null;
@@ -4900,7 +4921,16 @@ const MIN_K = 0.05, MAX_K = 6;
 
   svg().addEventListener("pointerdown", ev=>{
     if(viewAnim){ cancelAnimationFrame(viewAnim); viewAnim = null; }
-    pts.set(ev.pointerId, {x:ev.clientX, y:ev.clientY});
+    /* If a release was ever missed — the finger left the glass, the browser
+       took the gesture, the tab lost focus — a phantom pointer would sit in
+       here and every later tap would look like the start of a pinch. Anything
+       that has not moved for a while is treated as gone. */
+    const nowMs = Date.now();
+    for(const [pid, rec] of [...pts]){
+      if(pid !== ev.pointerId && nowMs - (rec.t || 0) > 1600) pts.delete(pid);
+    }
+    if(!pts.size){ mode = null; pinch = null; panStart = null; }
+    pts.set(ev.pointerId, {x:ev.clientX, y:ev.clientY, t:nowMs});
     try{ svg().setPointerCapture(ev.pointerId); }catch(e){}
 
     if(pts.size === 2){ abortNodeDrag(); beginPinch(); return; }
@@ -5170,6 +5200,10 @@ const MIN_K = 0.05, MAX_K = 6;
     mode = null; dragNode = null; panStart = null; pinch = null; downPt = null;
   }
   svg().addEventListener("pointerup", endPointer);
+  window.addEventListener("blur", ()=>{ pts.clear(); mode = null; pinch = null; panStart = null; });
+  document.addEventListener("visibilitychange", ()=>{
+    if(document.hidden){ pts.clear(); mode = null; pinch = null; panStart = null; }
+  });
   svg().addEventListener("pointercancel", ev=>{
     pts.delete(ev.pointerId);
     cancelLongPress();
@@ -5197,8 +5231,10 @@ function readingZoom(n){
 
 function pickNode(id){
   const n = S.nodes.get(id);
+  /* only the deliberate modes hold the view still; a leftover multi-selection
+     from an earlier action must not silently disable this for good */
   const move = n && n._x != null && S.pickZoom !== "off"
-    && S.multi.size <= 1 && !S.pairArmed && !S.selectMode;
+    && !S.pairArmed && !S.selectMode;
 
   /* Start the movement before the selection work. Redrawing the panel and the
      outline takes long enough to eat the first frames, which is what made the
@@ -5274,7 +5310,7 @@ function select(id){
 function revealInOutline(id, bringToFront){
   if(!id) return;
   /* the outline is the directory tree, so picking a node shows it there */
-  if(bringToFront && !window.matchMedia("(max-width:820px)").matches){
+  if(bringToFront && S.followOutline && !window.matchMedia("(max-width:820px)").matches){
     const tab = [...document.querySelectorAll(".railtab")].find(t=>t.dataset.pane === "Contents");
     if(tab && !tab.classList.contains("on")) tab.click();
   }
@@ -5350,6 +5386,21 @@ function setPair(id){
   if(btn) btn.classList.remove("primary");
   render(); updateLinkBar();
 }
+/* Choosing several stays on until it is switched off, which is easy to forget
+   — and while it is on, picking a node does not move the view. So it says so. */
+function setSelectMode(on){
+  S.selectMode = !!on;
+  const b = el("btnSelectMode");
+  if(b) b.classList.toggle("primary", S.selectMode);
+  svg().style.cursor = S.selectMode ? "crosshair" : "";
+  const note = el("modeFlag");
+  if(note){
+    note.hidden = !S.selectMode;
+    note.textContent = "Choosing several — tap here to finish";
+  }
+  if(!S.selectMode && S.multi.size > 1) clearMulti();
+}
+
 function clearPair(){
   S.sel2 = null; S.pairArmed = false;
   const btn = el("btnLink");
@@ -7600,7 +7651,7 @@ async function hashText(t){
   try{
     const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t));
     return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,"0")).join("").slice(0,12);
-  }catch(e){ return String(Math.abs(hashOf(t) * 1e6) | 0); }
+  }catch(e){ return String(Math.abs(seedOf(t) * 1e6) | 0); }
 }
 
 async function buildViewerFile(){
@@ -8005,6 +8056,7 @@ async function loadPersonal(){
       if(typeof rec.branchGrid === "boolean") S.branchGrid = rec.branchGrid;
       if(rec.focusMode) S.focusMode = rec.focusMode;
       if(rec.pickZoom) S.pickZoom = rec.pickZoom;
+      if(typeof rec.followOutline === "boolean") S.followOutline = rec.followOutline;
       S.personal.recent = Array.isArray(rec.recent) ? rec.recent : [];
       S.personal.ackNew = rec.ackNew && typeof rec.ackNew === "object" ? rec.ackNew : {};
       S.personal.recentBadge = rec.recentBadge || "";
@@ -8021,7 +8073,7 @@ async function savePersonal(){
       bookmarks:S.personal.bookmarks, searches:S.personal.searches,
       who:S.who, mode:S.mode, notesMode:S.notesMode, motion:S.motion, showIds:S.showIds,
       avoidNodes:S.avoidNodes, branchGrid:S.branchGrid, focusMode:S.focusMode,
-      pickZoom:S.pickZoom,
+      pickZoom:S.pickZoom, followOutline:S.followOutline,
       recent:S.personal.recent, ackNew:S.personal.ackNew,
       recentBadge:S.personal.recentBadge || "", newBadge:S.personal.newBadge || "",
       art:S.personal.art, useHostArt:S.personal.useHostArt, at:nowISO()
@@ -9464,7 +9516,8 @@ async function boot(){
       if(choice){
         const pass = prompt("Enter the current editing password to remove the lock.");
         if(pass == null) return;
-        if(await hashOf(pass) !== S.meta.rootHash){ toast("That password does not match."); return; }
+        if(!passwordMatches(await hashOf(pass), pass)){
+          toast("That password does not match."); return; }
         S.meta.locked = false; S.meta.rootHash = "";
         markDirty(); updateModeUI(); toast("Lock removed");
         return;
@@ -9602,6 +9655,10 @@ async function boot(){
 
   document.querySelectorAll(".railtab").forEach(t=>{
     t.onclick = ()=>{
+      /* Choosing a tab by hand settles the argument: the outline stops
+         grabbing the panel back if you have gone to Tools yourself. */
+      if(t.dataset.pane === "Tools") S.followOutline = false;
+      if(t.dataset.pane === "Contents") S.followOutline = true;
       document.querySelectorAll(".railtab").forEach(x=>x.classList.toggle("on", x === t));
       el("paneTools").hidden = t.dataset.pane !== "Tools";
       el("paneContents").hidden = t.dataset.pane !== "Contents";
@@ -9655,14 +9712,7 @@ async function boot(){
     el("btnLink").classList.toggle("primary", S.pairArmed);
     toast(S.pairArmed ? "Now tap the second node" : "Cancelled");
   };
-  el("btnSelectMode").onclick = ()=>{
-    S.selectMode = !S.selectMode;
-    el("btnSelectMode").classList.toggle("primary", S.selectMode);
-    svg().style.cursor = S.selectMode ? "crosshair" : "";
-    toast(S.selectMode
-      ? "Tap nodes to add them, or drag a box across the map. Tap the button again when done."
-      : "Selecting finished");
-  };
+  el("btnSelectMode").onclick = ()=>setSelectMode(!S.selectMode);
   el("btnPaste").onclick = pasteBranch;
   el("mCopy").onclick = ()=>copySelection(false);
   el("mCopyBranch").onclick = ()=>copySelection(true);
@@ -9688,12 +9738,8 @@ async function boot(){
   el("pairCross").onclick = ()=>pairLink("cross");
   el("pairSwap").onclick  = pairSwap;
   el("pairCut").onclick   = pairUnlink;
-  el("pairClear").onclick = ()=>{
-    S.selectMode = false;
-    el("btnSelectMode").classList.remove("primary");
-    svg().style.cursor = "";
-    clearPair(); clearMulti();
-  };
+  el("pairClear").onclick = ()=>{ setSelectMode(false); clearPair(); clearMulti(); };
+  el("modeFlag").onclick = ()=>{ setSelectMode(false); clearPair(); };
   el("btnUnpin").onclick = ()=>{
     let k = 0, held = 0;
     for(const n of S.nodes.values()){
@@ -9918,6 +9964,7 @@ async function boot(){
   document.addEventListener("keydown", ev=>{
     const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
     if(ev.key === "/" && !typing){ ev.preventDefault(); el("q").focus(); }
+    if(ev.key === "Escape" && S.selectMode){ setSelectMode(false); clearPair(); return; }
     if(ev.key === "Escape" && noteFor){ closeNote(); decorateSelection(); return; }
     if(ev.key === "Escape" && S.tagPick.size && document.activeElement === el("q")){
       S.tagPick.clear(); updateTagCount(); runSearch(); return; }
