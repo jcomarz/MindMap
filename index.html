@@ -264,6 +264,19 @@ input[type=range],input[type=color],input[type=checkbox],input[type=file]{cursor
 .titleblock div:last-child{border-right:0}
 .titleblock b{display:block;font-weight:500;font-size:9px;color:var(--graphite-60)}
 
+#resultsPop{
+  position:fixed;z-index:60;background:var(--paper);border:1px solid var(--graphite);
+  border-radius:4px;box-shadow:0 10px 30px rgba(0,0,0,.24);display:flex;flex-direction:column;
+  max-height:min(60vh,520px);overflow:hidden
+}
+#resultsPop[hidden]{display:none}
+.rp-head{display:flex;align-items:center;gap:10px;padding:8px 9px 8px 13px;
+  border-bottom:1px solid var(--rule);background:var(--paper-2);flex:0 0 auto}
+.rp-head b{flex:1;font-size:12px;font-weight:600;color:var(--graphite-60)}
+.rp-head .btn{padding:4px 9px;font-size:12px}
+.rp-body{overflow:auto;padding:4px 12px 8px;-webkit-overflow-scrolling:touch}
+.rp-foot{padding:8px 12px;border-top:1px solid var(--rule);flex:0 0 auto}
+@media (max-width:820px){ #resultsPop{max-height:52vh} }
 #noteOverlay{
   position:absolute;z-index:14;background:var(--paper);border:1px solid var(--graphite);
   border-radius:4px;box-shadow:0 6px 24px rgba(0,0,0,.22);display:flex;flex-direction:column;
@@ -281,7 +294,20 @@ input[type=range],input[type=color],input[type=checkbox],input[type=file]{cursor
   padding:0 1px}
 .noteview mark{box-shadow:0 0 0 2px var(--hit-line)}
 @media (max-width:820px){
-  #noteOverlay{left:8px !important;right:8px;width:auto !important;max-height:58%}
+  #resultsPop{
+  position:fixed;z-index:60;background:var(--paper);border:1px solid var(--graphite);
+  border-radius:4px;box-shadow:0 10px 30px rgba(0,0,0,.24);display:flex;flex-direction:column;
+  max-height:min(60vh,520px);overflow:hidden
+}
+#resultsPop[hidden]{display:none}
+.rp-head{display:flex;align-items:center;gap:10px;padding:8px 9px 8px 13px;
+  border-bottom:1px solid var(--rule);background:var(--paper-2);flex:0 0 auto}
+.rp-head b{flex:1;font-size:12px;font-weight:600;color:var(--graphite-60)}
+.rp-head .btn{padding:4px 9px;font-size:12px}
+.rp-body{overflow:auto;padding:4px 12px 8px;-webkit-overflow-scrolling:touch}
+.rp-foot{padding:8px 12px;border-top:1px solid var(--rule);flex:0 0 auto}
+@media (max-width:820px){ #resultsPop{max-height:52vh} }
+#noteOverlay{left:8px !important;right:8px;width:auto !important;max-height:58%}
 }
 #modeFlag{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:22;
   background:var(--blueprint);color:var(--paper);border:0;border-radius:20px;
@@ -308,14 +334,45 @@ input[type=range],input[type=color],input[type=checkbox],input[type=file]{cursor
 .node-g.multi .node-box{stroke:var(--blueprint);stroke-width:2.25}
 /* focus: everything unrelated recedes rather than disappearing, so you keep
    a sense of where you are on the map */
-.focusdim{opacity:.16;filter:blur(1.1px);transition:opacity .18s}
+.focusdim{opacity:.16;filter:blur(1.1px);transition:opacity .3s}
+/* dropped while the view is in motion, put back the moment it settles */
+body.moving .rider,
+body.moving .window,
+body.moving .bldg,
+body.moving .bldg-roof,
+body.moving .stack,
+body.moving .smoke,
+body.moving .tree,
+body.moving .pebble,
+body.moving .leaf,
+body.moving .palm-g,
+body.moving .shell,
+body.moving .stacktab-btn,
+body.moving .node-note,
+body.moving .edge-centreline,
+body.moving .badge-node,
+body.moving .badge-sev{display:none}
+body.moving .node-g.sel .node-box{animation:none}
 html[data-motion="off"] .focusdim{filter:none;transition:none}
 body.focusing .node-g:not(.focusdim) .node-box{stroke-width:calc(var(--node-border, 1.25px) + .4px)}
 .node-g.multi .node-hit{fill:color-mix(in srgb, var(--blueprint) 12%, transparent)}
 .bandrect{fill:var(--blueprint);fill-opacity:.10;stroke:var(--blueprint);stroke-width:1.2;
   stroke-dasharray:5 4}
 @media (max-width:820px){
-  #noteOverlay{
+  #resultsPop{
+  position:fixed;z-index:60;background:var(--paper);border:1px solid var(--graphite);
+  border-radius:4px;box-shadow:0 10px 30px rgba(0,0,0,.24);display:flex;flex-direction:column;
+  max-height:min(60vh,520px);overflow:hidden
+}
+#resultsPop[hidden]{display:none}
+.rp-head{display:flex;align-items:center;gap:10px;padding:8px 9px 8px 13px;
+  border-bottom:1px solid var(--rule);background:var(--paper-2);flex:0 0 auto}
+.rp-head b{flex:1;font-size:12px;font-weight:600;color:var(--graphite-60)}
+.rp-head .btn{padding:4px 9px;font-size:12px}
+.rp-body{overflow:auto;padding:4px 12px 8px;-webkit-overflow-scrolling:touch}
+.rp-foot{padding:8px 12px;border-top:1px solid var(--rule);flex:0 0 auto}
+@media (max-width:820px){ #resultsPop{max-height:52vh} }
+#noteOverlay{
   position:absolute;z-index:14;background:var(--paper);border:1px solid var(--graphite);
   border-radius:4px;box-shadow:0 6px 24px rgba(0,0,0,.22);display:flex;flex-direction:column;
   max-height:62%;min-width:280px;overflow:hidden
@@ -332,7 +389,20 @@ body.focusing .node-g:not(.focusdim) .node-box{stroke-width:calc(var(--node-bord
   padding:0 1px}
 .noteview mark{box-shadow:0 0 0 2px var(--hit-line)}
 @media (max-width:820px){
-  #noteOverlay{left:8px !important;right:8px;width:auto !important;max-height:58%}
+  #resultsPop{
+  position:fixed;z-index:60;background:var(--paper);border:1px solid var(--graphite);
+  border-radius:4px;box-shadow:0 10px 30px rgba(0,0,0,.24);display:flex;flex-direction:column;
+  max-height:min(60vh,520px);overflow:hidden
+}
+#resultsPop[hidden]{display:none}
+.rp-head{display:flex;align-items:center;gap:10px;padding:8px 9px 8px 13px;
+  border-bottom:1px solid var(--rule);background:var(--paper-2);flex:0 0 auto}
+.rp-head b{flex:1;font-size:12px;font-weight:600;color:var(--graphite-60)}
+.rp-head .btn{padding:4px 9px;font-size:12px}
+.rp-body{overflow:auto;padding:4px 12px 8px;-webkit-overflow-scrolling:touch}
+.rp-foot{padding:8px 12px;border-top:1px solid var(--rule);flex:0 0 auto}
+@media (max-width:820px){ #resultsPop{max-height:52vh} }
+#noteOverlay{left:8px !important;right:8px;width:auto !important;max-height:58%}
 }
 #modeFlag{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:22;
   background:var(--blueprint);color:var(--paper);border:0;border-radius:20px;
@@ -434,6 +504,16 @@ html[data-font="serif"] .node-note{font-family:Georgia,"Times New Roman",serif}
   stroke-width:1}
 .node-g.layer.sel .node-box{stroke:var(--blueprint);stroke-width:2}
 .stacktab{font-family:var(--sans);font-size:9.5px;fill:var(--retired);pointer-events:none}
+.stacktab-btn{cursor:pointer}
+/* a layer's way back only appears when that layer is the one you are on,
+   otherwise every card in the pile shows a tab and they overlap */
+.node-g.layer .stacktab-btn{display:none}
+.node-g.layer.sel .stacktab-btn{display:block}
+.stacktab-bg{fill:var(--paper);stroke:var(--retired);stroke-width:.8;opacity:.92}
+.stacktab-btn:hover .stacktab-bg{stroke:var(--blueprint)}
+.stacktab-btn:hover .stacktab{fill:var(--blueprint)}
+/* a selected layer shows its whole face so you can read what it said */
+.node-g.layer.sel .node-label{display:block}
 .supersede-note{margin:10px 0 0;padding:9px 11px;border-radius:3px;font-size:12.5px;
   line-height:1.45;background:color-mix(in srgb, var(--flag) 12%, transparent);
   border-left:3px solid var(--flag)}
@@ -549,6 +629,9 @@ html[data-motion="off"] *{transition:none !important}
 .flagmark{fill:var(--flag)}
 
 /* ---------- inspector ---------- */
+#panelHide{margin:10px 14px 0;display:none}
+body.viewing #panelHide{display:block}
+body.viewing.panelaway #panelHide{display:none}
 .insp-head{padding:12px 16px;border-bottom:1px solid var(--rule);display:flex;align-items:baseline;gap:8px}
 .insp-head .idtag{font-family:var(--mono);font-size:11px;color:var(--graphite-60)}
 .insp-head h2{margin:0;font-size:14px;font-weight:600}
@@ -623,6 +706,9 @@ body.viewing #btnArea,
 body.viewing #btnNew,
 body.viewing #btnImport{display:none}
 body.viewing .titleinput{pointer-events:none;color:var(--graphite-60)}
+/* reading a map wants the map: the details panel arrives when you ask for it */
+body.viewing.panelaway #app{grid-template-columns:var(--rail) 1fr 0}
+body.viewing.panelaway .inspector{display:none}
 /* a handout has no editing to switch back to, so the controls go entirely */
 body.viewerbuild #modeGroup .row:first-of-type,
 body.viewerbuild #btnLockMap,
@@ -701,6 +787,8 @@ dialog#tagDlg .dlg-body{flex:1;max-height:none}
 .tagpick:first-child{border-top:0}
 .tagpick i{display:block;width:22px;flex:0 0 auto;border-top-width:2px;border-top-style:solid}
 .tagpick .cnt{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--graphite-60)}
+.tagpick.unused{opacity:.65}
+.tagpick.unused .cnt{font-style:italic}
 .taggroup{border-top:1px solid var(--rule-soft)}
 .tagheader{display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;
   padding:9px 4px;font-size:13px;color:inherit;text-align:left;cursor:pointer}
@@ -884,7 +972,10 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
   .inspector.open{transform:none}
   .inspector::before{content:"";position:absolute;top:7px;left:50%;transform:translateX(-50%);
     width:38px;height:4px;border-radius:2px;background:var(--rule)}
-  .insp-head{padding-top:18px}
+  #panelHide{margin:10px 14px 0;display:none}
+body.viewing #panelHide{display:block}
+body.viewing.panelaway #panelHide{display:none}
+.insp-head{padding-top:18px}
 
   .mobile-tabs{
     display:flex;gap:8px;align-items:center;padding:8px 10px;background:var(--paper);
@@ -1017,15 +1108,10 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
           Checking storage…</p>
       </div>
 
-      <div class="group">
-        <h2>Find</h2>
-        <input type="search" id="q" placeholder="Search labels, notes, tags, IDs">
-        <div class="row" style="margin-top:6px;align-items:center">
-          <button class="btn" id="prevHit">Previous</button>
-          <button class="btn" id="nextHit">Next</button>
-          <span class="hits" id="hitCount">—</span>
-        </div>
-        <label class="check"><input type="checkbox" id="dimOthers" checked> Fade non-matches</label>
+      <div hidden>
+        <input type="search" id="q">
+        <button id="prevHit"></button><button id="nextHit"></button>
+        <span id="hitCount">—</span>
       </div>
 
       <div class="group">
@@ -1073,6 +1159,7 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
         <label class="field"><span>When a node is selected</span>
           <select id="focusMode">
             <option value="off">Show the whole map</option>
+            <option value="flash">Dim the rest for a moment, then bring it back</option>
             <option value="linked">Dim all but its immediate links</option>
             <option value="family">Dim all but its family and cross-links</option>
           </select></label>
@@ -1082,6 +1169,8 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
             <option value="calm">Calm — no movement, cues stay</option>
             <option value="off">Off — nothing moves or glows</option>
           </select></label>
+        <label class="check"><input type="checkbox" id="dimOthers" checked>
+          Fade everything that does not match a search</label>
         <label class="check"><input type="checkbox" id="followOutline" checked>
           Show the picked node in the outline, switching the panel if needed</label>
         <label class="check"><input type="checkbox" id="branchGrid" checked>
@@ -1269,11 +1358,6 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
         <button class="btn wide" id="btnArea" style="margin-top:8px">Draw an area</button>
       </div>
 
-      <div class="group" id="resultsGroup" hidden>
-        <h2>Results</h2>
-        <div id="tocResults"></div>
-      </div>
-
       <div class="group">
         <h2>Outline</h2>
         <div class="row" style="margin:0 0 8px">
@@ -1344,6 +1428,7 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
 
   <!-- ============ INSPECTOR ============ -->
   <aside class="inspector" id="inspector">
+    <button class="btn" id="panelHide">Back to the map</button>
     <div class="insp-head">
       <h2 id="inspTitle">Nothing selected</h2>
       <span class="idtag" id="inspId"></span>
@@ -1412,6 +1497,17 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
   </div>
 </dialog>
 
+<div id="resultsPop" hidden>
+  <div class="rp-head">
+    <b id="resultsLabel"></b>
+    <button class="btn" id="resClose">Close</button>
+  </div>
+  <div class="rp-body" id="tocResults"></div>
+  <div class="rp-foot">
+    <button class="btn wide" id="resClear">Clear the filter</button>
+  </div>
+</div>
+
 <dialog id="tagDlg">
   <div class="dlg-head">
     <h2>Filter by tag</h2>
@@ -1422,6 +1518,9 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
       <button class="btn" id="tagAny">Any of them</button>
       <button class="btn" id="tagAll">All of them</button>
       <button class="btn" id="tagNone">Clear</button>
+    </div>
+    <div class="row" style="margin-top:6px">
+      <button class="btn wide" id="tagPurge">Remove unused tags</button>
     </div>
     <label class="check" style="margin-top:8px"><input type="checkbox" id="tagOnly">
       Show only these nodes, on the map and in the outline</label>
@@ -1716,6 +1815,7 @@ const S = {
   areaHits:[], bmHits:[],
   expanded:new Set(),          // nodes showing their whole note
   folded:new Set(), unfolded:new Set(),   // outline sections shut and opened by hand
+  tempOpen:new Set(),                     // opened just to show where you are
   draft:false,
   hist:{q:"", cls:{functional:true, editorial:true, layout:false}, scope:"all", node:null},
   syncing:false
@@ -1860,7 +1960,9 @@ function reclassify(rev, cls){
   rev.class = cls;
   markDirty();
 }
+let mapStamp = 0;
 function markDirty(){
+  mapStamp++;
   S.dirty = true;
   document.body.classList.add("dirty");
   S.meta.lastEdited = nowISO();
@@ -3841,6 +3943,9 @@ function drawStrip(g, n){
     toggleNodeBookmark(id);
     decorateSelection();
   }, marked);
+  if(!canEdit() && n.body){
+    btn(30, "\u2261", 0, ()=>openNote(id, true), noteFor === id);
+  }
   const sug = suggestionsFor(id).filter(z=>z.status === "open").length;
   const qs = questionsForNode(id).length;
   const chk = itemsFor(id).length;
@@ -4150,17 +4255,30 @@ function focusFamily(id, mode){
   return {nodes, edges};
 }
 
+let focusTimer = null;
+
+function clearFocus(){
+  const gN = el("gNodes"), gE = el("gEdges");
+  if(!gN || !gE) return;
+  document.body.classList.remove("focusing");
+  gN.querySelectorAll(".focusdim").forEach(x=>x.classList.remove("focusdim"));
+  gE.querySelectorAll(".focusdim").forEach(x=>x.classList.remove("focusdim"));
+}
+
 function applyFocus(){
   const gN = el("gNodes"), gE = el("gEdges");
   if(!gN || !gE) return;
-  const on = S.focusMode !== "off" && S.sel && S.nodes.has(S.sel);
+  clearTimeout(focusTimer);
+  /* Never while you are picking a second node or building a selection: the
+     whole job is looking at the others, and dimming them defeats it. */
+  const choosing = S.pairArmed || S.pairShift || S.selectMode || S.multi.size > 1;
+  const on = S.focusMode !== "off" && S.sel && S.nodes.has(S.sel) && !choosing;
   document.body.classList.toggle("focusing", !!on);
-  if(!on){
-    gN.querySelectorAll(".focusdim").forEach(x=>x.classList.remove("focusdim"));
-    gE.querySelectorAll(".focusdim").forEach(x=>x.classList.remove("focusdim"));
-    return;
-  }
-  const fam = focusFamily(S.sel, S.focusMode);
+  if(!on){ clearFocus(); return; }
+  const fam = focusFamily(S.sel, S.focusMode === "flash" ? "family" : S.focusMode);
+  /* whatever else is chosen stays lit too */
+  S.multi.forEach(id=>fam.nodes.add(id));
+  if(S.sel2) fam.nodes.add(S.sel2);
   gN.querySelectorAll(".node-g").forEach(g=>{
     g.classList.toggle("focusdim", !fam.nodes.has(g.dataset.id));
   });
@@ -4172,6 +4290,8 @@ function applyFocus(){
     const lbl = pth.nextElementSibling;
     if(lbl && /text|rect/i.test(lbl.tagName)) lbl.classList.remove("focusdim");
   });
+  /* the brief setting shows you where you landed, then gets out of the way */
+  if(S.focusMode === "flash") focusTimer = setTimeout(clearFocus, 2200);
 }
 
 function decorateSelection(){
@@ -4187,6 +4307,12 @@ function decorateSelection(){
   stripRef = null;
   /* before the early return, so clearing the selection also clears the dimming */
   applyFocus();
+  /* a layer lives behind its replacement, so bring the chosen one forward
+     rather than leaving it buried until the next redraw */
+  if(S.sel && isLayer(S.sel)){
+    const lg = gN.querySelector(`.node-g[data-id="${CSS.escape(S.sel)}"]`);
+    if(lg && lg.parentNode) lg.parentNode.appendChild(lg);
+  }
   const id = S.sel;
   if(!id || !S.nodes.has(id)) return;
   const g = gN.querySelector(`.node-g[data-id="${CSS.escape(id)}"]`);
@@ -4309,6 +4435,9 @@ function render(){
   /* ---- edges ---- */
   for(const e of S.edges.values()){
     if(!vis.has(e.from) || !vis.has(e.to)) continue;
+    /* a superseded node shares the connections of whatever replaced it, so its
+       own lines are not drawn — otherwise every stack sprouts a second path */
+    if(isLayer(e.from) || isLayer(e.to)) continue;
     if(e.link_type === "cross" && !showCross) continue;
     if(e.tag && offTags.has(e.tag)) continue;
     const a = S.nodes.get(e.from), b = S.nodes.get(e.to);
@@ -4381,6 +4510,9 @@ function render(){
   /* ---- nodes ---- */
   /* older layers are drawn first so the current version sits on top of them */
   const drawOrder = [...vis].sort((a, b)=>{
+    /* the one you have chosen comes to the front, whatever it is */
+    if(S.sel === a) return 1;
+    if(S.sel === b) return -1;
     const da = isLayer(a) ? 0 : 1, db = isLayer(b) ? 0 : 1;
     return da - db;
   });
@@ -4451,9 +4583,37 @@ function render(){
     }
     const pile = isLayer(id) ? [] : layersUnder(id).filter(x=>vis.has(x));
     if(pile.length){
-      const t = mk("text",{class:"stacktab", x:NODE_W - 8, y:n._h + 12,
-        "text-anchor":"end"}, g);
-      t.textContent = pile.length + " earlier version" + (pile.length===1 ? "" : "s");
+      /* the layers are almost entirely hidden behind this node, so the tab is
+         the way in to them */
+      /* above the node: below it is where the row of pills appears */
+      const tab = mk("g",{class:"stacktab-btn"}, g);
+      const label = pile.length + " earlier version" + (pile.length===1 ? "" : "s");
+      const w = 8 + label.length * 5.2;
+      mk("rect",{x:NODE_W - w - 2, y:-17, width:w, height:15, rx:7,
+        class:"stacktab-bg"}, tab);
+      const t = mk("text",{class:"stacktab", x:NODE_W - 7, y:-6,
+        "text-anchor":"end"}, tab);
+      t.textContent = label;
+      tab.addEventListener("pointerup", ev=>{
+        ev.stopPropagation();
+        /* step down through the pile, then back to the top */
+        const here = pile.indexOf(S.sel);
+        const next = here < 0 ? pile[0] : (pile[here + 1] || id);
+        pickNode(next);
+      });
+      tab.addEventListener("pointerdown", ev=>ev.stopPropagation());
+    }
+    if(isLayer(id)){
+      /* and a way back up from a layer */
+      const up = topOfStack(id);
+      const tab = mk("g",{class:"stacktab-btn"}, g);
+      mk("rect",{x:NODE_W - 74, y:-17, width:72, height:15, rx:7,
+        class:"stacktab-bg"}, tab);
+      const t = mk("text",{class:"stacktab", x:NODE_W - 7, y:-6,
+        "text-anchor":"end"}, tab);
+      t.textContent = "back to current";
+      tab.addEventListener("pointerup", ev=>{ ev.stopPropagation(); pickNode(up); });
+      tab.addEventListener("pointerdown", ev=>ev.stopPropagation());
     }
     if(S.showIds){
       const meta = mk("text",{class:"node-id", x:px, y:n._h - 8}, g);
@@ -4463,7 +4623,10 @@ function render(){
       meta.textContent = "retired";
     }
 
-    if(n.flag) mk("path",{d:`M${NODE_W-16},2 L${NODE_W-2},2 L${NODE_W-2},16 Z`, class:"flagmark"}, g);
+    /* the severity badge at the top-left says this already; the corner
+       triangle was a second mark for the same thing */
+    if(n.flag && !severityOf(n))
+      mk("path",{d:`M${NODE_W-16},2 L${NODE_W-2},2 L${NODE_W-2},16 Z`, class:"flagmark"}, g);
     if(n.pinned) mk("circle",{class:"pin", cx:NODE_W-9, cy:n._h-9, r:2.6, fill:"#14549B"}, g);
 
   }
@@ -4479,7 +4642,9 @@ function applyView(){
   placeNote();
   el("world").setAttribute("transform",
     `translate(${S.view.x},${S.view.y}) scale(${S.view.k})`);
-  el("zLvl").textContent = Math.round(S.view.k*100) + "%";
+  const pct = Math.round(S.view.k*100) + "%";
+  const z = el("zLvl");
+  if(z.textContent !== pct) z.textContent = pct;
 }
 
 function rebuild(){ layout(); buildTagFilters(); updateTagCount(); render(); renderInspector(); renderContents();
@@ -4510,48 +4675,21 @@ function reorderSibling(moveId, targetId, after){
   markDirty(); rebuild();
 }
 
-function renderContents(){
-  const q = (el("tocQ").value || "").trim().toLowerCase();
-
-  /* bookmarks */
-  const bm = el("tocBookmarks");
-  const rows = S.bookmarks.map(b=>({b, mine:false})).concat(S.personal.bookmarks.map(b=>({b, mine:true})));
-  bm.innerHTML = rows.length
-    ? rows.map(({b, mine})=>`<div class="tocrow" data-bm="${esc(b.id)}">
-        ${b.icon ? `<img class="bmicon" src="${esc(b.icon)}" alt="">`
-                 : `<span class="tocdot${mine?"":" filled"}"></span>`}
-        <span class="toclabel">${esc(b.label)}</span>
-        ${mine?`<span class="fold">yours</span>`:""}
-        <button class="bmpic" data-bmicon="${esc(b.id)}"
-          title="${b.icon ? "Change the picture" : "Give it a picture or GIF"}">${b.icon ? "edit" : "+pic"}</button>
-        <button class="kill" data-killbm="${esc(b.id)}" title="Remove">&times;</button>
-      </div>`).join("")
-    : `<p class="tocempty">None yet. Line up a view you keep coming back to and save it.</p>`;
-
-  /* recent searches, this device only */
-  const sr = el("tocSearches");
-  if(sr){
-    sr.innerHTML = S.personal.searches.length
-      ? S.personal.searches.map(q=>`<div class="tocrow" data-search="${esc(q)}">
-          <span class="toclabel">${esc(q)}</span>
-          <button class="kill" data-killsearch="${esc(q)}" title="Remove">&times;</button></div>`).join("")
-      : `<p class="tocempty">Searches you run are listed here, on this device only.</p>`;
-  }
-
+/* The results list lives under the search box rather than in the side panel:
+   it is a temporary thing you walk and dismiss. */
+function renderResults(){
   /* A separate, temporary list of whatever the search or the tag filter turned
      up, so the main outline is left alone and results are easy to walk. */
-  const rg = el("resultsGroup");
-  if(rg){
+  {
     const hasQuery = !!(S.hitQuery || "").trim();
     const targets = searchTargets();
     /* a narrowed scope is a filter in its own right, so Needs attention and
        the rest get the same temporary list */
     const scoped = S.searchScope && S.searchScope !== "all";
     const showing = hasQuery || S.tagPick.size || scoped;
-    const wrap = (rg.tagName === "DETAILS") ? rg : (rg.closest("details") || rg);
-    wrap.hidden = !showing;
+    const pop = el("resultsPop");
+    pop.hidden = !showing;
     if(showing){
-      if(wrap.tagName === "DETAILS" && !wrap.open) wrap.open = true;
       const n = targets.length;
       const scopeName = {
         flagged:"needing attention", parents:"section heads", labels:"by name",
@@ -4592,14 +4730,141 @@ function renderContents(){
                : trail.length ? `<span class="restrail">${esc(trail.slice(-2).join(" › "))}</span>` : ""}
         </div>`;
       };
+      el("resultsLabel").textContent = label.replace(/<[^>]+>/g, "");
       el("tocResults").innerHTML =
-        `<p class="tocempty" style="margin:0 0 6px">${label}</p>`
-        + (targets.length ? targets.slice(0, 300).map(row).join("")
-                          : `<p class="tocempty">Nothing matched.</p>`)
-        + (targets.length > 300 ? `<p class="tocempty">Showing the first 300.</p>` : "")
-        + `<div class="row" style="margin-top:8px">
-             <button class="btn wide" id="resClear">Clear the filter</button></div>`;
+        (targets.length ? targets.slice(0, 300).map(row).join("")
+                        : `<p class="tocempty">Nothing matched.</p>`)
+        + (targets.length > 300 ? `<p class="tocempty">Showing the first 300.</p>` : "");
+      placeResults();
+      bindResultRows();
     }
+  }
+
+}
+
+function placeResults(){
+  const pop = el("resultsPop");
+  if(!pop || pop.hidden) return;
+  const box = el("mq") && el("mq").getClientRects().length ? el("mq")
+            : document.querySelector(".mobile-tabs .mq") || el("mq");
+  const anchor = box && box.getClientRects().length ? box : document.querySelector(".mobile-tabs");
+  if(!anchor) return;
+  const r = anchor.getBoundingClientRect();
+  const w = Math.max(300, Math.min(560, r.width));
+  pop.style.width = w + "px";
+  pop.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.left)) + "px";
+  pop.style.top = (r.bottom + 6) + "px";
+}
+
+function bindResultRows(){
+  const root = el("resultsPop");
+  if(!root) return;
+  root.querySelectorAll("[data-res]").forEach(e=>{
+    e.onclick = ()=>{
+      const [kind, id] = e.dataset.res.split(/:(.+)/);
+      if(kind === "node" && S.nodes.has(id)) pickNode(id);
+      else if(kind === "area") zoomToArea(id);
+      else if(kind === "bm") gotoBookmark(id);
+    };
+  });
+}
+function closeResults(){ const p = el("resultsPop"); if(p) p.hidden = true; }
+
+let outlineStale = true, outlineSig = "";
+/* Build one level of the outline into a section that was left empty. */
+let outlineFill = ()=>{};
+
+/* Wire up the outline rows: folding, dragging to reorder, and jumping. Called
+   for the whole panel and again for any section built on demand. */
+function bindOutline(root){
+  root.querySelectorAll("[data-fold]").forEach(d=>{
+    d.addEventListener("toggle", ()=>{
+      const id = d.dataset.fold;
+      /* fill it in the first time it is opened */
+      if(d.open && d.dataset.lazy){
+        delete d.dataset.lazy;
+        const depth = Number(d.dataset.depth) || 0;
+        outlineFill(d, id, depth);
+      }
+      if(d.open){ S.unfolded.add(id); S.folded.delete(id); }
+      else { S.folded.add(id); S.unfolded.delete(id); }
+    });
+  });
+  root.querySelectorAll("[data-drag]").forEach(e=>{
+    e.addEventListener("dragstart", ev=>{
+      dragId = e.dataset.drag;
+      ev.dataTransfer.effectAllowed = "move";
+      try{ ev.dataTransfer.setData("text/plain", dragId); }catch(err){}
+      e.classList.add("dragging");
+    });
+    e.addEventListener("dragend", ()=>{ dragId = null;
+      root.querySelectorAll(".tocitem").forEach(x=>x.classList.remove("dragging","over-a","over-b")); });
+    e.addEventListener("dragover", ev=>{
+      if(!dragId || dragId === e.dataset.drag) return;
+      if(parentOf(dragId) !== parentOf(e.dataset.drag)) return;   // siblings only
+      ev.preventDefault();
+      const r = e.getBoundingClientRect();
+      const after = (ev.clientY - r.top) > r.height/2;
+      e.classList.toggle("over-a", !after);
+      e.classList.toggle("over-b", after);
+    });
+    e.addEventListener("dragleave", ()=>e.classList.remove("over-a","over-b"));
+    e.addEventListener("drop", ev=>{
+      ev.preventDefault();
+      const target = e.dataset.drag;
+      const after = e.classList.contains("over-b");
+      e.classList.remove("over-a","over-b");
+      if(!dragId || dragId === target) return;
+      reorderSibling(dragId, target, after);
+    });
+  });
+
+}
+
+function markHere(){
+  const pane = el("tocOutline");
+  if(!pane) return;
+  pane.querySelectorAll(".tocitem.here").forEach(x=>x.classList.remove("here"));
+  if(S.sel){
+    const cur = pane.querySelector(`.tocitem[data-jump="${CSS.escape(S.sel)}"]`);
+    if(cur) cur.classList.add("here");
+  }
+}
+function outlineVisible(){
+  const pane = el("paneContents");
+  return !!(pane && pane.getClientRects().length);
+}
+function renderContents(){
+  /* Hundreds of rows cost real time to build and lay out. When the panel is
+     on Tools nobody can see them, so the work is put off until it can. */
+  if(!outlineVisible()){ outlineStale = true; renderResults(); return; }
+  if(outlineStale) outlineSig = "";
+  outlineStale = false;
+  const q = (el("tocQ").value || "").trim().toLowerCase();
+
+  /* bookmarks */
+  const bm = el("tocBookmarks");
+  const rows = S.bookmarks.map(b=>({b, mine:false})).concat(S.personal.bookmarks.map(b=>({b, mine:true})));
+  bm.innerHTML = rows.length
+    ? rows.map(({b, mine})=>`<div class="tocrow" data-bm="${esc(b.id)}">
+        ${b.icon ? `<img class="bmicon" src="${esc(b.icon)}" alt="">`
+                 : `<span class="tocdot${mine?"":" filled"}"></span>`}
+        <span class="toclabel">${esc(b.label)}</span>
+        ${mine?`<span class="fold">yours</span>`:""}
+        <button class="bmpic" data-bmicon="${esc(b.id)}"
+          title="${b.icon ? "Change the picture" : "Give it a picture or GIF"}">${b.icon ? "edit" : "+pic"}</button>
+        <button class="kill" data-killbm="${esc(b.id)}" title="Remove">&times;</button>
+      </div>`).join("")
+    : `<p class="tocempty">None yet. Line up a view you keep coming back to and save it.</p>`;
+
+  /* recent searches, this device only */
+  const sr = el("tocSearches");
+  if(sr){
+    sr.innerHTML = S.personal.searches.length
+      ? S.personal.searches.map(q=>`<div class="tocrow" data-search="${esc(q)}">
+          <span class="toclabel">${esc(q)}</span>
+          <button class="kill" data-killsearch="${esc(q)}" title="Remove">&times;</button></div>`).join("")
+      : `<p class="tocempty">Searches you run are listed here, on this device only.</p>`;
   }
 
   /* what is new, and where you have been */
@@ -4775,19 +5040,41 @@ function renderContents(){
     const n = S.nodes.get(id);
     if(!n || !shown.has(id)) return "";
     const kids = childrenOf(id).filter(k=>!seen.has(k));
-    const inner = kids.map(k=>walk(k, depth+1)).join("");
-    const hit = !q || [n.label, n.id, n.type, (n.tags||[]).join(" ")].join(" ").toLowerCase().includes(q);
-    if(q && !hit && !inner) return "";
-    if(!kids.length || !inner) return line(n, depth, false);
-    /* what you fold stays folded through a redraw, so reordering a collapsed
-       section does not spring the whole outline open again */
-    /* a search reveals what it found, whatever was folded */
-    const open = (q || hitPath.has(id)) ? true
+    /* A closed section is not built until it is opened. The whole tree used to
+       be written out every time — 387 rows to show 38. */
+    const open = (q || hitPath.has(id) || S.tempOpen.has(id)) ? true
       : S.unfolded.has(id) ? true
       : S.folded.has(id) ? false
       : depth < 2;
-    return `<details data-fold="${esc(id)}"${open ? " open" : ""}>`
+    const inner = open ? kids.map(k=>walk(k, depth+1)).join("") : "";
+    const hit = !q || [n.label, n.id, n.type, (n.tags||[]).join(" ")].join(" ").toLowerCase().includes(q);
+    if(q && !hit && !inner) return "";
+    if(!kids.length) return line(n, depth, false);
+    /* what you fold stays folded through a redraw, so reordering a collapsed
+       section does not spring the whole outline open again */
+    return `<details data-fold="${esc(id)}" data-depth="${depth}"`
+         + `${open ? " open" : ' data-lazy="1"'}>`
          + `<summary>${line(n, depth, true)}</summary>${inner}</details>`;
+  };
+
+  /* Rebuilding hundreds of rows to move one highlight is the bulk of what a
+     pick costs. If nothing about the tree changed, only the marker moves. */
+  const sig = [mapStamp, S.nodes.size, q, el("showScope").value,
+    [...S.tempOpen].sort().join(","), [...S.folded].sort().join(","),
+    [...S.unfolded].sort().join(","), S.hits.length, S.tagOnly, S.tagPick.size
+  ].join("|");
+  if(sig === outlineSig && el("tocOutline").children.length){
+    markHere();
+    return;
+  }
+  outlineSig = sig;
+
+  /* the same walk is reused to fill a section the first time it opens */
+  outlineFill = (host, id, depth)=>{
+    const kids = childrenOf(id).filter(k=>shown.has(k));
+    const html = kids.map(k=>walk(k, depth + 1)).join("");
+    host.insertAdjacentHTML("beforeend", html);
+    bindOutline(host);
   };
 
   const rs = roots();
@@ -4806,49 +5093,12 @@ function renderContents(){
     if(rest) html += rest;
   }
   el("tocOutline").innerHTML = html || `<p class="tocempty">Nothing matches.</p>`;
-  if(S.sel){
-    const cur = el("tocOutline").querySelector(`.tocitem[data-jump="${CSS.escape(S.sel)}"]`);
-    if(cur) cur.classList.add("here");
-  }
+  markHere();
 
   const root = el("paneContents");
   /* reorder branches without hunting for them on the map */
   let dragId = null;
-  root.querySelectorAll("[data-fold]").forEach(d=>{
-    d.addEventListener("toggle", ()=>{
-      const id = d.dataset.fold;
-      if(d.open){ S.unfolded.add(id); S.folded.delete(id); }
-      else { S.folded.add(id); S.unfolded.delete(id); }
-    });
-  });
-  root.querySelectorAll("[data-drag]").forEach(e=>{
-    e.addEventListener("dragstart", ev=>{
-      dragId = e.dataset.drag;
-      ev.dataTransfer.effectAllowed = "move";
-      try{ ev.dataTransfer.setData("text/plain", dragId); }catch(err){}
-      e.classList.add("dragging");
-    });
-    e.addEventListener("dragend", ()=>{ dragId = null;
-      root.querySelectorAll(".tocitem").forEach(x=>x.classList.remove("dragging","over-a","over-b")); });
-    e.addEventListener("dragover", ev=>{
-      if(!dragId || dragId === e.dataset.drag) return;
-      if(parentOf(dragId) !== parentOf(e.dataset.drag)) return;   // siblings only
-      ev.preventDefault();
-      const r = e.getBoundingClientRect();
-      const after = (ev.clientY - r.top) > r.height/2;
-      e.classList.toggle("over-a", !after);
-      e.classList.toggle("over-b", after);
-    });
-    e.addEventListener("dragleave", ()=>e.classList.remove("over-a","over-b"));
-    e.addEventListener("drop", ev=>{
-      ev.preventDefault();
-      const target = e.dataset.drag;
-      const after = e.classList.contains("over-b");
-      e.classList.remove("over-a","over-b");
-      if(!dragId || dragId === target) return;
-      reorderSibling(dragId, target, after);
-    });
-  });
+  bindOutline(root);
   root.querySelectorAll("[data-jump]").forEach(e=>{
     e.onclick = ev=>{ ev.preventDefault(); ev.stopPropagation();
       const id = e.dataset.jump;
@@ -4861,22 +5111,6 @@ function renderContents(){
       }
     };
   });
-  root.querySelectorAll("[data-res]").forEach(e=>{
-    e.onclick = ()=>{
-      const [kind, id] = e.dataset.res.split(/:(.+)/);
-      if(kind === "node" && S.nodes.has(id)) pickNode(id);
-      else if(kind === "area") zoomToArea(id);
-      else if(kind === "bm") gotoBookmark(id);
-    };
-  });
-  const rc = el("resClear");
-  if(rc) rc.onclick = ()=>{
-    el("q").value = ""; S.tagPick.clear(); S.tagOnly = false;
-    S.searchScope = "all";
-    const sel = el("searchScope"); if(sel) sel.value = "all";
-    updateTagCount(); renderTagPicker();
-    keepingPlace(()=>{ runSearch(); rebuild(); });
-  };
   root.querySelectorAll("[data-signoff]").forEach(e=>{
     e.onclick = ev=>{ ev.stopPropagation(); signOffNew(e.dataset.signoff); };
   });
@@ -4964,6 +5198,10 @@ function updateModeUI(){
   r.classList.toggle("on", isRoot());
   v.classList.toggle("on", !isRoot());
   document.body.classList.toggle("viewing", !isRoot());
+  /* reading a map wants the map: the details panel folds away in viewing and
+     comes back when a pill sends you to it */
+  document.body.classList.toggle("panelaway", !isRoot());
+  forgetSize();
   if(S.viewerBuild){
     note.innerHTML = (typeof XLSX === "undefined"
       ? `<span style="color:var(--flag)">Running without an internet connection, so saving to
@@ -5002,11 +5240,44 @@ function updateChrome(){
 
 /* The tag list gets long, so choosing tags happens in its own panel rather
    than as a row of chips squeezed into the search bar. */
-function allTagsWithCounts(){
+/* Every tag the map knows about, and how many things carry it. A tag with a
+   style but nothing using it still shows, with a count of nothing, so it can
+   be recognised and cleared out. */
+function tagUseCounts(){
   const counts = new Map();
-  for(const n of S.nodes.values()) (n.tags||[]).forEach(t=>counts.set(t, (counts.get(t)||0) + 1));
-  for(const e of S.edges.values()) if(e.tag && !counts.has(e.tag)) counts.set(e.tag, 0);
-  return [...counts.entries()].sort((a,b)=>b[1] - a[1] || a[0].localeCompare(b[0]));
+  [...S.tagStyles.keys()].forEach(t=>counts.set(t, 0));
+  for(const n of S.nodes.values())
+    (n.tags||[]).forEach(t=>counts.set(t, (counts.get(t)||0) + 1));
+  for(const e of S.edges.values())
+    if(e.tag) counts.set(e.tag, (counts.get(e.tag)||0) + 1);
+  return counts;
+}
+function allTagsWithCounts(){
+  return [...tagUseCounts().entries()].sort((a,b)=>b[1] - a[1] || a[0].localeCompare(b[0]));
+}
+function unusedTags(){
+  return [...tagUseCounts().entries()].filter(([,c])=>c === 0).map(([t])=>t);
+}
+function dropTag(tag){
+  if(!canEdit()) return;
+  S.tagStyles.delete(tag);
+  S.tagPick.delete(tag);
+  for(const n of S.nodes.values())
+    if((n.tags||[]).includes(tag)) setField(n, "tags", n.tags.filter(t=>t !== tag));
+  for(const e of S.edges.values()) if(e.tag === tag) e.tag = "";
+  markDirty();
+}
+function purgeUnusedTags(){
+  if(!canEdit()){ toast("Switch to editing mode first."); return; }
+  const gone = unusedTags();
+  if(!gone.length){ toast("Every tag is in use."); return; }
+  if(!confirm("Remove " + gone.length + " tag" + (gone.length===1?"":"s")
+    + " that nothing is using?\n\n" + gone.slice(0, 12).join(", ")
+    + (gone.length > 12 ? ", …" : "")
+    + "\n\nTheir styles go with them. Nodes and links are not touched.")) return;
+  gone.forEach(t=>S.tagStyles.delete(t));
+  markDirty(); rebuild(); renderTagPicker(); updateTagCount();
+  toast(gone.length + " unused tag" + (gone.length===1?"":"s") + " removed");
 }
 function openTagPicker(){
   renderTagPicker();
@@ -5024,11 +5295,15 @@ function renderTagPicker(){
 
   const chip = (t, c)=>{
     const st = styleFor(t);
-    return `<label class="tagpick">
-      <input type="checkbox" data-tagpick="${esc(t)}"${S.tagPick.has(t) ? " checked" : ""}>
+    return `<label class="tagpick${c ? "" : " unused"}">
+      <input type="checkbox" data-tagpick="${esc(t)}"${S.tagPick.has(t) ? " checked" : ""}
+        ${c ? "" : "disabled"}>
       <i style="border-top-style:${st.line==="solid"?"solid":st.line==="dotted"?"dotted":"dashed"};
          border-color:${esc(themeColor(st.color))}"></i>
-      <span>${esc(tagLeaf(t))}</span><span class="cnt">${c}</span></label>`;
+      <span>${esc(tagLeaf(t))}</span>
+      <span class="cnt">${c || "unused"}</span>
+      ${c ? "" : `<button class="kill" data-tagdrop="${esc(t)}" title="Remove this tag">&times;</button>`}
+    </label>`;
   };
 
   let html = "";
@@ -5056,6 +5331,19 @@ function renderTagPicker(){
   const onlyBox = el("tagOnly");
   if(onlyBox) onlyBox.checked = S.tagOnly;
 
+  const purge = el("tagPurge");
+  if(purge){
+    const n = unusedTags().length;
+    purge.textContent = n ? "Remove " + n + " unused tag" + (n===1?"":"s") : "No unused tags";
+    purge.disabled = !n || !canEdit();
+  }
+  box.querySelectorAll("[data-tagdrop]").forEach(x=>{
+    x.onclick = ev=>{
+      ev.preventDefault(); ev.stopPropagation();
+      dropTag(x.dataset.tagdrop);
+      rebuild(); renderTagPicker(); updateTagCount();
+    };
+  });
   box.querySelectorAll("[data-taggroup]").forEach(h=>{
     h.onclick = ()=>{
       const g = h.dataset.taggroup;
@@ -5106,7 +5394,18 @@ function buildTagFilters(){
    VIEWPORT — pan, zoom, node dragging
    ===================================================================== */
 const svg = ()=>el("svg");
-function svgSize(){ const r = svg().getBoundingClientRect(); return {w:r.width, h:r.height}; }
+/* Measuring the canvas forces the browser to lay the page out. It was being
+   asked on every animation frame, through stickStrip, which is most of why
+   moving in stuttered. The size only changes when the window or the panels
+   do, so it is remembered. */
+let sizeCache = null;
+function svgSize(){
+  if(sizeCache) return sizeCache;
+  const r = svg().getBoundingClientRect();
+  sizeCache = {w:r.width, h:r.height};
+  return sizeCache;
+}
+function forgetSize(){ sizeCache = null; }
 function toWorld(cx, cy){
   const r = svg().getBoundingClientRect();
   return { x:(cx - r.left - S.view.x)/S.view.k, y:(cy - r.top - S.view.y)/S.view.k };
@@ -5212,13 +5511,19 @@ function applyMotion(){
   const sel = el("motionPref");
   if(sel) sel.value = S.motion || "full";
 }
-function animateView(to, ms){
+function animateView(to, ms, done){
   if(viewAnim){ cancelAnimationFrame(viewAnim); viewAnim = null; }
   const from = {x:S.view.x, y:S.view.y, k:S.view.k};
   const dur = reducedMotion() ? 0 : (ms || 340);
   const near = Math.abs(to.x-from.x) < 1 && Math.abs(to.y-from.y) < 1
             && Math.abs(to.k-from.k) < 0.002;
-  if(!dur || near){ S.view = {x:to.x, y:to.y, k:to.k}; applyView(); return; }
+  if(!dur || near){ S.view = {x:to.x, y:to.y, k:to.k}; applyView();
+    document.body.classList.remove("moving");
+    if(done) done(); return; }
+  /* While the view is moving, the fine detail comes off. Repainting every
+     window, pebble and traveller at each scale is what made moving in stutter
+     while moving out — fewer nodes on screen — stayed smooth. */
+  document.body.classList.add("moving");
   const t0 = performance.now();
   const ease = t => 1 - Math.pow(1 - t, 3);
   const step = now=>{
@@ -5228,7 +5533,12 @@ function animateView(to, ms){
     S.view.x = from.x + (to.x - from.x) * e;
     S.view.y = from.y + (to.y - from.y) * e;
     applyView();
-    viewAnim = t < 1 ? requestAnimationFrame(step) : null;
+    if(t < 1) viewAnim = requestAnimationFrame(step);
+    else {
+      viewAnim = null;
+      document.body.classList.remove("moving");
+      if(done) done();
+    }
   };
   viewAnim = requestAnimationFrame(step);
 }
@@ -5306,7 +5616,8 @@ const MIN_K = 0.05, MAX_K = 6;
   }
 
   svg().addEventListener("pointerdown", ev=>{
-    if(viewAnim){ cancelAnimationFrame(viewAnim); viewAnim = null; }
+    if(viewAnim){ cancelAnimationFrame(viewAnim); viewAnim = null;
+      document.body.classList.remove("moving"); }
     /* If a release was ever missed — the finger left the glass, the browser
        took the gesture, the tab lost focus — a phantom pointer would sit in
        here and every later tap would look like the start of a pinch. Anything
@@ -5636,25 +5947,34 @@ function pickNode(id){
   /* Start the movement before the selection work. Redrawing the panel and the
      outline takes long enough to eat the first frames, which is what made the
      zoom in look like a jump while the zoom out looked smooth. */
+  const q = (S.hitQuery || "").toLowerCase();
+  const matched = q && n && n.body && n.body.toLowerCase().includes(q);
+  const wantNote = move && n && n.body
+    && (S.pickZoom === "note" || (matched && !canEdit()));
+
+  const finish = ()=>{
+    runPendingDetails();
+    if(wantNote) openNote(id, true);
+  };
+
   if(move){
     const s = svgSize();
     /* always the same reading distance, not "no closer than you already are",
        which is why it stopped doing anything after a few picks */
     const k = readingZoom(n);
+    /* the selection is marked straight away — a class swap, nothing more —
+       and the rest arrives when the movement is over */
+    deferDetails = true;
+    pendingBringToFront = true;
+    select(id);
     animateView({k,
       x:s.w/2 - (n._x + NODE_W/2) * k,
-      y:s.h/2 - (n._y + n._h/2) * k}, 420);
-  }
-  requestAnimationFrame(()=>{
+      y:s.h/2 - (n._y + n._h/2) * k}, 420, finish);
+  } else {
+    pendingBringToFront = true;
     select(id);
-    revealInOutline(id, true);
-    /* In viewing the panel is actions only, so a search match has nowhere to
-       show unless the note itself opens. */
-    const q = (S.hitQuery || "").toLowerCase();
-    const matched = q && n && n.body && n.body.toLowerCase().includes(q);
-    if(move && n && n.body && (S.pickZoom === "note" || (matched && !canEdit())))
-      setTimeout(()=>openNote(id, true), 260);
-  });
+    finish();
+  }
 }
 
 /* Fill the viewport with one node, which is what "look at this bit" means
@@ -5699,12 +6019,44 @@ function select(id){
   const g = el("gNodes");
   if(prev){ const p = g.querySelector(`.node-g[data-id="${CSS.escape(prev)}"]`); if(p) p.classList.remove("sel"); }
   if(id){ const c = g.querySelector(`.node-g[data-id="${CSS.escape(id)}"]`); if(c) c.classList.add("sel"); }
-  decorateSelection();
-  decorateBadges();
-  renderInspector();
-  updateFab();
   updateLinkBar();
-  revealInOutline(id);
+  updateFab();
+  if(deferDetails){ pendingDetails = id; return; }
+  selectDetails(id);
+}
+
+/* Everything that can wait a moment: the panel, the outline, the badges and
+   the traffic on the links. Running these inside the same frame as the
+   movement is what made moving in feel stuck. */
+let deferDetails = false, pendingDetails = null;
+function whenIdle(fn){
+  if(typeof requestIdleCallback === "function") requestIdleCallback(fn, {timeout:400});
+  else setTimeout(fn, 0);
+}
+function selectDetails(id){
+  pendingDetails = null;
+  if(id && S.sel !== id) return;
+  /* what you look at first */
+  decorateSelection();
+  renderInspector();
+  /* and what can wait for a spare moment: the outline is hundreds of rows and
+     showing it forces a full layout, which was landing right on the end of
+     the movement */
+  const bring = pendingBringToFront;
+  pendingBringToFront = false;
+  /* the outline can be hundreds of rows on a large map and showing it forces a
+     full layout; it is left until well after the movement has settled */
+  setTimeout(()=>{ if(S.sel === id) decorateBadges(); }, 90);
+  setTimeout(()=>{
+    if(S.sel !== id) return;
+    whenIdle(()=>{ if(S.sel === id) revealInOutline(id, bring); });
+  }, 360);
+}
+let pendingBringToFront = false;
+
+function runPendingDetails(){
+  deferDetails = false;
+  if(pendingDetails) selectDetails(pendingDetails);
 }
 
 /* Open the outline down to whatever is selected and scroll it into view, so
@@ -5720,12 +6072,15 @@ function revealInOutline(id, bringToFront){
   /* rebuilding the outline is the expensive part of choosing a node on a big
      map, so it is only done when the outline is actually on screen */
   if(!pane || !pane.getClientRects().length) return;
-  let up = parentOf(id), guard = 0, opened = false;
-  while(up && guard++ < 200){
-    if(S.folded.has(up)){ S.folded.delete(up); S.unfolded.add(up); opened = true; }
-    up = parentOf(up);
-  }
-  if(opened) renderContents();
+  /* Open the way down to it for this view only. Adding these to the permanent
+     set meant the outline crept open until it was hundreds of rows, and every
+     later pick paid to lay all of them out. */
+  const path = new Set();
+  let up = parentOf(id), guard = 0;
+  while(up && guard++ < 200){ path.add(up); up = parentOf(up); }
+  let changed = path.size !== S.tempOpen.size;
+  if(!changed) for(const x of path) if(!S.tempOpen.has(x)){ changed = true; break; }
+  if(changed){ S.tempOpen = path; renderContents(); }
   const row = pane.querySelector(`.tocitem[data-jump="${CSS.escape(id)}"]`);
   if(!row) return;
   pane.querySelectorAll(".tocitem.here").forEach(x=>x.classList.remove("here"));
@@ -5736,7 +6091,10 @@ function revealInOutline(id, bringToFront){
   const view = pane.clientHeight;
   if(top < pane.scrollTop + 8 || top + h > pane.scrollTop + view - 8){
     const want = Math.max(0, top - view / 2 + h / 2);
-    if(reducedMotion()) pane.scrollTop = want;
+    /* a smooth scroll through hundreds of rows keeps the layout busy for as
+       long as it runs; past a few dozen it just jumps */
+    const many = pane.querySelectorAll(".tocitem").length > 120;
+    if(reducedMotion() || many) pane.scrollTop = want;
     else pane.scrollTo({top:want, behavior:"smooth"});
   }
 }
@@ -5792,6 +6150,7 @@ function setPair(id){
    — and while it is on, picking a node does not move the view. So it says so. */
 function setSelectMode(on){
   S.selectMode = !!on;
+  if(S.selectMode) clearFocus();
   const b = el("btnSelectMode");
   if(b) b.classList.toggle("primary", S.selectMode);
   svg().style.cursor = S.selectMode ? "crosshair" : "";
@@ -6048,7 +6407,17 @@ function placeNote(){
   o.style.top = Math.round(pick.y) + "px";
 }
 
+/* In viewing, the side panel stays out of the way until a pill sends you
+   there. */
+function showPanel(on){
+  document.body.classList.toggle("panelaway", !on);
+  forgetSize();
+  applyView();
+}
+function panelIsAway(){ return document.body.classList.contains("panelaway"); }
+
 function openPanelFor(nodeId, which){
+  if(!canEdit()) showPanel(true);
   if(S.sel !== nodeId) select(nodeId);
   if(window.matchMedia("(max-width:820px)").matches){
     el("inspector").classList.add("open");
@@ -6844,6 +7213,7 @@ function runSearch(){
     /* clearing the box closes the note previews, which changes every height
        and reflows the map — without this you are dumped somewhere else */
     keepingPlace(()=>{ layout(); render(); renderContents(); });
+    renderResults();
     return;
   }
   const terms = q ? q.split(/\s+/) : [];
@@ -6894,6 +7264,7 @@ function runSearch(){
     /* nothing found: stay where you are rather than drifting */
     keepingPlace(()=>{ layout(); render(); renderContents(); });
   }
+  renderResults();
 }
 
 function goToTarget(t){
@@ -10253,6 +10624,8 @@ async function boot(){
   document.querySelectorAll(".railtab").forEach(t=>{
     t.onclick = ()=>{
       document.querySelectorAll(".railtab").forEach(x=>x.classList.toggle("on", x === t));
+      forgetSize();
+      if(t.dataset.pane === "Contents" && outlineStale) setTimeout(renderContents, 0);
       el("paneTools").hidden = t.dataset.pane !== "Tools";
       el("paneContents").hidden = t.dataset.pane !== "Contents";
       if(t.dataset.pane === "Contents") renderContents();
@@ -10263,7 +10636,7 @@ async function boot(){
   el("btnAskQ").onclick = ()=>askQuestion(S.sel || S.lastNode || "");
   el("foldAll").onclick = ()=>{
     S.folded = new Set([...S.nodes.keys()].filter(id=>childrenOf(id).length));
-    S.unfolded.clear();
+    S.unfolded.clear(); S.tempOpen.clear();
     renderContents();
   };
   el("unfoldAll").onclick = ()=>{
@@ -10426,6 +10799,26 @@ async function boot(){
   el("tagAll").onclick = ()=>{ S.tagMode = "all"; afterTagChange(); };
   el("tagNone").onclick = ()=>{ S.tagPick.clear(); S.tagOnly = false; afterTagChange(); };
   el("tagOnly").onchange = e=>{ S.tagOnly = e.target.checked; afterTagChange(); };
+  el("tagPurge").onclick = purgeUnusedTags;
+  el("panelHide").onclick = ()=>showPanel(false);
+  el("resClose").onclick = closeResults;
+  el("resClear").onclick = ()=>{
+    el("q").value = ""; if(el("mq")) el("mq").value = "";
+    S.tagPick.clear(); S.tagOnly = false;
+    S.searchScope = "all";
+    const sel = el("searchScope"); if(sel) sel.value = "all";
+    updateTagCount(); renderTagPicker();
+    keepingPlace(()=>{ runSearch(); rebuild(); });
+    closeResults();
+  };
+  document.addEventListener("pointerdown", ev=>{
+    const pop = el("resultsPop");
+    if(!pop || pop.hidden) return;
+    if(pop.contains(ev.target)) return;
+    if(ev.target.closest && ev.target.closest(".mobile-tabs")) return;
+    closeResults();
+  });
+  window.addEventListener("resize", ()=>placeResults());
 
   el("noteClose").onclick = closeNote;
   el("themePick").onclick = openThemes;
@@ -10578,6 +10971,8 @@ async function boot(){
     const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
     if(ev.key === "/" && !typing){ ev.preventDefault(); el("q").focus(); }
     if(ev.key === "Escape" && S.selectMode){ setSelectMode(false); clearPair(); return; }
+    if(ev.key === "Escape" && el("resultsPop") && !el("resultsPop").hidden){
+      closeResults(); return; }
     if(ev.key === "Escape" && noteFor){ closeNote(); decorateSelection(); return; }
     if(ev.key === "Escape" && S.tagPick.size && document.activeElement === el("q")){
       S.tagPick.clear(); updateTagCount(); runSearch(); return; }
@@ -10611,6 +11006,8 @@ async function boot(){
     if(bar) new ResizeObserver(measureBar).observe(bar);
   }
   window.addEventListener("orientationchange", ()=>setTimeout(measureBar, 250));
+  window.addEventListener("resize", ()=>forgetSize());
+  window.addEventListener("orientationchange", ()=>forgetSize());
   window.addEventListener("resize", debounce(()=>{ measureBar(); applyView(); }, 120));
   /* copy an image anywhere, press Ctrl+V here, and it lands on the node */
   document.addEventListener("paste", ev=>{
