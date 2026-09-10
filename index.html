@@ -948,6 +948,7 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
     <option value="areas">Areas</option>
     <option value="bookmarks">Bookmarks</option>
     <option value="flagged">Needs attention</option>
+    <option value="retired">Retired</option>
   </select>
   <button class="btn iconbtn" id="tagPickBtn" title="Filter by tag">⛬<span id="tagPickCount"></span></button>
   <button class="btn iconbtn" id="topUpdates" title="New and recently opened" aria-label="Updates">
@@ -1984,9 +1985,11 @@ function supersede(oldId, newId){
 }
 function unSupersede(id){
   const n = S.nodes.get(id);
-  if(!n || !canEdit()) return;
+  if(!n || !canEdit()) return false;
+  const had = !!n.supersededBy;
   setField(n, "supersededBy", "");
-  markDirty(); rebuild();
+  markDirty(); rebuild(); renderInspector();
+  return had;
 }
 
 function isRoot(){ return S.mode === "root" && !S.viewerBuild; }
@@ -2657,7 +2660,10 @@ function wrapAll(text, widthPx){
 }
 
 function visibleNodes(){
-  const scope = el("showScope").value;
+  let scope = el("showScope").value;
+  /* asking for retired nodes overrides a panel set to active only, otherwise
+     the filter would return a list of things the map refuses to draw */
+  if(S.searchScope === "retired" && scope === "active") scope = "all";
   const only = S.tagOnly && S.tagPick.size;
   const set = new Set();
   for(const n of S.nodes.values()){
@@ -4538,15 +4544,25 @@ function renderContents(){
   if(rg){
     const hasQuery = !!(S.hitQuery || "").trim();
     const targets = searchTargets();
-    const showing = hasQuery || S.tagPick.size;
+    /* a narrowed scope is a filter in its own right, so Needs attention and
+       the rest get the same temporary list */
+    const scoped = S.searchScope && S.searchScope !== "all";
+    const showing = hasQuery || S.tagPick.size || scoped;
     const wrap = (rg.tagName === "DETAILS") ? rg : (rg.closest("details") || rg);
     wrap.hidden = !showing;
     if(showing){
       if(wrap.tagName === "DETAILS" && !wrap.open) wrap.open = true;
+      const n = targets.length;
+      const scopeName = {
+        flagged:"needing attention", parents:"section heads", labels:"by name",
+        areas:"areas", bookmarks:"bookmarks", retired:"retired"
+      }[S.searchScope] || "";
       const label = hasQuery
-        ? `${targets.length} match${targets.length===1?"":"es"} for “${esc(S.hitQuery)}”`
-        : `${targets.length} node${targets.length===1?"":"s"} tagged `
-          + esc([...S.tagPick].map(tagLeaf).join(", "));
+        ? `${n} match${n===1?"":"es"} for “${esc(S.hitQuery)}”`
+          + (scopeName ? " · " + scopeName : "")
+        : S.tagPick.size
+          ? `${n} node${n===1?"":"s"} tagged ` + esc([...S.tagPick].map(tagLeaf).join(", "))
+          : `${n} ${scopeName || ("node" + (n===1?"":"s"))}`;
       const row = t=>{
         if(t.kind === "area"){
           const a = S.areas.get(t.id);
@@ -4565,9 +4581,15 @@ function renderContents(){
         const trail = [];
         let up = parentOf(t.id), guard = 0;
         while(up && guard++ < 6){ trail.unshift(nodeName(up)); up = parentOf(up); }
+        const sv = severityOf(n);
+        const newer = replacementOf(t.id);
         return `<div class="resrow" data-res="node:${esc(t.id)}">
-          <span class="toclabel">${esc(n.label || n.id)}</span>
-          ${trail.length ? `<span class="restrail">${esc(trail.slice(-2).join(" › "))}</span>` : ""}
+          <span class="toclabel">
+            ${sv ? `<span class="sevdot" style="background:${sv.colour};
+              display:inline-block;margin-right:6px;vertical-align:middle"></span>` : ""}
+            ${esc(n.label || n.id)}</span>
+          ${newer ? `<span class="restrail">replaced by ${esc(nodeName(newer))}</span>`
+               : trail.length ? `<span class="restrail">${esc(trail.slice(-2).join(" › "))}</span>` : ""}
         </div>`;
       };
       el("tocResults").innerHTML =
@@ -4850,6 +4872,8 @@ function renderContents(){
   const rc = el("resClear");
   if(rc) rc.onclick = ()=>{
     el("q").value = ""; S.tagPick.clear(); S.tagOnly = false;
+    S.searchScope = "all";
+    const sel = el("searchScope"); if(sel) sel.value = "all";
     updateTagCount(); renderTagPicker();
     keepingPlace(()=>{ runSearch(); rebuild(); });
   };
@@ -6518,7 +6542,8 @@ function renderInspector(){
           ${["review","blocked","validated"].map(t=>`<option value="${t}"${n.flag===t?" selected":""}>${t}</option>`).join("")}
         </select>
       <div class="row">
-        <button class="btn" id="fRetire">${n.status==="retired"?"Restore node":"Retire node"}</button>
+        <button class="btn" id="fRetire">${n.status==="retired"
+          ? (replacementOf(n.id) ? "Restore and unstack" : "Restore node") : "Retire node"}</button>
         <button class="btn" id="fUnpin"${n.pinned?"":" disabled"}>Release position</button>
       </div>
       ${replacementOf(n.id) ? `<div class="supersede-note">
@@ -6621,9 +6646,24 @@ function renderInspector(){
     v=>{ setField(n, "badgeImage", v); rebuild(); },
     ()=>{ setField(n, "badgeImage", ""); rebuild(); });
   if(el("fBadgeClear")) el("fBadgeClear").onclick = ()=>{ setField(n, "badgeImage", ""); rebuild(); };
-  el("fRetire").onclick = ()=>{ commit("status", n.status==="retired" ? "active" : "retired"); };
+  el("fRetire").onclick = ()=>{
+    const bringingBack = n.status === "retired";
+    if(bringingBack && replacementOf(n.id)){
+      /* a node cannot be current and filed under something newer at once, so
+         restoring it takes it out of the pile as well */
+      setField(n, "supersededBy", "");
+    }
+    commit("status", bringingBack ? "active" : "retired");
+    if(bringingBack) toast("Restored, and taken out of the stack.");
+  };
   el("fUnpin").onclick  = ()=>{ n.pinned=false; n.x=null; n.y=null;
     logRev(n.id,"position","manual","auto"); markDirty(); rebuild(); };
+  /* this had no handler at all: the anchor I patched against did not match,
+     so the button sat there doing nothing */
+  if(el("fUnSupersede")) el("fUnSupersede").onclick = ()=>{
+    unSupersede(n.id);
+    toast("Back on its own. It is still retired — use Restore to bring it back.");
+  };
   el("fZoom").onclick   = ()=>focusNode(n.id);
   el("fPair").onclick = ()=>{
     S.pairArmed = true;
@@ -6773,6 +6813,14 @@ function keepingPlace(fn){
 }
 
 function searchTargets(){
+  /* worst first when you are looking at what needs attention */
+  if(S.searchScope === "flagged"){
+    const rank = id => {
+      const sv = severityOf(S.nodes.get(id));
+      return sv ? SEVERITIES.findIndex(x=>x.id === sv.id) : -1;
+    };
+    return S.hits.slice().sort((a, b)=>rank(b) - rank(a)).map(id=>({kind:"node", id}));
+  }
   return S.hits.map(id=>({kind:"node", id}))
     .concat(S.areaHits.map(id=>({kind:"area", id})))
     .concat(S.bmHits.map(id=>({kind:"bookmark", id})));
@@ -6817,10 +6865,12 @@ function runSearch(){
     /* Labels only and Section heads look at the name of the node, not what is
        written inside it — searching a section head is about getting there, not
        finding every note that mentions the word. */
-    const titleOnly = (scope === "labels" || scope === "parents" || scope === "flagged");
+    const titleOnly = (scope === "labels" || scope === "parents"
+                    || scope === "flagged" || scope === "retired");
     S.hits = [...S.nodes.values()].filter(n=>{
       if(scope === "parents" && !childrenOf(n.id).length) return false;
       if(scope === "flagged" && !severityOf(n)) return false;
+      if(scope === "retired" && n.status !== "retired") return false;
       if(!tagsPass(n)) return false;
       if(!terms.length) return true;
       if(titleOnly) return matches([n.label, (n.tags||[]).join(" ")].join(" "));
@@ -10359,6 +10409,7 @@ async function boot(){
       : e.target.value === "parents" ? "Search the names of section heads"
       : e.target.value === "labels" ? "Search node names only"
       : e.target.value === "flagged" ? "Search flagged nodes"
+      : e.target.value === "retired" ? "Search retired nodes"
       : "Search labels, notes, tags, IDs";
     runSearch();
   };
