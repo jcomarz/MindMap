@@ -133,6 +133,7 @@ button{cursor:pointer}
 .tocitem:hover{background:var(--paper-2)}
 .tocitem.sel{background:var(--blueprint-soft);color:var(--blueprint)}
 .tocitem.retired{color:var(--retired)}
+.tocitem.here{background:var(--blueprint-soft);border-radius:2px;font-weight:600}
 /* an author rule that sets display on these children beats the browser's own
    collapse rule, so say it explicitly */
 #tocOutline details:not([open]) > *:not(summary){display:none}
@@ -245,7 +246,7 @@ input,textarea,select{caret-color:var(--graphite)}
 input[type=range],input[type=color],input[type=checkbox],input[type=file]{cursor:pointer}
 
 .titleblock{
-  position:absolute;right:14px;bottom:14px;background:var(--paper);
+  position:absolute;right:14px;bottom:14px;background:var(--paper);z-index:6;
   border:1px solid var(--graphite);display:grid;grid-template-columns:auto auto auto;
   font-family:var(--mono);font-size:11px;line-height:1.25;
 }
@@ -253,6 +254,23 @@ input[type=range],input[type=color],input[type=checkbox],input[type=file]{cursor
 .titleblock div:last-child{border-right:0}
 .titleblock b{display:block;font-weight:500;font-size:9px;color:var(--graphite-60)}
 
+#noteOverlay{
+  position:absolute;z-index:14;background:var(--paper);border:1px solid var(--graphite);
+  border-radius:4px;box-shadow:0 6px 24px rgba(0,0,0,.22);display:flex;flex-direction:column;
+  max-height:62%;min-width:280px;overflow:hidden
+}
+#noteOverlay[hidden]{display:none}
+.no-head{display:flex;align-items:center;gap:10px;padding:7px 9px 7px 12px;
+  border-bottom:1px solid var(--rule);background:var(--paper-2);flex:0 0 auto}
+.no-head b{flex:1;font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap}
+.no-head .btn{padding:4px 9px;font-size:12px}
+.no-body{overflow:auto;padding:10px 13px;font-size:13px;line-height:1.5;
+  -webkit-overflow-scrolling:touch}
+.no-body mark{background:var(--hit-line);color:var(--graphite);border-radius:1px}
+@media (max-width:820px){
+  #noteOverlay{left:8px !important;right:8px;width:auto !important;max-height:58%}
+}
 .linkbar{
   position:absolute;left:50%;top:14px;transform:translateX(-50%);z-index:20;
   background:var(--paper);border:1px solid var(--graphite);border-radius:3px;
@@ -276,7 +294,24 @@ body.focusing .node-g:not(.focusdim) .node-box{stroke-width:calc(var(--node-bord
 .bandrect{fill:var(--blueprint);fill-opacity:.10;stroke:var(--blueprint);stroke-width:1.2;
   stroke-dasharray:5 4}
 @media (max-width:820px){
-  .linkbar{left:8px;right:8px;transform:none;max-width:none}
+  #noteOverlay{
+  position:absolute;z-index:14;background:var(--paper);border:1px solid var(--graphite);
+  border-radius:4px;box-shadow:0 6px 24px rgba(0,0,0,.22);display:flex;flex-direction:column;
+  max-height:62%;min-width:280px;overflow:hidden
+}
+#noteOverlay[hidden]{display:none}
+.no-head{display:flex;align-items:center;gap:10px;padding:7px 9px 7px 12px;
+  border-bottom:1px solid var(--rule);background:var(--paper-2);flex:0 0 auto}
+.no-head b{flex:1;font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap}
+.no-head .btn{padding:4px 9px;font-size:12px}
+.no-body{overflow:auto;padding:10px 13px;font-size:13px;line-height:1.5;
+  -webkit-overflow-scrolling:touch}
+.no-body mark{background:var(--hit-line);color:var(--graphite);border-radius:1px}
+@media (max-width:820px){
+  #noteOverlay{left:8px !important;right:8px;width:auto !important;max-height:58%}
+}
+.linkbar{left:8px;right:8px;transform:none;max-width:none}
   .pairacts .btn{flex:1 1 auto;padding:9px 8px;font-size:13px}
 }
 .zoombar{
@@ -782,9 +817,11 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
 @media (max-width:820px){
   #app{grid-template-columns:1fr;grid-template-rows:1fr}
 
-  .rail{position:fixed;top:0;bottom:0;left:0;width:min(88vw,330px);z-index:40;
+  /* the drawer starts below the top bar: sliding it under the bar put the
+     map's name where no tap could reach it */
+  .rail{position:fixed;top:var(--barH,0px);bottom:0;left:0;width:min(88vw,330px);z-index:40;
     transform:translateX(-102%);transition:transform .22s ease;
-    box-shadow:0 0 26px rgba(35,40,45,.18);padding-top:env(safe-area-inset-top)}
+    box-shadow:0 0 26px rgba(35,40,45,.18)}
   .rail.open{transform:none}
 
   /* the inspector reads better as a sheet that rises from the thumb end */
@@ -1219,6 +1256,14 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
       <div class="pairacts" style="margin-top:6px">
         <button class="btn" id="pairClear">Clear selection</button>
       </div>
+    </div>
+
+    <div id="noteOverlay" hidden>
+      <div class="no-head">
+        <b id="noteTitle"></b>
+        <button class="btn" id="noteClose">Close</button>
+      </div>
+      <div class="no-body" id="noteBody"></div>
     </div>
 
     <div class="zoombar">
@@ -2427,8 +2472,8 @@ function noteLinesFor(n, q, isHit){
   const mode = S.notesMode;
   const matches = q && body.toLowerCase().includes(q)
     && S.searchScope !== "labels" && S.searchScope !== "parents";
-  const forced = S.expanded.has(n.id);
-  const cap = forced ? 600 : NOTE_MAX;
+  const forced = false;
+  const cap = NOTE_MAX;
   if(!forced){
     if(mode === "off" && !(matches && isHit)) return [];
     if(mode === "search" && !(matches && isHit)) return [];
@@ -3600,10 +3645,11 @@ function drawStrip(g, n){
     if(tall) y += sh + 6; else x += w + 4;
   };
   if(n.body){
-    btn(30, openNote ? "\u25B4" : "\u25BE", 0, ()=>{
-      if(openNote) S.expanded.delete(id); else S.expanded.add(id);
-      rebuild();
-    }, openNote);
+    const showing = noteFor === id;
+    btn(30, showing ? "\u25B4" : "\u25BE", 0, ()=>{
+      if(showing) closeNote(); else openNote(id, true);
+      decorateSelection();
+    }, showing);
   }
   const sug = suggestionsFor(id).filter(z=>z.status === "open").length;
   const qs = questionsForNode(id).length;
@@ -4236,6 +4282,7 @@ function render(){
 
 function applyView(){
   stickStrip();
+  placeNote();
   el("world").setAttribute("transform",
     `translate(${S.view.x},${S.view.y}) scale(${S.view.k})`);
   el("zLvl").textContent = Math.round(S.view.k*100) + "%";
@@ -4483,6 +4530,10 @@ function renderContents(){
     html += `<p class="tocempty" style="margin:14px 0 4px">Not connected to anything</p>` + looseHtml;
   }
   el("tocOutline").innerHTML = html || `<p class="tocempty">Nothing matches.</p>`;
+  if(S.sel){
+    const cur = el("tocOutline").querySelector(`.tocitem[data-jump="${CSS.escape(S.sel)}"]`);
+    if(cur) cur.classList.add("here");
+  }
 
   const root = el("paneContents");
   /* reorder branches without hunting for them on the map */
@@ -4737,6 +4788,14 @@ function reducedMotion(){
   if(S.motion === "off" || S.motion === "calm") return true;
   try{ return matchMedia("(prefers-reduced-motion: reduce)").matches; }catch(e){ return false; }
 }
+/* how tall the top bar is, so the drawers can start underneath it */
+function measureBar(){
+  const bar = document.querySelector(".mobile-tabs");
+  if(!bar) return;
+  const h = bar.getClientRects().length ? Math.round(bar.getBoundingClientRect().height) : 0;
+  document.documentElement.style.setProperty("--barH", h + "px");
+}
+
 function applyMotion(){
   document.documentElement.setAttribute("data-motion", S.motion || "full");
   const sel = el("motionPref");
@@ -5153,6 +5212,7 @@ function select(id){
   const prev = S.sel;
   const hadArea = S.selArea || S.selQuestion;
   const hadPair = S.sel2;
+  if(noteFor && noteFor !== id) closeNote();
   S.sel = id; S.selArea = null; S.selQuestion = null; S.sel2 = null;
   S.multi = new Set(id ? [id] : []);
   if(id){ S.lastNode = id; markVisited(id); }
@@ -5168,6 +5228,28 @@ function select(id){
   renderInspector();
   updateFab();
   updateLinkBar();
+  revealInOutline(id);
+}
+
+/* Open the outline down to whatever is selected and scroll it into view, so
+   the panel is always showing the part of the map you are standing in. */
+function revealInOutline(id){
+  if(!id) return;
+  let up = parentOf(id), guard = 0, opened = false;
+  while(up && guard++ < 200){
+    if(S.folded.has(up)){ S.folded.delete(up); S.unfolded.add(up); opened = true; }
+    up = parentOf(up);
+  }
+  if(opened) renderContents();
+  const pane = el("paneContents");
+  if(!pane || !pane.getClientRects().length) return;
+  const row = pane.querySelector(`.tocitem[data-jump="${CSS.escape(id)}"]`);
+  if(!row) return;
+  pane.querySelectorAll(".tocitem.here").forEach(x=>x.classList.remove("here"));
+  row.classList.add("here");
+  const rr = row.getBoundingClientRect(), pr = pane.getBoundingClientRect();
+  if(rr.top < pr.top + 8 || rr.bottom > pr.bottom - 8)
+    row.scrollIntoView({block:"center", behavior:reducedMotion() ? "auto" : "smooth"});
 }
 
 /* Clearing the selection turns the + button back into "make a loose node". */
@@ -5296,6 +5378,16 @@ function pairSwap(){
 
 function deselect(){
   const prev = S.sel, prevArea = S.selArea;
+  /* pull back a little so the surroundings come into view again */
+  if(prev && S.view.k > MIN_K * 1.3 && !reducedMotion()){
+    const s = svgSize();
+    const k = Math.max(MIN_K, S.view.k * 0.78);
+    const cx = s.w/2, cy = s.h/2;
+    animateView({k,
+      x:cx - (cx - S.view.x) * (k / S.view.k),
+      y:cy - (cy - S.view.y) * (k / S.view.k)}, 420);
+  }
+  closeNote();
   S.sel = null; S.selArea = null; S.sel2 = null; S.pairArmed = false; S.multi.clear();
   updateLinkBar();
   if(prevArea){ render(); }
@@ -5330,6 +5422,72 @@ function updateFab(){
 function esc(s){ return String(s??"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 
 /* Jump straight to the part of the inspector a pill stands for. */
+/* ---------------------------------------------------------------
+   The full note, over the map. Opening it used to make the node grow,
+   which reflowed the whole drawing for something you close again a
+   moment later.
+   --------------------------------------------------------------- */
+let noteFor = null;
+
+function openNote(id, scrollToHit){
+  const n = S.nodes.get(id);
+  if(!n || !n.body){ closeNote(); return; }
+  noteFor = id;
+  el("noteTitle").textContent = n.label || n.id;
+  const body = el("noteBody");
+  const q = (S.hitQuery || "").toLowerCase();
+  body.innerHTML = noteToHtml(n.body);
+  if(q) markMatches(body, q);
+  el("noteOverlay").hidden = false;
+  placeNote();
+  body.scrollTop = 0;
+  if(scrollToHit && q){
+    const first = body.querySelector("mark");
+    if(first) body.scrollTop = Math.max(0, first.offsetTop - body.clientHeight/3);
+  }
+}
+function closeNote(){
+  noteFor = null;
+  const o = el("noteOverlay");
+  if(o) o.hidden = true;
+}
+/* wrap every occurrence in the rendered text, without touching the markup */
+function markMatches(root, q){
+  const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+  const hits = [];
+  while(walk.nextNode()){
+    const t = walk.currentNode;
+    if(t.nodeValue.toLowerCase().includes(q)) hits.push(t);
+  }
+  hits.forEach(t=>{
+    const parts = t.nodeValue.split(new RegExp("(" + q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")", "ig"));
+    const frag = document.createDocumentFragment();
+    parts.forEach(part=>{
+      if(part.toLowerCase() === q){
+        const m = document.createElement("mark");
+        m.textContent = part;
+        frag.appendChild(m);
+      } else if(part) frag.appendChild(document.createTextNode(part));
+    });
+    t.parentNode.replaceChild(frag, t);
+  });
+}
+/* keep it beside its node as the map moves */
+function placeNote(){
+  const o = el("noteOverlay");
+  if(!o || o.hidden || !noteFor) return;
+  const n = S.nodes.get(noteFor);
+  if(!n || n._x == null){ closeNote(); return; }
+  const s = svgSize(), k = S.view.k;
+  const left = n._x * k + S.view.x;
+  const top = (n._y + n._h) * k + S.view.y + 8;
+  const w = Math.max(300, Math.min(460, NODE_W * k));
+  o.style.width = w + "px";
+  o.style.left = Math.max(8, Math.min(s.w - w - 8, left)) + "px";
+  const maxH = s.h * 0.62;
+  o.style.top = Math.max(8, Math.min(s.h - Math.min(maxH, o.offsetHeight) - 8, top)) + "px";
+}
+
 function openPanelFor(nodeId, which){
   if(S.sel !== nodeId) select(nodeId);
   if(window.matchMedia("(max-width:820px)").matches){
@@ -5612,6 +5770,26 @@ function contributionBlock(n){
     </div>
 
     <div class="group">
+      <h2>Nearby</h2>
+      ${(()=>{
+        const up = parentOf(n.id);
+        const kids = childrenOf(n.id);
+        const cross = [...S.edges.values()].filter(e=>e.link_type === "cross"
+          && (e.from === n.id || e.to === n.id))
+          .map(e=>({id:e.from === n.id ? e.to : e.from, out:e.from === n.id}));
+        const row = (id, tag)=>`<div class="tocrow" data-hop="${esc(id)}">
+          <span class="tocdot ${tag === "up" ? "filled" : ""}"></span>
+          <span class="toclabel">${esc(nodeName(id))}</span>
+          <span class="fold">${tag}</span></div>`;
+        let out = "";
+        if(up) out += row(up, "up");
+        kids.forEach(k=>{ out += row(k, "down"); });
+        cross.forEach(c=>{ out += row(c.id, c.out ? "to" : "from"); });
+        return out || `<p class="tocempty">Nothing links to this yet.</p>`;
+      })()}
+    </div>
+
+    <div class="group">
       <h2>Questions</h2>
       ${questionsForNode(n.id).length
         ? questionsForNode(n.id).map(q=>`<div class="qrow" data-q="${esc(q.id)}">
@@ -5674,6 +5852,10 @@ function wireContributions(n){
       markContribution();
       renderInspector();
     };
+  });
+  body.querySelectorAll("[data-hop]").forEach(e=>{
+    e.onclick = ()=>{ const id = e.dataset.hop;
+      if(S.nodes.has(id)){ select(id); ensureVisible(id); } };
   });
   const ask = el("askAboutNode");
   if(ask) ask.onclick = ()=>askQuestion(n.id);
@@ -9528,6 +9710,7 @@ async function boot(){
   el("tagAll").onclick = ()=>{ S.tagMode = "all"; renderTagPicker(); runSearch(); };
   el("tagNone").onclick = ()=>{ S.tagPick.clear(); updateTagCount(); renderTagPicker(); runSearch(); };
 
+  el("noteClose").onclick = closeNote;
   el("themePick").onclick = openThemes;
   el("themeClose").onclick = ()=>el("themeDlg").close();
   el("themeEdit").onclick = openThemeEditor;
@@ -9677,6 +9860,7 @@ async function boot(){
   document.addEventListener("keydown", ev=>{
     const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
     if(ev.key === "/" && !typing){ ev.preventDefault(); el("q").focus(); }
+    if(ev.key === "Escape" && noteFor){ closeNote(); decorateSelection(); return; }
     if(ev.key === "Escape" && S.tagPick.size && document.activeElement === el("q")){
       S.tagPick.clear(); updateTagCount(); runSearch(); return; }
     if(ev.key === "Escape"){ clearPair();
@@ -9703,7 +9887,13 @@ async function boot(){
     if(!S.dirty || Store.mode !== "none") return;
     e.preventDefault(); e.returnValue = "";
   });
-  window.addEventListener("resize", debounce(()=>applyView(), 120));
+  measureBar();
+  if(window.ResizeObserver){
+    const bar = document.querySelector(".mobile-tabs");
+    if(bar) new ResizeObserver(measureBar).observe(bar);
+  }
+  window.addEventListener("orientationchange", ()=>setTimeout(measureBar, 250));
+  window.addEventListener("resize", debounce(()=>{ measureBar(); applyView(); }, 120));
   /* copy an image anywhere, press Ctrl+V here, and it lands on the node */
   document.addEventListener("paste", ev=>{
     if(/INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
