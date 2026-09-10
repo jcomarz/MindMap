@@ -140,6 +140,9 @@ button{cursor:pointer}
 .resrow .toclabel{display:block;font-size:12.5px;line-height:1.35}
 .restrail{display:block;font-size:10.5px;color:var(--graphite-60);margin-top:2px;
   font-family:var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.retchip{display:inline-block;background:var(--retired);color:var(--paper);border-radius:2px;
+  font-size:9px;font-weight:700;letter-spacing:.1em;padding:1px 5px;margin-right:5px;
+  vertical-align:1px;text-transform:uppercase}
 /* an author rule that sets display on these children beats the browser's own
    collapse rule, so say it explicitly */
 #tocOutline details:not([open]) > *:not(summary){display:none}
@@ -498,6 +501,17 @@ html[data-font="serif"] .node-note{font-family:Georgia,"Times New Roman",serif}
 .note-hit{font-weight:600;fill:var(--graphite)}
 .node-g.retired .node-note{fill:var(--retired)}
 .node-g.retired .node-box{stroke:var(--retired);stroke-dasharray:5 3;fill:var(--paper-2)}
+/* the scenery comes off a retired node so the stamp is the thing you see */
+.node-g.retired .zoneband,.node-g.retired .bldg,.node-g.retired .bldg-roof,
+.node-g.retired .window,.node-g.retired .stack,.node-g.retired .tree,
+.node-g.retired .smoke,.node-g.retired .palm-g,.node-g.retired .shell,
+.node-g.retired .pebble,.node-g.retired .leaf{opacity:.18;filter:grayscale(1)}
+.node-g.retired .node-label{fill:var(--retired)}
+.retband{pointer-events:none}
+.retband-bg{fill:var(--retired);opacity:.88;rx:2}
+.retband-text{font-family:var(--sans);font-size:11px;font-weight:700;letter-spacing:.16em;
+  fill:var(--paper)}
+body.moving .retband{display:none}
 /* a superseded node is a card in the pile: only its edge shows */
 .node-g.layer .node-label,.node-g.layer .node-note,.node-g.layer .node-id{display:none}
 .node-g.layer .node-box{fill:var(--paper-2);stroke:var(--retired);stroke-dasharray:none;
@@ -2854,8 +2868,10 @@ function layout(){
     n._imgH = (n._art = artFor(n, "image")) ? Math.max(40, Math.min(400, Number(n.imageH)||120)) : 0;
     n._tabular = looksLikeTable(n.body);
     n._note = noteLinesFor(n, q, hitSet.has(n.id));
+    /* a retired node carries a band along its foot, so it needs the room */
+    n._retH = n.status === "retired" ? 21 : 0;
     n._h = Math.max(40, n._lines.length * LINE_H + PAD_Y*2 + (S.showIds ? 9 : -4)
-                       + (Number((activeTheme().node||{}).padBottom) || 0))
+                       + (Number((activeTheme().node||{}).padBottom) || 0) + n._retH)
          + (n._imgH ? n._imgH + 8 : 0)
          + (n._note.length ? n._note.length * NOTE_LH + 8 : 0);
   }
@@ -3601,9 +3617,9 @@ function drawNodeOver(g, n){
                : kind === "civic" ? "civ" : "com";
     const textBottom = PAD_Y + n._lines.length * LINE_H + 6
       + (n._imgH ? n._imgH + 8 : 0) + (n._note.length ? n._note.length * NOTE_LH + 8 : 0);
-    const room = Math.min(34, h - textBottom - 6);
+    const room = Math.min(34, h - textBottom - 6 - (n._retH || 0));
     if(room < 12) return;
-    const floor = h - 5;
+    const floor = h - 5 - (n._retH || 0);
     mk("rect",{class:"zoneband zone-" + zone, x:6, y:floor - room - 1,
       width:w - 12, height:room + 1, rx:1}, g);
 
@@ -4618,6 +4634,16 @@ function render(){
         }
       });
     }
+    if(n.status === "retired"){
+      /* a dashed edge was too quiet, especially under a theme that fills the
+         node with scenery: this says it outright */
+      const band = mk("g",{class:"retband"}, g);
+      const by = n._h - 20;
+      mk("rect",{x:2, y:by, width:NODE_W - 4, height:18, class:"retband-bg"}, band);
+      const t = mk("text",{class:"retband-text", x:NODE_W/2, y:by + 13,
+        "text-anchor":"middle"}, band);
+      t.textContent = replacementOf(id) ? "RETIRED — SEE CURRENT" : "RETIRED";
+    }
     const pile = isLayer(id) ? [] : layersUnder(id).filter(x=>vis.has(x));
     if(pile.length){
       /* the layers are almost entirely hidden behind this node, so the tab is
@@ -4653,11 +4679,10 @@ function render(){
       tab.addEventListener("pointerdown", ev=>ev.stopPropagation());
     }
     if(S.showIds){
-      const meta = mk("text",{class:"node-id", x:px, y:n._h - 8}, g);
-      meta.textContent = n.id + "  " + verOf(n) + (n.status==="retired" ? "  retired" : "");
-    } else if(n.status === "retired"){
-      const meta = mk("text",{class:"node-id", x:px, y:n._h - 6}, g);
-      meta.textContent = "retired";
+      /* the band already says retired, so the caption need not repeat it */
+      const meta = mk("text",{class:"node-id", x:px,
+        y:n._h - 8 - (n._retH || 0)}, g);
+      meta.textContent = n.id + "  " + verOf(n);
     }
 
     /* the severity badge at the top-left says this already; the corner
@@ -4758,10 +4783,12 @@ function renderResults(){
         while(up && guard++ < 6){ trail.unshift(nodeName(up)); up = parentOf(up); }
         const sv = severityOf(n);
         const newer = replacementOf(t.id);
+        const gone = n.status === "retired";
         return `<div class="resrow" data-res="node:${esc(t.id)}">
           <span class="toclabel">
             ${sv ? `<span class="sevdot" style="background:${sv.colour};
               display:inline-block;margin-right:6px;vertical-align:middle"></span>` : ""}
+            ${gone ? `<span class="retchip">retired</span>` : ""}
             ${esc(n.label || n.id)}</span>
           ${newer ? `<span class="restrail">replaced by ${esc(nodeName(newer))}</span>`
                : trail.length ? `<span class="restrail">${esc(trail.slice(-2).join(" › "))}</span>` : ""}
@@ -5051,7 +5078,8 @@ function renderContents(){
       data-drag="${esc(n.id)}" style="padding-left:${4 + depth*11}px">
       ${hasKids ? `<span class="toctwist">&#9656;</span>` : `<span class="toctwist"></span>`}
       <span class="tocdot ${esc(n.type)}"></span>
-      <span class="toclabel">${esc(n.label || n.id)}</span></div>`;
+      <span class="toclabel">${n.status === "retired"
+        ? `<span class="retchip">retired</span>` : ""}${esc(n.label || n.id)}</span></div>`;
   };
   /* every node on the way down to a search hit */
   const hitPath = new Set();
