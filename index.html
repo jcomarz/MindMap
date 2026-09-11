@@ -1598,10 +1598,12 @@ body.viewing.panelaway #panelHide{display:none}
         that knows where to look</span>
         <input type="text" id="vkWorkbookUrl"
           placeholder="https://…/Shared%20Documents/map.xlsx"></label>
-      <p class="fineprint" style="margin:2px 0 8px">Optional. Kept in the file so readers can
-        pull a newer workbook without hunting for it. Some shared folders refuse to hand a file
-        to a page opened from disk; if that happens the viewer says so and opens a file picker
-        at the same address.</p>
+      <p class="fineprint" style="margin:2px 0 8px">Optional, and it has to be an address that
+        hands over the file itself — a OneDrive or SharePoint “Copy link” opens a web page
+        instead, and the viewer will only get a sign-in page back. What works is a direct
+        download address, or a plain network path your people can already reach. The viewer
+        tries the address on opening, says plainly when it cannot, and falls back to a file
+        picker.</p>
       <button class="btn primary wide" id="vkFrozen">Build it</button>
     </div>
     <p class="fineprint" id="vkNeedsSheet" hidden>The sheet-backed copy needs a Google Sheet with
@@ -9784,6 +9786,8 @@ function adoptWorkbookBytes(buf, label){
   wb.SheetNames.forEach(n=>{ t[n] = XLSX.utils.sheet_to_json(wb.Sheets[n], {defval:""}); });
   adoptModel(tablesToModel(t));
   rebuild(); fitView(0.96, 0.3);
+  sayWorkbookState("Showing " + (label || "the workbook") + ", read at "
+    + new Date().toLocaleTimeString());
   toast("Loaded " + (label || "the workbook") + ", " + S.nodes.size + " nodes");
 }
 
@@ -9803,22 +9807,68 @@ function pickWorkbookFile(){
 /* Try the address the map was built with, and fall back to asking. A page
    opened from a folder is often refused by a shared drive, so this never
    pretends the fetch is guaranteed. */
+/* A share link usually opens a web page rather than handing over the file.
+   These are the forms that hand over the bytes. */
+function downloadForms(url){
+  const out = [url];
+  const add = u => { if(out.indexOf(u) < 0) out.push(u); };
+  /* by the shape of the address as well as the domain, since tenants use all
+     sorts of host names */
+  if(/sharepoint\.com|1drv\.ms|onedrive\.live\.com/i.test(url)
+     || /Doc\.aspx|\/_layouts\/|sourcedoc=/i.test(url)){
+    add(url + (url.indexOf("?") >= 0 ? "&" : "?") + "download=1");
+    /* .../:x:/r/personal/.../Doc.aspx?sourcedoc=... is the page; the same
+       server will hand over the file from download.aspx */
+    const host = /^(https?:\/\/[^/]+)/i.exec(url);
+    /* the site part can sit anywhere in the path, after the :x:/r/ prefix */
+    const site = /\/(personal\/[^/]+|sites\/[^/]+)/i.exec(url);
+    const doc = /[?&]sourcedoc=([^&]+)/i.exec(url);
+    if(host && doc){
+      add(host[1] + (site ? "/" + site[1] : "")
+        + "/_layouts/15/download.aspx?sourcedoc=" + doc[1]);
+    }
+  }
+  return out;
+}
+function looksLikeWorkbook(buf){
+  const head = new Uint8Array(buf.slice(0, 2));
+  return head[0] === 0x50 && head[1] === 0x4B;   // every xlsx is a zip
+}
+function sayWorkbookState(text){
+  const where = el("workbookWhere");
+  if(where) where.textContent = text;
+}
+
 async function refreshFromWorkbook(quiet){
   const url = (S.workbookUrl || "").trim();
   if(!url){ if(!quiet) pickWorkbookFile(); return false; }
-  try{
-    const r = await fetch(url, {cache:"no-store"});
-    if(!r.ok) throw new Error("the folder replied " + r.status);
-    const buf = await r.arrayBuffer();
-    adoptWorkbookBytes(buf, "the shared workbook");
-    return true;
-  }catch(e){
-    if(quiet) return false;
-    toast("Could not fetch it from " + url.slice(0, 60)
-        + " — shared folders often refuse a page opened from disk. Pick the file instead.");
-    pickWorkbookFile();
-    return false;
+  let why = "";
+  for(const attempt of downloadForms(url)){
+    try{
+      /* no credentials: a server that allows any origin is not allowed to
+         accept them, and asking would have the browser refuse the whole
+         request before it left */
+      const r = await fetch(attempt, {cache:"no-store"});
+      if(!r.ok){ why = "the site replied " + r.status; continue; }
+      const buf = await r.arrayBuffer();
+      if(!looksLikeWorkbook(buf)){
+        /* almost always a sign-in page dressed as a success */
+        why = "that address gave back a web page, not the file";
+        continue;
+      }
+      adoptWorkbookBytes(buf, "the shared workbook");
+      sayWorkbookState("Up to date, from " + url);
+      return true;
+    }catch(e){
+      why = "the site would not hand it to a page opened from a folder";
+    }
   }
+  sayWorkbookState("Could not fetch it — " + why + ". Use the button to pick the file.");
+  if(!quiet){
+    toast("Could not fetch the workbook: " + why + ".");
+    pickWorkbookFile();
+  }
+  return false;
 }
 
 function applyViewerConfig(cfg){
