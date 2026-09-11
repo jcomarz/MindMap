@@ -1166,6 +1166,7 @@ body.viewing.panelaway #panelHide{display:none}
         </div>
         <p id="modeNote" style="font-size:12px;color:var(--graphite-60);margin:9px 0 0;line-height:1.5">—</p>
         <p id="viewerStatus" style="font-size:12px;color:var(--graphite-60);margin:8px 0 0"></p>
+        <button class="btn wide" id="openFromDisk">Open a newer workbook</button>
         <div class="row" style="margin-top:8px">
           <button class="btn wide primary" id="btnReview">Waiting for you<span id="revBadge"></span></button>
         </div>
@@ -1587,15 +1588,23 @@ body.viewing.panelaway #panelHide{display:none}
       <button class="btn primary wide" id="vkLauncher">Build the link</button>
     </div>
     <div class="conn">
-      <div class="hdr"><strong>A self-contained file</strong><span class="status-pill">~400 KB</span></div>
-      <p class="fineprint" style="margin:0 0 10px">The whole tool and the map in one file. Opens
-        straight from a folder or a network share, with no web address involved. It stays on the
-        version you built it from, so hand out a fresh one when you want people to have your
-        latest changes.</p>
+      <div class="hdr"><strong>A self-contained file</strong><span class="status-pill">~500 KB</span></div>
+      <p class="fineprint" style="margin:0 0 10px">The whole tool and the map in one file, which
+        also keeps talking to the sheet so people see changes as they land.</p>
       <button class="btn wide" id="vkStandalone">Build the file</button>
     </div>
-    <p class="fineprint">Either way it opens read-only and can only add suggestions, questions
-      and check-offs — and either way the sheet connection has to be reachable for syncing.</p>
+    <div class="conn">
+      <div class="hdr"><strong>A file with no sheet behind it</strong><span class="status-pill">~500 KB</span></div>
+      <p class="fineprint" style="margin:0 0 10px">For a shared folder rather than Google Sheets.
+        The map is built into the file, so it opens from OneDrive or a network share with nothing
+        to set up. Readers can point it at a newer .xlsx from the same folder when you publish
+        one, or you hand out a fresh file.</p>
+      <button class="btn primary wide" id="vkFrozen">Build it</button>
+    </div>
+    <p class="fineprint" id="vkNeedsSheet" hidden>The first two need a Google Sheet with a viewer
+      token: Sharing and files → Manage sheets → the field called “Viewer token”.</p>
+    <p class="fineprint">All of them open read-only, and can add suggestions, questions and
+      check-offs.</p>
   </div>
 </dialog>
 
@@ -2862,7 +2871,7 @@ function importXlsx(file){
 function copyTsv(){
   const d = toSheets();
   let out = "";
-  for(const name of ["Nodes","Links","Areas","Bookmarks","Questions","QuestionPins","Suggestions","CheckItems","Checkoffs","Revisions","TagStyles","Settings","Overflow","Sync"]){
+  for(const name of ["Nodes","Links","Areas","Bookmarks","Questions","QuestionPins","Suggestions","CheckItems","Checkoffs","Revisions","TagStyles","Settings","Inbox","Overflow","Sync"]){
     if(!(d[name]||[]).length && name!=="Nodes" && name!=="Links") continue;
     out += "### " + name + "\n" + HDR[name].join("\t") + "\n";
     for(const row of d[name]) out += HDR[name].map(h=>String(row[h]??"").replace(/[\t\n]/g," ")).join("\t") + "\n";
@@ -9231,7 +9240,7 @@ function buildWorkbook(){
     Inbox:[14,60,19,16],
     Overflow:[16,14,14,6,70]
   };
-  for(const name of ["Nodes","Links","Areas","Bookmarks","Questions","QuestionPins","Suggestions","CheckItems","Checkoffs","Revisions","TagStyles","Settings","Overflow","Sync"]){
+  for(const name of ["Nodes","Links","Areas","Bookmarks","Questions","QuestionPins","Suggestions","CheckItems","Checkoffs","Revisions","TagStyles","Settings","Inbox","Overflow","Sync"]){
     if(name === "Sync" && !data.Sync.length) continue;
     if(name === "Overflow" && !(data.Overflow||[]).length) continue;
     const ws = XLSX.utils.json_to_sheet(data[name], {header:HDR[name]});
@@ -9564,7 +9573,8 @@ async function hashText(t){
 async function buildViewerFile(){
   const kind = await askViewerKind();
   if(!kind) return;
-  if(kind === "standalone") return buildStandaloneViewer();
+  if(kind === "frozen") return buildStandaloneViewer(true);
+  if(kind === "standalone") return buildStandaloneViewer(false);
   return buildViewerLauncher();
 }
 
@@ -9573,6 +9583,13 @@ function askViewerKind(){
     const dlg = el("viewerKindDlg");
     el("vkLauncher").onclick = ()=>{ dlg.close(); res("launcher"); };
     el("vkStandalone").onclick = ()=>{ dlg.close(); res("standalone"); };
+    el("vkFrozen").onclick = ()=>{ dlg.close(); res("frozen"); };
+    /* the two that need a sheet say so when there is not one */
+    const conn = activeConnection();
+    const ready = conn && (conn.endpoint||"").trim() && (conn.viewerToken||"").trim();
+    el("vkLauncher").disabled = !ready;
+    el("vkStandalone").disabled = !ready;
+    el("vkNeedsSheet").hidden = !!ready;
     el("vkCancel").onclick = ()=>{ dlg.close(); res(null); };
     dlg.showModal();
   });
@@ -9581,11 +9598,18 @@ function askViewerKind(){
 /* Everything in one file: the app, the map, the connection. Opens from a
    folder with no web address behind it, at the cost of being frozen at the
    version it was built from. */
-async function buildStandaloneViewer(){
+async function buildStandaloneViewer(frozen){
   const conn = activeConnection();
-  if(!conn || !(conn.endpoint||"").trim()){ toast("Set up the sheet first, in Manage sheets."); return; }
-  if(!(conn.viewerToken||"").trim()){
-    toast("Give the connection a viewer token first."); return;
+  if(!frozen){
+    if(!conn || !(conn.endpoint||"").trim()){
+      toast("Set up the sheet first: Sharing and files → Manage sheets."); return;
+    }
+    if(!(conn.viewerToken||"").trim()){
+      toast("That connection has no viewer token yet. Sharing and files → Manage sheets "
+          + "→ the field called “Viewer token”.");
+      openConns();
+      return;
+    }
   }
   let src;
   try{
@@ -9601,12 +9625,14 @@ async function buildStandaloneViewer(){
   splitForCells(tables, 200000);
   const cfg = {
     v:3, standalone:true, madeAt:nowISO(), title:S.meta.title || "Map",
-    mapKey:"V-" + (await hashText((S.meta.title||"") + "|" + (conn.endpoint||"")
-                                 + "|" + (conn.prefix||"") + "|" + (conn.id||""))),
+    mapKey:"V-" + (await hashText((S.meta.title||"") + "|" + ((conn && conn.endpoint)||"local")
+                                 + "|" + ((conn && conn.prefix)||"") + "|" + ((conn && conn.id)||""))),
     theme:{ id:S.themeId, custom:(S.customThemes||[]).find(t=>t.id === S.themeId) || null },
-    connection:{ name:(conn.name || "Sheet") + " (viewing)", endpoint:conn.endpoint.trim(),
-                 id:conn.id||"", prefix:conn.prefix||"", token:conn.viewerToken.trim(),
-                 mode:"merge", auto:true },
+    fromWorkbook:!!frozen,
+    connection:frozen ? null
+      : { name:(conn.name || "Sheet") + " (viewing)", endpoint:conn.endpoint.trim(),
+          id:conn.id||"", prefix:conn.prefix||"", token:conn.viewerToken.trim(),
+          mode:"merge", auto:true },
     map:await gzipB64(JSON.stringify(tables))
   };
   const tag = '<script id="viewerConfig" type="application/json">'
@@ -9617,10 +9643,13 @@ async function buildStandaloneViewer(){
   const blob = new Blob([out], {type:"text/html"});
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = safe + "-viewer-offline.html";
+  a.download = safe + (frozen ? "-viewer.html" : "-viewer-offline.html");
   a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href), 6000);
-  toast("Self-contained copy saved, " + Math.round(out.length/1024) + " KB. It opens from a "
+  toast(frozen
+    ? "Viewer saved, " + Math.round(out.length/1024) + " KB. Put it next to the workbook — "
+      + "it opens on its own and can read a newer .xlsx from the same folder."
+    : "Self-contained copy saved, " + Math.round(out.length/1024) + " KB. It opens from a "
       + "folder and carries the map with it.");
 }
 
@@ -9642,8 +9671,8 @@ async function buildViewerLauncher(){
 
   const cfg = {
     v:2, madeAt:nowISO(), title:S.meta.title || "Map",
-    mapKey:"V-" + (await hashText((S.meta.title||"") + "|" + (conn.endpoint||"")
-                                 + "|" + (conn.prefix||"") + "|" + (conn.id||""))),
+    mapKey:"V-" + (await hashText((S.meta.title||"") + "|" + ((conn && conn.endpoint)||"local")
+                                 + "|" + ((conn && conn.prefix)||"") + "|" + ((conn && conn.id)||""))),
     theme:{ id:S.themeId, custom:(S.customThemes||[]).find(t=>t.id === S.themeId) || null },
     connection:{ name:(conn.name || "Sheet") + " (viewing)", endpoint:conn.endpoint.trim(),
                  id:conn.id||"", prefix:conn.prefix||"", token:conn.viewerToken.trim(),
@@ -9732,6 +9761,9 @@ function applyViewerConfig(cfg){
   S.mode = "viewer";
   document.body.classList.add("viewing", "viewerbuild");
   if(cfg.connection){ S.connections = [cfg.connection]; S.activeConn = 0; }
+  /* a copy with no sheet behind it can be pointed at a newer workbook instead */
+  S.fromWorkbook = !!cfg.fromWorkbook;
+  document.body.classList.toggle("workbookviewer", !!cfg.fromWorkbook);
   if(cfg.theme){
     if(cfg.theme.custom) S.customThemes = (S.customThemes || []).concat([cfg.theme.custom]);
     if(cfg.theme.id) S.themeId = cfg.theme.id;
@@ -11836,6 +11868,30 @@ async function boot(){
   el("bulkAdd").addEventListener("keydown", ev=>{
     if(ev.key === "Enter"){ ev.preventDefault(); applyBulkTags(); }
   });
+  el("openFromDisk").onclick = ()=>{
+    /* a viewer fed by a workbook: let someone load a fresher one from the
+       same folder without needing anything set up */
+    const inp = document.createElement("input");
+    inp.type = "file";
+    inp.accept = ".xlsx,.xlsm,.csv";
+    inp.onchange = async ()=>{
+      const f = inp.files && inp.files[0];
+      if(!f) return;
+      try{
+        const buf = await f.arrayBuffer();
+        const wb = XLSX.read(buf, {type:"array"});
+        const t = {};
+        wb.SheetNames.forEach(n=>{ t[n] = XLSX.utils.sheet_to_json(wb.Sheets[n], {defval:""}); });
+        const M = tablesToModel(t);
+        adoptModel(M);
+        rebuild(); fitView(0.96, 0.3);
+        toast("Loaded " + f.name + ", " + S.nodes.size + " nodes");
+      }catch(e){
+        toast("Could not read that file: " + (e.message || e));
+      }
+    };
+    inp.click();
+  };
   el("panelHide").onclick = ()=>showPanel(false);
   el("resClose").onclick = closeResults;
   el("resClear").onclick = ()=>{
