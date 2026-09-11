@@ -1167,6 +1167,7 @@ body.viewing.panelaway #panelHide{display:none}
         <p id="modeNote" style="font-size:12px;color:var(--graphite-60);margin:9px 0 0;line-height:1.5">—</p>
         <p id="viewerStatus" style="font-size:12px;color:var(--graphite-60);margin:8px 0 0"></p>
         <button class="btn wide" id="openFromDisk">Refresh from the workbook</button>
+        <button class="btn wide" id="chooseWorkbook" style="margin-top:6px">Choose the workbook…</button>
         <p id="workbookWhere" style="font-size:11px;color:var(--graphite-60);margin:6px 0 0;
           font-family:var(--mono);overflow:hidden;text-overflow:ellipsis"></p>
         <div class="row" style="margin-top:8px">
@@ -1598,11 +1599,12 @@ body.viewing.panelaway #panelHide{display:none}
         that knows where to look</span>
         <input type="text" id="vkWorkbookUrl"
           placeholder="https://…/Shared%20Documents/map.xlsx"></label>
-      <p class="fineprint" style="margin:2px 0 8px">Optional. A OneDrive or SharePoint
-        “Copy link” is fine — it opens a web viewer as it stands, so the address is turned into
-        the file's own one and tried several ways. Whether the folder will hand the file to a
-        page opened from disk depends on your organisation; the viewer says which way worked,
-        or exactly what came back instead, and falls back to a file picker.</p>
+      <p class="fineprint" style="margin:2px 0 8px">Optional, and worth knowing: a browser will
+        not let a page opened from a folder fetch anything from SharePoint, whatever the address
+        says. Paste a link if you like — a “Copy link” is turned into the file's own address and
+        tried several ways — but the route that always works is the button in the viewer:
+        the reader points it at the workbook once, in their synced OneDrive folder, and after
+        that Refresh re-reads that same file with no picker.</p>
       <button class="btn primary wide" id="vkFrozen">Build it</button>
     </div>
     <p class="fineprint" id="vkNeedsSheet" hidden>The sheet-backed copy needs a Google Sheet with
@@ -9790,6 +9792,54 @@ function adoptWorkbookBytes(buf, label){
   toast("Loaded " + (label || "the workbook") + ", " + S.nodes.size + " nodes");
 }
 
+/* Remembering the workbook itself. A page opened from a folder cannot fetch
+   anything from SharePoint — the browser refuses it before it leaves — but it
+   can be given a file once and then re-read that same file on demand. With a
+   synced OneDrive folder that is the shared workbook. */
+let bookHandle = null;
+
+async function rememberWorkbook(){
+  if(!window.showOpenFilePicker){ pickWorkbookFile(); return; }
+  try{
+    const [h] = await window.showOpenFilePicker({
+      types:[{description:"Workbook", accept:{"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":[".xlsx",".xlsm"]}}],
+      multiple:false
+    });
+    bookHandle = h;
+    try{ await Store.putKey("bookHandle:" + (S.meta.key || "map"), h); }catch(e){}
+    await readRememberedWorkbook();
+  }catch(e){ /* they changed their mind */ }
+}
+
+async function recallWorkbookHandle(){
+  try{
+    const h = await Store.getKey("bookHandle:" + (S.meta.key || "map"));
+    if(h){ bookHandle = h; return true; }
+  }catch(e){}
+  return false;
+}
+
+async function readRememberedWorkbook(ask){
+  if(!bookHandle) return false;
+  try{
+    let perm = await bookHandle.queryPermission({mode:"read"});
+    if(perm !== "granted"){
+      if(!ask){ sayWorkbookState("Press the button to let it read " + bookHandle.name + " again.");
+        return false; }
+      perm = await bookHandle.requestPermission({mode:"read"});
+      if(perm !== "granted"){ sayWorkbookState("Permission refused for " + bookHandle.name);
+        return false; }
+    }
+    const f = await bookHandle.getFile();
+    adoptWorkbookBytes(await f.arrayBuffer(), f.name);
+    return true;
+  }catch(e){
+    sayWorkbookState("Could not read " + (bookHandle.name || "the workbook")
+      + " — it may have been moved.");
+    return false;
+  }
+}
+
 function pickWorkbookFile(){
   const inp = document.createElement("input");
   inp.type = "file";
@@ -9853,8 +9903,10 @@ function sayWorkbookState(text){
 }
 
 async function refreshFromWorkbook(quiet){
+  /* a file it has been shown before is the surest route, so try that first */
+  if(bookHandle && await readRememberedWorkbook(!quiet)) return true;
   const url = (S.workbookUrl || "").trim();
-  if(!url){ if(!quiet) pickWorkbookFile(); return false; }
+  if(!url){ if(!quiet) rememberWorkbook(); return false; }
   let why = "";
   for(const attempt of downloadForms(url)){
     try{
@@ -9876,10 +9928,11 @@ async function refreshFromWorkbook(quiet){
       why = "the site would not hand it to a page opened from a folder";
     }
   }
-  sayWorkbookState("Could not fetch it — " + why + ". Use the button to pick the file.");
+  sayWorkbookState("Could not fetch it — " + why
+    + ". Point it at the file once and it will remember.");
   if(!quiet){
     toast("Could not fetch the workbook: " + why + ".");
-    pickWorkbookFile();
+    rememberWorkbook();
   }
   return false;
 }
@@ -11999,6 +12052,7 @@ async function boot(){
     if(ev.key === "Enter"){ ev.preventDefault(); applyBulkTags(); }
   });
   el("openFromDisk").onclick = ()=>refreshFromWorkbook();
+  el("chooseWorkbook").onclick = rememberWorkbook;
   el("panelHide").onclick = ()=>showPanel(false);
   el("resClose").onclick = closeResults;
   el("resClear").onclick = ()=>{
@@ -12297,7 +12351,16 @@ async function boot(){
       : "No address set — the button opens a file picker.";
     /* try it once on opening, quietly: if the folder refuses, the built-in
        copy of the map is still there */
-    if(S.workbookUrl) setTimeout(()=>refreshFromWorkbook(true), 400);
+    setTimeout(async ()=>{
+      /* a remembered file first, then the address if one was baked in */
+      const had = await recallWorkbookHandle();
+      if(had){
+        if(await readRememberedWorkbook(false)) return;
+      }
+      if(S.workbookUrl) refreshFromWorkbook(true);
+      else if(had) sayWorkbookState("Press Refresh to read "
+        + (bookHandle && bookHandle.name || "the workbook") + " again.");
+    }, 400);
   }
     applyTheme(S.themeMode);
   }catch(e){}
