@@ -827,6 +827,15 @@ dialog#connDlg::backdrop{background:rgba(35,40,45,.42)}
 dialog#viewerKindDlg{border:1px solid var(--graphite);border-radius:3px;padding:0;
   background:var(--paper);width:min(560px,94vw);max-height:88dvh;color:var(--graphite)}
 dialog#viewerKindDlg::backdrop{background:rgba(35,40,45,.42)}
+dialog#trayDlg,dialog#placeDlg{border:1px solid var(--graphite);border-radius:3px;padding:0;
+  background:var(--paper);width:min(440px,94vw);max-height:86dvh;color:var(--graphite);
+  display:flex;flex-direction:column}
+dialog#trayDlg::backdrop,dialog#placeDlg::backdrop{background:rgba(35,40,45,.42)}
+dialog#trayDlg .dlg-body{flex:1;max-height:none}
+@media (max-width:820px){
+  dialog#trayDlg{width:100vw;height:100dvh;max-height:none;border:0;border-radius:0}
+  dialog#placeDlg{width:100vw;border-radius:3px 3px 0 0;margin-bottom:0}
+}
 dialog#signDlg{border:1px solid var(--graphite);border-radius:3px;padding:0;background:var(--paper);
   width:min(430px,94vw);max-height:86dvh;color:var(--graphite);display:flex;flex-direction:column}
 dialog#signDlg::backdrop{background:rgba(35,40,45,.42)}
@@ -1234,6 +1243,8 @@ body.viewing.panelaway #panelHide{display:none}
             <option value="calm">Calm — no movement, cues stay</option>
             <option value="off">Off — nothing moves or glows</option>
           </select></label>
+        <label class="check"><input type="checkbox" id="searchExcludes" checked>
+          Skip accession numbers, tracking numbers and dates when searching</label>
         <label class="check"><input type="checkbox" id="dimOthers" checked>
           Fade everything that does not match a search</label>
         <label class="field"><span>How branches are arranged</span>
@@ -1377,16 +1388,6 @@ body.viewing.panelaway #panelHide{display:none}
     <div class="pane-scroll" id="paneContents" hidden>
       <div class="group">
         <input type="search" id="tocQ" placeholder="Filter the outline">
-      </div>
-
-      <div class="group" id="trayGroup">
-        <h2>Tray</h2>
-        <div class="row">
-          <input type="text" id="trayAdd" placeholder="Jot something down…">
-        </div>
-        <p class="fineprint">Put things here as they come up, then place them on the
-          map when you know where they go.</p>
-        <div id="trayList"></div>
       </div>
 
       <div class="group">
@@ -1592,6 +1593,43 @@ body.viewing.panelaway #panelHide{display:none}
     <button class="btn wide" id="resClear">Clear the filter</button>
   </div>
 </div>
+
+<dialog id="trayDlg">
+  <div class="dlg-head">
+    <h2>Tray</h2>
+    <button class="btn" id="trayClose">Done</button>
+  </div>
+  <div class="hist-controls">
+    <label class="field"><span>Jot something down</span>
+      <textarea id="trayAdd" rows="3"
+        placeholder="Paste or type as much as you like — the whole thing is kept."></textarea></label>
+    <div class="row">
+      <button class="btn wide primary" id="trayAddBtn">Put it in the tray</button>
+    </div>
+    <p class="fineprint">Tap one to pick it up, then tap a node on the map, or drag it
+      straight onto one.</p>
+  </div>
+  <div class="dlg-body" id="trayList"></div>
+</dialog>
+
+<dialog id="placeDlg">
+  <div class="dlg-head">
+    <h2>Where does it go?</h2>
+    <button class="btn" id="placeCancel">Cancel</button>
+  </div>
+  <div class="hist-controls">
+    <p class="fineprint" id="placeWhat"></p>
+    <div class="row" style="margin-top:8px">
+      <button class="btn wide primary" id="placeChild"></button>
+    </div>
+    <div class="row" style="margin-top:6px">
+      <button class="btn wide" id="placeCross"></button>
+    </div>
+    <div class="row" style="margin-top:6px">
+      <button class="btn wide" id="placeLoose">Loose, beside it</button>
+    </div>
+  </div>
+</dialog>
 
 <dialog id="signDlg">
   <div class="dlg-head">
@@ -1938,6 +1976,7 @@ const S = {
   selQuestion:null,
   qHits:[],
   hitQuery:"",
+  searchExcludes:true,         // skip accession numbers, tracking numbers and dates
   searchScope:"all",           // all | parents | areas | bookmarks
   tagPick:new Set(), tagMode:"any", tagOnly:false, tagOpen:new Set(),
   areaHits:[], bmHits:[],
@@ -2860,7 +2899,7 @@ function noteLinesFor(n, q, isHit){
   const body = String(n.body || "").trim();
   if(!body) return [];
   const mode = S.notesMode;
-  const matches = q && body.toLowerCase().includes(q)
+  const matches = q && termMatches(searchable(body).toLowerCase(), q)
     && S.searchScope !== "labels" && S.searchScope !== "parents";
   const forced = false;
   const cap = NOTE_MAX;
@@ -5043,7 +5082,7 @@ function applyView(){
   if(z.textContent !== pct) z.textContent = pct;
 }
 
-function rebuild(){ layout(); buildTagFilters(); updateTagCount(); render(); renderInspector(); renderContents();
+function rebuild(){ layout(); buildTagFilters(); updateTagCount(); updateTrayCount(); render(); renderInspector(); renderContents();
   updateFab(); updateModeUI(); updateLinkBar(); }
 
 /* =====================================================================
@@ -5239,6 +5278,21 @@ function outlineVisible(){
    belongs, and a way to place it later: pick it up, then tap a node
    to hang it off, or tap open space to drop it there.
    --------------------------------------------------------------- */
+/* The opening words make a title; the whole thing is kept as the note, so a
+   long message is never cut off. */
+function titleFromText(text){
+  const first = String(text || "").split(/\n/).find(l=>l.trim()) || "";
+  const clean = first.trim().replace(/\s+/g, " ");
+  if(clean.length <= 52) return clean || "Note";
+  const words = clean.split(" ");
+  let out = "";
+  for(const w of words){
+    if((out + " " + w).trim().length > 48) break;
+    out = (out + " " + w).trim();
+  }
+  return (out || clean.slice(0, 48)) + "…";
+}
+
 function addToTray(text){
   const t = String(text || "").trim();
   if(!t) return;
@@ -5253,6 +5307,8 @@ function dropFromTray(id){
 function armTrayItem(id){
   S.inboxArmed = (S.inboxArmed === id) ? null : id;
   renderTray(); updateTrayFlag();
+  /* get out of the way so the map can be tapped */
+  if(S.inboxArmed && el("trayDlg").open) el("trayDlg").close();
 }
 function updateTrayCount(){
   const b = el("trayCount");
@@ -5272,8 +5328,7 @@ function placeTrayItem(itemId, target, where, at){
   if(!canEdit()){ toast("Switch to editing mode first."); return; }
   const it = S.inbox.find(x=>x.id === itemId);
   if(!it) return;
-  const lines = it.text.split(/\n/);
-  const n = newNode({label:lines[0].slice(0, 120), body:lines.slice(1).join("\n")});
+  const n = newNode({label:titleFromText(it.text), body:it.text});
   S.nodes.set(n.id, n);
   if(target && S.nodes.has(target) && where !== "loose"){
     const e = newEdge({from:target, to:n.id, link_type:where === "cross" ? "cross" : "tree"});
@@ -5289,19 +5344,27 @@ function placeTrayItem(itemId, target, where, at){
       : "Dropped on the map");
 }
 
+let placeTarget = null;
 function askWhereToPlace(target){
   const it = S.inbox.find(x=>x.id === S.inboxArmed);
-  if(!it) return;
+  if(!it || !S.nodes.has(target)) return;
+  placeTarget = target;
   const name = nodeName(target);
-  const answer = prompt("Put “" + it.text.slice(0, 60) + "” where?\n\n"
-    + "1 — under " + name + "\n2 — cross-linked to " + name + "\n3 — loose, next to it\n\n"
-    + "Type 1, 2 or 3", "1");
-  if(answer === null) return;
+  el("placeWhat").textContent = "“" + titleFromText(it.text) + "” onto " + name;
+  el("placeChild").textContent = "Under " + name;
+  el("placeCross").textContent = "Cross-linked to " + name;
+  el("placeDlg").showModal();
+}
+function finishPlacing(where){
+  const it = S.inbox.find(x=>x.id === S.inboxArmed);
+  const target = placeTarget;
+  el("placeDlg").close();
+  placeTarget = null;
+  if(!it || !target) return;
   const n = S.nodes.get(target);
   const at = n && n._x != null ? {x:n._x + NODE_W + 60, y:n._y} : null;
-  if(answer.trim() === "2") placeTrayItem(it.id, target, "cross");
-  else if(answer.trim() === "3") placeTrayItem(it.id, null, "loose", at);
-  else placeTrayItem(it.id, target, "child");
+  if(where === "loose") placeTrayItem(it.id, null, "loose", at);
+  else placeTrayItem(it.id, target, where);
 }
 
 function renderTray(){
@@ -5330,7 +5393,6 @@ function renderTray(){
 }
 
 function renderContents(){
-  renderTray();
   /* Hundreds of rows cost real time to build and lay out. When the panel is
      on Tools nobody can see them, so the work is put off until it can. */
   if(!outlineVisible()){ outlineStale = true; renderResults(); return; }
@@ -6186,6 +6248,14 @@ const MIN_K = 0.05, MAX_K = 6;
     dragNode = null;
   }
 
+  svg().addEventListener("dragover", ev=>{ if(S.inboxArmed) ev.preventDefault(); });
+  svg().addEventListener("drop", ev=>{
+    if(!S.inboxArmed) return;
+    ev.preventDefault();
+    const g = ev.target.closest && ev.target.closest(".node-g");
+    if(g) askWhereToPlace(g.dataset.id);
+    else placeTrayItem(S.inboxArmed, null, "loose", toWorld(ev.clientX, ev.clientY));
+  });
   svg().addEventListener("pointerdown", ev=>{
     if(viewAnim){ cancelAnimationFrame(viewAnim); viewAnim = null;
       document.body.classList.remove("moving"); }
@@ -7932,6 +8002,43 @@ function tagsPass(n){
   return S.tagMode === "all" ? picked.every(t=>has.has(t)) : picked.some(t=>has.has(t));
 }
 
+/* ---------------------------------------------------------------
+   Search that ignores the noise. A map full of accession numbers,
+   tracking numbers and dates will match almost any short code by
+   accident — searching 961 should not turn up 3562961.
+   --------------------------------------------------------------- */
+const NOISE_PATTERNS = [
+  /\b\d{7,}\b/g,                        // accession and other long runs of digits
+  /\b\d{4}-\d{2}-\d{2}\b/g,             // 2026-08-19
+  /\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g,     // 08/19/2026
+  /\b\d{4}\s?\d{4}\s?\d{4}(?:\s?\d{3,4})?\b/g   // tracking numbers, spaced or not
+];
+function looksLikeNoise(term){
+  return NOISE_PATTERNS.some(re=>new RegExp("^(?:" + re.source + ")$").test(term));
+}
+/* blank out the noise so it cannot be matched inside */
+function searchable(text){
+  if(!S.searchExcludes) return String(text || "");
+  let out = String(text || "");
+  NOISE_PATTERNS.forEach(re=>{
+    out = out.replace(new RegExp(re.source, "g"), m=>" ".repeat(m.length));
+  });
+  return out;
+}
+/* a short code has to be a word of its own, not a piece of a longer number */
+function termMatches(hay, term){
+  if(!term) return true;
+  /* with the filter off, a plain substring search is what you asked for */
+  /* Only codes are held to whole words. A plain word like "stat" must still
+     match inside "STATS", but 961 must not match inside 3562961. */
+  const isCode = term.length <= 8 && /\d/.test(term) && /^[a-z0-9][a-z0-9./-]*$/i.test(term);
+  if(S.searchExcludes && isCode){
+    const safe = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp("(^|[^a-z0-9])" + safe + "($|[^a-z0-9])", "i").test(hay);
+  }
+  return hay.includes(term);
+}
+
 function runSearch(){
   const q = el("q").value.trim().toLowerCase();
   S.hitQuery = q;
@@ -7948,7 +8055,13 @@ function runSearch(){
     return;
   }
   const terms = q ? q.split(/\s+/) : [];
-  const matches = hay => terms.every(t=>hay.toLowerCase().includes(t));
+  /* a search for something that is itself an accession or a date looks at the
+     raw text, so those can still be found when you want them */
+  const raw = terms.some(looksLikeNoise);
+  const matches = hay => {
+    const text = (raw ? String(hay) : searchable(hay)).toLowerCase();
+    return terms.every(t=>termMatches(text, t));
+  };
 
   if(scope === "areas"){
     S.areaHits = [...S.areas.values()]
@@ -9172,6 +9285,7 @@ async function afterMapSwitch(){
   if(el("branchGrid")) el("branchGrid").checked = S.branchGrid;
   if(el("followOutline")) el("followOutline").checked = S.followOutline;
   if(el("branchShape")) el("branchShape").value = S.branchShape;
+  if(el("searchExcludes")) el("searchExcludes").checked = S.searchExcludes;
   if(el("routeTree")) el("routeTree").value = S.meta.routeTree || "curve";
   if(el("routeCross")) el("routeCross").value = S.meta.routeCross || "curve";
   if(el("crossLine")) el("crossLine").value = S.meta.crossLine || "dashed";
@@ -9751,7 +9865,8 @@ async function loadPersonal(){
    these in the per-map record meant they reset every time you opened a
    different map. */
 const PREF_KEYS = ["notesMode","motion","showIds","avoidNodes","branchGrid",
-                   "focusMode","pickZoom","followOutline","railOpen","branchShape"];
+                   "focusMode","pickZoom","followOutline","railOpen","branchShape",
+                   "searchExcludes"];
 async function savePrefs(){
   const out = {};
   PREF_KEYS.forEach(k=>{ out[k] = S[k]; });
@@ -11281,6 +11396,8 @@ async function boot(){
   el("dimOthers").onchange = render;
   el("showScope").onchange = ()=>rebuild();
   el("notesMode").onchange = e=>{ S.notesMode = e.target.value; savePrefs(); rebuild(); };
+  el("searchExcludes").onchange = e=>{ S.searchExcludes = e.target.checked; savePrefs();
+    runSearch(); };
   el("branchShape").onchange = e=>{ S.branchShape = e.target.value; savePrefs();
     rebuild(); fitView(0.96, 0.4); };
   el("followOutline").onchange = e=>{ S.followOutline = e.target.checked; savePrefs(); };
@@ -11526,16 +11643,26 @@ async function boot(){
     runSearch();
   };
   el("trayBtn").onclick = ()=>{
-    const tab = [...document.querySelectorAll(".railtab")].find(t=>t.dataset.pane === "Contents");
-    if(tab) tab.click();
-    if(window.matchMedia("(max-width:820px)").matches) el("rail").classList.add("open");
-    const g = el("trayGroup");
-    if(g){ if(g.tagName === "DETAILS") g.open = true;
-      setTimeout(()=>{ g.scrollIntoView({block:"start"}); el("trayAdd").focus(); }, 60); }
+    renderTray();
+    el("trayDlg").showModal();
+    setTimeout(()=>el("trayAdd").focus(), 60);
   };
+  el("trayClose").onclick = ()=>el("trayDlg").close();
+  const putIt = ()=>{
+    const box = el("trayAdd");
+    addToTray(box.value);
+    box.value = "";
+    box.focus();
+  };
+  el("trayAddBtn").onclick = putIt;
   el("trayAdd").addEventListener("keydown", ev=>{
-    if(ev.key === "Enter"){ ev.preventDefault(); addToTray(ev.target.value); ev.target.value = ""; }
+    /* enter files it; shift-enter keeps writing */
+    if(ev.key === "Enter" && !ev.shiftKey){ ev.preventDefault(); putIt(); }
   });
+  el("placeCancel").onclick = ()=>{ el("placeDlg").close(); placeTarget = null; };
+  el("placeChild").onclick = ()=>finishPlacing("child");
+  el("placeCross").onclick = ()=>finishPlacing("cross");
+  el("placeLoose").onclick = ()=>finishPlacing("loose");
   el("trayFlag").onclick = ()=>{ S.inboxArmed = null; renderTray(); updateTrayFlag(); };
   el("tagPickBtn").onclick = openTagPicker;
   el("tagDlgClose").onclick = ()=>el("tagDlg").close();
