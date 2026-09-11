@@ -1166,7 +1166,9 @@ body.viewing.panelaway #panelHide{display:none}
         </div>
         <p id="modeNote" style="font-size:12px;color:var(--graphite-60);margin:9px 0 0;line-height:1.5">—</p>
         <p id="viewerStatus" style="font-size:12px;color:var(--graphite-60);margin:8px 0 0"></p>
-        <button class="btn wide" id="openFromDisk">Open a newer workbook</button>
+        <button class="btn wide" id="openFromDisk">Refresh from the workbook</button>
+        <p id="workbookWhere" style="font-size:11px;color:var(--graphite-60);margin:6px 0 0;
+          font-family:var(--mono);overflow:hidden;text-overflow:ellipsis"></p>
         <div class="row" style="margin-top:8px">
           <button class="btn wide primary" id="btnReview">Waiting for you<span id="revBadge"></span></button>
         </div>
@@ -1581,13 +1583,6 @@ body.viewing.panelaway #panelHide{display:none}
   </div>
   <div class="dlg-body">
     <div class="conn">
-      <div class="hdr"><strong>A link to the live tool</strong><span class="status-pill">2 KB</span></div>
-      <p class="fineprint" style="margin:0 0 10px">Tiny. Opens the hosted version, so everyone
-        gets your changes to the tool automatically. Needs the tool to be reachable at a web
-        address from wherever they open it.</p>
-      <button class="btn primary wide" id="vkLauncher">Build the link</button>
-    </div>
-    <div class="conn">
       <div class="hdr"><strong>A self-contained file</strong><span class="status-pill">~500 KB</span></div>
       <p class="fineprint" style="margin:0 0 10px">The whole tool and the map in one file, which
         also keeps talking to the sheet so people see changes as they land.</p>
@@ -1599,10 +1594,18 @@ body.viewing.panelaway #panelHide{display:none}
         The map is built into the file, so it opens from OneDrive or a network share with nothing
         to set up. Readers can point it at a newer .xlsx from the same folder when you publish
         one, or you hand out a fresh file.</p>
+      <label class="field"><span>Where the workbook lives, if you want a refresh button
+        that knows where to look</span>
+        <input type="text" id="vkWorkbookUrl"
+          placeholder="https://…/Shared%20Documents/map.xlsx"></label>
+      <p class="fineprint" style="margin:2px 0 8px">Optional. Kept in the file so readers can
+        pull a newer workbook without hunting for it. Some shared folders refuse to hand a file
+        to a page opened from disk; if that happens the viewer says so and opens a file picker
+        at the same address.</p>
       <button class="btn primary wide" id="vkFrozen">Build it</button>
     </div>
-    <p class="fineprint" id="vkNeedsSheet" hidden>The first two need a Google Sheet with a viewer
-      token: Sharing and files → Manage sheets → the field called “Viewer token”.</p>
+    <p class="fineprint" id="vkNeedsSheet" hidden>The sheet-backed copy needs a Google Sheet with
+      a viewer token: Sharing and files → Manage sheets → the field called “Viewer token”.</p>
     <p class="fineprint">All of them open read-only, and can add suggestions, questions and
       check-offs.</p>
   </div>
@@ -9581,13 +9584,11 @@ async function buildViewerFile(){
 function askViewerKind(){
   return new Promise(res=>{
     const dlg = el("viewerKindDlg");
-    el("vkLauncher").onclick = ()=>{ dlg.close(); res("launcher"); };
     el("vkStandalone").onclick = ()=>{ dlg.close(); res("standalone"); };
     el("vkFrozen").onclick = ()=>{ dlg.close(); res("frozen"); };
     /* the two that need a sheet say so when there is not one */
     const conn = activeConnection();
     const ready = conn && (conn.endpoint||"").trim() && (conn.viewerToken||"").trim();
-    el("vkLauncher").disabled = !ready;
     el("vkStandalone").disabled = !ready;
     el("vkNeedsSheet").hidden = !!ready;
     el("vkCancel").onclick = ()=>{ dlg.close(); res(null); };
@@ -9629,6 +9630,7 @@ async function buildStandaloneViewer(frozen){
                                  + "|" + ((conn && conn.prefix)||"") + "|" + ((conn && conn.id)||""))),
     theme:{ id:S.themeId, custom:(S.customThemes||[]).find(t=>t.id === S.themeId) || null },
     fromWorkbook:!!frozen,
+    workbookUrl:frozen ? ((el("vkWorkbookUrl") && el("vkWorkbookUrl").value || "").trim()) : "",
     connection:frozen ? null
       : { name:(conn.name || "Sheet") + " (viewing)", endpoint:conn.endpoint.trim(),
           id:conn.id||"", prefix:conn.prefix||"", token:conn.viewerToken.trim(),
@@ -9637,7 +9639,26 @@ async function buildStandaloneViewer(frozen){
   };
   const tag = '<script id="viewerConfig" type="application/json">'
             + JSON.stringify(cfg).replace(/<\//g, "<\\/") + '<\/script>';
-  const out = src.replace('<div id="viewerSlot"></div>', '<div id="viewerSlot"></div>' + tag)
+  /* A copy meant for a folder has to carry the spreadsheet library with it, or
+     it cannot read a workbook without an internet connection. */
+  if(frozen){
+    const libTag = /<script src="(https:\/\/cdn\.sheetjs\.com[^"]+)"><\/script>/.exec(src);
+    if(libTag){
+      try{
+        const lib = await (await fetch(libTag[1], {cache:"force-cache"})).text();
+        /* only the sequence that would end the tag needs escaping; touching
+           every "</" corrupts the library itself */
+        /* a function as the replacement, because the library is full of $&
+           and $' sequences that replace() would otherwise expand */
+        const inline = '<script>' + lib.replace(/<\/script/gi, "<\\/script") + '<\/script>';
+        src = src.replace(libTag[0], ()=>inline);
+      }catch(e){
+        if(!confirm("The spreadsheet library could not be fetched, so this copy will need "
+          + "an internet connection to read a workbook.\n\nBuild it anyway?")) return;
+      }
+    }
+  }
+  const out = src.replace('<div id="viewerSlot"></div>', ()=>'<div id="viewerSlot"></div>' + tag)
                  .replace(/<title>[^<]*<\/title>/, "<title>" + esc(S.meta.title || "MindMap") + " — viewing<\/title>");
   const safe = (S.meta.title || "mindmap").replace(/[^\w\- ]+/g,"").trim().replace(/\s+/g,"-") || "mindmap";
   const blob = new Blob([out], {type:"text/html"});
@@ -9755,6 +9776,51 @@ async function recallViewerConfig(){
   }catch(e){ return null; }
 }
 
+/* Take a workbook and show it, read only. Used by the refresh button in a
+   viewer that was built from a file rather than a sheet. */
+function adoptWorkbookBytes(buf, label){
+  const wb = XLSX.read(buf, {type:"array"});
+  const t = {};
+  wb.SheetNames.forEach(n=>{ t[n] = XLSX.utils.sheet_to_json(wb.Sheets[n], {defval:""}); });
+  adoptModel(tablesToModel(t));
+  rebuild(); fitView(0.96, 0.3);
+  toast("Loaded " + (label || "the workbook") + ", " + S.nodes.size + " nodes");
+}
+
+function pickWorkbookFile(){
+  const inp = document.createElement("input");
+  inp.type = "file";
+  inp.accept = ".xlsx,.xlsm,.csv";
+  inp.onchange = async ()=>{
+    const f = inp.files && inp.files[0];
+    if(!f) return;
+    try{ adoptWorkbookBytes(await f.arrayBuffer(), f.name); }
+    catch(e){ toast("Could not read that file: " + (e.message || e)); }
+  };
+  inp.click();
+}
+
+/* Try the address the map was built with, and fall back to asking. A page
+   opened from a folder is often refused by a shared drive, so this never
+   pretends the fetch is guaranteed. */
+async function refreshFromWorkbook(quiet){
+  const url = (S.workbookUrl || "").trim();
+  if(!url){ if(!quiet) pickWorkbookFile(); return false; }
+  try{
+    const r = await fetch(url, {cache:"no-store"});
+    if(!r.ok) throw new Error("the folder replied " + r.status);
+    const buf = await r.arrayBuffer();
+    adoptWorkbookBytes(buf, "the shared workbook");
+    return true;
+  }catch(e){
+    if(quiet) return false;
+    toast("Could not fetch it from " + url.slice(0, 60)
+        + " — shared folders often refuse a page opened from disk. Pick the file instead.");
+    pickWorkbookFile();
+    return false;
+  }
+}
+
 function applyViewerConfig(cfg){
   if(!cfg) return null;
   S.viewerBuild = true;
@@ -9763,6 +9829,7 @@ function applyViewerConfig(cfg){
   if(cfg.connection){ S.connections = [cfg.connection]; S.activeConn = 0; }
   /* a copy with no sheet behind it can be pointed at a newer workbook instead */
   S.fromWorkbook = !!cfg.fromWorkbook;
+  S.workbookUrl = cfg.workbookUrl || "";
   document.body.classList.toggle("workbookviewer", !!cfg.fromWorkbook);
   if(cfg.theme){
     if(cfg.theme.custom) S.customThemes = (S.customThemes || []).concat([cfg.theme.custom]);
@@ -11868,30 +11935,7 @@ async function boot(){
   el("bulkAdd").addEventListener("keydown", ev=>{
     if(ev.key === "Enter"){ ev.preventDefault(); applyBulkTags(); }
   });
-  el("openFromDisk").onclick = ()=>{
-    /* a viewer fed by a workbook: let someone load a fresher one from the
-       same folder without needing anything set up */
-    const inp = document.createElement("input");
-    inp.type = "file";
-    inp.accept = ".xlsx,.xlsm,.csv";
-    inp.onchange = async ()=>{
-      const f = inp.files && inp.files[0];
-      if(!f) return;
-      try{
-        const buf = await f.arrayBuffer();
-        const wb = XLSX.read(buf, {type:"array"});
-        const t = {};
-        wb.SheetNames.forEach(n=>{ t[n] = XLSX.utils.sheet_to_json(wb.Sheets[n], {defval:""}); });
-        const M = tablesToModel(t);
-        adoptModel(M);
-        rebuild(); fitView(0.96, 0.3);
-        toast("Loaded " + f.name + ", " + S.nodes.size + " nodes");
-      }catch(e){
-        toast("Could not read that file: " + (e.message || e));
-      }
-    };
-    inp.click();
-  };
+  el("openFromDisk").onclick = ()=>refreshFromWorkbook();
   el("panelHide").onclick = ()=>showPanel(false);
   el("resClose").onclick = closeResults;
   el("resClear").onclick = ()=>{
@@ -12183,6 +12227,15 @@ async function boot(){
     if(Array.isArray(custom)) S.customThemes = custom;
     await loadPrefs();
     organiseRail();
+  if(S.fromWorkbook){
+    const where = el("workbookWhere");
+    if(where) where.textContent = S.workbookUrl
+      ? "Reads from " + S.workbookUrl
+      : "No address set — the button opens a file picker.";
+    /* try it once on opening, quietly: if the folder refuses, the built-in
+       copy of the map is still there */
+    if(S.workbookUrl) setTimeout(()=>refreshFromWorkbook(true), 400);
+  }
     applyTheme(S.themeMode);
   }catch(e){}
   await Store.requestPersist();
