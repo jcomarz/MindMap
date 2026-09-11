@@ -1598,12 +1598,11 @@ body.viewing.panelaway #panelHide{display:none}
         that knows where to look</span>
         <input type="text" id="vkWorkbookUrl"
           placeholder="https://…/Shared%20Documents/map.xlsx"></label>
-      <p class="fineprint" style="margin:2px 0 8px">Optional, and it has to be an address that
-        hands over the file itself — a OneDrive or SharePoint “Copy link” opens a web page
-        instead, and the viewer will only get a sign-in page back. What works is a direct
-        download address, or a plain network path your people can already reach. The viewer
-        tries the address on opening, says plainly when it cannot, and falls back to a file
-        picker.</p>
+      <p class="fineprint" style="margin:2px 0 8px">Optional. A OneDrive or SharePoint
+        “Copy link” is fine — it opens a web viewer as it stands, so the address is turned into
+        the file's own one and tried several ways. Whether the folder will hand the file to a
+        page opened from disk depends on your organisation; the viewer says which way worked,
+        or exactly what came back instead, and falls back to a file picker.</p>
       <button class="btn primary wide" id="vkFrozen">Build it</button>
     </div>
     <p class="fineprint" id="vkNeedsSheet" hidden>The sheet-backed copy needs a Google Sheet with
@@ -9816,6 +9815,20 @@ function downloadForms(url){
      sorts of host names */
   if(/sharepoint\.com|1drv\.ms|onedrive\.live\.com/i.test(url)
      || /Doc\.aspx|\/_layouts\/|sourcedoc=/i.test(url)){
+    /* A "Copy link" looks like
+         https://host/:x:/r/personal/someone/Documents/folder/Map.xlsx?d=…&web=1
+       The /:x:/r/ part is what sends it to the web viewer, and web=1 keeps it
+       there. Without them the same address is the file itself. */
+    const direct = url
+      .replace(/\/:[a-z]:\/[rspg]\//i, "/")
+      .replace(/([?&])(web|csf|e|d|at|ct|or)=[^&]*/gi, "$1")
+      .replace(/[?&]+$/, "")
+      .replace(/\?&+/, "?")
+      .replace(/&{2,}/g, "&");
+    if(direct !== url){
+      add(direct);
+      add(direct + (direct.indexOf("?") >= 0 ? "&" : "?") + "download=1");
+    }
     add(url + (url.indexOf("?") >= 0 ? "&" : "?") + "download=1");
     /* .../:x:/r/personal/.../Doc.aspx?sourcedoc=... is the page; the same
        server will hand over the file from download.aspx */
