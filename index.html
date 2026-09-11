@@ -3035,8 +3035,97 @@ function layout(){
    --------------------------------------------------------------- */
 const RING_GAP = 30;
 
+/* A last tidy: the circles are worked out so nothing should touch, but a deep
+   branch can still leave one pair a few pixels into each other. This pushes
+   any such pair straight apart, which is invisible at the scale it happens. */
+function nudgeApart(ids){
+  const pad = 10;
+  for(let pass = 0; pass < 14; pass++){
+    let moved = false;
+    for(let i = 0; i < ids.length; i++){
+      const A = S.nodes.get(ids[i]);
+      for(let j = i + 1; j < ids.length; j++){
+        const B = S.nodes.get(ids[j]);
+        const dx = (A._x + NODE_W/2) - (B._x + NODE_W/2);
+        const dy = (A._y + A._h/2) - (B._y + B._h/2);
+        const needX = NODE_W + pad, needY = (A._h + B._h)/2 + pad;
+        if(Math.abs(dx) >= needX || Math.abs(dy) >= needY) continue;
+        const pushX = needX - Math.abs(dx), pushY = needY - Math.abs(dy);
+        if(pushX < pushY){
+          const s2 = (dx < 0 ? -1 : 1) * pushX / 2;
+          A._x += s2; B._x -= s2;
+        } else {
+          const s2 = (dy < 0 ? -1 : 1) * pushY / 2;
+          A._y += s2; B._y -= s2;
+        }
+        moved = true;
+      }
+    }
+    if(!moved) break;
+  }
+}
+
 function layoutRadial(vis, stacked){
   const kidsOf = id => childrenOf(id).filter(k=>vis.has(k) && !stacked.has(k));
+  /* how much room one node needs whichever way it is turned */
+  const ownR = n => Math.hypot(NODE_W, n._h || 40) / 2 + 8;
+
+  /* Work out, for each node, the size of the circle its whole family needs.
+     A node with no children needs only itself; one with children needs a ring
+     wide enough that none of their circles touch, plus room for theirs. */
+  const discOf = (id, seen)=>{
+    if(seen.has(id)) return {id, r:ownR(S.nodes.get(id)), kids:[], ring:0};
+    seen.add(id);
+    const n = S.nodes.get(id);
+    const kids = kidsOf(id).map(k=>discOf(k, seen));
+    if(!kids.length) return {id, r:ownR(n), kids:[], ring:0};
+
+    const biggest = Math.max(...kids.map(c=>c.r));
+    const widest = Math.max(...kids.map(c=>ownR(S.nodes.get(c.id))));
+    /* leave room for the gap where the parent's own link arrives */
+    const need = R => kids.reduce((a, c)=>
+      a + 2 * Math.asin(Math.min(0.999, c.r / R)), 0) + 0.7;
+    /* The ring only has to hold the children clear of the parent — their own
+       families grow outwards into open space. Sizing it by the whole family
+       circle instead doubled the radius at every level, which is what made a
+       deep branch explode across the map. */
+    let lo = ownR(n) + widest + RING_GAP, hi = lo;
+    let guard = 0;
+    while(need(hi) > Math.PI * 2 - 0.25 && guard++ < 60) hi *= 1.35;
+    for(let i = 0; i < 40; i++){
+      const mid = (lo + hi) / 2;
+      if(need(mid) > Math.PI * 2 - 0.25) lo = mid; else hi = mid;
+    }
+    const ring = hi;
+    return {id, r:ring + biggest, kids, ring};
+  };
+
+  /* Then set everything down: the node in the middle, its children evenly
+     around it starting at the top and going clockwise, each one taking the
+     slice its own family needs. */
+  const put = (disc, cx, cy, inbound)=>{
+    const n = S.nodes.get(disc.id);
+    n._x = cx - NODE_W / 2;
+    n._y = cy - (n._h || 40) / 2;
+    if(!disc.kids.length) return;
+    const widths = disc.kids.map(c=>2 * Math.asin(Math.min(0.999, c.r / disc.ring)));
+    const used = widths.reduce((a, w)=>a + w, 0);
+    /* The root gets the whole clock. Everything else leaves a gap where its
+       own parent sits, so a family grows outwards instead of back over the
+       branch it came from. */
+    const back = inbound == null ? null : inbound;
+    const reserved = back == null ? 0 : Math.max(0.7, widths.length ? widths[0] : 0.7);
+    const span = Math.PI * 2 - reserved;
+    const slack = Math.max(0, span - used) / Math.max(1, disc.kids.length);
+    let a = back == null ? -Math.PI / 2 : back + reserved / 2;
+    disc.kids.forEach((c, i)=>{
+      a += widths[i] / 2;
+      const x = cx + Math.cos(a) * disc.ring, y = cy + Math.sin(a) * disc.ring;
+      put(c, x, y, a + Math.PI);
+      a += widths[i] / 2 + slack;
+    });
+  };
+
   const clusters = [];
   const done = new Set();
   const heads = roots().filter(id=>vis.has(id) && !stacked.has(id));
@@ -3045,106 +3134,26 @@ function layoutRadial(vis, stacked){
 
   tops.forEach(top=>{
     if(done.has(top)) return;
-    const order = [], depthOf = new Map();
-    const walk = (id, d, seen)=>{
-      if(seen.has(id)) return;
-      seen.add(id);
-      depthOf.set(id, d);
-      const kids = kidsOf(id);
-      if(!kids.length) order.push(id);
-      kids.forEach(k=>walk(k, d + 1, seen));
-    };
-    walk(top, 0, new Set());
-    if(!depthOf.size) return;
-
-    const leaves = order.length || 1;
-    const step = (Math.PI * 2) / leaves;
-    const angle = new Map();
-    order.forEach((id, i)=>angle.set(id, -Math.PI / 2 + i * step));
-
-    const settle = (id, seen)=>{
-      if(seen.has(id)) return angle.get(id);
-      seen.add(id);
-      const kids = kidsOf(id);
-      if(!kids.length) return angle.get(id);
-      const as = kids.map(k=>settle(k, seen)).filter(a=>a != null);
-      if(!as.length) return angle.get(id);
-      const a = (Math.min(...as) + Math.max(...as)) / 2;
-      angle.set(id, a);
-      return a;
-    };
-    settle(top, new Set());
-
-    /* rings wide enough for what stands on them */
-    const perDepth = [], tallest = [];
-    depthOf.forEach((d, id)=>{
-      perDepth[d] = (perDepth[d] || 0) + 1;
-      tallest[d] = Math.max(tallest[d] || 0, S.nodes.get(id)._h || 40);
-    });
-    const radii = [0];
-    for(let d = 1; d < perDepth.length; d++){
-      /* a node placed at any angle reaches out by half its longest side, so
-         the rings clear each other by width, not just by height */
-      const reachPrev = Math.max(NODE_W, tallest[d-1] || 40);
-      const reachHere = Math.max(NODE_W, tallest[d] || 40);
-      const clear = radii[d-1] + reachPrev / 2 + reachHere / 2 + RING_GAP;
-      const around = (perDepth[d] || 1)
-        * (Math.max(NODE_W, tallest[d] || 40) + RING_GAP) / (Math.PI * 2);
-      radii[d] = Math.max(clear, around);
-    }
-
-    /* Centring a parent over its children can crowd a busy ring, so each ring
-       is combed through afterwards and anything too close to its neighbour is
-       nudged along, keeping the order it was in. */
-    const byDepth = new Map();
-    depthOf.forEach((d, id)=>{
-      if(d === 0) return;
-      if(!byDepth.has(d)) byDepth.set(d, []);
-      byDepth.get(d).push(id);
-    });
-    byDepth.forEach((ids, d)=>{
-      const r = radii[d] || 1;
-      /* a node can sit at any angle, so allow for its longest side */
-      const reach = Math.max(NODE_W, tallest[d] || 40) + RING_GAP;
-      const gap = reach / r;
-      ids.sort((a, b)=>(angle.get(a) || 0) - (angle.get(b) || 0));
-      if(ids.length * gap >= Math.PI * 2){
-        /* it cannot be done without crowding: space them evenly instead */
-        const evenly = (Math.PI * 2) / ids.length;
-        ids.forEach((id, i)=>angle.set(id, -Math.PI / 2 + i * evenly));
-        return;
-      }
-      for(let i = 1; i < ids.length; i++){
-        const prev = angle.get(ids[i-1]), here = angle.get(ids[i]);
-        if(here - prev < gap) angle.set(ids[i], prev + gap);
-      }
-      /* and close the loop: the last must not run into the first */
-      const first = angle.get(ids[0]), last = angle.get(ids[ids.length-1]);
-      const over = (last + gap) - (first + Math.PI * 2);
-      if(over > 0){
-        const shift = over / Math.max(1, ids.length - 1);
-        ids.forEach((id, i)=>angle.set(id, angle.get(id) - shift * i));
-      }
-    });
-
-    const mine = [];
-    depthOf.forEach((d, id)=>{
-      const n = S.nodes.get(id);
-      const a = d === 0 ? 0 : (angle.get(id) || 0);
-      const r = d === 0 ? 0 : (radii[d] || 0);
-      n._x = Math.cos(a) * r - NODE_W / 2;
-      n._y = Math.sin(a) * r - n._h / 2;
-      mine.push(id);
-      done.add(id);
-    });
-
+    const seen = new Set();
+    const disc = discOf(top, seen);
+    put(disc, 0, 0, null);
+    const ids = [...seen].filter(id=>vis.has(id));
+    ids.forEach(id=>done.add(id));
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-    mine.forEach(id=>{
+    ids.forEach(id=>{
       const n = S.nodes.get(id);
       x0 = Math.min(x0, n._x); y0 = Math.min(y0, n._y);
       x1 = Math.max(x1, n._x + NODE_W); y1 = Math.max(y1, n._y + n._h);
     });
-    clusters.push({ids:mine, x0, y0, w:x1 - x0, h:y1 - y0});
+    if(!ids.length) return;
+    nudgeApart(ids);
+    x0 = Infinity; y0 = Infinity; x1 = -Infinity; y1 = -Infinity;
+    ids.forEach(id=>{
+      const n = S.nodes.get(id);
+      x0 = Math.min(x0, n._x); y0 = Math.min(y0, n._y);
+      x1 = Math.max(x1, n._x + NODE_W); y1 = Math.max(y1, n._y + n._h);
+    });
+    clusters.push({ids, x0, y0, w:x1 - x0, h:y1 - y0});
   });
 
   /* the clusters themselves still pack into a grid */
@@ -3275,6 +3284,22 @@ function facingSide(a, b){
     return dx >= 0 ? "right" : "left";
   return dy >= 0 ? "bottom" : "top";
 }
+/* Where a straight line from one node to another crosses the first node's
+   edge, with the direction it is heading. */
+function rimPoint(from, to){
+  const cx = from._x + NODE_W / 2, cy = from._y + (from._h || 40) / 2;
+  const tx = to._x + NODE_W / 2, ty = to._y + (to._h || 40) / 2;
+  let vx = tx - cx, vy = ty - cy;
+  const len = Math.hypot(vx, vy) || 1;
+  vx /= len; vy /= len;
+  const hw = NODE_W / 2, hh = (from._h || 40) / 2;
+  /* how far along that direction the edge of the box lies */
+  const tX = Math.abs(vx) > 1e-6 ? hw / Math.abs(vx) : Infinity;
+  const tY = Math.abs(vy) > 1e-6 ? hh / Math.abs(vy) : Infinity;
+  const t = Math.min(tX, tY);
+  return {x:cx + vx * t, y:cy + vy * t, dx:vx, dy:vy};
+}
+
 function sidesFor(e, a, b){
   let f = e.fromSide || "auto", t = e.toSide || "auto";
   if(f === "auto") f = e.link_type === "tree" ? "right" : facingSide(a, b);
@@ -4794,11 +4819,20 @@ function render(){
       arrow: e.arrow || (tagSt && tagSt.arrow) || "yes"
     };
     const dash = LINE_DASH[st.line] ?? "";
-    const [fs, ts] = sidesFor(e, a, b);
-    const p1 = anchorPt(a, fs), p2 = anchorPt(b, ts);
-    const route = (e.route && e.route !== "auto")
-      ? e.route
-      : (e.link_type === "tree" ? (S.meta.routeTree || "curve") : (S.meta.routeCross || "curve"));
+    let p1, p2, route;
+    if(S.branchShape === "radial" && e.link_type === "tree"
+       && (!e.route || e.route === "auto")){
+      /* the line leaves the parent's edge pointing straight at the child, so
+         a family reads as hands round a clock face */
+      p1 = rimPoint(a, b); p2 = rimPoint(b, a);
+      route = "straight";
+    } else {
+      const [fs, ts] = sidesFor(e, a, b);
+      p1 = anchorPt(a, fs); p2 = anchorPt(b, ts);
+      route = (e.route && e.route !== "auto")
+        ? e.route
+        : (e.link_type === "tree" ? (S.meta.routeTree || "curve") : (S.meta.routeCross || "curve"));
+    }
     let d;
     if(S.avoidNodes && route !== "straight" && !e.bow){
       const pts = avoidPath(p1, p2, e.from, e.to);
