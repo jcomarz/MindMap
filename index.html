@@ -3164,8 +3164,10 @@ function layoutRadial(vis, stacked){
        branch should not shove its siblings to the far side of the map. Past
        this the family simply reaches further out instead. */
     const CLAIM_MAX = Math.PI / 3;
-    const need = R => kids.reduce((a, c)=>
-      a + Math.min(CLAIM_MAX, 2 * Math.asin(Math.min(0.999, c.r / R))), 0) + 0.7;
+    const need = R => kids.reduce((a, c)=>{
+      const d = c.kids.length ? R + Math.max(0, c.r - ownR(S.nodes.get(c.id))) : R;
+      return a + Math.min(CLAIM_MAX, 2 * Math.asin(Math.min(0.999, c.r / d)));
+    }, 0) + 0.7;
     /* The ring only has to hold the children clear of the parent — their own
        families grow outwards into open space. Sizing it by the whole family
        circle instead doubled the radius at every level, which is what made a
@@ -3190,8 +3192,16 @@ function layoutRadial(vis, stacked){
     n._y = cy - (n._h || 40) / 2;
     if(!disc.kids.length) return;
     const CLAIM_MAX = Math.PI / 3;
-    const widths = disc.kids.map(c=>
-      Math.min(CLAIM_MAX, 2 * Math.asin(Math.min(0.999, c.r / disc.ring))));
+    /* A child that has children of its own is pushed further out, so its own
+       circle starts beyond this one's edge instead of growing back through it.
+       A child with nothing hanging off it stays close in. */
+    const dists = disc.kids.map(c=>{
+      if(!c.kids.length) return disc.ring;
+      const grow = Math.max(0, c.r - ownR(S.nodes.get(c.id)));
+      return disc.ring + grow;
+    });
+    const widths = disc.kids.map((c, i)=>
+      Math.min(CLAIM_MAX, 2 * Math.asin(Math.min(0.999, c.r / dists[i]))));
     const used = widths.reduce((a, w)=>a + w, 0);
     /* The root gets the whole clock. Everything else leaves a gap where its
        own parent sits, so a family grows outwards instead of back over the
@@ -3203,7 +3213,7 @@ function layoutRadial(vis, stacked){
     let a = back == null ? -Math.PI / 2 : back + reserved / 2;
     disc.kids.forEach((c, i)=>{
       a += widths[i] / 2;
-      const x = cx + Math.cos(a) * disc.ring, y = cy + Math.sin(a) * disc.ring;
+      const x = cx + Math.cos(a) * dists[i], y = cy + Math.sin(a) * dists[i];
       put(c, x, y, a + Math.PI);
       a += widths[i] / 2 + slack;
     });
@@ -3520,25 +3530,55 @@ function pathHits(pts, p1, p2, rects){
    mostly vertical goes out past the side of the whole obstruction and comes
    back; a mostly horizontal one goes over or under it. */
 function avoidPath(p1, p2, skipA, skipB){
-  /* only the neighbourhood of this link can possibly be in its way */
-  const pad = 220;
-  const rects = nodeRects(skipA, skipB, {
-    x0:Math.min(p1.x, p2.x) - pad, x1:Math.max(p1.x, p2.x) + pad,
-    y0:Math.min(p1.y, p2.y) - pad, y1:Math.max(p1.y, p2.y) + pad});
+  /* Everything near the straight run, plus room for a detour to swing into.
+     Looking only along the straight line meant a detour could sail through
+     nodes that were never considered. */
+  /* Whatever is near the route being considered — not just near the straight
+     line. A wide detour used to be judged against the wrong neighbourhood and
+     passed while sailing through nodes nobody had looked at. */
+  const around = pts=>{
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    pts.forEach(q=>{ x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x);
+                     y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); });
+    const pad = 160;
+    return nodeRects(skipA, skipB, {x0:x0 - pad, x1:x1 + pad, y0:y0 - pad, y1:y1 + pad});
+  };
+  const hitsFor = pts => pathHits(pts, p1, p2, around(pts));
+
+  const rects = around([p1, p2]);
   if(!rects.length) return [p1, p2];
-  let blocking = pathHits([p1, p2], p1, p2, rects);
-  if(!blocking.length) return [p1, p2];
+  if(!hitsFor([p1, p2]).length) return [p1, p2];
 
-  const vertical = Math.abs(p2.y - p1.y) > Math.abs(p2.x - p1.x);
-  let pts = [p1, p2];
+  const vx = p2.x - p1.x, vy = p2.y - p1.y;
+  const len = Math.hypot(vx, vy) || 1;
+  /* unit vector across the line, to push the middle out to one side */
+  const nx = -vy / len, ny = vx / len;
+  const mid = {x:(p1.x + p2.x) / 2, y:(p1.y + p2.y) / 2};
 
-  for(let attempt = 0; attempt < 5; attempt++){
-    const clear = 46 + attempt * 40;
+  let best = null, bestHits = Infinity;
+  /* try swinging wider and wider, each side in turn */
+  for(let step = 1; step <= 8; step++){
+    const out = step * Math.max(70, len * 0.10);
+    for(const side of [1, -1]){
+      const a = {x:mid.x + nx * out * side, y:mid.y + ny * out * side};
+      const pts = [p1, a, p2];
+      const hits = hitsFor(pts).length;
+      if(!hits) return pts;
+      if(hits < bestHits){ bestHits = hits; best = pts; }
+    }
+  }
+  /* Columns are better served by a straight lane past the obstacles than by a
+     bulge, so that is tried too and whichever comes out clean is used. */
+  let blocking = hitsFor([p1, p2]);
+  const vertical = Math.abs(vy) > Math.abs(vx);
+  for(let attempt = 0; attempt < 6; attempt++){
+    const clear = 46 + attempt * 46;
+    let pts;
     if(vertical){
       const right = Math.max(...blocking.map(r=>r.x + r.w)) + clear;
       const left  = Math.min(...blocking.map(r=>r.x)) - clear;
-      const mid = (p1.x + p2.x)/2;
-      const lane = Math.abs(right - mid) <= Math.abs(left - mid) ? right : left;
+      const m = (p1.x + p2.x) / 2;
+      const lane = Math.abs(right - m) <= Math.abs(left - m) ? right : left;
       const lo = Math.min(p1.y, p2.y), hi = Math.max(p1.y, p2.y);
       const a = {x:lane, y:lo + (hi - lo) * 0.18};
       const b = {x:lane, y:lo + (hi - lo) * 0.82};
@@ -3546,18 +3586,32 @@ function avoidPath(p1, p2, skipA, skipB){
     } else {
       const below = Math.max(...blocking.map(r=>r.y + r.h)) + clear;
       const above = Math.min(...blocking.map(r=>r.y)) - clear;
-      const mid = (p1.y + p2.y)/2;
-      const lane = Math.abs(below - mid) <= Math.abs(above - mid) ? below : above;
+      const m = (p1.y + p2.y) / 2;
+      const lane = Math.abs(below - m) <= Math.abs(above - m) ? below : above;
       const lo = Math.min(p1.x, p2.x), hi = Math.max(p1.x, p2.x);
       const a = {x:lo + (hi - lo) * 0.18, y:lane};
       const b = {x:lo + (hi - lo) * 0.82, y:lane};
       pts = p1.x <= p2.x ? [p1, a, b, p2] : [p1, b, a, p2];
     }
-    const still = pathHits(pts, p1, p2, rects);
+    const still = hitsFor(pts);
     if(!still.length) return pts;
+    if(still.length < bestHits){ bestHits = still.length; best = pts; }
     blocking = blocking.concat(still.filter(r=>blocking.indexOf(r) < 0));
   }
-  return pts;
+
+  /* nothing clean: go around in two hops, which almost always frees it */
+  for(let step = 2; step <= 6; step += 2){
+    const out = step * Math.max(90, len * 0.14);
+    for(const side of [1, -1]){
+      const a = {x:p1.x + vx * 0.25 + nx * out * side, y:p1.y + vy * 0.25 + ny * out * side};
+      const b = {x:p1.x + vx * 0.75 + nx * out * side, y:p1.y + vy * 0.75 + ny * out * side};
+      const pts = [p1, a, b, p2];
+      const hits = hitsFor(pts).length;
+      if(!hits) return pts;
+      if(hits < bestHits){ bestHits = hits; best = pts; }
+    }
+  }
+  return best || [p1, p2];
 }
 function smoothThrough(pts, p1, p2){
   return cubicsToD(cubicsThrough(pts, p1, p2));
@@ -4908,7 +4962,9 @@ function render(){
       /* the line leaves the parent's edge pointing straight at the child, so
          a family reads as hands round a clock face */
       p1 = rimPoint(a, b); p2 = rimPoint(b, a);
-      route = "straight";
+      /* a spoke leaves the rim pointing at the child, but still bends around
+         anything unrelated standing in the way */
+      route = S.avoidNodes ? "curve" : "straight";
     } else {
       const [fs, ts] = sidesFor(e, a, b);
       p1 = anchorPt(a, fs); p2 = anchorPt(b, ts);
@@ -4919,7 +4975,9 @@ function render(){
     let d;
     if(S.avoidNodes && route !== "straight" && !e.bow){
       const pts = avoidPath(p1, p2, e.from, e.to);
-      d = smoothThrough(pts, p1, p2);
+      /* nothing in the way: leave it as the plain shape rather than bending it,
+         since a needless curve can clip a neighbour a straight line misses */
+      d = pts.length > 2 ? smoothThrough(pts, p1, p2) : edgePathD(p1, p2, route, e.bow);
     } else {
       d = edgePathD(p1, p2, route, e.bow);
     }
