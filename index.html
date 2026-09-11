@@ -321,6 +321,21 @@ input[type=range],input[type=color],input[type=checkbox],input[type=file]{cursor
   padding:8px 16px;font-size:12.5px;font-weight:600;box-shadow:0 3px 12px rgba(0,0,0,.24);
   max-width:70%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #tagFlag[hidden]{display:none}
+#trayFlag{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:23;
+  background:var(--blueprint);color:var(--paper);border:0;border-radius:20px;
+  padding:8px 16px;font-size:12.5px;font-weight:600;box-shadow:0 3px 12px rgba(0,0,0,.24);
+  max-width:76%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#trayFlag[hidden]{display:none}
+.trayrow{display:flex;align-items:center;gap:8px;padding:8px 6px;cursor:pointer;
+  border-top:1px solid var(--rule-soft);border-radius:2px}
+.trayrow:first-child{border-top:0}
+.trayrow:hover{background:var(--paper-2)}
+.trayrow.armed{background:var(--blueprint-soft);box-shadow:inset 3px 0 0 var(--blueprint)}
+.traytext{flex:1;font-size:12.5px;line-height:1.35;white-space:pre-wrap;word-break:break-word}
+#trayCount{position:absolute;top:-4px;right:-4px;min-width:16px;padding:0 4px;border-radius:8px;
+  background:var(--flag);color:var(--paper);font-size:10px;font-family:var(--mono);
+  line-height:16px;text-align:center}
+#trayCount:empty{display:none}
 .linkbar{
   position:absolute;left:50%;top:14px;transform:translateX(-50%);z-index:20;
   background:var(--paper);border:1px solid var(--graphite);border-radius:3px;
@@ -416,6 +431,21 @@ body.focusing .node-g:not(.focusdim) .node-box{stroke-width:calc(var(--node-bord
   padding:8px 16px;font-size:12.5px;font-weight:600;box-shadow:0 3px 12px rgba(0,0,0,.24);
   max-width:70%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #tagFlag[hidden]{display:none}
+#trayFlag{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:23;
+  background:var(--blueprint);color:var(--paper);border:0;border-radius:20px;
+  padding:8px 16px;font-size:12.5px;font-weight:600;box-shadow:0 3px 12px rgba(0,0,0,.24);
+  max-width:76%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#trayFlag[hidden]{display:none}
+.trayrow{display:flex;align-items:center;gap:8px;padding:8px 6px;cursor:pointer;
+  border-top:1px solid var(--rule-soft);border-radius:2px}
+.trayrow:first-child{border-top:0}
+.trayrow:hover{background:var(--paper-2)}
+.trayrow.armed{background:var(--blueprint-soft);box-shadow:inset 3px 0 0 var(--blueprint)}
+.traytext{flex:1;font-size:12.5px;line-height:1.35;white-space:pre-wrap;word-break:break-word}
+#trayCount{position:absolute;top:-4px;right:-4px;min-width:16px;padding:0 4px;border-radius:8px;
+  background:var(--flag);color:var(--paper);font-size:10px;font-family:var(--mono);
+  line-height:16px;text-align:center}
+#trayCount:empty{display:none}
 .linkbar{left:8px;right:8px;transform:none;max-width:none}
   .pairacts .btn{flex:1 1 auto;padding:9px 8px;font-size:13px}
 }
@@ -797,6 +827,16 @@ dialog#connDlg::backdrop{background:rgba(35,40,45,.42)}
 dialog#viewerKindDlg{border:1px solid var(--graphite);border-radius:3px;padding:0;
   background:var(--paper);width:min(560px,94vw);max-height:88dvh;color:var(--graphite)}
 dialog#viewerKindDlg::backdrop{background:rgba(35,40,45,.42)}
+dialog#signDlg{border:1px solid var(--graphite);border-radius:3px;padding:0;background:var(--paper);
+  width:min(430px,94vw);max-height:86dvh;color:var(--graphite);display:flex;flex-direction:column}
+dialog#signDlg::backdrop{background:rgba(35,40,45,.42)}
+#signProofPrev img{max-width:100%;max-height:180px;border:1px solid var(--rule);
+  border-radius:3px;margin-top:8px;display:block}
+.evid{font-family:var(--mono);font-size:10.5px;color:var(--graphite-60);display:block;margin-top:2px}
+.evid b{color:var(--graphite);font-weight:600}
+.evidshot{display:inline-block;width:22px;height:22px;object-fit:cover;border-radius:2px;
+  border:1px solid var(--rule);vertical-align:-6px;margin-left:5px;cursor:pointer}
+@media (max-width:820px){ dialog#signDlg{width:100vw;height:100dvh;max-height:none;border:0;border-radius:0} }
 dialog#bulkDlg{border:1px solid var(--graphite);border-radius:3px;padding:0;background:var(--paper);
   width:min(440px,94vw);max-height:86dvh;color:var(--graphite);display:flex;flex-direction:column}
 dialog#bulkDlg::backdrop{background:rgba(35,40,45,.42)}
@@ -1065,6 +1105,7 @@ body.viewing.panelaway #panelHide{display:none}
     <option value="flagged">Needs attention</option>
     <option value="retired">Retired</option>
   </select>
+  <button class="btn iconbtn" id="trayBtn" title="Tray">&#9776;<span id="trayCount"></span></button>
   <button class="btn iconbtn" id="tagPickBtn" title="Filter by tag">⛬<span id="tagPickCount"></span></button>
   <button class="btn iconbtn" id="topUpdates" title="New and recently opened" aria-label="Updates">
     ★<span id="newBadgeCount"></span></button>
@@ -1195,6 +1236,11 @@ body.viewing.panelaway #panelHide{display:none}
           </select></label>
         <label class="check"><input type="checkbox" id="dimOthers" checked>
           Fade everything that does not match a search</label>
+        <label class="field"><span>How branches are arranged</span>
+          <select id="branchShape">
+            <option value="tidy">Tidy columns</option>
+            <option value="radial">Around the parent, clockwise</option>
+          </select></label>
         <label class="check"><input type="checkbox" id="followOutline" checked>
           Show the picked node in the outline, switching the panel if needed</label>
         <label class="check"><input type="checkbox" id="branchGrid" checked>
@@ -1333,6 +1379,16 @@ body.viewing.panelaway #panelHide{display:none}
         <input type="search" id="tocQ" placeholder="Filter the outline">
       </div>
 
+      <div class="group" id="trayGroup">
+        <h2>Tray</h2>
+        <div class="row">
+          <input type="text" id="trayAdd" placeholder="Jot something down…">
+        </div>
+        <p class="fineprint">Put things here as they come up, then place them on the
+          map when you know where they go.</p>
+        <div id="trayList"></div>
+      </div>
+
       <div class="group">
         <h2>Bookmarks</h2>
         <div id="tocBookmarks"></div>
@@ -1414,6 +1470,7 @@ body.viewing.panelaway #panelHide{display:none}
 
     <button id="modeFlag" hidden></button>
     <button id="tagFlag" hidden></button>
+    <button id="trayFlag" hidden></button>
     <div class="linkbar" id="linkBar" hidden>
       <div class="pairnames"><b id="pairA">—</b><span id="pairArrow">→</span><b id="pairB">—</b></div>
       <div class="pairacts" id="pairActs">
@@ -1535,6 +1592,28 @@ body.viewing.panelaway #panelHide{display:none}
     <button class="btn wide" id="resClear">Clear the filter</button>
   </div>
 </div>
+
+<dialog id="signDlg">
+  <div class="dlg-head">
+    <h2 id="signTitle">Confirm</h2>
+    <button class="btn" id="signCancel">Cancel</button>
+  </div>
+  <div class="hist-controls">
+    <p class="fineprint" id="signAsk"></p>
+    <label class="field" id="signRefWrap"><span id="signRefLabel">Accession number</span>
+      <input type="text" id="signRef" placeholder="e.g. 3792769"></label>
+    <div id="signProofWrap">
+      <div class="row" style="margin-top:6px">
+        <button class="btn wide" id="signProofPick">Attach a screenshot</button>
+      </div>
+      <div id="signProofPrev"></div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn wide primary" id="signDo">Confirm</button>
+    </div>
+    <p class="fineprint" id="signWarn"></p>
+  </div>
+</dialog>
 
 <dialog id="bulkDlg">
   <div class="dlg-head">
@@ -1842,6 +1921,7 @@ const S = {
   followOutline:true,          // the outline keeps up with the selection
   pickZoom:"in",               // off | in | note
   focusMode:"off",             // off | linked | family
+  branchShape:"tidy",          // tidy | radial
   branchGrid:true,             // pack big fans into a grid rather than one column
   avoidNodes:true,             // steer links around nodes they do not touch
   showIds:false,               // node id and revision on the node face
@@ -1851,6 +1931,8 @@ const S = {
   customThemes:[],
   motion:"full",               // full | calm | off
   who:"",
+  inbox:[],                    // jotted down, not yet placed on the map
+  inboxArmed:null,             // the item waiting to be put somewhere
   questions:[],                // asked by anyone; answers are pinned nodes
   pins:[],
   selQuestion:null,
@@ -1900,13 +1982,16 @@ function newSuggestion(o={}){
 }
 function newCheckItem(o={}){
   return Object.assign({
-    id:uid("C-"), node:"", label:"Read and understood", created:nowISO(), author:S.meta.author
+    id:uid("C-"), node:"", label:"Read and understood", created:nowISO(), author:S.meta.author,
+    /* what a person has to supply when they sign it off: "" | ref | proof | both */
+    requires:"", prompt:""
   }, o);
 }
 function newCheckoff(o={}){
   return Object.assign({
     id:uid("X-"), item:"", node:"", person:S.who || "anonymous",
-    checked:"yes", timestamp:nowISO(), note:""
+    checked:"yes", timestamp:nowISO(), note:"",
+    evidence:"", proof:""          // what they put in, and a picture if asked for
   }, o);
 }
 
@@ -2341,12 +2426,13 @@ const HDR = {
   Areas:["area_id","label","x","y","w","h","color","move_contents","holds","note"],
   Bookmarks:["bookmark_id","label","node_id","x","y","zoom","icon"],
   Suggestions:["suggestion_id","node_id","person","timestamp","kind","text","status","resolved_by","resolved_at"],
-  CheckItems:["item_id","node_id","label","created","author"],
-  Checkoffs:["check_id","item_id","node_id","person","checked","timestamp","note"],
+  CheckItems:["item_id","node_id","label","created","author","requires","prompt"],
+  Checkoffs:["check_id","item_id","node_id","person","checked","timestamp","note","evidence","proof"],
   Settings:["key","value"],
   Overflow:["ref_id","table","column","seq","text"],
   Questions:["question_id","text","person","timestamp","status","note"],
-  QuestionPins:["pin_id","question_id","node_id","person","timestamp","note"]
+  QuestionPins:["pin_id","question_id","node_id","person","timestamp","note"],
+  Inbox:["item_id","text","created","author"]
 };
 
 function pathOf(id){
@@ -2398,11 +2484,13 @@ function toSheets(){
     resolved_by:x.resolved_by||"", resolved_at:x.resolved_at||""
   }));
   const checkItems = S.checkItems.map(x=>({
-    item_id:x.id, node_id:x.node, label:x.label, created:x.created, author:x.author
+    item_id:x.id, node_id:x.node, label:x.label, created:x.created, author:x.author,
+    requires:x.requires || "", prompt:x.prompt || ""
   }));
   const checkoffs = S.checkoffs.map(x=>({
     check_id:x.id, item_id:x.item, node_id:x.node, person:x.person,
-    checked:x.checked, timestamp:x.timestamp, note:x.note||""
+    checked:x.checked, timestamp:x.timestamp, note:x.note||"",
+    evidence:x.evidence || "", proof:x.proof || ""
   }));
   const questions = S.questions.map(x=>({
     question_id:x.id, text:x.text, person:x.person, timestamp:x.timestamp,
@@ -2411,6 +2499,9 @@ function toSheets(){
   const pins = S.pins.map(x=>({
     pin_id:x.id, question_id:x.question, node_id:x.node, person:x.person,
     timestamp:x.timestamp, note:x.note||""
+  }));
+  const inbox = (S.inbox || []).map(it=>({
+    item_id:it.id, text:it.text, created:it.at, author:it.by || ""
   }));
   const settings = [
     {key:"locked", value:S.meta.locked ? "yes" : ""},
@@ -2428,7 +2519,7 @@ function toSheets(){
   return { Nodes:nodes, Links:links, Revisions:S.revisions.slice(), TagStyles:styles,
            Areas:areas, Bookmarks:bookmarks, Suggestions:suggestions,
            CheckItems:checkItems, Checkoffs:checkoffs, Questions:questions,
-           QuestionPins:pins, Settings:settings, Overflow:[], Sync:sync };
+           QuestionPins:pins, Settings:settings, Inbox:inbox, Overflow:[], Sync:sync };
 }
 function round(v){ return v==null?"":Math.round(v*10)/10; }
 
@@ -2460,7 +2551,13 @@ function tablesToModel(t){
   const M = { nodes:new Map(), edges:new Map(), revisions:[], tagStyles:new Map(),
               connections:[], areas:new Map(), bookmarks:[],
               suggestions:[], checkItems:[], checkoffs:[], settings:{},
-              questions:[], pins:[] };
+              questions:[], pins:[], inbox:[] };
+
+  (t.Inbox || []).forEach(r=>{
+    if(!String(r.text||"").trim()) return;
+    M.inbox.push({id:String(r.item_id||uid("I-")), text:String(r.text),
+      at:String(r.created||""), by:String(r.author||"")});
+  });
 
   for(const r of nodes){
     const n = newNode({
@@ -2552,7 +2649,8 @@ function tablesToModel(t){
     M.pins.push(newPin({
       id:String(r.pin_id||uid("P-")), question:String(r.question_id||""),
       node:String(r.node_id||""), person:String(r.person||"anonymous"),
-      timestamp:String(r.timestamp||nowISO()), note:String(r.note||"")
+      timestamp:String(r.timestamp||nowISO()), note:String(r.note||""),
+      evidence:String(r.evidence||""), proof:String(r.proof||"")
     }));
   }
   for(const r of (t.Suggestions||[])){
@@ -2570,7 +2668,8 @@ function tablesToModel(t){
     M.checkItems.push(newCheckItem({
       id:String(r.item_id||uid("C-")), node:String(r.node_id||""),
       label:String(r.label||"Read and understood"),
-      created:String(r.created||nowISO()), author:String(r.author||"")
+      created:String(r.created||nowISO()), author:String(r.author||""),
+      requires:String(r.requires||""), prompt:String(r.prompt||"")
     }));
   }
   for(const r of (t.Checkoffs||[])){
@@ -2579,7 +2678,8 @@ function tablesToModel(t){
       id:String(r.check_id||uid("X-")), item:String(r.item_id||""),
       node:String(r.node_id||""), person:String(r.person||"anonymous"),
       checked:/^(yes|true|1|y)$/i.test(String(r.checked||"yes")) ? "yes" : "",
-      timestamp:String(r.timestamp||nowISO()), note:String(r.note||"")
+      timestamp:String(r.timestamp||nowISO()), note:String(r.note||""),
+      evidence:String(r.evidence||""), proof:String(r.proof||"")
     }));
   }
   for(const r of (t.Settings||[])){
@@ -2612,6 +2712,7 @@ function adoptModel(M, keepConnections){
   S.meta.newBadgeImage = M.settings.new_badge_image || "";
   /* the severity artwork was written to the sheet but never read back, so it
      survived a save and vanished on the next open */
+  S.inbox = (M.inbox || []).slice();
   S.meta.sevArt = {};
   SEVERITIES.forEach(sv=>{
     if(M.settings[sv.key]) S.meta.sevArt[sv.key] = M.settings[sv.key];
@@ -2898,6 +2999,13 @@ function layout(){
             h:Math.max(n._h, region.h)};
   };
 
+  if(S.branchShape === "radial"){
+    layoutRadial(vis, stacked);
+    keepOutOfAreas(vis, stacked);
+    placePiles(vis, stacked);
+    return;
+  }
+
   const blocks = roots().map(build).filter(Boolean);
   for(const id of vis) if(!seen.has(id) && !stacked.has(id)){
     const bl = build(id); if(bl) blocks.push(bl);
@@ -2916,8 +3024,152 @@ function layout(){
     if(!isFinite(n._y)) n._y = 0;
   }
   keepOutOfAreas(vis, stacked);
-  /* the pile is placed last: it rides with whatever ended up on top, after
-     everything else has finished moving */
+  placePiles(vis, stacked);
+}
+
+/* ---------------------------------------------------------------
+   Radial branches. The ends of a branch are spread evenly around a
+   circle and every parent is then centred over its own children, so a
+   family stays together and the children of one node read clockwise
+   from the top.
+   --------------------------------------------------------------- */
+const RING_GAP = 30;
+
+function layoutRadial(vis, stacked){
+  const kidsOf = id => childrenOf(id).filter(k=>vis.has(k) && !stacked.has(k));
+  const clusters = [];
+  const done = new Set();
+  const heads = roots().filter(id=>vis.has(id) && !stacked.has(id));
+  const tops = heads.concat([...vis].filter(id=>!stacked.has(id)
+    && !parentOf(id) && heads.indexOf(id) < 0));
+
+  tops.forEach(top=>{
+    if(done.has(top)) return;
+    const order = [], depthOf = new Map();
+    const walk = (id, d, seen)=>{
+      if(seen.has(id)) return;
+      seen.add(id);
+      depthOf.set(id, d);
+      const kids = kidsOf(id);
+      if(!kids.length) order.push(id);
+      kids.forEach(k=>walk(k, d + 1, seen));
+    };
+    walk(top, 0, new Set());
+    if(!depthOf.size) return;
+
+    const leaves = order.length || 1;
+    const step = (Math.PI * 2) / leaves;
+    const angle = new Map();
+    order.forEach((id, i)=>angle.set(id, -Math.PI / 2 + i * step));
+
+    const settle = (id, seen)=>{
+      if(seen.has(id)) return angle.get(id);
+      seen.add(id);
+      const kids = kidsOf(id);
+      if(!kids.length) return angle.get(id);
+      const as = kids.map(k=>settle(k, seen)).filter(a=>a != null);
+      if(!as.length) return angle.get(id);
+      const a = (Math.min(...as) + Math.max(...as)) / 2;
+      angle.set(id, a);
+      return a;
+    };
+    settle(top, new Set());
+
+    /* rings wide enough for what stands on them */
+    const perDepth = [], tallest = [];
+    depthOf.forEach((d, id)=>{
+      perDepth[d] = (perDepth[d] || 0) + 1;
+      tallest[d] = Math.max(tallest[d] || 0, S.nodes.get(id)._h || 40);
+    });
+    const radii = [0];
+    for(let d = 1; d < perDepth.length; d++){
+      /* a node placed at any angle reaches out by half its longest side, so
+         the rings clear each other by width, not just by height */
+      const reachPrev = Math.max(NODE_W, tallest[d-1] || 40);
+      const reachHere = Math.max(NODE_W, tallest[d] || 40);
+      const clear = radii[d-1] + reachPrev / 2 + reachHere / 2 + RING_GAP;
+      const around = (perDepth[d] || 1)
+        * (Math.max(NODE_W, tallest[d] || 40) + RING_GAP) / (Math.PI * 2);
+      radii[d] = Math.max(clear, around);
+    }
+
+    /* Centring a parent over its children can crowd a busy ring, so each ring
+       is combed through afterwards and anything too close to its neighbour is
+       nudged along, keeping the order it was in. */
+    const byDepth = new Map();
+    depthOf.forEach((d, id)=>{
+      if(d === 0) return;
+      if(!byDepth.has(d)) byDepth.set(d, []);
+      byDepth.get(d).push(id);
+    });
+    byDepth.forEach((ids, d)=>{
+      const r = radii[d] || 1;
+      /* a node can sit at any angle, so allow for its longest side */
+      const reach = Math.max(NODE_W, tallest[d] || 40) + RING_GAP;
+      const gap = reach / r;
+      ids.sort((a, b)=>(angle.get(a) || 0) - (angle.get(b) || 0));
+      if(ids.length * gap >= Math.PI * 2){
+        /* it cannot be done without crowding: space them evenly instead */
+        const evenly = (Math.PI * 2) / ids.length;
+        ids.forEach((id, i)=>angle.set(id, -Math.PI / 2 + i * evenly));
+        return;
+      }
+      for(let i = 1; i < ids.length; i++){
+        const prev = angle.get(ids[i-1]), here = angle.get(ids[i]);
+        if(here - prev < gap) angle.set(ids[i], prev + gap);
+      }
+      /* and close the loop: the last must not run into the first */
+      const first = angle.get(ids[0]), last = angle.get(ids[ids.length-1]);
+      const over = (last + gap) - (first + Math.PI * 2);
+      if(over > 0){
+        const shift = over / Math.max(1, ids.length - 1);
+        ids.forEach((id, i)=>angle.set(id, angle.get(id) - shift * i));
+      }
+    });
+
+    const mine = [];
+    depthOf.forEach((d, id)=>{
+      const n = S.nodes.get(id);
+      const a = d === 0 ? 0 : (angle.get(id) || 0);
+      const r = d === 0 ? 0 : (radii[d] || 0);
+      n._x = Math.cos(a) * r - NODE_W / 2;
+      n._y = Math.sin(a) * r - n._h / 2;
+      mine.push(id);
+      done.add(id);
+    });
+
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    mine.forEach(id=>{
+      const n = S.nodes.get(id);
+      x0 = Math.min(x0, n._x); y0 = Math.min(y0, n._y);
+      x1 = Math.max(x1, n._x + NODE_W); y1 = Math.max(y1, n._y + n._h);
+    });
+    clusters.push({ids:mine, x0, y0, w:x1 - x0, h:y1 - y0});
+  });
+
+  /* the clusters themselves still pack into a grid */
+  const blocks = clusters.map(c=>({w:c.w, h:c.h, cluster:c}));
+  const packed = (S.branchGrid && wantsGrid(blocks)) ? packGrid(blocks) : packColumn(blocks);
+  packed.cells.forEach(cell=>{
+    const c = cell.block.cluster;
+    const dx = cell.x - c.x0, dy = cell.y - c.y0;
+    c.ids.forEach(id=>{
+      const n = S.nodes.get(id);
+      n._x += dx; n._y += dy;
+    });
+  });
+
+  for(const id of vis){
+    const n = S.nodes.get(id);
+    if(!stacked.has(id) && n.pinned && n.x != null && n.y != null){ n._x = n.x; n._y = n.y; }
+    if(!isFinite(n._x)) n._x = 0;
+    if(!isFinite(n._y)) n._y = 0;
+  }
+}
+
+/* the pile is placed last: it rides with whatever ended up on top, after
+   everything else has finished moving */
+function placePiles(vis, stacked){
   for(const id of vis){
     if(stacked.has(id)) continue;
     const pile = layersUnder(id).filter(x=>vis.has(x));
@@ -3986,8 +4238,16 @@ function drawStrip(g, n){
         "text-anchor":"end"}, b);
       c.textContent = count;
     }
-    b.addEventListener("pointerup", ev=>{ ev.stopPropagation(); onClick(); });
-    b.addEventListener("pointerdown", ev=>ev.stopPropagation());
+    b.addEventListener("pointerdown", ev=>{
+      if(pointerCount() >= 1) return;      // a second finger belongs to the map
+      trackPointer(ev);
+      ev.stopPropagation();
+    });
+    b.addEventListener("pointerup", ev=>{
+      if(inPinch()){ dropPointer(ev); return; }   // it turned into a gesture
+      dropPointer(ev);
+      ev.stopPropagation(); onClick();
+    });
     if(tall) y += sh + 6; else x += w + 4;
   };
   /* the chevron duplicated something that opens on its own; a bookmark is the
@@ -4071,8 +4331,16 @@ function drawMark(g, opts){
     mk("circle",{r:7, cx:0, cy:0}, kill);
     const xt = mk("text",{x:0, y:3.2, "text-anchor":"middle"}, kill);
     xt.textContent = "\u00d7";
-    kill.addEventListener("pointerup", ev=>{ ev.stopPropagation(); onClear(); });
-    kill.addEventListener("pointerdown", ev=>ev.stopPropagation());
+    kill.addEventListener("pointerdown", ev=>{
+      if(pointerCount() >= 1) return;
+      trackPointer(ev);
+      ev.stopPropagation();
+    });
+    kill.addEventListener("pointerup", ev=>{
+      if(inPinch()){ dropPointer(ev); return; }
+      dropPointer(ev);
+      ev.stopPropagation(); onClear();
+    });
   }
   const ttl = mk("title",{}, bg);
   ttl.textContent = tip || "";
@@ -4678,13 +4946,18 @@ function render(){
         "text-anchor":"end"}, tab);
       t.textContent = label;
       tab.addEventListener("pointerup", ev=>{
+        if(inPinch()){ dropPointer(ev); return; }
+        dropPointer(ev);
         ev.stopPropagation();
         /* step down through the pile, then back to the top */
         const here = pile.indexOf(S.sel);
         const next = here < 0 ? pile[0] : (pile[here + 1] || id);
         pickNode(next);
       });
-      tab.addEventListener("pointerdown", ev=>ev.stopPropagation());
+      tab.addEventListener("pointerdown", ev=>{
+        if(pointerCount() >= 1) return;
+        trackPointer(ev); ev.stopPropagation();
+      });
     }
     if(isLayer(id)){
       /* and a way back up from a layer */
@@ -4695,8 +4968,15 @@ function render(){
       const t = mk("text",{class:"stacktab", x:NODE_W - 7, y:-6,
         "text-anchor":"end"}, tab);
       t.textContent = "back to current";
-      tab.addEventListener("pointerup", ev=>{ ev.stopPropagation(); pickNode(up); });
-      tab.addEventListener("pointerdown", ev=>ev.stopPropagation());
+      tab.addEventListener("pointerdown", ev=>{
+        if(pointerCount() >= 1) return;
+        trackPointer(ev); ev.stopPropagation();
+      });
+      tab.addEventListener("pointerup", ev=>{
+        if(inPinch()){ dropPointer(ev); return; }
+        dropPointer(ev);
+        ev.stopPropagation(); pickNode(up);
+      });
     }
     if(S.showIds){
       /* the band already says retired, so the caption need not repeat it */
@@ -4859,7 +5139,9 @@ let outlineStale = true, outlineSig = "";
 let outlineFill = ()=>{};
 
 /* Wire up the outline rows: folding, dragging to reorder, and jumping. Called
-   for the whole panel and again for any section built on demand. */
+   for the whole panel and again for any section built on demand, so the row
+   being dragged is remembered out here rather than per call. */
+let dragId = null;
 function bindOutline(root){
   root.querySelectorAll("[data-fold]").forEach(d=>{
     d.addEventListener("toggle", ()=>{
@@ -4918,7 +5200,103 @@ function outlineVisible(){
   const pane = el("paneContents");
   return !!(pane && pane.getClientRects().length);
 }
+/* ---------------------------------------------------------------
+   The tray. Somewhere to put a thought without deciding where it
+   belongs, and a way to place it later: pick it up, then tap a node
+   to hang it off, or tap open space to drop it there.
+   --------------------------------------------------------------- */
+function addToTray(text){
+  const t = String(text || "").trim();
+  if(!t) return;
+  S.inbox.unshift({id:uid("I-"), text:t, at:nowISO(), by:S.who || ""});
+  markDirty(); renderTray(); updateTrayCount();
+}
+function dropFromTray(id){
+  S.inbox = S.inbox.filter(x=>x.id !== id);
+  if(S.inboxArmed === id) S.inboxArmed = null;
+  markDirty(); renderTray(); updateTrayCount(); updateTrayFlag();
+}
+function armTrayItem(id){
+  S.inboxArmed = (S.inboxArmed === id) ? null : id;
+  renderTray(); updateTrayFlag();
+}
+function updateTrayCount(){
+  const b = el("trayCount");
+  if(b) b.textContent = S.inbox.length ? String(S.inbox.length) : "";
+}
+function updateTrayFlag(){
+  const f = el("trayFlag");
+  if(!f) return;
+  const it = S.inbox.find(x=>x.id === S.inboxArmed);
+  f.hidden = !it;
+  if(it) f.textContent = "Placing “" + (it.text.length > 28 ? it.text.slice(0,28) + "…" : it.text)
+    + "” — tap a node, or open space";
+}
+
+/* Turn a tray item into a node. target is a node id, or null for open space. */
+function placeTrayItem(itemId, target, where, at){
+  if(!canEdit()){ toast("Switch to editing mode first."); return; }
+  const it = S.inbox.find(x=>x.id === itemId);
+  if(!it) return;
+  const lines = it.text.split(/\n/);
+  const n = newNode({label:lines[0].slice(0, 120), body:lines.slice(1).join("\n")});
+  S.nodes.set(n.id, n);
+  if(target && S.nodes.has(target) && where !== "loose"){
+    const e = newEdge({from:target, to:n.id, link_type:where === "cross" ? "cross" : "tree"});
+    S.edges.set(e.id, e);
+  } else if(at){
+    n.pinned = true; n.x = at.x; n.y = at.y;
+  }
+  dropFromTray(itemId);
+  markDirty(); rebuild();
+  pickNode(n.id);
+  toast(where === "cross" ? "Cross-linked to " + nodeName(target)
+      : where === "child" ? "Added under " + nodeName(target)
+      : "Dropped on the map");
+}
+
+function askWhereToPlace(target){
+  const it = S.inbox.find(x=>x.id === S.inboxArmed);
+  if(!it) return;
+  const name = nodeName(target);
+  const answer = prompt("Put “" + it.text.slice(0, 60) + "” where?\n\n"
+    + "1 — under " + name + "\n2 — cross-linked to " + name + "\n3 — loose, next to it\n\n"
+    + "Type 1, 2 or 3", "1");
+  if(answer === null) return;
+  const n = S.nodes.get(target);
+  const at = n && n._x != null ? {x:n._x + NODE_W + 60, y:n._y} : null;
+  if(answer.trim() === "2") placeTrayItem(it.id, target, "cross");
+  else if(answer.trim() === "3") placeTrayItem(it.id, null, "loose", at);
+  else placeTrayItem(it.id, target, "child");
+}
+
+function renderTray(){
+  const box = el("trayList");
+  if(!box) return;
+  box.innerHTML = S.inbox.length
+    ? S.inbox.map(it=>`<div class="trayrow${S.inboxArmed === it.id ? " armed" : ""}"
+        data-tray="${esc(it.id)}" draggable="true">
+        <span class="traytext">${esc(it.text)}</span>
+        <button class="kill" data-traydrop="${esc(it.id)}" title="Throw it away">&times;</button>
+      </div>`).join("")
+    : `<p class="tocempty">Nothing waiting.</p>`;
+  box.querySelectorAll("[data-traydrop]").forEach(b=>{
+    b.onclick = ev=>{ ev.stopPropagation(); dropFromTray(b.dataset.traydrop); };
+  });
+  box.querySelectorAll("[data-tray]").forEach(row=>{
+    row.onclick = ()=>armTrayItem(row.dataset.tray);
+    row.addEventListener("dragstart", ev=>{
+      S.inboxArmed = row.dataset.tray;
+      updateTrayFlag();
+      try{ ev.dataTransfer.setData("text/plain", row.dataset.tray); }catch(e){}
+      ev.dataTransfer.effectAllowed = "copy";
+    });
+  });
+  updateTrayCount();
+}
+
 function renderContents(){
+  renderTray();
   /* Hundreds of rows cost real time to build and lay out. When the panel is
      on Tools nobody can see them, so the work is put off until it can. */
   if(!outlineVisible()){ outlineStale = true; renderResults(); return; }
@@ -5182,7 +5560,6 @@ function renderContents(){
 
   const root = el("paneContents");
   /* reorder branches without hunting for them on the map */
-  let dragId = null;
   bindOutline(root);
   root.querySelectorAll("[data-jump]").forEach(e=>{
     e.onclick = ev=>{ ev.preventDefault(); ev.stopPropagation();
@@ -5735,6 +6112,16 @@ const MIN_K = 0.05, MAX_K = 6;
 
 (function bindPointer(){
   const pts = new Map();
+  /* The controls around a node used to swallow a touch outright, so the map
+     never counted it and a pinch that began there could not start. They hand
+     the pointer over instead. */
+  window.pointerCount = ()=>pts.size;
+  window.trackPointer = ev=>{
+    pts.set(ev.pointerId, {x:ev.clientX, y:ev.clientY, t:Date.now()});
+    mode = "widget";
+  };
+  window.dropPointer = ev=>{ pts.delete(ev.pointerId); if(mode === "widget") mode = null; };
+  window.inPinch = ()=>mode === "pinch";
   let mode = null, panStart = null, dragNode = null, moved = false, pinch = null;
   let downPt = null, downTime = 0, lastTapTime = 0, lastTapId = null, tapBlockUntil = 0;
   let dragArea = null, drawFrom = null, drawEl = null, lpTimer = null;
@@ -6037,6 +6424,7 @@ const MIN_K = 0.05, MAX_K = 6;
         render(); renderInspector();
       } else if(wasTap){
         const id = dragNode.id;
+        if(S.inboxArmed){ askWhereToPlace(id); return; }
         const now = Date.now();
         if(lastTapId === id && now - lastTapTime < 340) focusNode(id);
         else pickNode(id);
@@ -6047,9 +6435,11 @@ const MIN_K = 0.05, MAX_K = 6;
          the moving in, the outline following or the note opening happened.
          Arming a pair or choosing several still routes through select. */
       const id = dragNode.id;
+      if(S.inboxArmed){ askWhereToPlace(id); return; }
       if(S.pairArmed || S.pairShift || S.selectMode){
         select(id);
       } else {
+        if(S.inboxArmed){ askWhereToPlace(id); return; }
         const now = Date.now();
         if(lastTapId === id && now - lastTapTime < 340) focusNode(id);
         else pickNode(id);
@@ -6059,6 +6449,9 @@ const MIN_K = 0.05, MAX_K = 6;
         el("inspector").classList.add("open"); el("scrim").classList.add("on");
         el("fab").style.display = "none";
       }
+    } else if(mode === "pan" && wasTap && S.inboxArmed){
+      const w = toWorld(ev.clientX, ev.clientY);
+      placeTrayItem(S.inboxArmed, null, "loose", w);
     } else if(mode === "pan" && wasTap){
       const now = Date.now();
       if(lastTapId === "__bg" && now - lastTapTime < 340){
@@ -6924,6 +7317,66 @@ function renderAreaInspector(a){
 
 /* The panels a viewer gets on a node: what it says, what to confirm, and a
    way to propose a change without touching it. */
+/* Write or update this person's confirmation of one item. */
+function writeCheckoff(itemId, nodeId, on, evidence, proof){
+  let row = checkoffFor(itemId, S.who);
+  if(!row){
+    row = newCheckoff({item:itemId, node:nodeId, person:S.who, checked:on ? "yes" : ""});
+    S.checkoffs.push(row);
+  } else {
+    row.checked = on ? "yes" : "";
+    row.timestamp = nowISO();
+  }
+  if(on){ row.evidence = evidence || ""; row.proof = proof || ""; }
+  else { row.evidence = ""; row.proof = ""; }
+  markContribution();
+  return row;
+}
+
+/* Open an attached screenshot at full size. */
+function showPicture(src){
+  if(!src) return;
+  const w = window.open("", "_blank");
+  if(w){ w.document.write(`<title>Evidence</title>
+    <body style="margin:0;background:#111;display:grid;place-items:center">
+    <img src="${src}" style="max-width:100%;max-height:100vh"></body>`); }
+}
+
+let signFor = null, signProof = "";
+function askForEvidence(item, nodeId){
+  signFor = {item, nodeId};
+  signProof = "";
+  const needRef = item.requires === "ref" || item.requires === "both";
+  const needShot = item.requires === "proof" || item.requires === "both";
+  el("signTitle").textContent = item.label;
+  el("signAsk").textContent = item.prompt
+    || (needRef && needShot ? "Give an accession number and a screenshot."
+      : needRef ? "Give an accession number as evidence."
+      : "Attach a screenshot as evidence.");
+  el("signRefWrap").hidden = !needRef;
+  el("signProofWrap").hidden = !needShot;
+  el("signRef").value = "";
+  el("signRefLabel").textContent = item.prompt && needRef ? "Your answer" : "Accession number";
+  el("signProofPrev").innerHTML = "";
+  el("signWarn").textContent = "";
+  el("signDlg").showModal();
+  if(needRef) setTimeout(()=>el("signRef").focus(), 60);
+}
+function completeSignOff(){
+  if(!signFor) return;
+  const {item, nodeId} = signFor;
+  const needRef = item.requires === "ref" || item.requires === "both";
+  const needShot = item.requires === "proof" || item.requires === "both";
+  const ref = (el("signRef").value || "").trim();
+  if(needRef && !ref){ el("signWarn").textContent = "Fill that in first."; return; }
+  if(needShot && !signProof){ el("signWarn").textContent = "A screenshot is needed."; return; }
+  writeCheckoff(item.id, nodeId, true, ref, signProof);
+  el("signDlg").close();
+  signFor = null; signProof = "";
+  renderInspector();
+  toast("Confirmed, with what you gave");
+}
+
 function contributionBlock(n){
   const items = itemsFor(n.id);
   const sugs = suggestionsFor(n.id).slice().reverse();
@@ -6938,7 +7391,13 @@ function contributionBlock(n){
           <input type="checkbox" data-check="${esc(it.id)}"${done?" checked":""}>
           <span>${esc(it.label)}
             <span class="fold" style="margin-left:6px">${checkCount(it.id)} confirmed</span>
+            ${it.requires ? `<span class="fold">needs ${it.requires === "ref" ? "a reference"
+              : it.requires === "proof" ? "a screenshot" : "both"}</span>` : ""}
             ${done && mine.timestamp?`<br><span style="font-family:var(--mono);font-size:10px;color:var(--graphite-60)">you, ${esc(String(mine.timestamp).slice(0,16))}</span>`:""}
+            ${done && (mine.evidence || mine.proof) ? `<span class="evid">
+              ${mine.evidence ? `<b>${esc(mine.evidence)}</b>` : ""}
+              ${mine.proof ? `<img class="evidshot" src="${esc(mine.proof)}"
+                 data-evidshot="${esc(mine.proof)}" alt="evidence">` : ""}</span>` : ""}
           </span></label>`;
       }).join("") : `<p class="tocempty">Nothing to confirm on this node.</p>`}
       ${isRoot() ? `<div class="row" style="margin-top:8px">
@@ -6997,17 +7456,19 @@ function wireContributions(n){
     cb.onchange = ()=>{
       if(!whoAmI()){ cb.checked = !cb.checked; return; }
       const itemId = cb.dataset.check;
-      let row = checkoffFor(itemId, S.who);
-      if(!row){
-        row = newCheckoff({item:itemId, node:n.id, person:S.who, checked:cb.checked ? "yes" : ""});
-        S.checkoffs.push(row);
-      } else {
-        row.checked = cb.checked ? "yes" : "";
-        row.timestamp = nowISO();
+      const item = S.checkItems.find(x=>x.id === itemId);
+      /* some things have to be signed off with something to show for it */
+      if(cb.checked && item && item.requires){
+        cb.checked = false;
+        askForEvidence(item, n.id);
+        return;
       }
-      markContribution();
+      writeCheckoff(itemId, n.id, cb.checked, "", "");
       renderInspector();
     };
+  });
+  body.querySelectorAll("[data-evidshot]").forEach(img=>{
+    img.onclick = ()=>showPicture(img.dataset.evidshot);
   });
   const ask = el("askAboutNode");
   if(ask) ask.onclick = ()=>askQuestion(n.id);
@@ -7028,7 +7489,20 @@ function wireContributions(n){
   if(add) add.onclick = ()=>{
     const label = prompt("What should people confirm on this node?", "Read and understood");
     if(label == null) return;
-    S.checkItems.push(newCheckItem({node:n.id, label:label.trim() || "Read and understood"}));
+    /* an editor decides whether confirming it needs something to show for it */
+    const ans = prompt("What do they have to give when they confirm it?\n\n"
+      + "1 — just their name\n2 — a reference, such as an accession number\n"
+      + "3 — a screenshot\n4 — both\n\nType 1, 2, 3 or 4", "1");
+    if(ans === null) return;
+    const requires = {"2":"ref", "3":"proof", "4":"both"}[String(ans).trim()] || "";
+    let ask = "";
+    if(requires === "ref" || requires === "both"){
+      ask = prompt("What should the field ask for?\n\n"
+        + "Leave it as is for an accession number.", "Accession number") || "";
+      if(ask.trim().toLowerCase() === "accession number") ask = "";
+    }
+    S.checkItems.push(newCheckItem({node:n.id,
+      label:label.trim() || "Read and understood", requires, prompt:ask.trim()}));
     markDirty(); renderInspector();
   };
   body.querySelectorAll("[data-sug-accept],[data-sug-decline]").forEach(b=>{
@@ -8486,9 +8960,10 @@ function buildWorkbook(){
     Questions:[14,56,16,19,10,34],
     QuestionPins:[14,14,14,16,19,30],
     Suggestions:[14,14,16,19,11,52,10,14,19],
-    CheckItems:[14,14,34,19,14],
-    Checkoffs:[14,14,14,16,9,19,30],
+    CheckItems:[14,14,34,19,14,12,30],
+    Checkoffs:[14,14,14,16,9,19,30,22,40],
     Settings:[14,44],
+    Inbox:[14,60,19,16],
     Overflow:[16,14,14,6,70]
   };
   for(const name of ["Nodes","Links","Areas","Bookmarks","Questions","QuestionPins","Suggestions","CheckItems","Checkoffs","Revisions","TagStyles","Settings","Overflow","Sync"]){
@@ -8662,6 +9137,7 @@ async function afterMapSwitch(){
   if(el("avoidNodes")) el("avoidNodes").checked = S.avoidNodes;
   if(el("branchGrid")) el("branchGrid").checked = S.branchGrid;
   if(el("followOutline")) el("followOutline").checked = S.followOutline;
+  if(el("branchShape")) el("branchShape").value = S.branchShape;
   if(el("routeTree")) el("routeTree").value = S.meta.routeTree || "curve";
   if(el("routeCross")) el("routeCross").value = S.meta.routeCross || "curve";
   if(el("crossLine")) el("crossLine").value = S.meta.crossLine || "dashed";
@@ -9241,7 +9717,7 @@ async function loadPersonal(){
    these in the per-map record meant they reset every time you opened a
    different map. */
 const PREF_KEYS = ["notesMode","motion","showIds","avoidNodes","branchGrid",
-                   "focusMode","pickZoom","followOutline","railOpen"];
+                   "focusMode","pickZoom","followOutline","railOpen","branchShape"];
 async function savePrefs(){
   const out = {};
   PREF_KEYS.forEach(k=>{ out[k] = S[k]; });
@@ -10771,6 +11247,8 @@ async function boot(){
   el("dimOthers").onchange = render;
   el("showScope").onchange = ()=>rebuild();
   el("notesMode").onchange = e=>{ S.notesMode = e.target.value; savePrefs(); rebuild(); };
+  el("branchShape").onchange = e=>{ S.branchShape = e.target.value; savePrefs();
+    rebuild(); fitView(0.96, 0.4); };
   el("followOutline").onchange = e=>{ S.followOutline = e.target.checked; savePrefs(); };
   el("branchGrid").onchange = e=>{ S.branchGrid = e.target.checked; savePrefs(); rebuild(); fitView(0.96,0.4); };
   el("avoidNodes").onchange = e=>{ S.avoidNodes = e.target.checked; savePrefs(); render(); };
@@ -11013,6 +11491,18 @@ async function boot(){
       : "Search labels, notes, tags, IDs";
     runSearch();
   };
+  el("trayBtn").onclick = ()=>{
+    const tab = [...document.querySelectorAll(".railtab")].find(t=>t.dataset.pane === "Contents");
+    if(tab) tab.click();
+    if(window.matchMedia("(max-width:820px)").matches) el("rail").classList.add("open");
+    const g = el("trayGroup");
+    if(g){ if(g.tagName === "DETAILS") g.open = true;
+      setTimeout(()=>{ g.scrollIntoView({block:"start"}); el("trayAdd").focus(); }, 60); }
+  };
+  el("trayAdd").addEventListener("keydown", ev=>{
+    if(ev.key === "Enter"){ ev.preventDefault(); addToTray(ev.target.value); ev.target.value = ""; }
+  });
+  el("trayFlag").onclick = ()=>{ S.inboxArmed = null; renderTray(); updateTrayFlag(); };
   el("tagPickBtn").onclick = openTagPicker;
   el("tagDlgClose").onclick = ()=>el("tagDlg").close();
   const afterTagChange = ()=>{
@@ -11027,6 +11517,16 @@ async function boot(){
   el("tagNone").onclick = ()=>{ S.tagPick.clear(); S.tagOnly = false; afterTagChange(); };
   el("tagOnly").onchange = e=>{ S.tagOnly = e.target.checked; afterTagChange(); };
   el("tagPurge").onclick = purgeUnusedTags;
+  el("signCancel").onclick = ()=>{ el("signDlg").close(); signFor = null; signProof = ""; };
+  el("signDo").onclick = completeSignOff;
+  el("signRef").addEventListener("keydown", ev=>{
+    if(ev.key === "Enter"){ ev.preventDefault(); completeSignOff(); }
+  });
+  el("signProofPick").onclick = ()=>pickImage("Screenshot as evidence", signProof, v=>{
+    signProof = v;
+    el("signProofPrev").innerHTML = v ? `<img src="${esc(v)}" alt="">` : "";
+    el("signWarn").textContent = "";
+  }, ()=>{ signProof = ""; el("signProofPrev").innerHTML = ""; });
   el("bulkClose").onclick = ()=>el("bulkDlg").close();
   el("bulkApply").onclick = applyBulkTags;
   el("bulkKids").onchange = renderBulkTags;
