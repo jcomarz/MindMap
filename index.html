@@ -3057,6 +3057,9 @@ function layout(){
   if(S.branchShape === "radial"){
     layoutRadial(vis, stacked);
     keepOutOfAreas(vis, stacked);
+    /* pushing nodes clear of an area can put two of them back together, so the
+       tidy pass runs after everything else has finished moving */
+    nudgeApart([...vis].filter(id=>!stacked.has(id) && !S.nodes.get(id).pinned));
     placePiles(vis, stacked);
     return;
   }
@@ -3095,27 +3098,46 @@ const RING_GAP = 30;
    any such pair straight apart, which is invisible at the scale it happens. */
 function nudgeApart(ids){
   const pad = 10;
-  for(let pass = 0; pass < 14; pass++){
+  const cell = NODE_W + pad;
+  for(let pass = 0; pass < 60; pass++){
+    /* only nodes in neighbouring squares can be touching, so a pass stays
+       cheap however many there are */
+    const grid = new Map();
+    ids.forEach(id=>{
+      const n = S.nodes.get(id);
+      const key = Math.floor((n._x + NODE_W/2) / cell) + ":"
+                + Math.floor((n._y + n._h/2) / cell);
+      if(!grid.has(key)) grid.set(key, []);
+      grid.get(key).push(id);
+    });
     let moved = false;
-    for(let i = 0; i < ids.length; i++){
-      const A = S.nodes.get(ids[i]);
-      for(let j = i + 1; j < ids.length; j++){
-        const B = S.nodes.get(ids[j]);
-        const dx = (A._x + NODE_W/2) - (B._x + NODE_W/2);
-        const dy = (A._y + A._h/2) - (B._y + B._h/2);
-        const needX = NODE_W + pad, needY = (A._h + B._h)/2 + pad;
-        if(Math.abs(dx) >= needX || Math.abs(dy) >= needY) continue;
-        const pushX = needX - Math.abs(dx), pushY = needY - Math.abs(dy);
-        if(pushX < pushY){
-          const s2 = (dx < 0 ? -1 : 1) * pushX / 2;
-          A._x += s2; B._x -= s2;
-        } else {
-          const s2 = (dy < 0 ? -1 : 1) * pushY / 2;
-          A._y += s2; B._y -= s2;
+    ids.forEach(idA=>{
+      const A = S.nodes.get(idA);
+      const cx = Math.floor((A._x + NODE_W/2) / cell);
+      const cy = Math.floor((A._y + A._h/2) / cell);
+      for(let gx = cx - 1; gx <= cx + 1; gx++)
+      for(let gy = cy - 1; gy <= cy + 1; gy++){
+        const list = grid.get(gx + ":" + gy);
+        if(!list) continue;
+        for(const idB of list){
+          if(idB === idA) continue;
+          const B = S.nodes.get(idB);
+          const dx = (A._x + NODE_W/2) - (B._x + NODE_W/2);
+          const dy = (A._y + A._h/2) - (B._y + B._h/2);
+          const needX = NODE_W + pad, needY = (A._h + B._h)/2 + pad;
+          if(Math.abs(dx) >= needX || Math.abs(dy) >= needY) continue;
+          const pushX = needX - Math.abs(dx), pushY = needY - Math.abs(dy);
+          if(pushX < pushY){
+            const k = (dx < 0 ? -1 : 1) * pushX / 2;
+            A._x += k; B._x -= k;
+          } else {
+            const k = (dy < 0 ? -1 : 1) * pushY / 2;
+            A._y += k; B._y -= k;
+          }
+          moved = true;
         }
-        moved = true;
       }
-    }
+    });
     if(!moved) break;
   }
 }
@@ -3138,8 +3160,12 @@ function layoutRadial(vis, stacked){
     const biggest = Math.max(...kids.map(c=>c.r));
     const widest = Math.max(...kids.map(c=>ownR(S.nodes.get(c.id))));
     /* leave room for the gap where the parent's own link arrives */
+    /* A child claims angular room for its family, but only so much: one heavy
+       branch should not shove its siblings to the far side of the map. Past
+       this the family simply reaches further out instead. */
+    const CLAIM_MAX = Math.PI / 3;
     const need = R => kids.reduce((a, c)=>
-      a + 2 * Math.asin(Math.min(0.999, c.r / R)), 0) + 0.7;
+      a + Math.min(CLAIM_MAX, 2 * Math.asin(Math.min(0.999, c.r / R))), 0) + 0.7;
     /* The ring only has to hold the children clear of the parent — their own
        families grow outwards into open space. Sizing it by the whole family
        circle instead doubled the radius at every level, which is what made a
@@ -3163,7 +3189,9 @@ function layoutRadial(vis, stacked){
     n._x = cx - NODE_W / 2;
     n._y = cy - (n._h || 40) / 2;
     if(!disc.kids.length) return;
-    const widths = disc.kids.map(c=>2 * Math.asin(Math.min(0.999, c.r / disc.ring)));
+    const CLAIM_MAX = Math.PI / 3;
+    const widths = disc.kids.map(c=>
+      Math.min(CLAIM_MAX, 2 * Math.asin(Math.min(0.999, c.r / disc.ring))));
     const used = widths.reduce((a, w)=>a + w, 0);
     /* The root gets the whole clock. Everything else leaves a gap where its
        own parent sits, so a family grows outwards instead of back over the
