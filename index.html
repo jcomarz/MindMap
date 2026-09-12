@@ -773,6 +773,19 @@ body.viewerbuild #histGroup,
 body.viewerbuild #printAdvanced,
 body.viewerbuild #btnViewerCopy{display:none}
 body.viewerbuild .brand h1::after{content:" · viewing copy"}
+/* the workbook buttons belong to a working copy only */
+#openFromDisk,#chooseWorkbook,#workbookWhere{display:none}
+body.workbookviewer #openFromDisk,
+body.workbookviewer #chooseWorkbook,
+body.workbookviewer #workbookWhere{display:block}
+body.workbookviewer.cannotwrite #saveFeedback{display:block}
+#saveFeedback{display:none}
+/* a snapshot is sealed: nothing to connect to, so nothing is offered */
+body.snapshotviewer #openFromDisk,
+body.snapshotviewer #chooseWorkbook,
+body.snapshotviewer #workbookWhere,
+body.snapshotviewer #viewerStatus{display:none}
+body.snapshotviewer .brand h1::after{content:" · snapshot"}
 body.drafting .brand h1::after{content:" · draft";font-size:12px;font-weight:400;color:var(--flag)}
 .dirty-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--flag);vertical-align:middle;margin-left:5px;visibility:hidden}
 .dirty .dirty-dot{visibility:visible}
@@ -1167,7 +1180,8 @@ body.viewing.panelaway #panelHide{display:none}
         <p id="modeNote" style="font-size:12px;color:var(--graphite-60);margin:9px 0 0;line-height:1.5">—</p>
         <p id="viewerStatus" style="font-size:12px;color:var(--graphite-60);margin:8px 0 0"></p>
         <button class="btn wide" id="openFromDisk">Refresh from the workbook</button>
-        <button class="btn wide" id="chooseWorkbook" style="margin-top:6px">Choose the workbook…</button>
+        <button class="btn wide" id="chooseWorkbook" style="margin-top:6px">Choose the folder…</button>
+        <button class="btn wide" id="saveFeedback" style="margin-top:6px">Save my feedback</button>
         <p id="workbookWhere" style="font-size:11px;color:var(--graphite-60);margin:6px 0 0;
           font-family:var(--mono);overflow:hidden;text-overflow:ellipsis"></p>
         <div class="row" style="margin-top:8px">
@@ -1346,6 +1360,7 @@ body.viewing.panelaway #panelHide{display:none}
         </div>
         <div class="row" style="margin-top:6px">
           <button class="btn wide" id="btnViewerCopy">Build a viewer copy</button>
+        <button class="btn wide" id="btnGather">Gather feedback from the folder</button>
         </div>
         <p id="syncNote" style="font-size:12px;color:var(--graphite-60);margin:9px 0 0">
           Not connected yet. Manage sheets walks you through it.</p>
@@ -1584,33 +1599,37 @@ body.viewing.panelaway #panelHide{display:none}
   </div>
   <div class="dlg-body">
     <div class="conn">
-      <div class="hdr"><strong>A self-contained file</strong><span class="status-pill">~500 KB</span></div>
-      <p class="fineprint" style="margin:0 0 10px">The whole tool and the map in one file, which
-        also keeps talking to the sheet so people see changes as they land.</p>
-      <button class="btn wide" id="vkStandalone">Build the file</button>
+      <div class="hdr"><strong>A working copy</strong><span class="status-pill">light</span></div>
+      <p class="fineprint" style="margin:0 0 10px">For the people who will use this day to day.
+        No map inside it, so the file stays small. It knows the workbook it belongs to; the
+        first time someone opens it they point it at that file in their synced folder, and after
+        that it reads it again whenever they press Refresh. Their suggestions, questions and
+        check-offs are saved beside the workbook in a file named after them, so any number of
+        people can sign off at the same moment without clashing. Use “Gather feedback from the
+        folder” to pull them all in.</p>
+      <label class="field"><span>The workbook it should look for</span>
+        <input type="text" id="vkBookName" placeholder="AccessionsMindMap.xlsx"></label>
+      <button class="btn primary wide" id="vkLive">Build the working copy</button>
     </div>
     <div class="conn">
-      <div class="hdr"><strong>A file with no sheet behind it</strong><span class="status-pill">~500 KB</span></div>
-      <p class="fineprint" style="margin:0 0 10px">For a shared folder rather than Google Sheets.
-        The map is built into the file, so it opens from OneDrive or a network share with nothing
-        to set up. Readers can point it at a newer .xlsx from the same folder when you publish
-        one, or you hand out a fresh file.</p>
-      <label class="field"><span>Where the workbook lives, if you want a refresh button
-        that knows where to look</span>
-        <input type="text" id="vkWorkbookUrl"
-          placeholder="https://…/Shared%20Documents/map.xlsx"></label>
-      <p class="fineprint" style="margin:2px 0 8px">Optional, and worth knowing: a browser will
-        not let a page opened from a folder fetch anything from SharePoint, whatever the address
-        says. Paste a link if you like — a “Copy link” is turned into the file's own address and
-        tried several ways — but the route that always works is the button in the viewer:
-        the reader points it at the workbook once, in their synced OneDrive folder, and after
-        that Refresh re-reads that same file with no picker.</p>
-      <button class="btn primary wide" id="vkFrozen">Build it</button>
+      <div class="hdr"><strong>A snapshot to show people</strong><span class="status-pill">~550 KB</span></div>
+      <p class="fineprint" style="margin:0 0 10px">The map exactly as it is now, sealed into the
+        file. Nothing to connect and nothing to refresh — it cannot reach the workbook or any
+        sheet. For showing the idea to someone, or keeping a record of how things stood.</p>
+      <button class="btn wide" id="vkSnapshot">Build the snapshot</button>
+    </div>
+    <div class="conn">
+      <div class="hdr"><strong>A copy that follows a Google Sheet</strong><span class="status-pill">~550 KB</span></div>
+      <p class="fineprint" style="margin:0 0 10px">Only if this map lives in Google Sheets. It
+        keeps talking to the sheet, so people see changes as they land, and their suggestions go
+        back.</p>
+      <button class="btn wide" id="vkStandalone">Build it</button>
     </div>
     <p class="fineprint" id="vkNeedsSheet" hidden>The sheet-backed copy needs a Google Sheet with
       a viewer token: Sharing and files → Manage sheets → the field called “Viewer token”.</p>
-    <p class="fineprint">All of them open read-only, and can add suggestions, questions and
-      check-offs.</p>
+    <p class="fineprint">All of them open read-only — nobody can change the map. The working
+      copy writes suggestions, questions and check-offs back into the workbook itself; the
+      snapshot writes nowhere. Bookmarks, badges and themes are always personal.</p>
   </div>
 </dialog>
 
@@ -5894,12 +5913,24 @@ function updateModeUI(){
   document.body.classList.toggle("panelaway", !isRoot());
   forgetSize();
   if(S.viewerBuild){
-    note.innerHTML = (typeof XLSX === "undefined"
-      ? `<span style="color:var(--flag)">Running without an internet connection, so saving to
-         .xlsx is unavailable.</span> ` : "")
-      + `This is a viewing copy. The map cannot be changed here, and the sheet
-      connection only lets it add suggestions, questions and check-offs. Everything personal —
-      bookmarks, badges, your own pictures, themes — is yours and stays on this device.`;
+    /* say what this particular copy is, rather than one blanket sentence */
+    note.innerHTML = S.snapshot
+      ? `A snapshot, taken when it was built. It shows the map as it stood and connects to
+         nothing — there is no workbook or sheet behind it. Anything you add here, and anything
+         you set up, stays on this computer.`
+      : S.fromWorkbook
+        ? `A viewing copy of the workbook${S.bookName ? " " + esc(S.bookName) : ""}. The map
+           cannot be changed here. `
+          + (canWriteFolder()
+            ? `Your suggestions, questions and check-offs are saved beside it in a file of your
+               own, which is how everyone can sign off at once without treading on each other.`
+            : `<span style="color:var(--flag)">This browser cannot write into a folder</span>, so
+               open the workbook to read it, and use “Save my feedback” to get your own file —
+               then drop it in the shared folder. Chrome or Edge does both for you.`)
+          + ` Bookmarks, badges and themes stay on this computer.`
+        : `This is a viewing copy. The map cannot be changed here, and the sheet connection only
+           lets it add suggestions, questions and check-offs. Everything personal — bookmarks,
+           badges, your own pictures, themes — is yours and stays on this device.`;
     lock.disabled = true;
     updateViewerStatus();
     return;
@@ -7452,6 +7483,8 @@ function renderViewerInspector(n){
       ${(n.tags||[]).length ? `<div class="taglist" style="margin-top:10px">${(n.tags||[]).map(t=>`<span class="tagchip">${esc(t)}</span>`).join("")}</div>` : ""}
       ${parent ? `<p style="font-size:12px;color:var(--graphite-60);margin:10px 0 0">Follows
         <a href="#" data-jump="${esc(parent)}" style="color:var(--blueprint)">${esc((S.nodes.get(parent)||{}).label||parent)}</a></p>` : ""}
+      ${S.snapshot ? `<p class="fineprint" style="margin:10px 0 0">
+        This is a snapshot. Anything you add stays on this computer.</p>` : ""}
       ${replacementOf(n.id) ? `<div class="supersede-note">
         <b>This is retired.</b> The current version is
         <a href="#" data-goto="${esc(replacementOf(n.id))}">${esc(nodeName(replacementOf(n.id)))}</a>.
@@ -7761,6 +7794,7 @@ function wireContributions(n){
 function markContribution(){
   S.meta.lastEdited = nowISO();
   queueViewerSend();
+  queueContributions();
   S.meta.provisional = false;
   S.dirty = true;
   document.body.classList.add("dirty");
@@ -7842,6 +7876,8 @@ function renderInspector(){
           ? (replacementOf(n.id) ? "Restore and unstack" : "Restore node") : "Retire node"}</button>
         <button class="btn" id="fUnpin"${n.pinned?"":" disabled"}>Release position</button>
       </div>
+      ${S.snapshot ? `<p class="fineprint" style="margin:10px 0 0">
+        This is a snapshot. Anything you add stays on this computer.</p>` : ""}
       ${replacementOf(n.id) ? `<div class="supersede-note">
         <b>Retired.</b> Replaced by
         <a href="#" data-goto="${esc(replacementOf(n.id))}">${esc(nodeName(replacementOf(n.id)))}</a>.
@@ -9225,8 +9261,16 @@ function reportTrim(r, where){
   setTimeout(()=>toast("For " + where + ": " + bits.join("; ") + "."), 400);
 }
 
-function buildWorkbook(){
-  const data = toSheets();
+function buildWorkbook(){ return buildWorkbookFrom(toSheets()); }
+
+/* Build a workbook from tables already in hand, so a viewer can write back a
+   file it read rather than one made from its own state. */
+function buildWorkbookFrom(data){
+  /* a workbook read back from disk may not carry every tab, so fill the gaps
+     before anything assumes they are there */
+  Object.keys(HDR).forEach(name=>{ if(!Array.isArray(data[name])) data[name] = []; });
+  if(!Array.isArray(data.Sync)) data.Sync = [];
+  if(!Array.isArray(data.Overflow)) data.Overflow = [];
   reportTrim(splitForCells(data, XLSX_CELL), "a spreadsheet file");
   const wb = XLSX.utils.book_new();
   const widths = {
@@ -9576,20 +9620,71 @@ async function hashText(t){
   }catch(e){ return String(Math.abs(seedOf(t) * 1e6) | 0); }
 }
 
+/* Read every "feedback - someone.xlsx" sitting beside the workbook and fold
+   what they hold into this map. Nothing is overwritten: rows are matched by
+   their own ids, and anything already here wins only if it is the same row. */
+async function gatherFeedback(){
+  if(!canEdit()){ toast("Switch to editing mode first."); return; }
+  if(!window.showDirectoryPicker){
+    toast("This browser cannot read a folder. Chrome or Edge can."); return;
+  }
+  let dir;
+  try{ dir = await window.showDirectoryPicker({id:"mindmap-folder", mode:"read"}); }
+  catch(e){ return; }
+
+  const seen = {Suggestions:new Set(), Questions:new Set(), QuestionPins:new Set(),
+                CheckItems:new Set(), Checkoffs:new Set()};
+  S.suggestions.forEach(x=>seen.Suggestions.add(x.id));
+  S.questions.forEach(x=>seen.Questions.add(x.id));
+  S.pins.forEach(x=>seen.QuestionPins.add(x.id));
+  S.checkItems.forEach(x=>seen.CheckItems.add(x.id));
+  S.checkoffs.forEach(x=>seen.Checkoffs.add(x.id));
+
+  let files = 0, added = 0, people = [];
+  for await (const [name, h] of dir.entries()){
+    if(h.kind !== "file" || !/^feedback[ -].*\.xlsx?$/i.test(name)) continue;
+    try{
+      const f = await h.getFile();
+      const wb = XLSX.read(await f.arrayBuffer(), {type:"array"});
+      const t = {};
+      wb.SheetNames.forEach(n=>{ t[n] = XLSX.utils.sheet_to_json(wb.Sheets[n], {defval:""}); });
+      const M = tablesToModel(t);
+      files++;
+      people.push(name.replace(/^feedback[ -]+/i, "").replace(/\.xlsx?$/i, ""));
+      M.suggestions.forEach(x=>{ if(!seen.Suggestions.has(x.id)){
+        S.suggestions.push(x); seen.Suggestions.add(x.id); added++; } });
+      M.questions.forEach(x=>{ if(!seen.Questions.has(x.id)){
+        S.questions.push(x); seen.Questions.add(x.id); added++; } });
+      M.pins.forEach(x=>{ if(!seen.QuestionPins.has(x.id)){
+        S.pins.push(x); seen.QuestionPins.add(x.id); added++; } });
+      M.checkItems.forEach(x=>{ if(!seen.CheckItems.has(x.id)){
+        S.checkItems.push(x); seen.CheckItems.add(x.id); added++; } });
+      M.checkoffs.forEach(x=>{ if(!seen.Checkoffs.has(x.id)){
+        S.checkoffs.push(x); seen.Checkoffs.add(x.id); added++; } });
+    }catch(e){ /* skip anything that will not open */ }
+  }
+  if(!files){ toast("No feedback files in that folder yet."); return; }
+  markDirty(); rebuild(); renderInspector();
+  toast(added + " new item" + (added===1?"":"s") + " from " + files + " file"
+    + (files===1?"":"s") + (people.length <= 4 ? " — " + people.join(", ") : ""));
+}
+
 async function buildViewerFile(){
   const kind = await askViewerKind();
   if(!kind) return;
-  if(kind === "frozen") return buildStandaloneViewer(true);
-  if(kind === "standalone") return buildStandaloneViewer(false);
-  return buildViewerLauncher();
+  return buildStandaloneViewer(kind);
 }
 
 function askViewerKind(){
   return new Promise(res=>{
     const dlg = el("viewerKindDlg");
-    el("vkStandalone").onclick = ()=>{ dlg.close(); res("standalone"); };
-    el("vkFrozen").onclick = ()=>{ dlg.close(); res("frozen"); };
-    /* the two that need a sheet say so when there is not one */
+    /* the name of whatever file this map is already being written to, so the
+       copy knows what to ask its reader for */
+    const guess = (fileName || ((S.meta.title || "map").replace(/[^\w. -]+/g, "") + ".xlsx"));
+    el("vkBookName").value = guess;
+    el("vkLive").onclick = ()=>{ dlg.close(); res("workbook"); };
+    el("vkSnapshot").onclick = ()=>{ dlg.close(); res("snapshot"); };
+    el("vkStandalone").onclick = ()=>{ dlg.close(); res("sheet"); };
     const conn = activeConnection();
     const ready = conn && (conn.endpoint||"").trim() && (conn.viewerToken||"").trim();
     el("vkStandalone").disabled = !ready;
@@ -9602,9 +9697,11 @@ function askViewerKind(){
 /* Everything in one file: the app, the map, the connection. Opens from a
    folder with no web address behind it, at the cost of being frozen at the
    version it was built from. */
-async function buildStandaloneViewer(frozen){
+async function buildStandaloneViewer(kind){
+  const frozen = kind !== "sheet";
+  const snapshot = kind === "snapshot";
   const conn = activeConnection();
-  if(!frozen){
+  if(kind === "sheet"){
     if(!conn || !(conn.endpoint||"").trim()){
       toast("Set up the sheet first: Sharing and files → Manage sheets."); return;
     }
@@ -9632,19 +9729,24 @@ async function buildStandaloneViewer(frozen){
     mapKey:"V-" + (await hashText((S.meta.title||"") + "|" + ((conn && conn.endpoint)||"local")
                                  + "|" + ((conn && conn.prefix)||"") + "|" + ((conn && conn.id)||""))),
     theme:{ id:S.themeId, custom:(S.customThemes||[]).find(t=>t.id === S.themeId) || null },
-    fromWorkbook:!!frozen,
-    workbookUrl:frozen ? ((el("vkWorkbookUrl") && el("vkWorkbookUrl").value || "").trim()) : "",
-    connection:frozen ? null
+    kind,
+    fromWorkbook:kind === "workbook",
+    snapshot,
+    /* the file this copy belongs to, so the reader is asked for the right one */
+    bookName:kind === "workbook"
+      ? ((el("vkBookName") && el("vkBookName").value || "").trim()) : "",
+    connection:kind !== "sheet" ? null
       : { name:(conn.name || "Sheet") + " (viewing)", endpoint:conn.endpoint.trim(),
           id:conn.id||"", prefix:conn.prefix||"", token:conn.viewerToken.trim(),
           mode:"merge", auto:true },
-    map:await gzipB64(JSON.stringify(tables))
+    /* a working copy ships empty and fills itself from the workbook */
+    map:kind === "workbook" ? "" : await gzipB64(JSON.stringify(tables))
   };
   const tag = '<script id="viewerConfig" type="application/json">'
             + JSON.stringify(cfg).replace(/<\//g, "<\\/") + '<\/script>';
   /* A copy meant for a folder has to carry the spreadsheet library with it, or
      it cannot read a workbook without an internet connection. */
-  if(frozen){
+  if(kind === "workbook"){
     const libTag = /<script src="(https:\/\/cdn\.sheetjs\.com[^"]+)"><\/script>/.exec(src);
     if(libTag){
       try{
@@ -9667,14 +9769,17 @@ async function buildStandaloneViewer(frozen){
   const blob = new Blob([out], {type:"text/html"});
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = safe + (frozen ? "-viewer.html" : "-viewer-offline.html");
+  a.download = safe + (kind === "snapshot" ? "-snapshot.html"
+                     : kind === "workbook" ? "-viewer.html" : "-viewer-offline.html");
   a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href), 6000);
-  toast(frozen
-    ? "Viewer saved, " + Math.round(out.length/1024) + " KB. Put it next to the workbook — "
-      + "it opens on its own and can read a newer .xlsx from the same folder."
-    : "Self-contained copy saved, " + Math.round(out.length/1024) + " KB. It opens from a "
-      + "folder and carries the map with it.");
+  toast(kind === "workbook"
+    ? "Working copy saved, " + Math.round(out.length/1024) + " KB. Put it beside the workbook; "
+      + "the first time someone opens it they point it at that file."
+    : kind === "snapshot"
+      ? "Snapshot saved, " + Math.round(out.length/1024) + " KB. It shows the map as it is now "
+        + "and connects to nothing."
+      : "Self-contained copy saved, " + Math.round(out.length/1024) + " KB.");
 }
 
 async function buildViewerLauncher(){
@@ -9798,13 +9903,61 @@ function adoptWorkbookBytes(buf, label){
    synced OneDrive folder that is the shared workbook. */
 let bookHandle = null;
 
+/* Picking the folder rather than the file. With the folder we can read the
+   workbook and drop this person's feedback beside it in a file of their own,
+   so nobody is ever writing the same file as anybody else. */
+let bookDir = null;
+
+/* Writing into a folder is a Chrome and Edge ability. Firefox and Safari can
+   read a file the person picks and can download one, and nothing more. */
+function canWriteFolder(){
+  return typeof window.showDirectoryPicker === "function";
+}
+function canRemember(){
+  return typeof window.showOpenFilePicker === "function";
+}
+
+async function rememberFolder(){
+  if(!window.showDirectoryPicker){ return rememberWorkbook(); }
+  try{
+    const dir = await window.showDirectoryPicker({id:"mindmap-folder", mode:"readwrite"});
+    bookDir = dir;
+    try{ await Store.putKey("bookDir:" + (S.meta.key || "map"), dir); }catch(e){}
+    const found = await findWorkbookIn(dir);
+    if(!found){
+      sayWorkbookState("No " + (S.bookName || "workbook") + " in that folder.");
+      return;
+    }
+    bookHandle = found;
+    try{ await Store.putKey("bookHandle:" + (S.meta.key || "map"), found); }catch(e){}
+    await readRememberedWorkbook(true);
+  }catch(e){ /* changed their mind */ }
+}
+
+async function findWorkbookIn(dir){
+  const want = String(S.bookName || "").toLowerCase();
+  let only = null, count = 0;
+  for await (const [name, h] of dir.entries()){
+    if(h.kind !== "file" || !/\.xlsx?$/i.test(name)) continue;
+    if(/^feedback[ -]/i.test(name)) continue;
+    if(want && name.toLowerCase() === want) return h;
+    count++; only = h;
+  }
+  return count === 1 ? only : null;
+}
+
 async function rememberWorkbook(){
   if(!window.showOpenFilePicker){ pickWorkbookFile(); return; }
   try{
     const [h] = await window.showOpenFilePicker({
-      types:[{description:"Workbook", accept:{"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":[".xlsx",".xlsm"]}}],
-      multiple:false
+      types:[{description:S.bookName || "Workbook",
+        accept:{"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":[".xlsx",".xlsm"]}}],
+      multiple:false, id:"mindmap-workbook"
     });
+    if(S.bookName && h.name.toLowerCase() !== String(S.bookName).toLowerCase()){
+      if(!confirm("This copy belongs to " + S.bookName + ", and you picked " + h.name
+        + ".\n\nUse it anyway?")) return;
+    }
     bookHandle = h;
     try{ await Store.putKey("bookHandle:" + (S.meta.key || "map"), h); }catch(e){}
     await readRememberedWorkbook();
@@ -9822,14 +9975,21 @@ async function recallWorkbookHandle(){
 async function readRememberedWorkbook(ask){
   if(!bookHandle) return false;
   try{
-    let perm = await bookHandle.queryPermission({mode:"read"});
+    /* read and write: a reader's suggestions and check-offs go back into the
+       same workbook, which is the whole point of the working copy */
+    let perm = await bookHandle.queryPermission({mode:"readwrite"});
     if(perm !== "granted"){
       if(!ask){ sayWorkbookState("Press the button to let it read " + bookHandle.name + " again.");
         return false; }
-      perm = await bookHandle.requestPermission({mode:"read"});
-      if(perm !== "granted"){ sayWorkbookState("Permission refused for " + bookHandle.name);
-        return false; }
-    }
+      perm = await bookHandle.requestPermission({mode:"readwrite"});
+      if(perm !== "granted"){
+        /* reading alone is still useful, so fall back rather than refuse */
+        const ro = await bookHandle.requestPermission({mode:"read"});
+        if(ro !== "granted"){ sayWorkbookState("Permission refused for " + bookHandle.name);
+          return false; }
+        S.bookReadOnly = true;
+      } else S.bookReadOnly = false;
+    } else S.bookReadOnly = false;
     const f = await bookHandle.getFile();
     adoptWorkbookBytes(await f.arrayBuffer(), f.name);
     return true;
@@ -9838,6 +9998,135 @@ async function readRememberedWorkbook(ask){
       + " — it may have been moved.");
     return false;
   }
+}
+
+/* ---------------------------------------------------------------
+   Sending a reader's contributions back to the shared workbook.
+   The map itself is never touched: the file is re-read, only the
+   suggestion, question and check-off tables are merged, and the
+   result is written back.
+   --------------------------------------------------------------- */
+const SHARED_TABLES = ["Suggestions", "Questions", "QuestionPins", "CheckItems", "Checkoffs"];
+let sendTimer = null, sendingNow = false, sendAgain = false;
+
+function keyOf(table, row){
+  /* the first column of each table is its id, so take the name from the header
+     rather than keeping a second list that can drift out of step */
+  const col = (HDR[table] || [])[0];
+  return String((col && row[col]) || "");
+}
+
+/* One file per person, so two people signing off at the same moment never
+   touch the same file and nothing has to be locked or queued. */
+function countMine(){
+  const t = toSheets();
+  const n = SHARED_TABLES.reduce((a, name)=>a + (t[name] || []).length, 0);
+  return n + " item" + (n === 1 ? "" : "s");
+}
+
+/* The way out for a browser that cannot write: hand the person the same file
+   as a download, for them to drop in the shared folder. */
+function downloadFeedback(){
+  const mine = toSheets();
+  const only = {};
+  SHARED_TABLES.forEach(name=>{ only[name] = mine[name] || []; });
+  const rows = SHARED_TABLES.reduce((a, n)=>a + only[n].length, 0);
+  if(!rows){ toast("Nothing to send yet."); return; }
+  const out = XLSX.write(buildWorkbookFrom(only), {bookType:"xlsx", type:"array"});
+  const url = URL.createObjectURL(new Blob([out],
+    {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));
+  const a = document.createElement("a");
+  a.href = url; a.download = feedbackName();
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 4000);
+  sayWorkbookState("Saved " + feedbackName() + " to your downloads — put it in the shared "
+    + "folder beside the workbook.");
+}
+
+function feedbackName(){
+  const who = (S.who || "anonymous").replace(/[^\w -]+/g, "").trim() || "anonymous";
+  return "feedback - " + who + ".xlsx";
+}
+
+async function sendContributions(){
+  if(S.bookReadOnly) return false;
+  if(!canWriteFolder() && !bookHandle){
+    /* nothing to write to: the reader saves the file and drops it in the folder */
+    sayWorkbookState(countMine() + " waiting. This browser cannot write into the folder — "
+      + "use “Save my feedback” and put the file in the shared folder.");
+    return false;
+  }
+  if(sendingNow){ sendAgain = true; return false; }
+  sendingNow = true;
+  try{
+    if(bookDir){
+      /* the good case: write only what this person added, to their own file */
+      const perm = await bookDir.queryPermission({mode:"readwrite"});
+      if(perm !== "granted"){
+        sayWorkbookState("Waiting for permission to write in that folder — press Refresh once.");
+        return false;
+      }
+      const mine = toSheets();
+      const only = {};
+      SHARED_TABLES.forEach(name=>{ only[name] = mine[name] || []; });
+      const rows = SHARED_TABLES.reduce((a, n)=>a + only[n].length, 0);
+      const h = await bookDir.getFileHandle(feedbackName(), {create:true});
+      const w = await h.createWritable();
+      await w.write(new Blob([XLSX.write(buildWorkbookFrom(only), {bookType:"xlsx", type:"array"})]));
+      await w.close();
+      sayWorkbookState("Saved to " + feedbackName() + " at "
+        + new Date().toLocaleTimeString() + ", " + rows + " item" + (rows===1?"":"s"));
+      return true;
+    }
+    if(!bookHandle) return false;
+    const perm = await bookHandle.queryPermission({mode:"readwrite"});
+    if(perm !== "granted"){
+      sayWorkbookState("Waiting for permission to write to " + bookHandle.name
+        + " — press Refresh once.");
+      return false;
+    }
+    /* read what is in the file right now, so nobody else's work is lost */
+    const f = await bookHandle.getFile();
+    const wb = XLSX.read(await f.arrayBuffer(), {type:"array"});
+    const t = {};
+    wb.SheetNames.forEach(n=>{ t[n] = XLSX.utils.sheet_to_json(wb.Sheets[n], {defval:""}); });
+
+    const mine = toSheets();
+    let added = 0;
+    SHARED_TABLES.forEach(name=>{
+      const theirs = t[name] || [];
+      const byKey = new Map(theirs.map(r=>[keyOf(name, r), r]));
+      (mine[name] || []).forEach(r=>{
+        const k = keyOf(name, r);
+        if(!k) return;
+        if(!byKey.has(k)) added++;
+        byKey.set(k, r);
+      });
+      t[name] = [...byKey.values()];
+    });
+
+    /* everything else in the file is left exactly as it was found */
+    const out = XLSX.write(buildWorkbookFrom(t), {bookType:"xlsx", type:"array"});
+    const w = await bookHandle.createWritable();
+    await w.write(new Blob([out]));
+    await w.close();
+    sayWorkbookState("Sent to " + bookHandle.name + " at "
+      + new Date().toLocaleTimeString() + (added ? ", " + added + " new" : ""));
+    return true;
+  }catch(e){
+    sayWorkbookState("Could not write to " + (bookHandle && bookHandle.name || "the workbook")
+      + " — " + (e.message || e));
+    return false;
+  }finally{
+    sendingNow = false;
+    if(sendAgain){ sendAgain = false; setTimeout(sendContributions, 300); }
+  }
+}
+
+function queueContributions(){
+  if(!S.fromWorkbook || !bookHandle || S.bookReadOnly) return;
+  clearTimeout(sendTimer);
+  sendTimer = setTimeout(sendContributions, 1500);
 }
 
 function pickWorkbookFile(){
@@ -9946,7 +10235,14 @@ function applyViewerConfig(cfg){
   /* a copy with no sheet behind it can be pointed at a newer workbook instead */
   S.fromWorkbook = !!cfg.fromWorkbook;
   S.workbookUrl = cfg.workbookUrl || "";
+  S.bookName = cfg.bookName || "";
+  S.snapshot = !!cfg.snapshot;
   document.body.classList.toggle("workbookviewer", !!cfg.fromWorkbook);
+  /* the buttons on offer depend on what this browser can actually do */
+  document.body.classList.toggle("cannotwrite", !canWriteFolder());
+  if(!canWriteFolder() && el("chooseWorkbook")) el("chooseWorkbook").textContent = "Open the workbook…";
+  /* a snapshot is sealed: nothing to connect, nothing to refresh */
+  document.body.classList.toggle("snapshotviewer", !!cfg.snapshot);
   if(cfg.theme){
     if(cfg.theme.custom) S.customThemes = (S.customThemes || []).concat([cfg.theme.custom]);
     if(cfg.theme.id) S.themeId = cfg.theme.id;
@@ -12052,7 +12348,12 @@ async function boot(){
     if(ev.key === "Enter"){ ev.preventDefault(); applyBulkTags(); }
   });
   el("openFromDisk").onclick = ()=>refreshFromWorkbook();
-  el("chooseWorkbook").onclick = rememberWorkbook;
+  el("chooseWorkbook").onclick = ()=>{
+    el("chooseWorkbook").classList.remove("primary");
+    if(canWriteFolder()) rememberFolder();
+    else pickWorkbookFile();
+  };
+  el("saveFeedback").onclick = downloadFeedback;
   el("panelHide").onclick = ()=>showPanel(false);
   el("resClose").onclick = closeResults;
   el("resClear").onclick = ()=>{
@@ -12131,6 +12432,7 @@ async function boot(){
   el("btnMerge").onclick = ()=>runSync("merge");
   el("btnPush").onclick  = ()=>runSync("push");
   el("btnViewerCopy").onclick = buildViewerFile;
+  el("btnGather").onclick = gatherFeedback;
   el("btnConns").onclick = ()=>{
     /* start with an empty form rather than making people find an Add button
        before step 4 has anywhere to paste into */
@@ -12353,13 +12655,24 @@ async function boot(){
        copy of the map is still there */
     setTimeout(async ()=>{
       /* a remembered file first, then the address if one was baked in */
+      try{
+        const d = await Store.getKey("bookDir:" + (S.meta.key || "map"));
+        if(d) bookDir = d;
+      }catch(e){}
       const had = await recallWorkbookHandle();
       if(had){
         if(await readRememberedWorkbook(false)) return;
       }
-      if(S.workbookUrl) refreshFromWorkbook(true);
-      else if(had) sayWorkbookState("Press Refresh to read "
-        + (bookHandle && bookHandle.name || "the workbook") + " again.");
+      if(S.workbookUrl && await refreshFromWorkbook(true)) return;
+      if(had){
+        sayWorkbookState("Press Refresh to read "
+          + (bookHandle && bookHandle.name || "the workbook") + " again.");
+      } else if(!S.nodes.size){
+        /* an empty working copy: say what to do, plainly */
+        sayWorkbookState("Nothing loaded yet. Choose the synced folder holding "
+          + (S.bookName || "the workbook") + " to bring the map in.");
+        el("chooseWorkbook").classList.add("primary");
+      }
     }, 400);
   }
     applyTheme(S.themeMode);
