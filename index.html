@@ -5802,11 +5802,26 @@ function renderContents(){
     html += `<p class="tocempty" style="margin:14px 0 4px">Not connected to anything</p>` + looseHtml;
   }
   /* Narrowing by tag cuts the branches above the matches, so walking down from
-     the roots reaches nothing. Anything still unlisted is shown on its own. */
-  const orphans = [...shown].filter(id=>!seen.has(id));
-  if(orphans.length){
-    const rest = orphans.map(id=>walk(id, 0)).join("");
-    if(rest) html += rest;
+     the roots reaches nothing and those nodes would never be listed.
+     Reachability is worked out on its own here: asking whether the walk
+     happened to visit a node was wrong, because a folded section is not walked
+     into, and every node inside one was being called unconnected. */
+  const reachable = new Set();
+  const reach = id=>{
+    /* only through nodes the outline is actually drawing: a branch below a
+       hidden parent cannot be reached by the walk, so it counts as stranded
+       and gets listed rather than disappearing */
+    if(reachable.has(id) || !shown.has(id)) return;
+    reachable.add(id);
+    childrenOf(id).forEach(reach);
+  };
+  rs.forEach(reach);
+  const stranded = [...shown].filter(id=>!reachable.has(id));
+  if(stranded.length){
+    const rest = stranded.map(id=>walk(id, 0)).join("");
+    if(rest){
+      html += `<p class="tocempty" style="margin:14px 0 4px">Elsewhere in the map</p>` + rest;
+    }
   }
   el("tocOutline").innerHTML = html || `<p class="tocempty">Nothing matches.</p>`;
   markHere();
