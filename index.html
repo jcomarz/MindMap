@@ -9931,6 +9931,8 @@ async function rememberFolder(){
     bookHandle = found;
     try{ await Store.putKey("bookHandle:" + (S.meta.key || "map"), found); }catch(e){}
     await readRememberedWorkbook(true);
+    sayWorkbookState("Set up. This folder is remembered, so from now on it is Refresh only. "
+      + "Your notes are saved as " + feedbackName() + " beside the workbook.");
   }catch(e){ /* changed their mind */ }
 }
 
@@ -12669,8 +12671,8 @@ async function boot(){
           + (bookHandle && bookHandle.name || "the workbook") + " again.");
       } else if(!S.nodes.size){
         /* an empty working copy: say what to do, plainly */
-        sayWorkbookState("Nothing loaded yet. Choose the synced folder holding "
-          + (S.bookName || "the workbook") + " to bring the map in.");
+        sayWorkbookState("First time here: choose the synced folder holding "
+          + (S.bookName || "the workbook") + ". It is asked once, then remembered.");
         el("chooseWorkbook").classList.add("primary");
       }
     }, 400);
