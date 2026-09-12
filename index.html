@@ -2874,9 +2874,14 @@ function importXlsx(file){
   rd.onload = ev=>{
     try{
       const wb = XLSX.read(new Uint8Array(ev.target.result), {type:"array"});
-      const get = n => wb.Sheets[n] ? XLSX.utils.sheet_to_json(wb.Sheets[n], {defval:""}) : [];
-      const t = {Nodes:get("Nodes"), Links:get("Links"), Edges:get("Edges"),
-                 Revisions:get("Revisions"), TagStyles:get("TagStyles"), Sync:get("Sync")};
+      /* Every sheet in the book, not a hand-written handful. This list had
+         fallen behind the file format — areas, bookmarks, questions,
+         suggestions, check-offs, settings, the tray and the overflow rows that
+         carry long notes and pictures were all being dropped on opening. */
+      const t = {};
+      wb.SheetNames.forEach(n=>{
+        t[n] = XLSX.utils.sheet_to_json(wb.Sheets[n], {defval:""});
+      });
       if(!t.Nodes.length){ toast("No rows found on a sheet named Nodes"); return; }
       if(S.nodes.size) saveNow(true);
       adoptModel(tablesToModel(t));
