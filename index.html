@@ -6124,6 +6124,31 @@ function updateTrayFlag(){
 }
 
 /* Turn a tray item into a node. target is a node id, or null for open space. */
+/* A clear patch beside a node: to its right if there is room, otherwise
+   working around it. */
+function freeSpotNear(host){
+  if(!host || host._x == null) return null;
+  const gap = 60, h = 90;
+  /* everything already on the map counts, the host included */
+  const taken = [...S.nodes.values()].filter(n=>n._x != null)
+    .map(n=>({x:n._x, y:n._y, w:NODE_W, h:n._h || 40}));
+  const clear = (x, y)=>!taken.some(r=>
+    x < r.x + r.w + 16 && x + NODE_W + 16 > r.x &&
+    y < r.y + r.h + 16 && y + h + 16 > r.y);
+  const tries = [];
+  for(let ring = 0; ring < 8; ring++){
+    const dx = NODE_W + gap + ring * 24;
+    tries.push([host._x + dx, host._y]);
+    tries.push([host._x + dx, host._y + (h + gap) * (1 + ring)]);
+    tries.push([host._x + dx, host._y - (h + gap) * (1 + ring)]);
+    tries.push([host._x - dx, host._y]);
+    tries.push([host._x, host._y + (h + gap) * (1 + ring)]);
+    tries.push([host._x, host._y - (h + gap) * (1 + ring)]);
+  }
+  for(const [x, y] of tries) if(clear(x, y)) return {x:Math.round(x), y:Math.round(y)};
+  return {x:Math.round(host._x + NODE_W + gap), y:Math.round(host._y)};
+}
+
 function placeTrayItem(itemId, target, where, at){
   if(!canEdit()){ toast("Switch to editing mode first."); return; }
   const it = S.inbox.find(x=>x.id === itemId);
@@ -6133,11 +6158,27 @@ function placeTrayItem(itemId, target, where, at){
   if(target && S.nodes.has(target) && where !== "loose"){
     const e = newEdge({from:target, to:n.id, link_type:where === "cross" ? "cross" : "tree"});
     S.edges.set(e.id, e);
+    /* Put it beside the node it was dropped on. Left to the general layout it
+       was landing wherever the branch happened to flow, often right across the
+       map from where you dropped it. */
+    const spot = freeSpotNear(S.nodes.get(target));
+    if(spot){ n.pinned = true; n.x = spot.x; n.y = spot.y; }
   } else if(at){
     n.pinned = true; n.x = at.x; n.y = at.y;
   }
   dropFromTray(itemId);
   markDirty(); rebuild();
+  /* the layout may have moved a neighbour into the gap we chose, so check once
+     more now everything has settled */
+  if(n.pinned){
+    const sits = [...S.nodes.values()].some(o=>o !== n && o._x != null
+      && n._x < o._x + NODE_W && n._x + NODE_W > o._x
+      && n._y < o._y + (o._h || 40) && n._y + (n._h || 40) > o._y);
+    if(sits){
+      const again = freeSpotNear(S.nodes.get(target) || n);
+      if(again){ n.x = again.x; n.y = again.y; rebuild(); }
+    }
+  }
   pickNode(n.id);
   toast(where === "cross" ? "Cross-linked to " + nodeName(target)
       : where === "child" ? "Added under " + nodeName(target)
