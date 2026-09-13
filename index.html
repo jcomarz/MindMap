@@ -1386,7 +1386,10 @@ body.viewing.panelaway #panelHide{display:none}
         <div class="row" style="margin-top:6px">
           <button class="btn wide" id="btnViewerCopy">Build a viewer copy</button>
         <button class="btn wide" id="btnGather">Gather feedback from the folder</button>
-        <button class="btn wide" id="btnPicFolder">Link the pictures folder</button>
+        <button class="btn wide" id="btnPicFolder">Link the folder holding the pictures</button>
+        <p class="fineprint">Pick the folder your paths are relative to — for
+          <b>images/photo.jpg</b> that is the folder containing <b>images</b>. Picking
+          <b>images</b> itself works too.</p>
         </div>
         <p id="syncNote" style="font-size:12px;color:var(--graphite-60);margin:9px 0 0">
           Not connected yet. Manage sheets walks you through it.</p>
@@ -8197,8 +8200,10 @@ function renderInspector(){
           <img src="${esc(picURL(n.image))}" alt="">
           <div><strong>${n.image.startsWith("data:image/gif") ? "Animated GIF in the cell"
             : n.image.startsWith("data:") ? "Photo stored in the cell"
-            : isFolderPath(n.image) ? (picCache.has(n.image) ? "From the pictures folder"
-              : "Not found — link the pictures folder")
+            : isFolderPath(n.image) ? (picCache.has(n.image)
+              ? "From " + (picDir && picDir.name || "the pictures folder")
+              : picDir ? "Not in “" + picDir.name + "” — link the folder that holds it"
+                       : "Link the pictures folder to see it")
             : "Linked image"}</strong>
             <span>${n.image.startsWith("data:") ? Math.round(n.image.length/1024)+" KB" : esc(n.image.slice(0,44))+(n.image.length>44?"…":"")}</span></div>
         </div>` : ""}
@@ -10563,8 +10568,16 @@ async function choosePictureFolder(){
     picCache.clear();
     const n = await warmPictures();
     rebuild(); renderInspector();
-    toast(n ? n + " picture" + (n===1?"":"s") + " found in that folder"
-            : "No matching pictures in that folder yet");
+    if(n){
+      toast(n + " picture" + (n===1?"":"s") + " found in " + picDir.name);
+    } else {
+      const want = [...new Set([...S.nodes.values()]
+        .map(x=>x.image).filter(isFolderPath))].slice(0, 3);
+      toast(want.length
+        ? "Nothing found in “" + picDir.name + "”. Looked for " + want.join(", ")
+          + ". Pick the folder that holds them."
+        : "No node has a picture path yet.");
+    }
   }catch(e){ /* changed their mind */ }
 }
 
@@ -10580,15 +10593,32 @@ function isFolderPath(src){
   return !!src && !/^(https?:|data:|blob:)/i.test(src);
 }
 
+async function readAt(bits){
+  let dir = picDir;
+  for(let i = 0; i < bits.length - 1; i++) dir = await dir.getDirectoryHandle(bits[i]);
+  const h = await dir.getFileHandle(bits[bits.length - 1]);
+  return await h.getFile();
+}
+
+/* Find the file however the folder was named. Someone pointing at the map's
+   folder and someone pointing at the pictures folder inside it should both
+   work, and so should a stray leading slash or ./ */
 async function fileFromFolder(path){
   if(!picDir) return null;
-  const bits = String(path).split("/").filter(b=>b && b !== ".");
-  let dir = picDir;
-  try{
-    for(let i = 0; i < bits.length - 1; i++) dir = await dir.getDirectoryHandle(bits[i]);
-    const h = await dir.getFileHandle(bits[bits.length - 1]);
-    return await h.getFile();
-  }catch(e){ return null; }
+  const bits = String(path).replace(/^\.?\//, "").split("/").filter(b=>b && b !== ".");
+  if(!bits.length) return null;
+  const tries = [bits];
+  /* they picked the pictures folder itself, so the first part is already it */
+  if(bits.length > 1 && picDir.name
+     && bits[0].toLowerCase() === String(picDir.name).toLowerCase()){
+    tries.push(bits.slice(1));
+  }
+  /* or the file sits straight in whatever they picked */
+  if(bits.length > 1) tries.push([bits[bits.length - 1]]);
+  for(const t of tries){
+    try{ const f = await readAt(t); if(f) return f; }catch(e){ /* try the next */ }
+  }
+  return null;
 }
 
 /* Read every picture named by a path, once, and keep the handle to it. */
