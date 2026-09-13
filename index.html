@@ -1386,6 +1386,7 @@ body.viewing.panelaway #panelHide{display:none}
         <div class="row" style="margin-top:6px">
           <button class="btn wide" id="btnViewerCopy">Build a viewer copy</button>
         <button class="btn wide" id="btnGather">Gather feedback from the folder</button>
+        <button class="btn wide" id="btnPicFolder">Link the pictures folder</button>
         </div>
         <p id="syncNote" style="font-size:12px;color:var(--graphite-60);margin:9px 0 0">
           Not connected yet. Manage sheets walks you through it.</p>
@@ -4611,8 +4612,8 @@ function drawMark(g, opts){
   const bg = mk("g",{class:"badge " + cls, transform:`translate(${x},${y})`}, g);
   if(img){
     const im = mk("image",{x:0, y:0, width:w, height:h, preserveAspectRatio:"xMidYMid meet"}, bg);
-    im.setAttributeNS("http://www.w3.org/1999/xlink", "href", img);
-    im.setAttribute("href", img);
+    im.setAttributeNS("http://www.w3.org/1999/xlink", "href", picURL(img));
+    im.setAttribute("href", picURL(img));
   } else {
     mk("rect",{class:"badge-pill", width:w, height:h, rx:h/2}, bg);
     const t = mk("text",{class:"badge-text", x:w/2, y:h/2 + 3.5, "text-anchor":"middle"}, bg);
@@ -5404,8 +5405,8 @@ function render(){
       mk("rect",{width:NODE_W-10, height:n._imgH, fill:"var(--img-bg)"}, wrapG);
       const im = mk("image",{x:0, y:0, width:NODE_W-10, height:n._imgH,
         preserveAspectRatio:"xMidYMid slice", opacity: n.status==="retired" ? .45 : 1}, wrapG);
-      im.setAttributeNS("http://www.w3.org/1999/xlink", "href", n._art);
-      im.setAttribute("href", n._art);
+      im.setAttributeNS("http://www.w3.org/1999/xlink", "href", picURL(n._art));
+      im.setAttribute("href", picURL(n._art));
     }
     const textTop = n._imgH ? n._imgH + 8 : 0;
     const px = textPadX();
@@ -7802,7 +7803,7 @@ function renderViewerInspector(n){
       <h2 style="margin-bottom:6px">${esc(n.label)}</h2>
       ${n.status === "retired" ? `<span class="status-pill retired">retired</span>` : ""}
       ${artFor(n,"image") ? `<div class="imgcard" style="margin-top:10px">
-        <img src="${esc(artFor(n,"image"))}" alt="">
+        <img src="${esc(picURL(artFor(n,"image")))}" alt="">
         <div><strong>${hasOwnArt(n.id) ? "Your picture" : "Image"}</strong></div>
         <button class="btn" id="vArt" style="flex:0 0 auto;padding:3px 8px;font-size:11px">Change</button>
       </div>` : `<div class="row" style="margin-top:10px">
@@ -8162,9 +8163,12 @@ function renderInspector(){
         </select></label>
       <label class="field"><span>Tags, comma separated</span><input type="text" id="fTags" value="${esc((n.tags||[]).join(", "))}"></label>
       ${n.image ? `<div class="imgcard">
-          <img src="${esc(n.image)}" alt="">
+          <img src="${esc(picURL(n.image))}" alt="">
           <div><strong>${n.image.startsWith("data:image/gif") ? "Animated GIF in the cell"
-            : n.image.startsWith("data:") ? "Photo stored in the cell" : "Linked image"}</strong>
+            : n.image.startsWith("data:") ? "Photo stored in the cell"
+            : isFolderPath(n.image) ? (picCache.has(n.image) ? "From the pictures folder"
+              : "Not found — link the pictures folder")
+            : "Linked image"}</strong>
             <span>${n.image.startsWith("data:") ? Math.round(n.image.length/1024)+" KB" : esc(n.image.slice(0,44))+(n.image.length>44?"…":"")}</span></div>
         </div>` : ""}
       ${n.image && n.image.startsWith("data:") ? "" :
@@ -10509,6 +10513,83 @@ function queueContributions(){
   sendTimer = setTimeout(sendContributions, 1500);
 }
 
+/* ---------------------------------------------------------------
+   Pictures kept beside the map. A relative path is resolved by the
+   browser against wherever the page itself was opened from, which is
+   rarely the folder holding the workbook. Naming that folder once
+   lets the file be read straight from it instead.
+   --------------------------------------------------------------- */
+let picDir = null;
+const picCache = new Map();
+
+async function choosePictureFolder(){
+  if(!window.showDirectoryPicker){
+    toast("This browser cannot open a folder. Chrome or Edge can."); return;
+  }
+  try{
+    picDir = await window.showDirectoryPicker({id:"mindmap-folder", mode:"read"});
+    try{ await Store.putKey("picDir:" + (S.meta.key || "map"), picDir); }catch(e){}
+    picCache.clear();
+    const n = await warmPictures();
+    rebuild(); renderInspector();
+    toast(n ? n + " picture" + (n===1?"":"s") + " found in that folder"
+            : "No matching pictures in that folder yet");
+  }catch(e){ /* changed their mind */ }
+}
+
+async function recallPictureFolder(){
+  try{
+    const d = await Store.getKey("picDir:" + (S.meta.key || "map"));
+    if(d){ picDir = d; return true; }
+  }catch(e){}
+  return false;
+}
+
+function isFolderPath(src){
+  return !!src && !/^(https?:|data:|blob:)/i.test(src);
+}
+
+async function fileFromFolder(path){
+  if(!picDir) return null;
+  const bits = String(path).split("/").filter(b=>b && b !== ".");
+  let dir = picDir;
+  try{
+    for(let i = 0; i < bits.length - 1; i++) dir = await dir.getDirectoryHandle(bits[i]);
+    const h = await dir.getFileHandle(bits[bits.length - 1]);
+    return await h.getFile();
+  }catch(e){ return null; }
+}
+
+/* Read every picture named by a path, once, and keep the handle to it. */
+async function warmPictures(){
+  if(!picDir) return 0;
+  const perm = await picDir.queryPermission({mode:"read"});
+  if(perm !== "granted"){
+    const ok = await picDir.requestPermission({mode:"read"});
+    if(ok !== "granted") return 0;
+  }
+  const wanted = new Set();
+  S.nodes.forEach(n=>{
+    if(isFolderPath(n.image)) wanted.add(n.image);
+    if(isFolderPath(n.badgeImage)) wanted.add(n.badgeImage);
+  });
+  let found = 0;
+  for(const path of wanted){
+    if(picCache.has(path)){ found++; continue; }
+    const f = await fileFromFolder(path);
+    if(!f) continue;
+    picCache.set(path, URL.createObjectURL(f));
+    found++;
+  }
+  return found;
+}
+
+/* What to actually draw for a picture: the folder copy if we have it. */
+function picURL(src){
+  if(!isFolderPath(src)) return src;
+  return picCache.get(src) || src;
+}
+
 function pickWorkbookFile(){
   const inp = document.createElement("input");
   inp.type = "file";
@@ -12839,6 +12920,7 @@ async function boot(){
   el("btnPush").onclick  = ()=>runSync("push");
   el("btnViewerCopy").onclick = buildViewerFile;
   el("btnGather").onclick = gatherFeedback;
+  el("btnPicFolder").onclick = choosePictureFolder;
   el("btnConns").onclick = ()=>{
     /* start with an empty form rather than making people find an Add button
        before step 4 has anywhere to paste into */
@@ -13052,6 +13134,13 @@ async function boot(){
     if(Array.isArray(custom)) S.customThemes = custom;
     await loadPrefs();
     organiseRail();
+    /* a folder named before is used again without asking */
+    if(await recallPictureFolder()){
+      setTimeout(async ()=>{
+        const n = await warmPictures();
+        if(n){ render(); renderInspector(); }
+      }, 500);
+    }
   if(S.fromWorkbook){
     const where = el("workbookWhere");
     if(where) where.textContent = S.workbookUrl
