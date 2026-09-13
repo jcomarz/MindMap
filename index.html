@@ -3181,6 +3181,37 @@ function nudgeApart(ids){
   }
 }
 
+/* Put the clusters in an order where the ones joined by cross-links sit next
+   to each other, then let the packer lay them out in that order. */
+function orderByAffinity(clusters){
+  if(clusters.length < 3) return;
+  const home = new Map();
+  clusters.forEach((c, i)=>c.ids.forEach(id=>home.set(id, i)));
+  const ties = clusters.map(()=>new Map());
+  for(const e of S.edges.values()){
+    const a = home.get(e.from), b = home.get(e.to);
+    if(a == null || b == null || a === b) continue;
+    ties[a].set(b, (ties[a].get(b) || 0) + 1);
+    ties[b].set(a, (ties[b].get(a) || 0) + 1);
+  }
+  const left = new Set(clusters.map((_, i)=>i));
+  /* start from whichever branch is tied to the most others */
+  let at = 0, most = -1;
+  ties.forEach((m, i)=>{ const n = [...m.values()].reduce((x, y)=>x + y, 0);
+    if(n > most){ most = n; at = i; } });
+  const order = [];
+  while(left.size){
+    if(!left.has(at)) at = [...left][0];
+    order.push(at); left.delete(at);
+    let next = null, best = 0;
+    ties[at].forEach((n, j)=>{ if(left.has(j) && n > best){ best = n; next = j; } });
+    at = next == null ? [...left][0] : next;
+  }
+  const sorted = order.map(i=>clusters[i]);
+  clusters.length = 0;
+  sorted.forEach(c=>clusters.push(c));
+}
+
 function layoutRadial(vis, stacked){
   const kidsOf = id => childrenOf(id).filter(k=>vis.has(k) && !stacked.has(k));
   /* how much room one node needs whichever way it is turned */
@@ -3288,7 +3319,9 @@ function layoutRadial(vis, stacked){
     clusters.push({ids, x0, y0, w:x1 - x0, h:y1 - y0});
   });
 
-  /* the clusters themselves still pack into a grid */
+  /* Branches that link to each other are packed side by side, so a cross-link
+     is a short hop rather than a sweep across the whole map. */
+  orderByAffinity(clusters);
   const blocks = clusters.map(c=>({w:c.w, h:c.h, cluster:c}));
   const packed = (S.branchGrid && wantsGrid(blocks)) ? packGrid(blocks) : packColumn(blocks);
   packed.cells.forEach(cell=>{
@@ -3594,7 +3627,7 @@ function avoidPath(p1, p2, skipA, skipB){
   const nx = -vy / len, ny = vx / len;
   const mid = {x:(p1.x + p2.x) / 2, y:(p1.y + p2.y) / 2};
 
-  let best = null, bestHits = Infinity;
+  let best = null, bestHits = Infinity, bestSpread = Infinity;
   /* try swinging wider and wider, each side in turn */
   for(let step = 1; step <= 8; step++){
     const out = step * Math.max(70, len * 0.10);
@@ -3603,7 +3636,11 @@ function avoidPath(p1, p2, skipA, skipB){
       const pts = [p1, a, p2];
       const hits = hitsFor(pts).length;
       if(!hits) return pts;
-      if(hits < bestHits){ bestHits = hits; best = pts; }
+      /* among equally blocked routes, keep the one that wanders least */
+      const far = Math.abs(out);
+      if(hits < bestHits || (hits === bestHits && far < bestSpread)){
+        bestHits = hits; best = pts; bestSpread = far;
+      }
     }
   }
   /* Columns are better served by a straight lane past the obstacles than by a
@@ -3634,7 +3671,7 @@ function avoidPath(p1, p2, skipA, skipB){
     }
     const still = hitsFor(pts);
     if(!still.length) return pts;
-    if(still.length < bestHits){ bestHits = still.length; best = pts; }
+    if(still.length < bestHits){ bestHits = still.length; best = pts; bestSpread = clear; }
     blocking = blocking.concat(still.filter(r=>blocking.indexOf(r) < 0));
   }
 
@@ -3647,8 +3684,20 @@ function avoidPath(p1, p2, skipA, skipB){
       const pts = [p1, a, b, p2];
       const hits = hitsFor(pts).length;
       if(!hits) return pts;
-      if(hits < bestHits){ bestHits = hits; best = pts; }
+      /* among equally blocked routes, keep the one that wanders least */
+      const far = Math.abs(out);
+      if(hits < bestHits || (hits === bestHits && far < bestSpread)){
+        bestHits = hits; best = pts; bestSpread = far;
+      }
     }
+  }
+  /* If the best we could do still hits something, a straight line is kinder
+     than a long sweep that hits it anyway. */
+  if(best && bestHits > 0){
+    const bow = best.reduce((a, q, i)=>i === 0 ? 0
+      : a + Math.hypot(q.x - best[i-1].x, q.y - best[i-1].y), 0);
+    const direct = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+    if(bow > direct * 1.8) return [p1, p2];
   }
   return best || [p1, p2];
 }
