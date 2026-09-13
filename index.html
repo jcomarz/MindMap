@@ -359,6 +359,20 @@ input[type=range],input[type=color],input[type=checkbox],input[type=file]{cursor
 .portal{cursor:pointer}
 .portal:hover .portal-ring{stroke-width:2.4}
 .portal-label{font-family:var(--sans);font-size:9.5px;font-weight:600;pointer-events:none}
+/* the ring of cross-linked nodes drawn around whatever you picked */
+.orbiter{cursor:pointer;opacity:0;
+  transform:translate(var(--fx),var(--fy)) scale(.72);
+  transition:transform .34s cubic-bezier(.22,.68,.32,1), opacity .26s}
+.orbiter.here{opacity:1;transform:translate(var(--tx),var(--ty)) scale(1)}
+.orbit-card{fill:var(--paper);stroke:var(--graphite-60);stroke-width:1;
+  stroke-dasharray:4 3;filter:drop-shadow(0 2px 5px rgba(0,0,0,.16))}
+.orbiter:hover .orbit-card{stroke:var(--blueprint);stroke-dasharray:none}
+.orbit-line{stroke-width:1.6;stroke-dasharray:3 4;opacity:.85;fill:none;pointer-events:none}
+.orbit-name{font-family:var(--sans);font-size:11.5px;font-weight:600;fill:var(--graphite);
+  pointer-events:none}
+.orbit-sub{font-family:var(--mono);font-size:8.5px;fill:var(--graphite-60);pointer-events:none}
+@media (prefers-reduced-motion:reduce){ .orbiter{transition:none} }
+body.moving #gOrbit{display:none}
 body.moving .portal-label{display:none}
 /* dropped while the view is in motion, put back the moment it settles */
 body.moving .rider,
@@ -1502,6 +1516,7 @@ body.viewing.panelaway #panelHide{display:none}
           <g id="gAreas"></g>
           <g id="gEdges"></g>
           <g id="gPortals"></g>
+          <g id="gOrbit"></g>
           <g id="gNodes"></g>
         </g>
       </svg>
@@ -4932,11 +4947,14 @@ function renderPortals(){
       /* one end is elsewhere: a stub and a ring, rather than a line across
          the whole map */
       const here = aIn ? a : b, there = aIn ? b : a;
+      /* the orbit already shows this one properly, so no stub as well */
+      if(S.sel === here.id) continue;
       const p = rimPoint(here, there);
       const to = {x:p.x + p.dx * PORTAL_SPOKE, y:p.y + p.dy * PORTAL_SPOKE};
       mk("path",{d:`M${p.x},${p.y} L${to.x},${to.y}`, class:"portal-line",
         stroke:colour, fill:"none"}, g);
-      ring(to, colour, e, there.id, g, nodeName(there.id));
+      ring(to, colour, e, there.id, g,
+        shorten(nodeName(there.id), 24) + (e.tag ? "  ·  " + e.tag : ""));
     }
   }
 }
@@ -4968,6 +4986,92 @@ function ring(at, colour, e, goTo, g, label){
     const tip = mk("title",{}, wrap);
     tip.textContent = e.tag;
   }
+}
+
+/* ---------------------------------------------------------------
+   Orbit. Choosing a node brings whatever it is cross-linked to into
+   a ring around it, as ghosts — the real nodes stay where they live.
+   It is how you see what something touches without hunting for it.
+   --------------------------------------------------------------- */
+function crossPartners(id){
+  const out = [];
+  for(const e of S.edges.values()){
+    if(e.link_type === "tree") continue;
+    if(e.from === id && S.nodes.has(e.to)) out.push({id:e.to, edge:e, out:true});
+    else if(e.to === id && S.nodes.has(e.from)) out.push({id:e.from, edge:e, out:false});
+  }
+  return out;
+}
+
+function clearOrbit(){
+  const g = el("gOrbit");
+  if(!g) return;
+  g.querySelectorAll(".orbiter").forEach(o=>{
+    o.classList.remove("here");
+    setTimeout(()=>{ if(o.parentNode) o.remove(); }, 220);
+  });
+}
+
+function renderOrbit(){
+  const g = el("gOrbit");
+  if(!g) return;
+  g.textContent = "";
+  if(!S.portals || !S.sel || !S.nodes.has(S.sel)) return;
+  const me = S.nodes.get(S.sel);
+  if(me._x == null) return;
+  const mates = crossPartners(S.sel);
+  if(!mates.length) return;
+
+  const cx = me._x + NODE_W / 2, cy = me._y + (me._h || 40) / 2;
+  const R = Math.max(NODE_W * 1.25, 300);
+  const step = (Math.PI * 2) / mates.length;
+  mates.forEach((m, i)=>{
+    const other = S.nodes.get(m.id);
+    /* start it out where the real node actually lies, so the move reads as
+       bringing it here rather than a card appearing from nowhere */
+    const realAng = Math.atan2((other._y || cy) - cy, (other._x || cx) - cx);
+    const ang = -Math.PI / 2 + i * step;
+    const x = cx + Math.cos(ang) * R, y = cy + Math.sin(ang) * R;
+    const fromX = cx + Math.cos(realAng) * (R * 0.35);
+    const fromY = cy + Math.sin(realAng) * (R * 0.35);
+
+    const st = m.edge.tag ? styleFor(m.edge.tag) : null;
+    const colour = themeColor(m.edge.color || (st && st.color) || S.meta.crossColor
+      || "graphite-60");
+    const wrap = mk("g",{class:"orbiter", "data-goto":m.id}, g);
+    wrap.style.setProperty("--fx", fromX + "px");
+    wrap.style.setProperty("--fy", fromY + "px");
+    wrap.style.setProperty("--tx", x + "px");
+    wrap.style.setProperty("--ty", y + "px");
+    wrap.style.transitionDelay = (i * 28) + "ms";
+
+    const w = 178, h = 46;
+    mk("path",{d:`M${cx - x},${cy - y} L0,0`, class:"orbit-line", stroke:colour}, wrap);
+    mk("rect",{x:-w/2, y:-h/2, width:w, height:h, rx:4, class:"orbit-card"}, wrap);
+    mk("circle",{cx:-w/2, cy:0, r:5, class:"portal-ring", stroke:colour,
+      fill:"var(--paper)"}, wrap);
+    const t = mk("text",{class:"orbit-name", x:0, y:-2, "text-anchor":"middle"}, wrap);
+    t.textContent = shorten(nodeName(m.id), 26);
+    const sub = mk("text",{class:"orbit-sub", x:0, y:12, "text-anchor":"middle"}, wrap);
+    sub.textContent = (m.edge.tag ? m.edge.tag + " · " : "")
+      + (m.out ? "links out to" : "links in from");
+
+    wrap.addEventListener("pointerup", ev=>{
+      if(inPinch()){ dropPointer(ev); return; }
+      dropPointer(ev); ev.stopPropagation();
+      pickNode(m.id);
+    });
+    wrap.addEventListener("pointerdown", ev=>{
+      if(pointerCount() >= 1) return;
+      trackPointer(ev); ev.stopPropagation();
+    });
+    requestAnimationFrame(()=>wrap.classList.add("here"));
+  });
+}
+
+function shorten(t, n){
+  t = String(t || "");
+  return t.length > n ? t.slice(0, n - 1) + "…" : t;
 }
 
 function applyFocus(){
@@ -5026,6 +5130,7 @@ function decorateSelection(){
     if(old) old.remove();
   }
   lastLayerShown = (S.sel && isLayer(S.sel)) ? S.sel : null;
+  if(!S.sel) clearOrbit();
   const id = S.sel;
   if(!id || !S.nodes.has(id)) return;
   const g = gN.querySelector(`.node-g[data-id="${CSS.escape(id)}"]`);
@@ -5402,7 +5507,8 @@ function applyView(){
 }
 
 function rebuild(){ layout(); buildTagFilters(); updateTagCount(); updateTrayCount(); render();
-  renderPortals(); renderInspector(); renderContents();
+  renderPortals();
+  renderOrbit(); renderInspector(); renderContents();
   updateFab(); updateModeUI(); updateLinkBar(); }
 
 /* =====================================================================
@@ -7063,6 +7169,7 @@ function selectDetails(id){
   if(id && S.sel !== id) return;
   /* what you look at first */
   decorateSelection();
+  renderOrbit();
   renderInspector();
   /* and what can wait for a spare moment: the outline is hundreds of rows and
      showing it forces a full layout, which was landing right on the end of
