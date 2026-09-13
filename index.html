@@ -354,6 +354,12 @@ input[type=range],input[type=color],input[type=checkbox],input[type=file]{cursor
 /* focus: everything unrelated recedes rather than disappearing, so you keep
    a sense of where you are on the map */
 .focusdim{opacity:.16;filter:blur(1.1px);transition:opacity .3s}
+.portal-line{stroke-width:1.1;stroke-dasharray:2 4;opacity:.62;pointer-events:none}
+.portal-ring{stroke-width:1.5}
+.portal{cursor:pointer}
+.portal:hover .portal-ring{stroke-width:2.4}
+.portal-label{font-family:var(--sans);font-size:9.5px;font-weight:600;pointer-events:none}
+body.moving .portal-label{display:none}
 /* dropped while the view is in motion, put back the moment it settles */
 body.moving .rider,
 body.moving .window,
@@ -1281,6 +1287,8 @@ body.viewing.panelaway #panelHide{display:none}
           Skip accession numbers, tracking numbers and dates when searching</label>
         <label class="check"><input type="checkbox" id="dimOthers" checked>
           Fade everything that does not match a search</label>
+        <label class="check"><input type="checkbox" id="portals" checked>
+          Show cross-links as hollow portals, and as a stub when the other end is away</label>
         <label class="field"><span>How branches are arranged</span>
           <select id="branchShape">
             <option value="tidy">Tidy columns</option>
@@ -1493,6 +1501,7 @@ body.viewing.panelaway #panelHide{display:none}
         <g id="world">
           <g id="gAreas"></g>
           <g id="gEdges"></g>
+          <g id="gPortals"></g>
           <g id="gNodes"></g>
         </g>
       </svg>
@@ -1774,11 +1783,13 @@ body.viewing.panelaway #panelHide{display:none}
       </div>
       <input type="file" id="imgFile" accept="image/*,image/gif" hidden>
     </div>
-    <label class="field" style="margin-top:14px"><span>Or point at one that lives elsewhere</span>
+    <label class="field" style="margin-top:14px"><span>Or name one beside this file, such as
+      images/tube.jpg — or a web address</span>
       <input type="text" id="imgUrl" placeholder="https://… or data:image/…"></label>
     <p class="fineprint" id="imgNote"></p>
     <div class="row" style="margin-top:12px">
       <button class="btn wide" id="imgShrink" hidden>Shrink it to fit the file</button>
+      <button class="btn wide" id="imgAsPath" hidden>Point at it in the pictures folder instead</button>
       <button class="btn primary wide" id="imgUse">Use this</button>
       <button class="btn" id="imgDrop2" hidden></button>
       <button class="btn" id="imgRemove">Remove</button>
@@ -2010,6 +2021,7 @@ const S = {
   followOutline:true,          // the outline keeps up with the selection
   pickZoom:"in",               // off | in | note
   focusMode:"off",             // off | linked | family
+  portals:true,                // cross-links drawn hollow, and as stubs when far off
   branchShape:"tidy",          // tidy | radial
   branchGrid:true,             // pack big fans into a grid rather than one column
   avoidNodes:true,             // steer links around nodes they do not touch
@@ -4857,6 +4869,107 @@ function clearFocus(){
   gE.querySelectorAll(".focusdim").forEach(x=>x.classList.remove("focusdim"));
 }
 
+/* ---------------------------------------------------------------
+   Portals. A cross-link is a side reference, not part of the branch,
+   so it is drawn hollow rather than as another solid limb. When the
+   far end is off screen the line is not drawn at all: a short spoke
+   ends in a ring you can tap to go there.
+   --------------------------------------------------------------- */
+const PORTAL_SPOKE = 74;
+let portalTimer = null;
+function portalsSoon(){
+  if(!S.portals) return;
+  clearTimeout(portalTimer);
+  /* after the view stops, not during: which ones are on screen only matters
+     once you have arrived */
+  portalTimer = setTimeout(renderPortals, 140);
+}
+
+function viewWorldRect(pad){
+  const s = svgSize();
+  const k = S.view.k || 1;
+  return {
+    x0:(-S.view.x - (pad||0)) / k,
+    y0:(-S.view.y - (pad||0)) / k,
+    x1:(s.w - S.view.x + (pad||0)) / k,
+    y1:(s.h - S.view.y + (pad||0)) / k
+  };
+}
+
+function renderPortals(){
+  const g = el("gPortals");
+  if(!g) return;
+  g.textContent = "";
+  if(!S.portals) return;
+  const vis = visibleNodes();
+  const box = viewWorldRect(120);
+  const inView = n => n._x != null
+    && n._x + NODE_W > box.x0 && n._x < box.x1
+    && n._y + n._h > box.y0 && n._y < box.y1;
+
+  for(const e of S.edges.values()){
+    if(e.link_type === "tree") continue;
+    if(!vis.has(e.from) || !vis.has(e.to)) continue;
+    if(isLayer(e.from) || isLayer(e.to)) continue;
+    const a = S.nodes.get(e.from), b = S.nodes.get(e.to);
+    if(!a || !b || a._x == null || b._x == null) continue;
+    const tagSt = e.tag ? styleFor(e.tag) : null;
+    const colour = themeColor(e.color || (tagSt && tagSt.color)
+      || S.meta.crossColor || "graphite-60");
+    const aIn = inView(a), bIn = inView(b);
+    if(!aIn && !bIn) continue;
+
+    if(aIn && bIn){
+      /* both on screen: join them, but lightly */
+      const p1 = rimPoint(a, b), p2 = rimPoint(b, a);
+      const d = edgePathD(p1, p2, (e.route && e.route !== "auto") ? e.route
+        : (S.meta.routeCross || "curve"), e.bow);
+      mk("path",{d, class:"portal-line", stroke:colour, fill:"none",
+        "data-edge":e.id}, g);
+      ring(p1, colour, e, b.id, g);
+      ring(p2, colour, e, a.id, g);
+    } else {
+      /* one end is elsewhere: a stub and a ring, rather than a line across
+         the whole map */
+      const here = aIn ? a : b, there = aIn ? b : a;
+      const p = rimPoint(here, there);
+      const to = {x:p.x + p.dx * PORTAL_SPOKE, y:p.y + p.dy * PORTAL_SPOKE};
+      mk("path",{d:`M${p.x},${p.y} L${to.x},${to.y}`, class:"portal-line",
+        stroke:colour, fill:"none"}, g);
+      ring(to, colour, e, there.id, g, nodeName(there.id));
+    }
+  }
+}
+
+function ring(at, colour, e, goTo, g, label){
+  /* kept a steady size on screen, so it stays easy to hit however far out you
+     are zoomed */
+  const grow = Math.max(1, Math.min(4, 1 / (S.view.k || 1)));
+  const wrap = mk("g",{class:"portal",
+    transform:`translate(${at.x},${at.y}) scale(${grow.toFixed(2)})`}, g);
+  mk("circle",{r:8, class:"portal-ring", stroke:colour, fill:"var(--paper)"}, wrap);
+  mk("circle",{r:2.6, class:"portal-dot", fill:colour}, wrap);
+  if(label){
+    const t = mk("text",{class:"portal-label", x:0, y:-13, "text-anchor":"middle",
+      fill:colour}, wrap);
+    t.textContent = label.length > 22 ? label.slice(0, 21) + "…" : label;
+  }
+  wrap.addEventListener("pointerup", ev=>{
+    if(inPinch()){ dropPointer(ev); return; }
+    dropPointer(ev);
+    ev.stopPropagation();
+    if(S.nodes.has(goTo)) pickNode(goTo);
+  });
+  wrap.addEventListener("pointerdown", ev=>{
+    if(pointerCount() >= 1) return;
+    trackPointer(ev); ev.stopPropagation();
+  });
+  if(e && e.tag){
+    const tip = mk("title",{}, wrap);
+    tip.textContent = e.tag;
+  }
+}
+
 function applyFocus(){
   const gN = el("gNodes"), gE = el("gEdges");
   if(!gN || !gE) return;
@@ -5038,6 +5151,9 @@ function render(){
     /* a superseded node shares the connections of whatever replaced it, so its
        own lines are not drawn — otherwise every stack sprouts a second path */
     if(isLayer(e.from) || isLayer(e.to)) continue;
+    /* cross-links are drawn as portals instead, which depends on what is on
+       screen, so they are done after the view is known */
+    if(S.portals && e.link_type !== "tree") continue;
     if(e.link_type === "cross" && !showCross) continue;
     if(e.tag && offTags.has(e.tag)) continue;
     const a = S.nodes.get(e.from), b = S.nodes.get(e.to);
@@ -5279,12 +5395,14 @@ function applyView(){
   placeNote();
   el("world").setAttribute("transform",
     `translate(${S.view.x},${S.view.y}) scale(${S.view.k})`);
+  portalsSoon();
   const pct = Math.round(S.view.k*100) + "%";
   const z = el("zLvl");
   if(z.textContent !== pct) z.textContent = pct;
 }
 
-function rebuild(){ layout(); buildTagFilters(); updateTagCount(); updateTrayCount(); render(); renderInspector(); renderContents();
+function rebuild(){ layout(); buildTagFilters(); updateTagCount(); updateTrayCount(); render();
+  renderPortals(); renderInspector(); renderContents();
   updateFab(); updateModeUI(); updateLinkBar(); }
 
 /* =====================================================================
@@ -8543,7 +8661,7 @@ let imgPick = null;
 function pickImage(title, current, onPick, onRemove){
   imgPick = {value:current || "", onPick, onRemove};
   el("imgTitle").textContent = title;
-  el("imgUrl").value = /^https?:/i.test(current || "") ? current : "";
+  el("imgUrl").value = (current && !current.startsWith("data:")) ? current : "";
   imgPreviewUpdate();
   el("imgRemove").hidden = !current;
   el("imgDlg").showModal();
@@ -8561,8 +8679,10 @@ function imgPreviewUpdate(){
   box.innerHTML = `<img src="${esc(v)}" alt="">`;
   el("imgUse").disabled = false;
   const shrink = el("imgShrink");
-  if(shrink) shrink.hidden = !(v.startsWith("data:") && !v.startsWith("data:image/gif")
-    && v.length > CELL_LIMIT);
+  const big = v.startsWith("data:") && v.length > CELL_LIMIT;
+  if(shrink) shrink.hidden = !(big && !v.startsWith("data:image/gif"));
+  const asPath = el("imgAsPath");
+  if(asPath) asPath.hidden = !(big && asPath.dataset.name);
   if(v.startsWith("data:")){
     const kb = Math.round(v.length/1024);
     const gif = v.startsWith("data:image/gif");
@@ -8572,6 +8692,12 @@ function imgPreviewUpdate(){
             to fit and it travels with the map; leave it and it stays on this device only.`
          : "Small enough to travel in the spreadsheet.");
   } else {
+    if(!/^https?:/i.test(v)){
+      note.innerHTML = `Kept as a path beside this file. Nothing is stored in the workbook, so
+        the picture can be any size — it just has to sit at <b>${esc(v)}</b> in the same folder
+        as the map. Anyone whose folder has it will see it.`;
+      return;
+    }
     note.innerHTML = /sharepoint\.com|1drv\.ms|onedrive\.live\.com|Doc\.aspx/i.test(v)
       ? `Linked from a shared site. <span style="color:var(--flag)">It will only appear for
          people signed in to that site, and a “Copy link” address shows a web page rather than
@@ -8586,6 +8712,7 @@ function imgTake(v){
 }
 function readImageFile(f){
   if(!f || !/^image\//.test(f.type || "")){ toast("That is not an image."); return; }
+  if(el("imgAsPath")) el("imgAsPath").dataset.name = f.name;
   const fr = new FileReader();
   fr.onload = ()=>imgTake(String(fr.result || ""));
   fr.onerror = ()=>toast("That file could not be read.");
@@ -9582,6 +9709,7 @@ async function afterMapSwitch(){
   if(el("branchGrid")) el("branchGrid").checked = S.branchGrid;
   if(el("followOutline")) el("followOutline").checked = S.followOutline;
   if(el("branchShape")) el("branchShape").value = S.branchShape;
+  if(el("portals")) el("portals").checked = S.portals;
   if(el("searchExcludes")) el("searchExcludes").checked = S.searchExcludes;
   if(el("routeTree")) el("routeTree").value = S.meta.routeTree || "curve";
   if(el("routeCross")) el("routeCross").value = S.meta.routeCross || "curve";
@@ -10617,7 +10745,7 @@ async function loadPersonal(){
    different map. */
 const PREF_KEYS = ["notesMode","motion","showIds","avoidNodes","branchGrid",
                    "focusMode","pickZoom","followOutline","railOpen","branchShape",
-                   "searchExcludes"];
+                   "searchExcludes","portals"];
 async function savePrefs(){
   const out = {};
   PREF_KEYS.forEach(k=>{ out[k] = S[k]; });
@@ -12149,6 +12277,7 @@ async function boot(){
   el("notesMode").onchange = e=>{ S.notesMode = e.target.value; savePrefs(); rebuild(); };
   el("searchExcludes").onchange = e=>{ S.searchExcludes = e.target.checked; savePrefs();
     runSearch(); };
+  el("portals").onchange = e=>{ S.portals = e.target.checked; savePrefs(); rebuild(); };
   el("branchShape").onchange = e=>{ S.branchShape = e.target.value; savePrefs();
     rebuild(); fitView(0.96, 0.4); };
   el("followOutline").onchange = e=>{ S.followOutline = e.target.checked; savePrefs(); };
@@ -12358,7 +12487,10 @@ async function boot(){
   el("imgUrl").addEventListener("input", ()=>{
     const v = el("imgUrl").value.trim();
     if(!v) return;
-    if(/^(https?:|data:image\/)/i.test(v)) imgTake(v);
+    /* a path relative to the file itself — images/tube.jpg — is the tidiest
+       source of all: nothing stored, nothing to sign in to */
+    if(/^(https?:|data:image\/)/i.test(v) || /^[\w.][\w .()/-]*\.(png|jpe?g|gif|webp|svg)$/i.test(v))
+      imgTake(v);
   });
   el("imgDlg").addEventListener("paste", ev=>{
     const items = [...((ev.clipboardData && ev.clipboardData.items) || [])];
@@ -12369,6 +12501,14 @@ async function boot(){
       ev.preventDefault(); imgTake(txt.trim()); el("imgUrl").value = txt.trim();
     }
   });
+  el("imgAsPath").onclick = ()=>{
+    const name = el("imgAsPath").dataset.name;
+    if(!name) return;
+    const path = (S.meta.picturesFolder || "images") + "/" + name;
+    imgTake(path);
+    el("imgUrl").value = path;
+    toast("Put " + name + " in that folder next to the map, and everyone will see it.");
+  };
   el("imgShrink").onclick = ()=>{
     const before = imgPick && imgPick.value;
     if(!before) return;
