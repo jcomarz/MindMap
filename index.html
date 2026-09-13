@@ -134,6 +134,10 @@ button{cursor:pointer}
 .tocitem.sel{background:var(--blueprint-soft);color:var(--blueprint)}
 .tocitem.retired{color:var(--retired)}
 .tocitem.here{background:var(--blueprint-soft);border-radius:2px;font-weight:600}
+/* the fold controls stay in reach however far down the outline you are */
+#outlineGroup .row:first-of-type{position:sticky;top:0;z-index:3;
+  background:var(--paper);padding:6px 0 8px;margin:0;
+  box-shadow:0 6px 8px -8px rgba(0,0,0,.35)}
 .tocitem.traydrop{outline:2px solid var(--blueprint);outline-offset:-1px;border-radius:2px}
 .resrow{padding:7px 4px;border-top:1px solid var(--rule-soft);cursor:pointer;border-radius:2px}
 .resrow:first-of-type{border-top:0}
@@ -923,6 +927,15 @@ dialog#viewerKindDlg::backdrop{background:rgba(35,40,45,.42)}
 @media (max-width:820px){
   #trayPanel{left:8px;right:8px;bottom:8px;width:auto;max-height:56dvh}
 }
+dialog#peopleDlg,dialog#whoDlg{border:1px solid var(--graphite);border-radius:3px;padding:0;
+  background:var(--paper);width:min(440px,94vw);max-height:86dvh;color:var(--graphite);
+  display:flex;flex-direction:column}
+dialog#peopleDlg::backdrop,dialog#whoDlg::backdrop{background:rgba(35,40,45,.42)}
+.personrow{display:flex;align-items:center;gap:8px;padding:7px 4px;
+  border-top:1px solid var(--rule-soft)}
+.personrow span{flex:1;font-size:13px}
+.personrow.off span{opacity:.5;text-decoration:line-through}
+.whopick{margin-bottom:6px;text-align:left}
 dialog#placeDlg{border:1px solid var(--graphite);border-radius:3px;padding:0;
   background:var(--paper);width:min(430px,94vw);max-height:86dvh;color:var(--graphite);
   display:flex;flex-direction:column}
@@ -1398,6 +1411,7 @@ body.viewing.panelaway #panelHide{display:none}
 
       <div class="group" id="buildGroup">
         <h2>Build</h2>
+        <button class="btn wide" id="btnPeople">People who sign off</button>
         <div class="row">
           <button class="btn" id="btnChild">Add child</button>
           <button class="btn" id="btnSibling">Add sibling</button>
@@ -1535,7 +1549,6 @@ body.viewing.panelaway #panelHide{display:none}
         <h2>New and recent</h2>
         <div id="tocNew"></div>
         <div class="row" style="margin-top:8px">
-          <button class="btn" id="btnSignAll">Sign off all</button>
           <button class="btn" id="btnClearRecent">Clear recent</button>
         </div>
       </div>
@@ -1564,7 +1577,7 @@ body.viewing.panelaway #panelHide{display:none}
         <button class="btn wide" id="btnArea" style="margin-top:8px">Draw an area</button>
       </div>
 
-      <div class="group">
+      <div class="group" id="outlineGroup">
         <h2>Outline</h2>
         <div class="row" style="margin:0 0 8px">
           <button class="btn" id="foldAll">Collapse all</button>
@@ -1754,6 +1767,34 @@ body.viewing.panelaway #panelHide{display:none}
     <div id="trayList"></div>
   </div>
 </div>
+
+<dialog id="peopleDlg">
+  <div class="dlg-head">
+    <h2>People who sign off</h2>
+    <button class="btn" id="peopleClose">Done</button>
+  </div>
+  <div class="hist-controls">
+    <label class="field"><span>Team or group</span>
+      <input type="text" id="peopleTeam" placeholder="Senior Accessioners"></label>
+    <label class="field"><span>Names, one per line</span>
+      <textarea id="peopleNames" rows="3" placeholder="Dana Ruiz&#10;Ryan Oliveira"></textarea></label>
+    <div class="row"><button class="btn wide primary" id="peopleAdd">Add them</button></div>
+    <p class="fineprint">Everyone opening a viewer picks their name from this list instead of
+      typing one, so sign-offs match the people you expect.</p>
+  </div>
+  <div class="dlg-body" id="peopleList"></div>
+</dialog>
+
+<dialog id="whoDlg">
+  <div class="dlg-head">
+    <h2>Who are you?</h2>
+    <button class="btn" id="whoClose">Cancel</button>
+  </div>
+  <div class="dlg-body">
+    <div id="whoList"></div>
+    <p class="fineprint" id="whoNote"></p>
+  </div>
+</dialog>
 
 <dialog id="placeDlg">
   <div class="dlg-head">
@@ -2116,6 +2157,7 @@ const S = {
   customThemes:[],
   motion:"full",               // full | calm | off
   who:"",
+  people:[],                   // who may sign things off, and which team they are on
   inbox:[],                    // jotted down, not yet placed on the map
   inboxArmed:null,             // the item waiting to be put somewhere
   questions:[],                // asked by anyone; answers are pinned nodes
@@ -2411,6 +2453,85 @@ function unSupersede(id){
   return had;
 }
 
+/* ---------------------------------------------------------------
+   Arranging one family. Everything else is left exactly where it is,
+   which means pinning it: the map keeps its shape and only the branch
+   you asked about is rearranged.
+   --------------------------------------------------------------- */
+function arrangeFamily(id){
+  if(!canEdit()){ toast("Switch to editing mode first."); return; }
+  if(!S.nodes.has(id)) return;
+  const seen = visibleNodes();
+  const where = new Map();
+  seen.forEach(x=>{
+    const n = S.nodes.get(x);
+    if(n._x != null) where.set(x, {x:n._x, y:n._y});
+  });
+  const fam = new Set([id, ...branchOf(id)].filter(x=>seen.has(x)));
+  if(fam.size < 2){ toast("Nothing hangs off this one."); return; }
+  const anchor = where.get(id);
+  if(!anchor) return;
+
+  /* lay out the family on its own, using whatever shape is set */
+  const wasPinned = new Map();
+  fam.forEach(x=>{ const n = S.nodes.get(x); wasPinned.set(x, n.pinned); n.pinned = false; });
+  S._only = fam;
+  try{ layout(); } finally { S._only = null; }
+
+  /* put it back where it was, so the branch does not jump across the map */
+  const now = S.nodes.get(id);
+  const dx = anchor.x - now._x, dy = anchor.y - now._y;
+  /* move the working coordinates too, or the later steps read the untranslated
+     ones and undo this */
+  fam.forEach(x=>{
+    const n = S.nodes.get(x);
+    n.pinned = true;
+    n._x += dx; n._y += dy;
+    n.x = Math.round(n._x);
+    n.y = Math.round(n._y);
+  });
+  /* hold everything else exactly where it stands */
+  let held = 0;
+  where.forEach((p, x)=>{
+    if(fam.has(x)) return;
+    const n = S.nodes.get(x);
+    if(!n.pinned){ n.pinned = true; held++; }
+    n.x = Math.round(p.x); n.y = Math.round(p.y);
+  });
+  /* If the tidied family has landed on its neighbours, move the whole thing
+     aside as one piece rather than pulling it apart again. */
+  const outside = [...seen].filter(x=>!fam.has(x) && S.nodes.get(x)._x != null)
+    .map(x=>{ const n = S.nodes.get(x);
+      return {x:n._x, y:n._y, w:NODE_W, h:n._h || 40}; });
+  const mine = [...fam].map(x=>S.nodes.get(x));
+  const clashes = (ox, oy)=>{
+    for(const n of mine){
+      const ax = n._x + ox, ay = n._y + oy;
+      for(const r of outside){
+        if(ax < r.x + r.w + 8 && ax + NODE_W + 8 > r.x
+        && ay < r.y + r.h + 8 && ay + (n._h||40) + 8 > r.y) return true;
+      }
+    }
+    return false;
+  };
+  if(clashes(0, 0)){
+    const step = NODE_W * 0.6;
+    let found = null;
+    for(let ring = 1; ring <= 8 && !found; ring++){
+      for(const [sx, sy] of [[1,0],[0,1],[-1,0],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]]){
+        const ox = sx * ring * step, oy = sy * ring * step;
+        if(!clashes(ox, oy)){ found = {ox, oy}; break; }
+      }
+    }
+    if(found) mine.forEach(n=>{ n._x += found.ox; n._y += found.oy; });
+  }
+  fam.forEach(x=>{ const n = S.nodes.get(x); n.x = Math.round(n._x); n.y = Math.round(n._y); });
+  markDirty();
+  keepingPlace(()=>{ rebuild(); });
+  toast("Arranged " + fam.size + " in this family"
+    + (held ? ", the rest held where they were" : ""));
+}
+
 function isRoot(){ return S.mode === "root" && !S.viewerBuild; }
 /* A viewer build has no editing at all — not a mode you can switch out of. */
 function canEdit(){ return S.mode === "root" && !S.viewerBuild; }
@@ -2439,12 +2560,82 @@ async function hashOf(text){
 /* Who is contributing. Kept per device, never part of the map. */
 function whoAmI(force){
   if(S.who && !force) return S.who;
+  /* with a roster, people choose their name rather than typing one, so the
+     sign-offs match the list the editor keeps */
+  if((S.people || []).some(x=>x.active !== false)){ openWhoPicker(); return S.who || ""; }
   const name = prompt("Your name, so suggestions and check-offs can be attributed",
                       S.who || "");
   if(name == null) return S.who || "";
   S.who = name.trim() || "anonymous";
   savePersonal();
   return S.who;
+}
+
+function openPeople(){
+  if(!canEdit()){ toast("Switch to editing mode first."); return; }
+  renderPeople();
+  el("peopleDlg").showModal();
+}
+
+function renderPeople(){
+  const box = el("peopleList");
+  if(!box) return;
+  const teams = new Map();
+  (S.people || []).forEach(x=>{
+    const k = x.team || "Everyone else";
+    if(!teams.has(k)) teams.set(k, []);
+    teams.get(k).push(x);
+  });
+  box.innerHTML = teams.size
+    ? [...teams.entries()].map(([team, list])=>
+        `<p class="subhead">${esc(team)} · ${list.length}</p>` + list.map(x=>
+          `<div class="personrow${x.active === false ? " off" : ""}">
+            <span>${esc(x.name)}</span>
+            <button class="btn" data-pquiet="${esc(x.id)}">${x.active === false
+              ? "Bring back" : "Retire"}</button>
+            <button class="kill" data-pdrop="${esc(x.id)}">&times;</button>
+          </div>`).join("")).join("")
+    : `<p class="histempty">Nobody yet.</p>`;
+  box.querySelectorAll("[data-pquiet]").forEach(b=>{
+    b.onclick = ()=>{
+      const x = S.people.find(y=>y.id === b.dataset.pquiet);
+      if(x){ x.active = x.active === false; markDirty(); renderPeople(); }
+    };
+  });
+  box.querySelectorAll("[data-pdrop]").forEach(b=>{
+    b.onclick = ()=>{
+      S.people = S.people.filter(y=>y.id !== b.dataset.pdrop);
+      markDirty(); renderPeople();
+    };
+  });
+}
+
+function openWhoPicker(){
+  const dlg = el("whoDlg");
+  const people = (S.people || []).filter(x=>x.active !== false);
+  const teams = new Map();
+  people.forEach(x=>{
+    const k = x.team || "Everyone else";
+    if(!teams.has(k)) teams.set(k, []);
+    teams.get(k).push(x);
+  });
+  el("whoList").innerHTML = [...teams.entries()].map(([team, list])=>
+    `<p class="subhead">${esc(team)}</p>` + list.map(x=>
+      `<button class="btn wide whopick${S.who === x.name ? " primary" : ""}"
+        data-who="${esc(x.name)}">${esc(x.name)}</button>`).join("")).join("");
+  el("whoList").querySelectorAll("[data-who]").forEach(btn=>{
+    btn.onclick = ()=>{
+      S.who = btn.dataset.who;
+      savePersonal();
+      dlg.close();
+      updateModeUI(); renderInspector();
+      toast("Signing as " + S.who);
+    };
+  });
+  el("whoNote").textContent = canEdit()
+    ? "This list is yours to manage, under Build → People."
+    : "Pick your name. If it is not here, ask whoever looks after the map.";
+  dlg.showModal();
 }
 
 function revsFor(id){ return S.revisions.filter(r=>r.node_id===id).slice().reverse(); }
@@ -2618,7 +2809,8 @@ const HDR = {
   Overflow:["ref_id","table","column","seq","text"],
   Questions:["question_id","text","person","timestamp","status","note"],
   QuestionPins:["pin_id","question_id","node_id","person","timestamp","note"],
-  Inbox:["item_id","text","created","author"]
+  Inbox:["item_id","text","created","author"],
+  People:["person_id","name","team","active"]
 };
 
 function pathOf(id){
@@ -2705,7 +2897,10 @@ function toSheets(){
   return { Nodes:nodes, Links:links, Revisions:S.revisions.slice(), TagStyles:styles,
            Areas:areas, Bookmarks:bookmarks, Suggestions:suggestions,
            CheckItems:checkItems, Checkoffs:checkoffs, Questions:questions,
-           QuestionPins:pins, Settings:settings, Inbox:inbox, Overflow:[], Sync:sync };
+           QuestionPins:pins, Settings:settings, Inbox:inbox,
+           People:(S.people || []).map(x=>({person_id:x.id, name:x.name,
+             team:x.team || "", active:x.active === false ? "no" : "yes"})),
+           Overflow:[], Sync:sync };
 }
 function round(v){ return v==null?"":Math.round(v*10)/10; }
 
@@ -2737,8 +2932,13 @@ function tablesToModel(t){
   const M = { nodes:new Map(), edges:new Map(), revisions:[], tagStyles:new Map(),
               connections:[], areas:new Map(), bookmarks:[],
               suggestions:[], checkItems:[], checkoffs:[], settings:{},
-              questions:[], pins:[], inbox:[] };
+              questions:[], pins:[], inbox:[], people:[] };
 
+  (t.People || []).forEach(r=>{
+    if(!String(r.name||"").trim()) return;
+    M.people.push({id:String(r.person_id||uid("P-")), name:String(r.name).trim(),
+      team:String(r.team||"").trim(), active:String(r.active||"yes") !== "no"});
+  });
   (t.Inbox || []).forEach(r=>{
     if(!String(r.text||"").trim()) return;
     M.inbox.push({id:String(r.item_id||uid("I-")), text:String(r.text),
@@ -2899,6 +3099,7 @@ function adoptModel(M, keepConnections){
   /* the severity artwork was written to the sheet but never read back, so it
      survived a save and vanished on the next open */
   S.inbox = (M.inbox || []).slice();
+  S.people = (M.people || []).slice();
   S.meta.sevArt = {};
   SEVERITIES.forEach(sv=>{
     if(M.settings[sv.key]) S.meta.sevArt[sv.key] = M.settings[sv.key];
@@ -2998,7 +3199,7 @@ function importXlsx(file){
 function copyTsv(){
   const d = toSheets();
   let out = "";
-  for(const name of ["Nodes","Links","Areas","Bookmarks","Questions","QuestionPins","Suggestions","CheckItems","Checkoffs","Revisions","TagStyles","Settings","Inbox","Overflow","Sync"]){
+  for(const name of ["Nodes","Links","Areas","Bookmarks","Questions","QuestionPins","Suggestions","CheckItems","Checkoffs","Revisions","TagStyles","Settings","People","Inbox","Overflow","Sync"]){
     if(!(d[name]||[]).length && name!=="Nodes" && name!=="Links") continue;
     out += "### " + name + "\n" + HDR[name].join("\t") + "\n";
     for(const row of d[name]) out += HDR[name].map(h=>String(row[h]??"").replace(/[\t\n]/g," ")).join("\t") + "\n";
@@ -3109,6 +3310,8 @@ function wrapAll(text, widthPx){
 }
 
 function visibleNodes(){
+  /* an arrangement of one family lays out only that family */
+  if(S._only) return new Set([...S._only].filter(id=>S.nodes.has(id)));
   let scope = el("showScope").value;
   /* asking for retired nodes overrides a panel set to active only, otherwise
      the filter would return a list of things the map refuses to draw */
@@ -3235,7 +3438,7 @@ const RING_GAP = 30;
 /* A last tidy: the circles are worked out so nothing should touch, but a deep
    branch can still leave one pair a few pixels into each other. This pushes
    any such pair straight apart, which is invisible at the scale it happens. */
-function nudgeApart(ids){
+function nudgeApart(ids, movable){
   const pad = 10;
   const cell = NODE_W + pad;
   for(let pass = 0; pass < 60; pass++){
@@ -3266,12 +3469,20 @@ function nudgeApart(ids){
           const needX = NODE_W + pad, needY = (A._h + B._h)/2 + pad;
           if(Math.abs(dx) >= needX || Math.abs(dy) >= needY) continue;
           const pushX = needX - Math.abs(dx), pushY = needY - Math.abs(dy);
+          /* when only some may move, the whole push lands on those; if neither
+             may move there is nothing to do */
+          const canA = !movable || movable.has(idA);
+          const canB = !movable || movable.has(idB);
+          if(!canA && !canB) continue;
+          const share = (canA && canB) ? 2 : 1;
           if(pushX < pushY){
-            const k = (dx < 0 ? -1 : 1) * pushX / 2;
-            A._x += k; B._x -= k;
+            const k = (dx < 0 ? -1 : 1) * pushX / share;
+            if(canA) A._x += k;
+            if(canB) B._x -= k;
           } else {
-            const k = (dy < 0 ? -1 : 1) * pushY / 2;
-            A._y += k; B._y -= k;
+            const k = (dy < 0 ? -1 : 1) * pushY / share;
+            if(canA) A._y += k;
+            if(canB) B._y -= k;
           }
           moved = true;
         }
@@ -6261,6 +6472,24 @@ function renderContents(){
   const root = el("paneContents");
   /* reorder branches without hunting for them on the map */
   bindOutline(root);
+  /* One listener on the panel itself, so a row works whatever order things
+     were drawn in. Binding each row meant a row rendered at the wrong moment
+     quietly did nothing when clicked. */
+  if(!root.dataset.jumpwired){
+    root.dataset.jumpwired = "1";
+    root.addEventListener("click", ev=>{
+      const row = ev.target.closest && ev.target.closest("[data-jump]");
+      if(!row || !root.contains(row)) return;
+      if(ev.target.closest("[data-signoff],[data-forget],[data-killsearch],.kill")) return;
+      const id = row.dataset.jump;
+      if(!S.nodes.has(id)){ toast("That node is no longer on the map."); return; }
+      ev.preventDefault();
+      if(S.nodes.get(id).status === "retired" && el("showScope").value === "active"){
+        el("showScope").value = "all"; rebuild();
+      }
+      focusNode(id);
+    });
+  }
   root.querySelectorAll("[data-jump]").forEach(e=>{
     e.onclick = ev=>{ ev.preventDefault(); ev.stopPropagation();
       const id = e.dataset.jump;
@@ -8356,6 +8585,9 @@ function renderInspector(){
         ${layersUnder(n.id).map(x=>`<a href="#" data-goto="${esc(x)}">${esc(nodeName(x))}</a>`).join(", ")}.
       </div>` : ""}
       <div class="row" style="margin-top:6px">
+        <button class="btn" id="fArrange">Arrange this family</button>
+      </div>
+      <div class="row" style="margin-top:6px">
         <button class="btn" id="fBulkTags">Tag this and everything under it</button>
       </div>
       <div class="row" style="margin-top:6px">
@@ -8467,6 +8699,7 @@ function renderInspector(){
     unSupersede(n.id);
     toast("Back on its own. It is still retired — use Restore to bring it back.");
   };
+  if(el("fArrange")) el("fArrange").onclick = ()=>arrangeFamily(n.id);
   if(el("fRenamePic")) el("fRenamePic").onclick = ()=>renamePictureFor(n);
   if(el("fBulkTags")) el("fBulkTags").onclick = ()=>{
     if(el("bulkKids")) el("bulkKids").checked = true;
@@ -9860,9 +10093,10 @@ function buildWorkbookFrom(data){
     Checkoffs:[14,14,14,16,9,19,30,22,40],
     Settings:[14,44],
     Inbox:[14,60,19,16],
+    People:[14,26,22,8],
     Overflow:[16,14,14,6,70]
   };
-  for(const name of ["Nodes","Links","Areas","Bookmarks","Questions","QuestionPins","Suggestions","CheckItems","Checkoffs","Revisions","TagStyles","Settings","Inbox","Overflow","Sync"]){
+  for(const name of ["Nodes","Links","Areas","Bookmarks","Questions","QuestionPins","Suggestions","CheckItems","Checkoffs","Revisions","TagStyles","Settings","People","Inbox","Overflow","Sync"]){
     if(name === "Sync" && !data.Sync.length) continue;
     if(name === "Overflow" && !(data.Overflow||[]).length) continue;
     const ws = XLSX.utils.json_to_sheet(data[name], {header:HDR[name]});
@@ -10214,7 +10448,11 @@ async function gatherFeedback(){
   S.checkoffs.forEach(x=>seen.Checkoffs.add(x.id));
 
   let files = 0, added = 0, people = [];
-  for await (const [name, h] of dir.entries()){
+  /* look in users/ as well as the folder itself */
+  const places = [dir];
+  try{ places.push(await dir.getDirectoryHandle("users")); }catch(e){}
+  for(const place of places)
+  for await (const [name, h] of place.entries()){
     if(h.kind !== "file" || !/^feedback[ -].*\.xlsx?$/i.test(name)) continue;
     try{
       const f = await h.getFile();
@@ -10623,6 +10861,18 @@ function feedbackName(){
   return "feedback - " + who + ".xlsx";
 }
 
+/* Put each person's file in users/ when that folder exists, so the shared
+   folder does not fill up with loose workbooks. */
+async function feedbackTarget(){
+  if(!bookDir) return null;
+  try{
+    const dir = await bookDir.getDirectoryHandle("users");
+    return {dir, name:feedbackName(), where:"users/" + feedbackName()};
+  }catch(e){
+    return {dir:bookDir, name:feedbackName(), where:feedbackName()};
+  }
+}
+
 async function sendContributions(){
   if(S.bookReadOnly) return false;
   if(!canWriteFolder() && !bookHandle){
@@ -10645,11 +10895,12 @@ async function sendContributions(){
       const only = {};
       SHARED_TABLES.forEach(name=>{ only[name] = mine[name] || []; });
       const rows = SHARED_TABLES.reduce((a, n)=>a + only[n].length, 0);
-      const h = await bookDir.getFileHandle(feedbackName(), {create:true});
+      const target = await feedbackTarget();
+      const h = await target.dir.getFileHandle(target.name, {create:true});
       const w = await h.createWritable();
       await w.write(new Blob([XLSX.write(buildWorkbookFrom(only), {bookType:"xlsx", type:"array"})]));
       await w.close();
-      sayWorkbookState("Saved to " + feedbackName() + " at "
+      sayWorkbookState("Saved to " + target.where + " at "
         + new Date().toLocaleTimeString() + ", " + rows + " item" + (rows===1?"":"s"));
       return true;
     }
@@ -11702,7 +11953,6 @@ function renderUpdates(){
 
   if(news.length){
     html += `<div class="row" style="margin-bottom:6px">
-      <button class="btn"${unread.length?"":" disabled"} id="updSignAll">Sign off all ${unread.length||""}</button>
     </div>`;
     html += news.map(n=>`
       <div class="revcard"${isNewFor(n)?'':' style="opacity:.62"'}>
@@ -11747,16 +11997,12 @@ function renderUpdates(){
   body.querySelectorAll("[data-updforget]").forEach(b=>{
     b.onclick = ev=>{ ev.stopPropagation(); forgetVisited(b.dataset.updforget); renderUpdates(); };
   });
-  const sa = el("updSignAll");
-  if(sa) sa.onclick = ()=>{
-    S.personal.ackNew = S.personal.ackNew || {};
-    news.filter(isNewFor).forEach(n=>{ S.personal.ackNew[n.id] = n.badgeAt || nowISO(); });
-    savePersonal(); decorateBadges(); renderContents(); renderUpdates(); updateNewCount();
-  };
   const gb = el("updBadges");
   if(gb) gb.onclick = ()=>{
     el("updDlg").close();
-    const tab = [...document.querySelectorAll(".railtab")].find(t=>t.dataset.pane === "Contents");
+    /* the badges moved to Tools when the panel was reorganised; this was still
+       looking for them under Contents, so the button did nothing */
+    const tab = [...document.querySelectorAll(".railtab")].find(t=>t.dataset.pane === "Tools");
     if(tab) tab.click();
     if(window.matchMedia("(max-width:820px)").matches){
       el("rail").classList.add("open"); el("scrim").classList.add("on");
@@ -11764,10 +12010,11 @@ function renderUpdates(){
     setTimeout(()=>{
       const g = el("badgeGroup");
       if(!g) return;
+      if(g.tagName === "DETAILS") g.open = true;
       g.scrollIntoView({behavior:reducedMotion() ? "auto" : "smooth", block:"center"});
       g.classList.add("flash");
       setTimeout(()=>g.classList.remove("flash"), 1000);
-    }, 80);
+    }, 90);
   };
   const cr = el("updClearRecent");
   if(cr) cr.onclick = ()=>{ S.personal.recent = []; savePersonal();
@@ -12706,6 +12953,24 @@ async function boot(){
   el("modeRoot").onclick = ()=>setMode("root");
   el("modeViewer").onclick = ()=>setMode("viewer");
   el("btnWho").onclick = ()=>{ whoAmI(true); updateModeUI(); renderInspector(); };
+  el("btnPeople").onclick = openPeople;
+  el("peopleClose").onclick = ()=>el("peopleDlg").close();
+  el("peopleAdd").onclick = ()=>{
+    const names = (el("peopleNames").value || "").split(/[\n,]/)
+      .map(x=>x.trim()).filter(Boolean);
+    if(!names.length){ toast("Type a name or two first."); return; }
+    const team = (el("peopleTeam").value || "").trim();
+    let added = 0;
+    names.forEach(name=>{
+      if((S.people || []).some(x=>x.name.toLowerCase() === name.toLowerCase()
+        && (x.team || "") === team)) return;
+      S.people.push({id:uid("P-"), name, team, active:true});
+      added++;
+    });
+    el("peopleNames").value = "";
+    markDirty(); renderPeople();
+    toast(added + " added");
+  };
   el("btnLockMap").onclick = async ()=>{
     if(!isRoot()) return;
     if(S.meta.locked){
@@ -12898,15 +13163,6 @@ async function boot(){
     S.folded.clear();
     renderContents();
   };
-  el("btnSignAll").onclick = ()=>{
-    const list = newNodes().filter(isNewFor);
-    if(!list.length){ toast("Nothing waiting to be signed off."); return; }
-    if(!confirm("Sign off all " + list.length + " update" + (list.length===1?"":"s") + "?")) return;
-    S.personal.ackNew = S.personal.ackNew || {};
-    list.forEach(n=>{ S.personal.ackNew[n.id] = n.badgeAt || nowISO(); });
-    savePersonal(); decorateBadges(); renderContents();
-    toast(list.length + " signed off");
-  };
   el("btnClearRecent").onclick = ()=>{
     S.personal.recent = [];
     savePersonal(); decorateBadges(); renderContents();
@@ -13077,6 +13333,7 @@ async function boot(){
     renderTray();
     setTimeout(()=>el("trayAdd").focus(), 60);
   };
+  el("whoClose").onclick = ()=>el("whoDlg").close();
   el("trayClose").onclick = ()=>{ el("trayPanel").hidden = true; };
   el("trayFold").onclick = ()=>el("trayPanel").classList.toggle("folded");
   /* drag the header to move it out of the way */
