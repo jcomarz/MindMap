@@ -4044,11 +4044,12 @@ function applyThemeVars(){
              : nd.fill === "soft" ? c.paper2
              : nd.fill === "gradient" ? mixHex(c.paper, c.accent, .93) : c.paper;
   r.setProperty("--node-fill", fill);
-  /* pick lettering that actually reads on whatever the node is filled with */
-  const light = luminance(fill) > .55;
-  set("--node-ink", light ? c.ink : mixHex(c.paper, "#ffffff", .35));
-  set("--node-ink-60", light ? c.ink60 : hexA2(mixHex(c.paper, "#ffffff", .2), .78));
-  set("--node-note-ink", light ? mixHex(c.ink, fill, .28) : mixHex(c.paper, fill, .22));
+  /* Lettering measured against the fill rather than guessed from the mode.
+     Mixing a dark paper 35% toward white left grey on grey, which is why dark
+     mode was so hard to read on the nodes. */
+  set("--node-ink", inkFor(fill, 6));
+  set("--node-ink-60", inkFor(fill, 3.6));
+  set("--node-note-ink", inkFor(fill, 4.6));
   document.documentElement.setAttribute("data-font", t.font || "sans");
   applyBackground(t, c);
 }
@@ -4107,6 +4108,28 @@ function luminance(hex){
   const f = c=>{ c/=255; return c <= .03928 ? c/12.92 : Math.pow((c+.055)/1.055, 2.4); };
   return .2126*f((v>>16)&255) + .7152*f((v>>8)&255) + .0722*f(v&255);
 }
+/* How far apart two colours are to the eye, by the usual accessibility
+   measure: 1 is identical, 21 is black on white. */
+function contrastOf(a, b){
+  const l1 = luminance(a), l2 = luminance(b);
+  const hi = Math.max(l1, l2), lo = Math.min(l1, l2);
+  return (hi + .05) / (lo + .05);
+}
+
+/* Lettering that actually reads on a given fill. Start from whichever of black
+   or white stands out more, then ease it back toward the fill only as far as
+   the contrast allows. */
+function inkFor(fill, want){
+  const target = want || 5.2;
+  const white = "#FFFFFF", black = "#0E1216";
+  const base = contrastOf(fill, white) >= contrastOf(fill, black) ? white : black;
+  for(let m = .45; m > 0; m -= .05){
+    const cand = mixHex(base, fill, m);
+    if(contrastOf(fill, cand) >= target) return cand;
+  }
+  return base;
+}
+
 function hexA2(hex, a){ return hexA(hex, a); }
 function hexA(hex, a){
   const m = /^#?([0-9a-f]{6})$/i.exec(String(hex||"")); if(!m) return "rgba(0,0,0,"+a+")";
@@ -10996,8 +11019,8 @@ function renderThemeList(){
     c.onclick = ()=>{
       S.themeId = c.dataset.theme;
       Store.putKey("themeId", S.themeId);
-      applyTheme(S.themeMode);
-      rebuild(); renderThemeList();
+      keepingPlace(()=>{ applyTheme(S.themeMode); rebuild(); });
+      renderThemeList();
       if(!el("themeEditor").hidden) openThemeEditor();
     };
   });
@@ -11110,7 +11133,8 @@ function openThemeEditor(){
       if(inp.type === "range") v = Number(v);
       if(path.length === 1) t[path[0]] = v; else t[path[0]][path[1]] = v;
       saveCustomThemes();
-      applyTheme(S.themeMode); rebuild(); renderThemeList();
+      keepingPlace(()=>{ applyTheme(S.themeMode); rebuild(); });
+      renderThemeList();
       const lab = inp.previousElementSibling;
       if(lab && inp.type === "range") lab.textContent = lab.textContent.replace(/[\d.]+$/, v);
     };
@@ -11119,15 +11143,21 @@ function openThemeEditor(){
   });
   el("themeWall").onclick = ()=>pickImage("Wallpaper behind the map", t.bg.image || "",
     v=>{ t.bg.image = v; if(t.bg.opacity == null) t.bg.opacity = .35;
-         saveCustomThemes(); applyTheme(S.themeMode); rebuild(); openThemeEditor(); },
-    ()=>{ t.bg.image = ""; saveCustomThemes(); applyTheme(S.themeMode); rebuild(); openThemeEditor(); });
+         saveCustomThemes();
+         keepingPlace(()=>{ applyTheme(S.themeMode); rebuild(); });
+         openThemeEditor(); },
+    ()=>{ t.bg.image = ""; saveCustomThemes();
+          keepingPlace(()=>{ applyTheme(S.themeMode); rebuild(); });
+          openThemeEditor(); });
   el("themeWallClear").onclick = ()=>{ t.bg.image = ""; saveCustomThemes();
-    applyTheme(S.themeMode); rebuild(); openThemeEditor(); };
+    keepingPlace(()=>{ applyTheme(S.themeMode); rebuild(); });
+    openThemeEditor(); };
   el("themeDelete").onclick = ()=>{
     if(!confirm("Delete the theme “" + t.name + "”?")) return;
     S.customThemes = (S.customThemes || []).filter(x=>x.id !== t.id);
     S.themeId = "drafting"; saveCustomThemes(); Store.putKey("themeId", S.themeId);
-    applyTheme(S.themeMode); rebuild(); renderThemeList(); el("themeEditor").hidden = true;
+    keepingPlace(()=>{ applyTheme(S.themeMode); rebuild(); });
+    renderThemeList(); el("themeEditor").hidden = true;
   };
 }
 
@@ -11142,7 +11172,8 @@ function duplicateTheme(){
   S.customThemes = (S.customThemes || []).concat([copy]);
   S.themeId = copy.id;
   saveCustomThemes(); Store.putKey("themeId", S.themeId);
-  applyTheme(S.themeMode); rebuild(); renderThemeList(); openThemeEditor();
+  keepingPlace(()=>{ applyTheme(S.themeMode); rebuild(); });
+  renderThemeList(); openThemeEditor();
 }
 
 function exportTheme(){
@@ -11166,7 +11197,8 @@ function importTheme(file){
       S.customThemes = (S.customThemes || []).concat([t]);
       S.themeId = t.id;
       saveCustomThemes(); Store.putKey("themeId", S.themeId);
-      applyTheme(S.themeMode); rebuild(); renderThemeList();
+      keepingPlace(()=>{ applyTheme(S.themeMode); rebuild(); });
+      renderThemeList();
       toast("Theme “" + t.name + "” added");
     }catch(e){ toast("That file is not a MindMap theme."); }
   };
@@ -12823,20 +12855,21 @@ async function boot(){
   el("themeBtn").onclick = ()=>{
     const now = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
     S.themeMode = now;
-    applyTheme(now);
+    /* a theme changes node sizes, so the map reflows underneath: hold the
+       place you were looking at rather than letting it slide */
+    keepingPlace(()=>{ applyTheme(now); rebuild(); });
     Store.putKey("theme", now);
-    rebuild();
     toast(now === "dark" ? "Dark" : "Light");
   };
   el("themePref").onchange = e=>{
     S.themeMode = e.target.value;
-    applyTheme(S.themeMode);
+    keepingPlace(()=>{ applyTheme(S.themeMode); rebuild(); });
     Store.putKey("theme", S.themeMode);
-    rebuild();
   };
   if(window.matchMedia){
     matchMedia("(prefers-color-scheme: dark)").addEventListener("change", ()=>{
-      if((S.themeMode || "auto") === "auto"){ applyTheme("auto"); rebuild(); }
+      if((S.themeMode || "auto") === "auto")
+        keepingPlace(()=>{ applyTheme("auto"); rebuild(); });
     });
   }
   el("showCross").onchange = render;
