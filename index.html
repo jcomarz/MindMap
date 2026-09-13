@@ -1778,6 +1778,7 @@ body.viewing.panelaway #panelHide{display:none}
       <input type="text" id="imgUrl" placeholder="https://… or data:image/…"></label>
     <p class="fineprint" id="imgNote"></p>
     <div class="row" style="margin-top:12px">
+      <button class="btn wide" id="imgShrink" hidden>Shrink it to fit the file</button>
       <button class="btn primary wide" id="imgUse">Use this</button>
       <button class="btn" id="imgDrop2" hidden></button>
       <button class="btn" id="imgRemove">Remove</button>
@@ -3628,9 +3629,18 @@ function avoidPath(p1, p2, skipA, skipB){
   const mid = {x:(p1.x + p2.x) / 2, y:(p1.y + p2.y) / 2};
 
   let best = null, bestHits = Infinity, bestSpread = Infinity;
-  /* try swinging wider and wider, each side in turn */
+  /* Swing wider and wider, each side in turn — but only so far. A line that
+     bows halfway across the map to miss one node is worse to look at than the
+     node it was avoiding. */
+  const straightHits = hitsFor([p1, p2]).length;
+  /* How far a line may wander to get out of the way. A line that only brushes
+     one node is not worth a sweep across the map; one that would plough
+     through several is worth a bigger effort. */
+  const maxOut = straightHits <= 1
+    ? Math.min(360, Math.max(90, len * 0.30))
+    : Math.min(1100, Math.max(120, len * 0.65));
   for(let step = 1; step <= 8; step++){
-    const out = step * Math.max(70, len * 0.10);
+    const out = maxOut * step / 8;
     for(const side of [1, -1]){
       const a = {x:mid.x + nx * out * side, y:mid.y + ny * out * side};
       const pts = [p1, a, p2];
@@ -3654,7 +3664,8 @@ function avoidPath(p1, p2, skipA, skipB){
       const right = Math.max(...blocking.map(r=>r.x + r.w)) + clear;
       const left  = Math.min(...blocking.map(r=>r.x)) - clear;
       const m = (p1.x + p2.x) / 2;
-      const lane = Math.abs(right - m) <= Math.abs(left - m) ? right : left;
+      let lane = Math.abs(right - m) <= Math.abs(left - m) ? right : left;
+      if(Math.abs(lane - m) > maxOut) continue;   // too far out to be worth it
       const lo = Math.min(p1.y, p2.y), hi = Math.max(p1.y, p2.y);
       const a = {x:lane, y:lo + (hi - lo) * 0.18};
       const b = {x:lane, y:lo + (hi - lo) * 0.82};
@@ -3663,7 +3674,8 @@ function avoidPath(p1, p2, skipA, skipB){
       const below = Math.max(...blocking.map(r=>r.y + r.h)) + clear;
       const above = Math.min(...blocking.map(r=>r.y)) - clear;
       const m = (p1.y + p2.y) / 2;
-      const lane = Math.abs(below - m) <= Math.abs(above - m) ? below : above;
+      let lane = Math.abs(below - m) <= Math.abs(above - m) ? below : above;
+      if(Math.abs(lane - m) > maxOut) continue;
       const lo = Math.min(p1.x, p2.x), hi = Math.max(p1.x, p2.x);
       const a = {x:lo + (hi - lo) * 0.18, y:lane};
       const b = {x:lo + (hi - lo) * 0.82, y:lane};
@@ -3676,8 +3688,8 @@ function avoidPath(p1, p2, skipA, skipB){
   }
 
   /* nothing clean: go around in two hops, which almost always frees it */
-  for(let step = 2; step <= 6; step += 2){
-    const out = step * Math.max(90, len * 0.14);
+  for(let step = 1; step <= 3; step++){
+    const out = maxOut * step / 3;
     for(const side of [1, -1]){
       const a = {x:p1.x + vx * 0.25 + nx * out * side, y:p1.y + vy * 0.25 + ny * out * side};
       const b = {x:p1.x + vx * 0.75 + nx * out * side, y:p1.y + vy * 0.75 + ny * out * side};
@@ -8548,17 +8560,23 @@ function imgPreviewUpdate(){
   }
   box.innerHTML = `<img src="${esc(v)}" alt="">`;
   el("imgUse").disabled = false;
+  const shrink = el("imgShrink");
+  if(shrink) shrink.hidden = !(v.startsWith("data:") && !v.startsWith("data:image/gif")
+    && v.length > CELL_LIMIT);
   if(v.startsWith("data:")){
     const kb = Math.round(v.length/1024);
     const gif = v.startsWith("data:image/gif");
     note.innerHTML = (gif ? "Animated GIF, " : "Stored in the file, ") + kb + " KB. "
       + (v.length > CELL_LIMIT
-         ? `<span style="color:var(--flag)">Too large for a spreadsheet cell, so it will stay
-            on this device and travel in links, but be left out of a saved .xlsx or a sheet push.</span>`
+         ? `<span style="color:var(--flag)">Too large for a spreadsheet cell.</span> Shrink it
+            to fit and it travels with the map; leave it and it stays on this device only.`
          : "Small enough to travel in the spreadsheet.");
   } else {
-    note.textContent = "Linked from the web. Nothing is stored in the file, and it needs a "
-      + "connection to show.";
+    note.innerHTML = /sharepoint\.com|1drv\.ms|onedrive\.live\.com|Doc\.aspx/i.test(v)
+      ? `Linked from a shared site. <span style="color:var(--flag)">It will only appear for
+         people signed in to that site, and a “Copy link” address shows a web page rather than
+         the picture.</span> A downloaded copy, shrunk to fit, is the dependable way.`
+      : "Linked from the web. Nothing is stored in the file, and it needs a connection to show.";
   }
 }
 function imgTake(v){
@@ -8572,6 +8590,39 @@ function readImageFile(f){
   fr.onload = ()=>imgTake(String(fr.result || ""));
   fr.onerror = ()=>toast("That file could not be read.");
   fr.readAsDataURL(f);
+}
+
+/* Shrink a photograph until it fits in a spreadsheet cell, so it travels with
+   the map instead of living only on the machine it was added from. An animated
+   GIF is left alone — redrawing it would flatten it to one frame. */
+function shrinkForCell(src, done){
+  if(!src.startsWith("data:") || src.startsWith("data:image/gif")){ done(src); return; }
+  const img = new Image();
+  img.onload = ()=>{
+    let w = img.naturalWidth, h = img.naturalHeight;
+    let out = src, quality = 0.8, wide = Math.min(w, 1400);
+    const target = CELL_LIMIT * 0.9;
+    /* Aim rather than creep: a picture's size goes roughly with its area, so
+       scaling the width by the square root of how far over it is lands close
+       on the next try instead of after a dozen.  */
+    for(let step = 0; step < 10; step++){
+      const cw = Math.max(1, Math.round(wide));
+      const ch = Math.max(1, Math.round(h * (cw / w)));
+      const cv = document.createElement("canvas");
+      cv.width = cw; cv.height = ch;
+      const g = cv.getContext("2d");
+      g.fillStyle = "#fff"; g.fillRect(0, 0, cw, ch);   // no black behind transparency
+      g.drawImage(img, 0, 0, cw, ch);
+      out = cv.toDataURL("image/jpeg", quality);
+      if(out.length <= target) break;
+      const ratio = target / out.length;
+      if(quality > 0.5) quality = Math.max(0.5, quality * Math.sqrt(ratio));
+      else wide = Math.max(240, Math.round(cw * Math.sqrt(ratio)));
+    }
+    done(out);
+  };
+  img.onerror = ()=>done(src);
+  img.src = src;
 }
 
 function imageTooBig(data, label, keepAnyway){
@@ -12318,6 +12369,20 @@ async function boot(){
       ev.preventDefault(); imgTake(txt.trim()); el("imgUrl").value = txt.trim();
     }
   });
+  el("imgShrink").onclick = ()=>{
+    const before = imgPick && imgPick.value;
+    if(!before) return;
+    el("imgShrink").disabled = true;
+    shrinkForCell(before, out=>{
+      el("imgShrink").disabled = false;
+      imgTake(out);
+      const fits = out.length <= CELL_LIMIT;
+      toast("Shrunk from " + Math.round(before.length/1024) + " KB to "
+        + Math.round(out.length/1024) + " KB"
+        + (fits ? ", small enough to travel in the file"
+                : " — still too big, so it stays on this device"));
+    });
+  };
   el("imgUse").onclick = ()=>{
     if(!imgPick || !imgPick.value) return;
     const v = imgPick.value, fn = imgPick.onPick;
