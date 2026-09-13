@@ -356,7 +356,9 @@ input[type=range],input[type=color],input[type=checkbox],input[type=file]{cursor
 .focusdim{opacity:.16;filter:blur(1.1px);transition:opacity .3s}
 .portal-plate{fill:var(--paper);stroke:var(--rule);stroke-width:.8;opacity:.95;
   pointer-events:none}
-.portal-ring{stroke-width:1.5}
+.portal-ring{stroke-width:1.8}
+/* a cross-link's sign is hollow-dashed, a branch's is solid */
+.portal-ring.cross{stroke-dasharray:3 2.4}
 .portal{cursor:pointer}
 .portal:hover .portal-ring{stroke-width:2.4}
 .portal-label{font-family:var(--sans);font-size:9.5px;font-weight:600;pointer-events:none}
@@ -4925,8 +4927,11 @@ function renderPortals(){
     && n._x + NODE_W > box.x0 && n._x < box.x1
     && n._y + n._h > box.y0 && n._y < box.y1;
 
+  /* Every link with one end off the screen gets a sign where it leaves,
+     branches as well as cross-links — so you can see what is just out of
+     sight without going to look. */
+  const signs = [];
   for(const e of S.edges.values()){
-    if(e.link_type === "tree") continue;
     if(!vis.has(e.from) || !vis.has(e.to)) continue;
     if(isLayer(e.from) || isLayer(e.to)) continue;
     const a = S.nodes.get(e.from), b = S.nodes.get(e.to);
@@ -4936,18 +4941,23 @@ function renderPortals(){
     if(aIn === bIn) continue;
 
     const here = aIn ? a : b, there = aIn ? b : a;
-    const tagSt = e.tag ? styleFor(e.tag) : null;
-    const colour = themeColor(e.color || (tagSt && tagSt.color)
-      || S.meta.crossColor || "") || "var(--graphite-60)";
-    /* where the link crosses the edge of the frame, which is where a sign
-       telling you what lies that way belongs */
-    const at = frameCrossing(
-      {x:here._x + NODE_W/2, y:here._y + (here._h||40)/2},
-      {x:there._x + NODE_W/2, y:there._y + (there._h||40)/2}, box);
+    const from = {x:here._x + NODE_W/2, y:here._y + (here._h||40)/2};
+    const to = {x:there._x + NODE_W/2, y:there._y + (there._h||40)/2};
+    const at = frameCrossing(from, to, box);
     if(!at) continue;
-    const text = shorten(nodeName(there.id), 26) + (e.tag ? "  ·  " + e.tag : "");
-    ring(at, colour, e, there.id, g, text, box);
+    const tagSt = e.tag ? styleFor(e.tag) : null;
+    const cross = e.link_type !== "tree";
+    const colour = themeColor(e.color || (tagSt && tagSt.color)
+      || (cross ? S.meta.crossColor : "") || "") || "var(--graphite-60)";
+    signs.push({at, colour, e, to:there.id, cross,
+      near:Math.hypot(at.x - from.x, at.y - from.y),
+      text:shorten(nodeName(there.id), 24) + (e.tag ? "  ·  " + e.tag : "")});
   }
+  /* a busy hub can run off screen in every direction; the nearest are the
+     ones worth signposting */
+  signs.sort((x, y)=>x.near - y.near);
+  signs.slice(0, 18).forEach(sg=>
+    ring(sg.at, sg.colour, sg.e, sg.to, g, sg.text, box, sg.cross));
 }
 
 /* The point where the line from inside to outside leaves the visible area. */
@@ -4965,13 +4975,14 @@ function frameCrossing(inside, outside, box){
   return best;
 }
 
-function ring(at, colour, e, goTo, g, label, box){
+function ring(at, colour, e, goTo, g, label, box, cross){
   /* kept a steady size on screen, so it stays easy to hit however far out you
      are zoomed */
   const grow = Math.max(1, Math.min(4, 1 / (S.view.k || 1)));
   const wrap = mk("g",{class:"portal",
     transform:`translate(${at.x},${at.y}) scale(${grow.toFixed(2)})`}, g);
-  mk("circle",{r:9, class:"portal-ring", stroke:colour, fill:"var(--paper)"}, wrap);
+  mk("circle",{r:9, class:"portal-ring" + (cross ? " cross" : ""), stroke:colour,
+    fill:"var(--paper)"}, wrap);
   mk("path",{d:"M-2.6,-3.4 L3.4,0 L-2.6,3.4 Z", class:"portal-dot", fill:colour}, wrap);
   if(label){
     const w = 7 + label.length * 5.4;
@@ -5144,7 +5155,6 @@ function decorateSelection(){
     if(old) old.remove();
   }
   lastLayerShown = (S.sel && isLayer(S.sel)) ? S.sel : null;
-  if(!S.sel) clearOrbit();
   const id = S.sel;
   if(!id || !S.nodes.has(id)) return;
   const g = gN.querySelector(`.node-g[data-id="${CSS.escape(id)}"]`);
@@ -5518,8 +5528,7 @@ function applyView(){
 }
 
 function rebuild(){ layout(); buildTagFilters(); updateTagCount(); updateTrayCount(); render();
-  renderPortals();
-  renderOrbit(); renderInspector(); renderContents();
+  renderPortals(); renderInspector(); renderContents();
   updateFab(); updateModeUI(); updateLinkBar(); }
 
 /* =====================================================================
@@ -7180,7 +7189,6 @@ function selectDetails(id){
   if(id && S.sel !== id) return;
   /* what you look at first */
   decorateSelection();
-  renderOrbit();
   renderInspector();
   /* and what can wait for a spare moment: the outline is hundreds of rows and
      showing it forces a full layout, which was landing right on the end of
