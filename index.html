@@ -288,8 +288,13 @@ input[type=range],input[type=color],input[type=checkbox],input[type=file]{cursor
 #noteOverlay{
   position:absolute;z-index:14;background:var(--paper);border:1px solid var(--graphite);
   border-radius:4px;box-shadow:0 6px 24px rgba(0,0,0,.22);display:flex;flex-direction:column;
-  max-height:62%;min-width:280px;overflow:hidden
+  max-height:62%;min-width:280px;overflow:hidden;
+  /* drag the corner for more room; a wide table rarely fits the default */
+  resize:both;min-height:140px
 }
+#noteOverlay.wide{left:2% !important;top:3% !important;width:96% !important;
+  height:94% !important;max-height:94% !important;resize:none}
+#noteOverlay.wide .no-body{max-height:none}
 #noteOverlay[hidden]{display:none}
 .no-head{display:flex;align-items:center;gap:10px;padding:7px 9px 7px 12px;
   border-bottom:1px solid var(--rule);background:var(--paper-2);flex:0 0 auto}
@@ -440,8 +445,13 @@ body.focusing .node-g:not(.focusdim) .node-box{stroke-width:calc(var(--node-bord
 #noteOverlay{
   position:absolute;z-index:14;background:var(--paper);border:1px solid var(--graphite);
   border-radius:4px;box-shadow:0 6px 24px rgba(0,0,0,.22);display:flex;flex-direction:column;
-  max-height:62%;min-width:280px;overflow:hidden
+  max-height:62%;min-width:280px;overflow:hidden;
+  /* drag the corner for more room; a wide table rarely fits the default */
+  resize:both;min-height:140px
 }
+#noteOverlay.wide{left:2% !important;top:3% !important;width:96% !important;
+  height:94% !important;max-height:94% !important;resize:none}
+#noteOverlay.wide .no-body{max-height:none}
 #noteOverlay[hidden]{display:none}
 .no-head{display:flex;align-items:center;gap:10px;padding:7px 9px 7px 12px;
   border-bottom:1px solid var(--rule);background:var(--paper-2);flex:0 0 auto}
@@ -1643,6 +1653,7 @@ body.viewing.panelaway #panelHide{display:none}
     <div id="noteOverlay" hidden>
       <div class="no-head">
         <b id="noteTitle"></b>
+        <button class="btn" id="noteBig" title="Use the whole map area">&#10530;</button>
         <button class="btn" id="noteClose">Close</button>
       </div>
       <div class="no-body" id="noteBody"></div>
@@ -7951,6 +7962,8 @@ function openNote(id, scrollToHit){
   const q = (S.hitQuery || "").toLowerCase();
   body.innerHTML = noteToHtml(n.body, n);
   wireTableSort(body);
+  /* remember whether this one holds a table, so it opens wide enough to read */
+  el("noteOverlay").dataset.wideNote = body.querySelector("table") ? "1" : "0";
   if(q) markMatches(body, q);
   el("noteOverlay").hidden = false;
   placeNote();
@@ -8028,14 +8041,23 @@ function markMatches(root, q){
 /* keep it beside its node as the map moves */
 /* Beside the node, never over it or its pills. The candidates are tried in
    order and the first that clears everything wins. */
+let sizingNote = false;
 function placeNote(){
   const o = el("noteOverlay");
   if(!o || o.hidden || !noteFor) return;
   const n = S.nodes.get(noteFor);
   if(!n || n._x == null){ closeNote(); return; }
+  if(o.classList.contains("wide")) return;   // the big view sets its own bounds
+  /* sizing it ourselves must not look like the person dragging it */
+  sizingNote = true;
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{ sizingNote = false; }));
   const s = svgSize(), k = S.view.k;
-  const w = Math.max(300, Math.min(430, NODE_W * k));
-  o.style.width = w + "px";
+  /* a note with a table wants room; one with a sentence does not */
+  const wide = o.dataset.wideNote === "1";
+  const want = wide ? Math.min(s.w * 0.72, 860) : Math.max(300, Math.min(430, NODE_W * k));
+  const w = S.noteW || want;
+  o.style.width = Math.round(Math.min(w, s.w - 24)) + "px";
+  if(S.noteH) o.style.height = Math.round(Math.min(S.noteH, s.h - 24)) + "px";
   const h = Math.min(o.offsetHeight || 260, s.h * 0.62);
 
   const tall = n._h > TALL_NODE;
@@ -11617,7 +11639,7 @@ async function loadPersonal(){
    different map. */
 const PREF_KEYS = ["notesMode","motion","showIds","avoidNodes","branchGrid",
                    "focusMode","pickZoom","followOutline","railOpen","branchShape",
-                   "searchExcludes","portals"];
+                   "searchExcludes","portals","noteW","noteH"];
 async function savePrefs(){
   const out = {};
   PREF_KEYS.forEach(k=>{ out[k] = S[k]; });
@@ -13558,6 +13580,23 @@ async function boot(){
   window.addEventListener("resize", ()=>placeResults());
 
   el("noteClose").onclick = closeNote;
+  el("noteBig").onclick = ()=>{
+    const o = el("noteOverlay");
+    o.classList.toggle("wide");
+    if(!o.classList.contains("wide")){ o.style.height = ""; placeNote(); }
+  };
+  /* keep whatever size was dragged, for the next note too */
+  if(window.ResizeObserver){
+    const o = el("noteOverlay");
+    let settle = null;
+    new ResizeObserver(()=>{
+      if(o.hidden || o.classList.contains("wide") || sizingNote) return;
+      clearTimeout(settle);
+      settle = setTimeout(()=>{
+        S.noteW = o.offsetWidth; S.noteH = o.offsetHeight; savePrefs();
+      }, 300);
+    }).observe(o);
+  }
   el("themePick").onclick = openThemes;
   el("themeClose").onclick = ()=>el("themeDlg").close();
   el("themeEdit").onclick = openThemeEditor;
