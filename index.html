@@ -4920,12 +4920,16 @@ function renderPortals(){
   g.textContent = "";
   if(!S.portals) return;
   const vis = visibleNodes();
-  /* well inside the frame, so the sign and its label are wholly on screen */
+  /* Two rectangles, which were wrongly one. Whether a node can be seen is
+     judged against the actual frame; where a sign is drawn is pulled inside it
+     so the label is not clipped. Using the inset one for both meant a node
+     sitting near the edge, in plain view, still got a sign pointing at it. */
+  const seen = viewWorldRect(0);
   const inset = Math.max(60, 110 / Math.max(0.2, S.view.k || 1));
   const box = viewWorldRect(-inset);
   const inView = n => n._x != null
-    && n._x + NODE_W > box.x0 && n._x < box.x1
-    && n._y + n._h > box.y0 && n._y < box.y1;
+    && n._x + NODE_W > seen.x0 && n._x < seen.x1
+    && n._y + n._h > seen.y0 && n._y < seen.y1;
 
   /* Every link with one end off the screen gets a sign where it leaves,
      branches as well as cross-links — so you can see what is just out of
@@ -4979,7 +4983,7 @@ function ring(at, colour, e, goTo, g, label, box, cross){
   /* kept a steady size on screen, so it stays easy to hit however far out you
      are zoomed */
   const grow = Math.max(1, Math.min(4, 1 / (S.view.k || 1)));
-  const wrap = mk("g",{class:"portal",
+  const wrap = mk("g",{class:"portal", "data-goto":goTo,
     transform:`translate(${at.x},${at.y}) scale(${grow.toFixed(2)})`}, g);
   mk("circle",{r:9, class:"portal-ring" + (cross ? " cross" : ""), stroke:colour,
     fill:"var(--paper)"}, wrap);
