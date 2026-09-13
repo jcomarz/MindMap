@@ -354,7 +354,8 @@ input[type=range],input[type=color],input[type=checkbox],input[type=file]{cursor
 /* focus: everything unrelated recedes rather than disappearing, so you keep
    a sense of where you are on the map */
 .focusdim{opacity:.16;filter:blur(1.1px);transition:opacity .3s}
-.portal-line{stroke-width:1.4;stroke-dasharray:3 4;opacity:.72;pointer-events:none;fill:none}
+.portal-plate{fill:var(--paper);stroke:var(--rule);stroke-width:.8;opacity:.95;
+  pointer-events:none}
 .portal-ring{stroke-width:1.5}
 .portal{cursor:pointer}
 .portal:hover .portal-ring{stroke-width:2.4}
@@ -4917,7 +4918,9 @@ function renderPortals(){
   g.textContent = "";
   if(!S.portals) return;
   const vis = visibleNodes();
-  const box = viewWorldRect(120);
+  /* well inside the frame, so the sign and its label are wholly on screen */
+  const inset = Math.max(60, 110 / Math.max(0.2, S.view.k || 1));
+  const box = viewWorldRect(-inset);
   const inView = n => n._x != null
     && n._x + NODE_W > box.x0 && n._x < box.x1
     && n._y + n._h > box.y0 && n._y < box.y1;
@@ -4928,53 +4931,59 @@ function renderPortals(){
     if(isLayer(e.from) || isLayer(e.to)) continue;
     const a = S.nodes.get(e.from), b = S.nodes.get(e.to);
     if(!a || !b || a._x == null || b._x == null) continue;
+    const aIn = inView(a), bIn = inView(b);
+    /* both ends on screen, or both off it: the line itself is the whole story */
+    if(aIn === bIn) continue;
+
+    const here = aIn ? a : b, there = aIn ? b : a;
     const tagSt = e.tag ? styleFor(e.tag) : null;
     const colour = themeColor(e.color || (tagSt && tagSt.color)
       || S.meta.crossColor || "") || "var(--graphite-60)";
-    /* Looking at the whole map, the lines themselves are the information, so
-       they are drawn however far apart the ends are. Close in, a line to
-       somewhere off screen tells you nothing, and a stub says more. */
-    const overview = (S.view.k || 1) <= 0.36;
-    const aIn = inView(a), bIn = inView(b);
-    if(!overview && !aIn && !bIn) continue;
-
-    if(overview || (aIn && bIn)){
-      /* both on screen: join them, but lightly */
-      const p1 = rimPoint(a, b), p2 = rimPoint(b, a);
-      const d = edgePathD(p1, p2, (e.route && e.route !== "auto") ? e.route
-        : (S.meta.routeCross || "curve"), e.bow);
-      mk("path",{d, class:"portal-line", stroke:colour, fill:"none",
-        "data-edge":e.id}, g);
-      ring(p1, colour, e, b.id, g);
-      ring(p2, colour, e, a.id, g);
-    } else {
-      /* one end is elsewhere: a stub and a ring, rather than a line across
-         the whole map */
-      const here = aIn ? a : b, there = aIn ? b : a;
-      /* the orbit already shows this one properly, so no stub as well */
-      if(S.sel === here.id) continue;
-      const p = rimPoint(here, there);
-      /* a fixed length on screen, so it is still a visible line when zoomed out */
-      const reach = PORTAL_SPOKE / Math.max(0.25, Math.min(2, S.view.k || 1));
-      const to = {x:p.x + p.dx * reach, y:p.y + p.dy * reach};
-      mk("path",{d:`M${p.x},${p.y} L${to.x},${to.y}`, class:"portal-line",
-        stroke:colour, fill:"none"}, g);
-      ring(to, colour, e, there.id, g,
-        shorten(nodeName(there.id), 24) + (e.tag ? "  ·  " + e.tag : ""));
-    }
+    /* where the link crosses the edge of the frame, which is where a sign
+       telling you what lies that way belongs */
+    const at = frameCrossing(
+      {x:here._x + NODE_W/2, y:here._y + (here._h||40)/2},
+      {x:there._x + NODE_W/2, y:there._y + (there._h||40)/2}, box);
+    if(!at) continue;
+    const text = shorten(nodeName(there.id), 26) + (e.tag ? "  ·  " + e.tag : "");
+    ring(at, colour, e, there.id, g, text, box);
   }
 }
 
-function ring(at, colour, e, goTo, g, label){
+/* The point where the line from inside to outside leaves the visible area. */
+function frameCrossing(inside, outside, box){
+  const dx = outside.x - inside.x, dy = outside.y - inside.y;
+  let best = null;
+  const test = t=>{
+    if(!(t > 0 && t <= 1)) return;
+    const x = inside.x + dx * t, y = inside.y + dy * t;
+    if(x < box.x0 - 1 || x > box.x1 + 1 || y < box.y0 - 1 || y > box.y1 + 1) return;
+    if(best == null || t < best.t) best = {x, y, t};
+  };
+  if(dx) { test((box.x0 - inside.x) / dx); test((box.x1 - inside.x) / dx); }
+  if(dy) { test((box.y0 - inside.y) / dy); test((box.y1 - inside.y) / dy); }
+  return best;
+}
+
+function ring(at, colour, e, goTo, g, label, box){
   /* kept a steady size on screen, so it stays easy to hit however far out you
      are zoomed */
   const grow = Math.max(1, Math.min(4, 1 / (S.view.k || 1)));
   const wrap = mk("g",{class:"portal",
     transform:`translate(${at.x},${at.y}) scale(${grow.toFixed(2)})`}, g);
-  mk("circle",{r:8, class:"portal-ring", stroke:colour, fill:"var(--paper)"}, wrap);
-  mk("circle",{r:2.6, class:"portal-dot", fill:colour}, wrap);
+  mk("circle",{r:9, class:"portal-ring", stroke:colour, fill:"var(--paper)"}, wrap);
+  mk("path",{d:"M-2.6,-3.4 L3.4,0 L-2.6,3.4 Z", class:"portal-dot", fill:colour}, wrap);
   if(label){
-    const t = mk("text",{class:"portal-label", x:0, y:-13, "text-anchor":"middle",
+    const w = 7 + label.length * 5.4;
+    /* slide the plate along so it never runs off the side of the screen */
+    let dx = 0;
+    if(box){
+      const half = w / 2 / grow;
+      if(at.x + half > box.x1) dx = (box.x1 - (at.x + half)) * grow;
+      if(at.x - half < box.x0) dx = (box.x0 - (at.x - half)) * grow;
+    }
+    mk("rect",{x:-w/2 + dx, y:-27, width:w, height:15, rx:7, class:"portal-plate"}, wrap);
+    const t = mk("text",{class:"portal-label", x:dx, y:-16, "text-anchor":"middle",
       fill:colour}, wrap);
     t.textContent = label.length > 22 ? label.slice(0, 21) + "…" : label;
   }
@@ -5261,9 +5270,6 @@ function render(){
     /* a superseded node shares the connections of whatever replaced it, so its
        own lines are not drawn — otherwise every stack sprouts a second path */
     if(isLayer(e.from) || isLayer(e.to)) continue;
-    /* cross-links are drawn as portals instead, which depends on what is on
-       screen, so they are done after the view is known */
-    if(S.portals && e.link_type !== "tree") continue;
     if(e.link_type === "cross" && !showCross) continue;
     if(e.tag && offTags.has(e.tag)) continue;
     const a = S.nodes.get(e.from), b = S.nodes.get(e.to);
