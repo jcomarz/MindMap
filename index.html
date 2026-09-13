@@ -4942,27 +4942,57 @@ function renderPortals(){
     const a = S.nodes.get(e.from), b = S.nodes.get(e.to);
     if(!a || !b || a._x == null || b._x == null) continue;
     const aIn = inView(a), bIn = inView(b);
-    /* both ends on screen, or both off it: the line itself is the whole story */
-    if(aIn === bIn) continue;
+    /* both ends on screen: the line already tells you everything */
+    if(aIn && bIn) continue;
 
-    const here = aIn ? a : b, there = aIn ? b : a;
-    const from = {x:here._x + NODE_W/2, y:here._y + (here._h||40)/2};
-    const to = {x:there._x + NODE_W/2, y:there._y + (there._h||40)/2};
-    const at = frameCrossing(from, to, box);
-    if(!at) continue;
+    const from = {x:a._x + NODE_W/2, y:a._y + (a._h||40)/2};
+    const to   = {x:b._x + NODE_W/2, y:b._y + (b._h||40)/2};
+    const seg = clipToBox(from, to, box);
+    /* the line does not come near the screen at all */
+    if(!seg) continue;
+
     const tagSt = e.tag ? styleFor(e.tag) : null;
     const cross = e.link_type !== "tree";
     const colour = themeColor(e.color || (tagSt && tagSt.color)
       || (cross ? S.meta.crossColor : "") || "") || "var(--graphite-60)";
-    signs.push({at, colour, e, to:there.id, cross,
-      near:Math.hypot(at.x - from.x, at.y - from.y),
-      text:shorten(nodeName(there.id), 24) + (e.tag ? "  ·  " + e.tag : "")});
+    const dx = to.x - from.x, dy = to.y - from.y;
+    const ang = Math.atan2(dy, dx) * 180 / Math.PI;
+    const sign = (at, who, facing)=>({
+      at, colour, e, to:who, cross, facing,
+      near:Math.hypot(at.x - (from.x + dx/2), at.y - (from.y + dy/2)),
+      text:shorten(nodeName(who), 24) + (e.tag ? "  ·  " + e.tag : "")
+    });
+    /* a sign wherever the line runs off the edge, naming what lies that way —
+       including both ends when the line merely passes through */
+    if(seg.t0 > 0.001) signs.push(sign(seg.p0, a.id, ang + 180));
+    if(seg.t1 < 0.999) signs.push(sign(seg.p1, b.id, ang));
   }
   /* a busy hub can run off screen in every direction; the nearest are the
      ones worth signposting */
   signs.sort((x, y)=>x.near - y.near);
-  signs.slice(0, 18).forEach(sg=>
-    ring(sg.at, sg.colour, sg.e, sg.to, g, sg.text, box, sg.cross));
+  signs.slice(0, 20).forEach(sg=>
+    ring(sg.at, sg.colour, sg.e, sg.to, g, sg.text, box, sg.cross, sg.facing));
+}
+
+/* The part of a line that falls inside the box, if any, with how far along
+   each end sits. */
+function clipToBox(a, b, box){
+  const dx = b.x - a.x, dy = b.y - a.y;
+  let t0 = 0, t1 = 1;
+  const edge = (p, q)=>{        // p*t <= q
+    if(p === 0) return q >= 0;
+    const r = q / p;
+    if(p < 0){ if(r > t1) return false; if(r > t0) t0 = r; }
+    else { if(r < t0) return false; if(r < t1) t1 = r; }
+    return true;
+  };
+  if(edge(-dx, a.x - box.x0) && edge(dx, box.x1 - a.x)
+  && edge(-dy, a.y - box.y0) && edge(dy, box.y1 - a.y) && t0 <= t1){
+    return {t0, t1,
+      p0:{x:a.x + dx * t0, y:a.y + dy * t0},
+      p1:{x:a.x + dx * t1, y:a.y + dy * t1}};
+  }
+  return null;
 }
 
 /* The point where the line from inside to outside leaves the visible area. */
@@ -4980,7 +5010,7 @@ function frameCrossing(inside, outside, box){
   return best;
 }
 
-function ring(at, colour, e, goTo, g, label, box, cross){
+function ring(at, colour, e, goTo, g, label, box, cross, facing){
   /* kept a steady size on screen, so it stays easy to hit however far out you
      are zoomed */
   const grow = Math.max(1, Math.min(4, 1 / (S.view.k || 1)));
@@ -4988,7 +5018,8 @@ function ring(at, colour, e, goTo, g, label, box, cross){
     transform:`translate(${at.x},${at.y}) scale(${grow.toFixed(2)})`}, g);
   mk("circle",{r:9, class:"portal-ring" + (cross ? " cross" : ""), stroke:colour,
     fill:"var(--paper)"}, wrap);
-  mk("path",{d:"M-2.6,-3.4 L3.4,0 L-2.6,3.4 Z", class:"portal-dot", fill:colour}, wrap);
+  mk("path",{d:"M-2.6,-3.4 L3.4,0 L-2.6,3.4 Z", class:"portal-dot", fill:colour,
+    transform:`rotate(${Math.round(facing || 0)})`}, wrap);
   if(label){
     const w = 7 + label.length * 5.4;
     /* slide the plate along so it never runs off the side of the screen */
