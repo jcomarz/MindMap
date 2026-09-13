@@ -3039,7 +3039,10 @@ function noteLinesFor(n, q, isHit){
   const body = String(n.body || "").trim();
   if(!body) return [];
   const mode = S.notesMode;
-  const matches = q && termMatches(searchable(body).toLowerCase(), q)
+  /* opening a preview on every node of a broad search reflows the whole map
+     for something nobody can read anyway */
+  const fewEnough = S.hits.length <= PREVIEW_MAX;
+  const matches = q && fewEnough && termMatches(searchable(body).toLowerCase(), q)
     && S.searchScope !== "labels" && S.searchScope !== "parents";
   const forced = false;
   const cap = NOTE_MAX;
@@ -8674,6 +8677,7 @@ function termMatches(hay, term){
   return hay.includes(term);
 }
 
+const MIN_SEARCH = 2, PREVIEW_MAX = 40;
 function runSearch(){
   const q = el("q").value.trim().toLowerCase();
   S.hitQuery = q;
@@ -8681,6 +8685,17 @@ function runSearch(){
   const scope = S.searchScope;
   const filtering = S.tagPick.size > 0 || scope !== "all";
 
+  /* One letter matches almost everything and costs the most to draw, so it is
+     treated as nothing typed yet — the search starts on the second letter. */
+  if(q.length && q.length < MIN_SEARCH && !filtering){
+    S.hits = []; S.areaHits = []; S.bmHits = [];
+    S.hitIx = -1;
+    el("hitCount").textContent = "keep typing";
+    syncHitChrome(); syncClearButton();
+    keepingPlace(()=>{ layout(); render(); renderContents(); });
+    renderResults();
+    return;
+  }
   if(!q && !filtering){
     S.hitIx = -1; el("hitCount").textContent = "—"; syncHitChrome(); syncClearButton();
     /* clearing the box closes the note previews, which changes every height
@@ -12702,7 +12717,7 @@ async function boot(){
     markClean(); rebuild(); fitView(0.96, 1); select(n.id);
   };
 
-  const searchNow = debounce(runSearch, 200);
+  const searchNow = debounce(runSearch, 300);
   el("q").addEventListener("input", ()=>{ el("mq").value = el("q").value; searchNow(); });
   el("mq").addEventListener("input", ()=>{ el("q").value = el("mq").value; searchNow(); });
   el("mq").addEventListener("keydown", ev=>{ if(ev.key === "Enter"){ ev.preventDefault(); el("mq").blur(); stepHit(1); } });
