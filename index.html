@@ -354,7 +354,7 @@ input[type=range],input[type=color],input[type=checkbox],input[type=file]{cursor
 /* focus: everything unrelated recedes rather than disappearing, so you keep
    a sense of where you are on the map */
 .focusdim{opacity:.16;filter:blur(1.1px);transition:opacity .3s}
-.portal-line{stroke-width:1.1;stroke-dasharray:2 4;opacity:.62;pointer-events:none}
+.portal-line{stroke-width:1.4;stroke-dasharray:3 4;opacity:.72;pointer-events:none;fill:none}
 .portal-ring{stroke-width:1.5}
 .portal{cursor:pointer}
 .portal:hover .portal-ring{stroke-width:2.4}
@@ -4930,11 +4930,15 @@ function renderPortals(){
     if(!a || !b || a._x == null || b._x == null) continue;
     const tagSt = e.tag ? styleFor(e.tag) : null;
     const colour = themeColor(e.color || (tagSt && tagSt.color)
-      || S.meta.crossColor || "graphite-60");
+      || S.meta.crossColor || "") || "var(--graphite-60)";
+    /* Looking at the whole map, the lines themselves are the information, so
+       they are drawn however far apart the ends are. Close in, a line to
+       somewhere off screen tells you nothing, and a stub says more. */
+    const overview = (S.view.k || 1) <= 0.36;
     const aIn = inView(a), bIn = inView(b);
-    if(!aIn && !bIn) continue;
+    if(!overview && !aIn && !bIn) continue;
 
-    if(aIn && bIn){
+    if(overview || (aIn && bIn)){
       /* both on screen: join them, but lightly */
       const p1 = rimPoint(a, b), p2 = rimPoint(b, a);
       const d = edgePathD(p1, p2, (e.route && e.route !== "auto") ? e.route
@@ -4950,7 +4954,9 @@ function renderPortals(){
       /* the orbit already shows this one properly, so no stub as well */
       if(S.sel === here.id) continue;
       const p = rimPoint(here, there);
-      const to = {x:p.x + p.dx * PORTAL_SPOKE, y:p.y + p.dy * PORTAL_SPOKE};
+      /* a fixed length on screen, so it is still a visible line when zoomed out */
+      const reach = PORTAL_SPOKE / Math.max(0.25, Math.min(2, S.view.k || 1));
+      const to = {x:p.x + p.dx * reach, y:p.y + p.dy * reach};
       mk("path",{d:`M${p.x},${p.y} L${to.x},${to.y}`, class:"portal-line",
         stroke:colour, fill:"none"}, g);
       ring(to, colour, e, there.id, g,
@@ -5036,8 +5042,7 @@ function renderOrbit(){
     const fromY = cy + Math.sin(realAng) * (R * 0.35);
 
     const st = m.edge.tag ? styleFor(m.edge.tag) : null;
-    const colour = themeColor(m.edge.color || (st && st.color) || S.meta.crossColor
-      || "graphite-60");
+    const colour = themeColor(m.edge.color || (st && st.color) || S.meta.crossColor || "") || "var(--graphite-60)";
     const wrap = mk("g",{class:"orbiter", "data-goto":m.id}, g);
     wrap.style.setProperty("--fx", fromX + "px");
     wrap.style.setProperty("--fy", fromY + "px");
