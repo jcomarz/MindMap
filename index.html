@@ -385,6 +385,18 @@ input[type=range],input[type=color],input[type=checkbox],input[type=file]{cursor
 body.moving #gOrbit{display:none}
 body.moving .portal-label{display:none}
 /* dropped while the view is in motion, put back the moment it settles */
+body.plainfirst .rider,
+body.plainfirst .window,
+body.plainfirst .bldg,
+body.plainfirst .bldg-roof,
+body.plainfirst .stack,
+body.plainfirst .smoke,
+body.plainfirst .tree,
+body.plainfirst .pebble,
+body.plainfirst .leaf,
+body.plainfirst .palm-g,
+body.plainfirst .shell,
+body.plainfirst .zoneband{opacity:0;transition:opacity .35s ease-out}
 body.moving .rider,
 body.moving .window,
 body.moving .bldg,
@@ -4926,7 +4938,7 @@ function focusFamily(id, mode){
   return {nodes, edges};
 }
 
-let focusTimer = null;
+let focusTimer = null, decorTimer = null;
 let lastLayerShown = null, redrawPending = null;
 function redrawSoon(){
   clearTimeout(redrawPending);
@@ -7198,6 +7210,9 @@ function pickNode(id){
   const finish = ()=>{
     runPendingDetails();
     if(wantNote) openNote(id, true);
+    /* the scenery comes back once you can read what you came for */
+    clearTimeout(decorTimer);
+    decorTimer = setTimeout(()=>document.body.classList.remove("plainfirst"), 220);
   };
 
   if(move){
@@ -7209,6 +7224,10 @@ function pickNode(id){
        and the rest arrives when the movement is over */
     deferDetails = true;
     pendingBringToFront = true;
+    /* strip the decoration while moving so the words and the picture are what
+       arrives first; it is put back a moment later */
+    document.body.classList.add("plainfirst");
+    clearTimeout(decorTimer);
     select(id);
     animateView({k,
       x:s.w/2 - (n._x + NODE_W/2) * k,
@@ -12717,10 +12736,27 @@ async function boot(){
     markClean(); rebuild(); fitView(0.96, 1); select(n.id);
   };
 
-  const searchNow = debounce(runSearch, 300);
+  /* Wait until the typing stops. Searching between keystrokes meant the map
+     was rebuilt for half-finished words nobody was looking for. */
+  let searchPending = null;
+  const searchNow = ()=>{
+    clearTimeout(searchPending);
+    searchPending = setTimeout(()=>{ searchPending = null; runSearch(); }, 650);
+    if(el("hitCount")) el("hitCount").textContent = "…";
+  };
+  const searchAtOnce = ()=>{
+    clearTimeout(searchPending); searchPending = null; runSearch();
+  };
   el("q").addEventListener("input", ()=>{ el("mq").value = el("q").value; searchNow(); });
   el("mq").addEventListener("input", ()=>{ el("q").value = el("mq").value; searchNow(); });
-  el("mq").addEventListener("keydown", ev=>{ if(ev.key === "Enter"){ ev.preventDefault(); el("mq").blur(); stepHit(1); } });
+  el("mq").addEventListener("keydown", ev=>{
+    if(ev.key === "Enter"){ ev.preventDefault(); searchAtOnce(); el("mq").blur(); } });
+  el("q").addEventListener("keydown", ev=>{
+    if(ev.key === "Enter"){ ev.preventDefault(); searchAtOnce(); } });
+  ["q","mq"].forEach(id=>{
+    const box = el(id);
+    if(box) box.addEventListener("blur", ()=>{ if(searchPending) searchAtOnce(); });
+  });
   el("mNext").onclick = ()=>stepHit(1);
   el("mPrev").onclick = ()=>stepHit(-1);
   el("nextHit").onclick = ()=>stepHit(1);
