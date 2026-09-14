@@ -138,6 +138,8 @@ button{cursor:pointer}
 #outlineGroup .row:first-of-type{position:sticky;top:0;z-index:3;
   background:var(--paper);padding:6px 0 8px;margin:0;
   box-shadow:0 6px 8px -8px rgba(0,0,0,.35)}
+.tocitem.onto{background:var(--blueprint-soft);outline:2px solid var(--blueprint);
+  outline-offset:-1px;border-radius:2px}
 .tocitem.traydrop{outline:2px solid var(--blueprint);outline-offset:-1px;border-radius:2px}
 .resrow{padding:7px 4px;border-top:1px solid var(--rule-soft);cursor:pointer;border-radius:2px}
 .resrow:first-of-type{border-top:0}
@@ -6067,21 +6069,29 @@ function bindOutline(root){
       root.querySelectorAll(".tocitem").forEach(x=>x.classList.remove("dragging","over-a","over-b")); });
     e.addEventListener("dragover", ev=>{
       if(!dragId || dragId === e.dataset.drag) return;
-      if(parentOf(dragId) !== parentOf(e.dataset.drag)) return;   // siblings only
+      /* Near the top or bottom edge means "put it here among the others";
+         across the middle means "give it to this one", which is how a node
+         moves to a different parent. */
       ev.preventDefault();
       const r = e.getBoundingClientRect();
-      const after = (ev.clientY - r.top) > r.height/2;
-      e.classList.toggle("over-a", !after);
-      e.classList.toggle("over-b", after);
+      const y = ev.clientY - r.top;
+      const siblings = parentOf(dragId) === parentOf(e.dataset.drag);
+      const onto = y > r.height * 0.28 && y < r.height * 0.72;
+      const after = y >= r.height / 2;
+      e.classList.toggle("onto", onto || !siblings);
+      e.classList.toggle("over-a", !onto && siblings && !after);
+      e.classList.toggle("over-b", !onto && siblings && after);
     });
-    e.addEventListener("dragleave", ()=>e.classList.remove("over-a","over-b"));
+    e.addEventListener("dragleave", ()=>e.classList.remove("over-a","over-b","onto"));
     e.addEventListener("drop", ev=>{
       ev.preventDefault();
       const target = e.dataset.drag;
+      const onto = e.classList.contains("onto");
       const after = e.classList.contains("over-b");
-      e.classList.remove("over-a","over-b");
+      e.classList.remove("over-a","over-b","onto");
       if(!dragId || dragId === target) return;
-      reorderSibling(dragId, target, after);
+      if(onto) askWhatToDoWith(dragId, target);
+      else reorderSibling(dragId, target, after);
     });
   });
 
@@ -6213,15 +6223,65 @@ function placeTrayItem(itemId, target, where, at){
       : "Dropped on the map");
 }
 
-let placeTarget = null;
+let placeTarget = null, movingWhat = null;
+
+/* Dropping one outline row onto another: the same choices as choosing two
+   nodes on the map, so a node can change parent without hunting for both. */
+function askWhatToDoWith(what, target){
+  if(!canEdit()){ toast("Switch to editing mode first."); return; }
+  if(!S.nodes.has(what) || !S.nodes.has(target)) return;
+  if(branchOf(what).has(target)){
+    toast("That would put " + nodeName(what) + " inside its own branch.");
+    return;
+  }
+  movingWhat = what;
+  placeTarget = target;
+  const name = nodeName(target);
+  el("placeWhat").textContent = "“" + nodeName(what) + "” onto " + name;
+  el("placeChild").textContent = "Move under " + name;
+  el("placeCross").textContent = "Cross-link to " + name;
+  el("placeLoose").textContent = "Replace " + name + " with it";
+  el("placeDlg").showModal();
+}
+
+function finishMoving(where){
+  const what = movingWhat, target = placeTarget;
+  el("placeDlg").close();
+  movingWhat = null; placeTarget = null;
+  if(!what || !target) return;
+  if(where === "child"){
+    /* one parent only: the old link goes */
+    [...S.edges.values()].forEach(e=>{
+      if(e.link_type === "tree" && e.to === what) S.edges.delete(e.id);
+    });
+    const e = newEdge({from:target, to:what, link_type:"tree"});
+    S.edges.set(e.id, e);
+    const n = S.nodes.get(what);
+    if(n.pinned){ const spot = freeSpotNear(S.nodes.get(target));
+      if(spot){ n.x = spot.x; n.y = spot.y; } }
+    toast(nodeName(what) + " now hangs off " + nodeName(target));
+  } else if(where === "cross"){
+    const e = newEdge({from:target, to:what, link_type:"cross"});
+    S.edges.set(e.id, e);
+    toast("Cross-linked to " + nodeName(target));
+  } else {
+    supersede(target, what);
+    return;
+  }
+  markDirty();
+  keepingPlace(()=>{ rebuild(); });
+  renderInspector();
+}
 function askWhereToPlace(target){
   const it = S.inbox.find(x=>x.id === S.inboxArmed);
   if(!it || !S.nodes.has(target)) return;
   placeTarget = target;
   const name = nodeName(target);
+  movingWhat = null;
   el("placeWhat").textContent = "“" + titleFromText(it.text) + "” onto " + name;
   el("placeChild").textContent = "Under " + name;
   el("placeCross").textContent = "Cross-linked to " + name;
+  el("placeLoose").textContent = "Loose, beside it";
   el("placeDlg").showModal();
 }
 function finishPlacing(where){
@@ -13578,10 +13638,11 @@ async function boot(){
     /* enter files it; shift-enter keeps writing */
     if(ev.key === "Enter" && !ev.shiftKey){ ev.preventDefault(); putIt(); }
   });
-  el("placeCancel").onclick = ()=>{ el("placeDlg").close(); placeTarget = null; };
-  el("placeChild").onclick = ()=>finishPlacing("child");
-  el("placeCross").onclick = ()=>finishPlacing("cross");
-  el("placeLoose").onclick = ()=>finishPlacing("loose");
+  el("placeCancel").onclick = ()=>{
+    el("placeDlg").close(); placeTarget = null; movingWhat = null; };
+  el("placeChild").onclick = ()=>movingWhat ? finishMoving("child") : finishPlacing("child");
+  el("placeCross").onclick = ()=>movingWhat ? finishMoving("cross") : finishPlacing("cross");
+  el("placeLoose").onclick = ()=>movingWhat ? finishMoving("replace") : finishPlacing("loose");
   el("trayFlag").onclick = ()=>{ S.inboxArmed = null; renderTray(); updateTrayFlag(); };
   el("tagPickBtn").onclick = openTagPicker;
   el("tagDlgClose").onclick = ()=>el("tagDlg").close();
