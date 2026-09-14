@@ -145,6 +145,9 @@ button{cursor:pointer}
 .resrow .toclabel{display:block;font-size:12.5px;line-height:1.35}
 .restrail{display:block;font-size:10.5px;color:var(--graphite-60);margin-top:2px;
   font-family:var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.viachip{display:inline-block;background:var(--blueprint-soft);color:var(--blueprint);
+  border-radius:2px;font-size:9.5px;font-weight:700;letter-spacing:.04em;padding:1px 5px;
+  margin-right:5px;vertical-align:1px;text-transform:uppercase}
 .retchip{display:inline-block;background:var(--retired);color:var(--paper);border-radius:2px;
   font-size:9px;font-weight:700;letter-spacing:.1em;padding:1px 5px;margin-right:5px;
   vertical-align:1px;text-transform:uppercase}
@@ -5480,8 +5483,13 @@ function applyFocus(){
   });
   gE.querySelectorAll("text.edge-label, rect.edge-label-bg").forEach(x=>x.classList.add("focusdim"));
   gE.querySelectorAll("path.edge:not(.focusdim)").forEach(pth=>{
-    const lbl = pth.nextElementSibling;
-    if(lbl && /text|rect/i.test(lbl.tagName)) lbl.classList.remove("focusdim");
+    /* a label is a backing rect and the text itself, so both siblings have to
+       be cleared — clearing only the first left the words blurred */
+    let sib = pth.nextElementSibling;
+    for(let i = 0; i < 2 && sib && /text|rect/i.test(sib.tagName); i++){
+      sib.classList.remove("focusdim");
+      sib = sib.nextElementSibling;
+    }
   });
   /* the brief setting shows you where you landed, then gets out of the way */
   if(S.focusMode === "flash") focusTimer = setTimeout(clearFocus, 2200);
@@ -6433,7 +6441,15 @@ function renderContents(){
       data-drag="${esc(n.id)}" style="padding-left:${4 + depth*11}px">
       ${hasKids ? `<span class="toctwist">&#9656;</span>` : `<span class="toctwist"></span>`}
       <span class="tocdot ${esc(n.type)}"></span>
-      <span class="toclabel">${n.status === "retired"
+      <span class="toclabel">${(()=>{
+        /* the word on the link that leads here — Yes, No, and the like — so a
+           child reads as the answer it is, not just another item */
+        const up = parentOf(n.id);
+        if(!up) return "";
+        const e = [...S.edges.values()].find(x=>x.link_type === "tree"
+          && x.from === up && x.to === n.id && String(x.label || "").trim());
+        return e ? `<span class="viachip">${esc(String(e.label).trim())}</span>` : "";
+      })()}${n.status === "retired"
         ? `<span class="retchip">retired</span>` : ""}${esc(n.label || n.id)}</span></div>`;
   };
   /* every node on the way down to a search hit */
