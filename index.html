@@ -297,7 +297,9 @@ input[type=range],input[type=color],input[type=checkbox],input[type=file]{cursor
 #noteOverlay.wide .no-body{max-height:none}
 #noteOverlay[hidden]{display:none}
 .no-head{display:flex;align-items:center;gap:10px;padding:7px 9px 7px 12px;
-  border-bottom:1px solid var(--rule);background:var(--paper-2);flex:0 0 auto}
+  border-bottom:1px solid var(--rule);background:var(--paper-2);flex:0 0 auto;
+  cursor:grab;touch-action:none;user-select:none}
+.no-head:active{cursor:grabbing}
 .no-head b{flex:1;font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;
   white-space:nowrap}
 .no-head .btn{padding:4px 9px;font-size:12px}
@@ -454,7 +456,9 @@ body.focusing .node-g:not(.focusdim) .node-box{stroke-width:calc(var(--node-bord
 #noteOverlay.wide .no-body{max-height:none}
 #noteOverlay[hidden]{display:none}
 .no-head{display:flex;align-items:center;gap:10px;padding:7px 9px 7px 12px;
-  border-bottom:1px solid var(--rule);background:var(--paper-2);flex:0 0 auto}
+  border-bottom:1px solid var(--rule);background:var(--paper-2);flex:0 0 auto;
+  cursor:grab;touch-action:none;user-select:none}
+.no-head:active{cursor:grabbing}
 .no-head b{flex:1;font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;
   white-space:nowrap}
 .no-head .btn{padding:4px 9px;font-size:12px}
@@ -7956,6 +7960,13 @@ function toggleNodeBookmark(id){
 function openNote(id, scrollToHit){
   const n = S.nodes.get(id);
   if(!n || !n.body){ closeNote(); return; }
+  /* a fresh note starts where the tool would put it, at its own size */
+  if(noteFor !== id){
+    noteMoved = false;
+    const o = el("noteOverlay");
+    o.classList.remove("wide");
+    o.style.height = "";
+  }
   noteFor = id;
   el("noteTitle").textContent = n.label || n.id;
   const body = el("noteBody");
@@ -8014,6 +8025,7 @@ function wireTableSort(scope){
 
 function closeNote(){
   noteFor = null;
+  noteMoved = false;
   const o = el("noteOverlay");
   if(o) o.hidden = true;
 }
@@ -8041,13 +8053,14 @@ function markMatches(root, q){
 /* keep it beside its node as the map moves */
 /* Beside the node, never over it or its pills. The candidates are tried in
    order and the first that clears everything wins. */
-let sizingNote = false;
+let sizingNote = false, noteMoved = false;
 function placeNote(){
   const o = el("noteOverlay");
   if(!o || o.hidden || !noteFor) return;
   const n = S.nodes.get(noteFor);
   if(!n || n._x == null){ closeNote(); return; }
   if(o.classList.contains("wide")) return;   // the big view sets its own bounds
+  if(noteMoved) return;                      // you put it somewhere: leave it there
   /* sizing it ourselves must not look like the person dragging it */
   sizingNote = true;
   requestAnimationFrame(()=>requestAnimationFrame(()=>{ sizingNote = false; }));
@@ -8055,9 +8068,11 @@ function placeNote(){
   /* a note with a table wants room; one with a sentence does not */
   const wide = o.dataset.wideNote === "1";
   const want = wide ? Math.min(s.w * 0.72, 860) : Math.max(300, Math.min(430, NODE_W * k));
-  const w = S.noteW || want;
-  o.style.width = Math.round(Math.min(w, s.w - 24)) + "px";
-  if(S.noteH) o.style.height = Math.round(Math.min(S.noteH, s.h - 24)) + "px";
+  /* each note is sized for what it holds; a size dragged for one table used
+     to be kept and made every short note that big */
+  const w = Math.round(Math.min(want, s.w - 24));
+  o.style.width = w + "px";
+  o.style.height = "";
   const h = Math.min(o.offsetHeight || 260, s.h * 0.62);
 
   const tall = n._h > TALL_NODE;
@@ -9092,6 +9107,38 @@ function termMatches(hay, term){
 }
 
 const MIN_SEARCH = 2, PREVIEW_MAX = 40;
+/* Order the matches by how much they look like what someone meant. A section
+   head whose own name matches is what you were after; a passing mention in
+   somebody's note is the long tail. */
+function rankHits(ids, terms){
+  const q = terms.join(" ");
+  const score = id=>{
+    const n = S.nodes.get(id);
+    if(!n) return 9;
+    const label = String(n.label || "").toLowerCase();
+    const clean = searchable(label);
+    const inLabel = terms.every(t=>termMatches(clean, t));
+    const head = childrenOf(id).length > 0;
+    if(inLabel){
+      if(label === q) return head ? 0 : 1;              // its whole name
+      if(label.startsWith(q)) return head ? 2 : 3;      // starts with it
+      return head ? 4 : 5;                              // somewhere in the name
+    }
+    /* only the note, or a tag, mentions it */
+    return head ? 6 : 7;
+  };
+  const depth = id=>{ let d = 0, up = parentOf(id);
+    while(up && d < 60){ d++; up = parentOf(up); } return d; };
+  return ids.slice().sort((a, b)=>{
+    const sa = score(a), sb = score(b);
+    if(sa !== sb) return sa - sb;
+    const da = depth(a), db = depth(b);
+    if(da !== db) return da - db;                       // nearer the top first
+    return String(S.nodes.get(a).label || "")
+      .localeCompare(String(S.nodes.get(b).label || ""));
+  });
+}
+
 function runSearch(){
   const q = el("q").value.trim().toLowerCase();
   S.hitQuery = q;
@@ -9156,6 +9203,7 @@ function runSearch(){
         (n.image||"").startsWith("data:") ? "photo image" : (n.image||"")].join(" ");
       return viaQuestions.has(n.id) || matches(hay);
     }).map(n=>n.id);
+    if(terms.length) S.hits = rankHits(S.hits, terms);
   }
 
   const all = searchTargets();
@@ -11639,7 +11687,7 @@ async function loadPersonal(){
    different map. */
 const PREF_KEYS = ["notesMode","motion","showIds","avoidNodes","branchGrid",
                    "focusMode","pickZoom","followOutline","railOpen","branchShape",
-                   "searchExcludes","portals","noteW","noteH"];
+                   "searchExcludes","portals"];
 async function savePrefs(){
   const out = {};
   PREF_KEYS.forEach(k=>{ out[k] = S[k]; });
@@ -13585,18 +13633,30 @@ async function boot(){
     o.classList.toggle("wide");
     if(!o.classList.contains("wide")){ o.style.height = ""; placeNote(); }
   };
-  /* keep whatever size was dragged, for the next note too */
-  if(window.ResizeObserver){
-    const o = el("noteOverlay");
-    let settle = null;
-    new ResizeObserver(()=>{
-      if(o.hidden || o.classList.contains("wide") || sizingNote) return;
-      clearTimeout(settle);
-      settle = setTimeout(()=>{
-        S.noteW = o.offsetWidth; S.noteH = o.offsetHeight; savePrefs();
-      }, 300);
-    }).observe(o);
-  }
+  /* drag the header to put it wherever suits, and it stays there until you
+     open a different one */
+  (()=>{
+    const o = el("noteOverlay"), grip = o.querySelector(".no-head");
+    let from = null;
+    grip.addEventListener("pointerdown", ev=>{
+      if(ev.target.closest(".btn")) return;
+      const r = o.getBoundingClientRect();
+      const host = o.offsetParent ? o.offsetParent.getBoundingClientRect() : {left:0, top:0};
+      from = {x:ev.clientX, y:ev.clientY, left:r.left - host.left, top:r.top - host.top};
+      noteMoved = true;
+      grip.setPointerCapture(ev.pointerId);
+      ev.preventDefault();
+    });
+    grip.addEventListener("pointermove", ev=>{
+      if(!from) return;
+      o.style.left = Math.round(from.left + ev.clientX - from.x) + "px";
+      o.style.top  = Math.round(from.top  + ev.clientY - from.y) + "px";
+      o.style.right = "auto"; o.style.bottom = "auto";
+    });
+    const done = ()=>{ from = null; };
+    grip.addEventListener("pointerup", done);
+    grip.addEventListener("pointercancel", done);
+  })();
   el("themePick").onclick = openThemes;
   el("themeClose").onclick = ()=>el("themeDlg").close();
   el("themeEdit").onclick = openThemeEditor;
