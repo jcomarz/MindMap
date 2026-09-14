@@ -9112,28 +9112,36 @@ const MIN_SEARCH = 2, PREVIEW_MAX = 40;
    somebody's note is the long tail. */
 function rankHits(ids, terms){
   const q = terms.join(" ");
-  const score = id=>{
+  /* first question: is it the thing's name, or just something its note says */
+  const byName = id=>{
     const n = S.nodes.get(id);
-    if(!n) return 9;
-    const label = String(n.label || "").toLowerCase();
-    const clean = searchable(label);
-    const inLabel = terms.every(t=>termMatches(clean, t));
-    const head = childrenOf(id).length > 0;
-    if(inLabel){
-      if(label === q) return head ? 0 : 1;              // its whole name
-      if(label.startsWith(q)) return head ? 2 : 3;      // starts with it
-      return head ? 4 : 5;                              // somewhere in the name
-    }
-    /* only the note, or a tag, mentions it */
-    return head ? 6 : 7;
+    if(!n) return false;
+    return terms.every(t=>termMatches(searchable(String(n.label || "").toLowerCase()), t));
+  };
+  /* second question, among names: how close a match */
+  const closeness = id=>{
+    const label = String((S.nodes.get(id) || {}).label || "").toLowerCase();
+    if(label === q) return 0;
+    if(label.startsWith(q)) return 1;
+    return 2;
   };
   const depth = id=>{ let d = 0, up = parentOf(id);
     while(up && d < 60){ d++; up = parentOf(up); } return d; };
   return ids.slice().sort((a, b)=>{
-    const sa = score(a), sb = score(b);
-    if(sa !== sb) return sa - sb;
+    /* a name match always beats a mention in someone's note */
+    const na = byName(a) ? 0 : 1, nb = byName(b) ? 0 : 1;
+    if(na !== nb) return na - nb;
+    /* then how high up the map it sits: every level one before any level two */
     const da = depth(a), db = depth(b);
-    if(da !== db) return da - db;                       // nearer the top first
+    if(da !== db) return da - db;
+    /* level for level, the closer match to what was typed */
+    if(!na){
+      const ca = closeness(a), cb = closeness(b);
+      if(ca !== cb) return ca - cb;
+    }
+    /* level for level, something with more under it comes first */
+    const ka = childrenOf(a).length > 0 ? 0 : 1, kb = childrenOf(b).length > 0 ? 0 : 1;
+    if(ka !== kb) return ka - kb;
     return String(S.nodes.get(a).label || "")
       .localeCompare(String(S.nodes.get(b).label || ""));
   });
