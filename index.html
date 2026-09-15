@@ -860,6 +860,10 @@ body.viewerbuild #btnImport,
 body.viewerbuild #btnSnaps,
 body.viewerbuild #btnLinkFile,
 body.viewerbuild #syncGroup,
+body.viewerbuild .sheetbits,
+body.viewerbuild #btnGather,
+body.viewerbuild #btnPeople,
+body.viewerbuild #btnPicFolder,
 body.viewerbuild #histGroup,
 body.viewerbuild #printAdvanced,
 body.viewerbuild #btnViewerCopy{display:none}
@@ -1747,18 +1751,9 @@ body.viewing.panelaway #panelHide{display:none}
         sheet. For showing the idea to someone, or keeping a record of how things stood.</p>
       <button class="btn wide" id="vkSnapshot">Build the snapshot</button>
     </div>
-    <div class="conn">
-      <div class="hdr"><strong>A copy that follows a Google Sheet</strong><span class="status-pill">~550 KB</span></div>
-      <p class="fineprint" style="margin:0 0 10px">Only if this map lives in Google Sheets. It
-        keeps talking to the sheet, so people see changes as they land, and their suggestions go
-        back.</p>
-      <button class="btn wide" id="vkStandalone">Build it</button>
-    </div>
-    <p class="fineprint" id="vkNeedsSheet" hidden>The sheet-backed copy needs a Google Sheet with
-      a viewer token: Sharing and files → Manage sheets → the field called “Viewer token”.</p>
-    <p class="fineprint">All of them open read-only — nobody can change the map. The working
-      copy writes suggestions, questions and check-offs back into the workbook itself; the
-      snapshot writes nowhere. Bookmarks, badges and themes are always personal.</p>
+    <p class="fineprint">Both open read-only — nobody can change the map. The working copy saves
+      suggestions, questions and check-offs beside the workbook in the shared folder; the
+      snapshot saves nowhere. Bookmarks, badges and themes are always personal.</p>
   </div>
 </dialog>
 
@@ -7061,11 +7056,16 @@ function organiseRail(){
   const sheets = groupByHeading("Google Sheets");
   if(files && sheets){
     files.querySelector("h2").textContent = "Sharing and files";
-    files.appendChild(subHeading("Google Sheets"));
+    /* kept together in one wrapper so a viewing copy can hide the lot: a
+       reader has no business with the editor's sheet */
+    const sheetBits = document.createElement("div");
+    sheetBits.className = "sheetbits";
+    sheetBits.appendChild(subHeading("Google Sheets"));
     [...sheets.childNodes].forEach(node=>{
       if(node.nodeType === 1 && node.tagName === "H2") return;
-      files.appendChild(node);
+      sheetBits.appendChild(node);
     });
+    files.appendChild(sheetBits);
     sheets.remove();
     /* the workbook buttons get their own label now they share a section */
     const first = files.querySelector(".row");
@@ -10807,11 +10807,6 @@ function askViewerKind(){
     el("vkBookName").value = guess;
     el("vkLive").onclick = ()=>{ dlg.close(); res("workbook"); };
     el("vkSnapshot").onclick = ()=>{ dlg.close(); res("snapshot"); };
-    el("vkStandalone").onclick = ()=>{ dlg.close(); res("sheet"); };
-    const conn = activeConnection();
-    const ready = conn && (conn.endpoint||"").trim() && (conn.viewerToken||"").trim();
-    el("vkStandalone").disabled = !ready;
-    el("vkNeedsSheet").hidden = !!ready;
     el("vkCancel").onclick = ()=>{ dlg.close(); res(null); };
     dlg.showModal();
   });
@@ -10821,10 +10816,12 @@ function askViewerKind(){
    folder with no web address behind it, at the cost of being frozen at the
    version it was built from. */
 async function buildStandaloneViewer(kind){
-  const frozen = kind !== "sheet";
+  /* Viewers are folder-based only. A sheet connection is the editor's business
+     and is never carried into a copy handed out to readers. */
+  const frozen = true;
   const snapshot = kind === "snapshot";
-  const conn = activeConnection();
-  if(kind === "sheet"){
+  const conn = null;
+  if(false){
     if(!conn || !(conn.endpoint||"").trim()){
       toast("Set up the sheet first: Sharing and files → Manage sheets."); return;
     }
@@ -10858,7 +10855,7 @@ async function buildStandaloneViewer(kind){
     /* the file this copy belongs to, so the reader is asked for the right one */
     bookName:kind === "workbook"
       ? ((el("vkBookName") && el("vkBookName").value || "").trim()) : "",
-    connection:kind !== "sheet" ? null
+    connection:true ? null
       : { name:(conn.name || "Sheet") + " (viewing)", endpoint:conn.endpoint.trim(),
           id:conn.id||"", prefix:conn.prefix||"", token:conn.viewerToken.trim(),
           mode:"merge", auto:true },
@@ -10892,17 +10889,14 @@ async function buildStandaloneViewer(kind){
   const blob = new Blob([out], {type:"text/html"});
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = safe + (kind === "snapshot" ? "-snapshot.html"
-                     : kind === "workbook" ? "-viewer.html" : "-viewer-offline.html");
+  a.download = safe + (kind === "snapshot" ? "-snapshot.html" : "-viewer.html");
   a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href), 6000);
   toast(kind === "workbook"
     ? "Working copy saved, " + Math.round(out.length/1024) + " KB. Put it beside the workbook; "
       + "the first time someone opens it they point it at that file."
-    : kind === "snapshot"
-      ? "Snapshot saved, " + Math.round(out.length/1024) + " KB. It shows the map as it is now "
-        + "and connects to nothing."
-      : "Self-contained copy saved, " + Math.round(out.length/1024) + " KB.");
+    : "Snapshot saved, " + Math.round(out.length/1024) + " KB. It shows the map as it is now "
+      + "and connects to nothing.");
 }
 
 async function buildViewerLauncher(){
