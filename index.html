@@ -10868,8 +10868,18 @@ async function gatherFeedback(){
   }
   if(!files){ toast("No feedback files in that folder yet."); return; }
   markDirty(); rebuild(); renderInspector();
+  /* put it back in the shared workbook at once, so everyone's copy picks it up
+     on their next refresh rather than waiting for the next save */
+  let shared = false;
+  if(fileHandle && !filePending){
+    await writeLinkedFile(true);
+    shared = !fileError;
+  }
   toast(added + " new item" + (added===1?"":"s") + " from " + files + " file"
-    + (files===1?"":"s") + (people.length <= 4 ? " — " + people.join(", ") : ""));
+    + (files===1?"":"s") + (people.length <= 4 ? " — " + people.join(", ") : "")
+    + (shared ? ". Written to the shared workbook."
+       : fileHandle ? ". Could not write the workbook — check Keep a live file on disk."
+       : ". Save the workbook so others can see them."));
 }
 
 async function buildViewerFile(){
@@ -11083,15 +11093,17 @@ async function recallViewerConfig(){
 
 /* Take a workbook and show it, read only. Used by the refresh button in a
    viewer that was built from a file rather than a sheet. */
-function adoptWorkbookBytes(buf, label){
+function adoptWorkbookBytes(buf, label, quiet){
   const wb = XLSX.read(buf, {type:"array"});
   const t = {};
   wb.SheetNames.forEach(n=>{ t[n] = XLSX.utils.sheet_to_json(wb.Sheets[n], {defval:""}); });
   adoptModel(tablesToModel(t));
-  rebuild(); fitView(0.96, 0.3);
+  rebuild();
+  /* a first load frames the map; a quiet check keeps you where you were */
+  if(!quiet) fitView(0.96, 0.3);
   sayWorkbookState("Showing " + (label || "the workbook") + ", read at "
     + new Date().toLocaleTimeString());
-  toast("Loaded " + (label || "the workbook") + ", " + S.nodes.size + " nodes");
+  if(!quiet) toast("Loaded " + (label || "the workbook") + ", " + S.nodes.size + " nodes");
 }
 
 /* Remembering the workbook itself. A page opened from a folder cannot fetch
@@ -11171,6 +11183,32 @@ async function recallWorkbookHandle(){
   return false;
 }
 
+let watchTimer = null, lastSeenStamp = 0;
+
+/* A viewing copy looks at the workbook now and then. Only a file that has
+   actually changed is read, and the view is held where it is, so someone
+   reading a note is not yanked about. */
+function watchWorkbook(){
+  clearInterval(watchTimer);
+  if(!S.fromWorkbook || S.snapshot) return;
+  watchTimer = setInterval(async ()=>{
+    if(!bookHandle || document.hidden) return;
+    try{
+      const perm = await bookHandle.queryPermission({mode:"read"});
+      if(perm !== "granted") return;
+      const f = await bookHandle.getFile();
+      if(!lastSeenStamp){ lastSeenStamp = f.lastModified; return; }
+      if(f.lastModified <= lastSeenStamp) return;
+      lastSeenStamp = f.lastModified;
+      const buf = await f.arrayBuffer();
+      const keepSel = S.sel;
+      keepingPlace(()=>adoptWorkbookBytes(buf, f.name, true));
+      if(keepSel && S.nodes.has(keepSel)) select(keepSel);
+      toast("The workbook changed — brought in the latest");
+    }catch(e){ /* the folder is busy or the file is mid-sync; try again later */ }
+  }, 90000);
+}
+
 async function readRememberedWorkbook(ask){
   if(!bookHandle) return false;
   try{
@@ -11190,7 +11228,9 @@ async function readRememberedWorkbook(ask){
       } else S.bookReadOnly = false;
     } else S.bookReadOnly = false;
     const f = await bookHandle.getFile();
+    lastSeenStamp = f.lastModified;
     adoptWorkbookBytes(await f.arrayBuffer(), f.name);
+    watchWorkbook();
     return true;
   }catch(e){
     sayWorkbookState("Could not read " + (bookHandle.name || "the workbook")
