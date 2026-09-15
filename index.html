@@ -2198,6 +2198,7 @@ const S = {
   customThemes:[],
   motion:"full",               // full | calm | off
   who:"",
+  whoKey:"",                   // which person on the roster this device is
   people:[],                   // who may sign things off, and which team they are on
   inbox:[],                    // jotted down, not yet placed on the map
   inboxArmed:null,             // the item waiting to be put somewhere
@@ -2697,6 +2698,25 @@ function renderPeople(){
   });
 }
 
+/* A person's lasting handle: their login if they have one, else their
+   initials, else the name as written. */
+function personKey(x){
+  return String((x && (x.login || x.initials || x.name)) || "").toLowerCase();
+}
+
+/* After a roster change, follow whoever this device chose to their current
+   name — so nobody has to pick themselves again. */
+function refreshWhoFromRoster(){
+  if(!S.whoKey || !(S.people || []).length) return;
+  const mine = S.people.find(x=>personKey(x) === S.whoKey);
+  if(!mine) return;                       // taken off the list: leave the name be
+  if(mine.name && mine.name !== S.who){
+    S.who = mine.name;
+    savePersonal();
+    updateModeUI();
+  }
+}
+
 function openWhoPicker(){
   const dlg = el("whoDlg");
   const people = (S.people || []).filter(x=>x.active !== false);
@@ -2715,6 +2735,10 @@ function openWhoPicker(){
   el("whoList").querySelectorAll("[data-who]").forEach(btn=>{
     btn.onclick = ()=>{
       S.who = btn.dataset.who;
+      /* remember which person that is, not just how they were written: a
+         later change to how names are shown then follows through by itself */
+      const person = (S.people || []).find(x=>x.name === btn.dataset.who);
+      S.whoKey = person ? personKey(person) : "";
       savePersonal();
       dlg.close();
       updateModeUI(); renderInspector();
@@ -3198,6 +3222,7 @@ function adoptModel(M, keepConnections){
      survived a save and vanished on the next open */
   S.inbox = (M.inbox || []).slice();
   S.people = (M.people || []).slice();
+  refreshWhoFromRoster();
   S.meta.sevArt = {};
   SEVERITIES.forEach(sv=>{
     if(M.settings[sv.key]) S.meta.sevArt[sv.key] = M.settings[sv.key];
@@ -11907,6 +11932,7 @@ async function loadPersonal(){
       S.personal.bookmarks = Array.isArray(rec.bookmarks) ? rec.bookmarks : [];
       S.personal.searches = Array.isArray(rec.searches) ? rec.searches : [];
       S.who = rec.who || S.who || "";
+      S.whoKey = rec.whoKey || S.whoKey || "";
       if(rec.notesMode) S.notesMode = rec.notesMode;
       if(rec.motion) S.motion = rec.motion;
       S.showIds = !!rec.showIds;
@@ -11955,7 +11981,7 @@ async function savePersonal(){
   try{
     await Store.putKey(personalKey(), {
       bookmarks:S.personal.bookmarks, searches:S.personal.searches,
-      who:S.who, mode:S.mode, notesMode:S.notesMode, motion:S.motion, showIds:S.showIds,
+      who:S.who, whoKey:S.whoKey || "", mode:S.mode, notesMode:S.notesMode, motion:S.motion, showIds:S.showIds,
       avoidNodes:S.avoidNodes, branchGrid:S.branchGrid, focusMode:S.focusMode,
       pickZoom:S.pickZoom, followOutline:S.followOutline,
       recent:S.personal.recent, ackNew:S.personal.ackNew,
