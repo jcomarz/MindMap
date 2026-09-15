@@ -11171,8 +11171,10 @@ function feedbackName(){
    folder does not fill up with loose workbooks. */
 async function feedbackTarget(){
   if(!bookDir) return null;
+  /* make the users folder if it is not there yet, so the first person to sign
+     off does not have to create it by hand */
   try{
-    const dir = await bookDir.getDirectoryHandle("users");
+    const dir = await bookDir.getDirectoryHandle("users", {create:true});
     return {dir, name:feedbackName(), where:"users/" + feedbackName()};
   }catch(e){
     return {dir:bookDir, name:feedbackName(), where:feedbackName()};
@@ -11181,6 +11183,13 @@ async function feedbackTarget(){
 
 async function sendContributions(){
   if(S.bookReadOnly) return false;
+  if(S.fromWorkbook && !bookDir){
+    /* a file on its own is not enough: without the folder there is nowhere to
+       put this person's own workbook */
+    sayWorkbookState(countMine() + " waiting. Press “Choose the folder…” and pick the folder "
+      + "holding the workbook, so your notes can be saved beside it.");
+    return false;
+  }
   if(!canWriteFolder() && !bookHandle){
     /* nothing to write to: the reader saves the file and drops it in the folder */
     sayWorkbookState(countMine() + " waiting. This browser cannot write into the folder — "
