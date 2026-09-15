@@ -3124,7 +3124,9 @@ function adoptModel(M, keepConnections){
   SEVERITIES.forEach(sv=>{
     if(M.settings[sv.key]) S.meta.sevArt[sv.key] = M.settings[sv.key];
   });
-  S.mode = S.meta.locked ? "viewer" : "root";
+  /* a viewing copy stays a viewing copy, whatever the workbook it just read
+     says about locking */
+  S.mode = (S.viewerBuild || S.meta.locked) ? "viewer" : "root";
   S.selArea = null;
   /* Always take the incoming map's connections, even when it has none.
      Testing for length meant a map with no sheet inherited the last map's,
