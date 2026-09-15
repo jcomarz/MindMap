@@ -10251,6 +10251,24 @@ const Store = {
 /* A copy kept on the actual disk, for when browser storage cannot be
    trusted. Chrome on a desktop supports this; a phone will not offer it. */
 let fileHandle = null, fileName = "", filePending = false;
+let fileOnDisk = null, fileVerified = null, filePath = "";
+
+/* Which file is actually being written. A handle carries no path, but a folder
+   you have already named can tell you where a file sits inside it — enough to
+   catch the usual mistake of writing to a copy somewhere else. */
+async function whereIsFile(){
+  if(!fileHandle){ filePath = ""; return; }
+  filePath = "";
+  for(const dir of [bookDir, picDir]){
+    if(!dir || !dir.resolve) continue;
+    try{
+      const bits = await dir.resolve(fileHandle);
+      if(bits){ filePath = (dir.name || "folder") + "/" + bits.join("/"); return; }
+    }catch(e){}
+  }
+  /* not inside any folder we know about */
+  if(bookDir || picDir) filePath = "outside " + ((bookDir || picDir).name || "the folder");
+}
 const canLinkFile = typeof window.showSaveFilePicker === "function";
 
 /* Google Sheets refuses any cell over 50,000 characters and rejects the whole
@@ -10442,6 +10460,15 @@ async function writeLinkedFile(force){
     fileLastWrite = Date.now();
     fileError = "";
     fileBytes = out.byteLength || out.length || 0;
+    /* Read it straight back. Reporting "written" from the fact that no error
+       was thrown is not the same as the file on disk having changed. */
+    try{
+      const check = await fileHandle.getFile();
+      fileOnDisk = {bytes:check.size, at:check.lastModified};
+      fileVerified = Math.abs(check.size - fileBytes) < 4096;
+    }catch(e){ fileVerified = null; }
+    /* awaited, or the note is built before the answer arrives */
+    await whereIsFile();
   }catch(e){
     /* a failure here used to be swallowed while the panel still said it was
        writing, which is worse than no feature at all */
@@ -10615,9 +10642,23 @@ function updateSaveNote(){
     else if(fileError)
       lf = ` <span style="color:var(--flag)">Could not write <code>${esc(fileName)}</code>:
              ${esc(fileError)}</span>`;
-    else if(fileLastWrite)
+    else if(fileLastWrite){
       lf = ` <code>${esc(fileName)}</code> written ${esc(ago(new Date(fileLastWrite).toISOString()))}`
-         + (fileBytes ? `, ${Math.round(fileBytes/1024)} KB.` : ".");
+         + (fileBytes ? `, ${Math.round(fileBytes/1024)} KB` : "")
+         + (filePath ? ` in <code>${esc(filePath)}</code>` : "") + ".";
+      /* say what the file on disk actually looks like now, not just that the
+         write returned without complaint */
+      if(fileVerified === false)
+        lf += ` <span style="color:var(--flag)">The file on disk is
+          ${Math.round((fileOnDisk ? fileOnDisk.bytes : 0)/1024)} KB, which does not match —
+          it may be a different file, or the folder may not have taken the change.</span>`;
+      else if(fileOnDisk)
+        lf += ` <span style="color:var(--graphite-60)">On disk:
+          ${Math.round(fileOnDisk.bytes/1024)} KB, ${esc(new Date(fileOnDisk.at)
+            .toLocaleString())}.</span>`;
+      if(/^outside /.test(filePath))
+        lf += ` <span style="color:var(--flag)">This is not the file in your shared folder.</span>`;
+    }
     else
       lf = ` Waiting to write <code>${esc(fileName)}</code>.`;
   }
