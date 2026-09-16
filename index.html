@@ -853,7 +853,6 @@ body.viewing.panelaway .inspector{display:none}
 /* a handout has no editing to switch back to, so the controls go entirely */
 body.viewerbuild #modeGroup .row:first-of-type,
 body.viewerbuild #btnLockMap,
-body.viewerbuild #btnReview,
 body.viewerbuild #btnConns,
 body.viewerbuild #btnNew,
 body.viewerbuild #btnImport,
@@ -979,6 +978,16 @@ dialog#signDlg::backdrop{background:rgba(35,40,45,.42)}
   border-radius:3px;margin-top:8px;display:block}
 .evid{font-family:var(--mono);font-size:10.5px;color:var(--graphite-60);display:block;margin-top:2px}
 .evid b{color:var(--graphite);font-weight:600}
+.signfold>summary{cursor:pointer;font-size:11px;color:var(--blueprint);
+  list-style:none;padding:2px 0}
+.signfold>summary::-webkit-details-marker{display:none}
+.signfold>summary::before{content:"▸ ";font-size:9px}
+.signfold[open]>summary::before{content:"▾ "}
+.signedby{display:block;margin-top:5px;border-left:2px solid var(--rule);padding-left:8px}
+.signrow{display:flex;align-items:center;gap:7px;font-size:11px;margin:2px 0;flex-wrap:wrap}
+.signrow .when{font-family:var(--mono);font-size:9.5px;color:var(--graphite-60)}
+.signrow .ref{font-family:var(--mono);font-size:10px;background:var(--blueprint-soft);
+  color:var(--blueprint);border-radius:2px;padding:1px 5px}
 .evidshot{display:inline-block;width:22px;height:22px;object-fit:cover;border-radius:2px;
   border:1px solid var(--rule);vertical-align:-6px;margin-left:5px;cursor:pointer}
 @media (max-width:820px){ dialog#signDlg{width:100vw;height:100dvh;max-height:none;border:0;border-radius:0} }
@@ -8643,6 +8652,31 @@ function askForEvidence(item, nodeId){
   el("signDlg").showModal();
   if(needRef) setTimeout(()=>el("signRef").focus(), 60);
 }
+/* Put a screenshot in proof/ beside the workbook and hand back the path.
+   Without a folder to write to there is nowhere to put it, so it stays in the
+   sheet as before rather than being lost. */
+async function stashProof(dataUrl, itemId){
+  if(!dataUrl || !dataUrl.startsWith("data:")) return dataUrl || "";
+  if(!bookDir) return dataUrl;
+  try{
+    const perm = await bookDir.queryPermission({mode:"readwrite"});
+    if(perm !== "granted") return dataUrl;
+    const dir = await bookDir.getDirectoryHandle("proof", {create:true});
+    const who = (S.who || "someone").replace(/[^\w -]+/g, "").trim() || "someone";
+    const stamp = nowISO().replace(/[^\d]/g, "").slice(0, 14);
+    const ext = /^data:image\/(png|gif|webp)/.exec(dataUrl);
+    const name = itemId + " - " + who + " - " + stamp + "." + (ext ? ext[1] : "jpg");
+    const bytes = await (await fetch(dataUrl)).arrayBuffer();
+    const h = await dir.getFileHandle(name, {create:true});
+    const w = await h.createWritable();
+    await w.write(new Blob([bytes]));
+    await w.close();
+    return "proof/" + name;
+  }catch(e){
+    return dataUrl;         // could not write it: keep it in the sheet
+  }
+}
+
 function completeSignOff(){
   if(!signFor) return;
   const {item, nodeId} = signFor;
@@ -8651,11 +8685,17 @@ function completeSignOff(){
   const ref = (el("signRef").value || "").trim();
   if(needRef && !ref){ el("signWarn").textContent = "Fill that in first."; return; }
   if(needShot && !signProof){ el("signWarn").textContent = "A screenshot is needed."; return; }
-  writeCheckoff(item.id, nodeId, true, ref, signProof);
   el("signDlg").close();
+  const shot = signProof;
   signFor = null; signProof = "";
-  renderInspector();
-  toast("Confirmed, with what you gave");
+  /* A screenshot goes in a file beside the workbook, and only its name is
+     kept in the sheet. Thirty of them baked into cells would swell the
+     workbook by megabytes and slow every open for everyone. */
+  stashProof(shot, item.id).then(kept=>{
+    writeCheckoff(item.id, nodeId, true, ref, kept);
+    renderInspector();
+    toast("Confirmed, with what you gave");
+  });
 }
 
 function contributionBlock(n){
@@ -8679,6 +8719,28 @@ function contributionBlock(n){
               ${mine.evidence ? `<b>${esc(mine.evidence)}</b>` : ""}
               ${mine.proof ? `<img class="evidshot" src="${esc(mine.proof)}"
                  data-evidshot="${esc(mine.proof)}" alt="evidence">` : ""}</span>` : ""}
+            ${(()=>{
+              /* everyone else who has signed it, with what they gave — without
+                 this an editor gathered sign-offs and could not see them */
+              const others = S.checkoffs.filter(x=>x.item === it.id
+                && x.checked === "yes" && x.person !== me);
+              if(!others.length) return "";
+              others.sort((a, b)=>String(b.timestamp||"").localeCompare(String(a.timestamp||"")));
+              const row = x=>`<div class="signrow">
+                <b>${esc(x.person || "someone")}</b>
+                <span class="when">${esc(String(x.timestamp || "").slice(0, 16))}</span>
+                ${x.evidence ? `<span class="ref">${esc(x.evidence)}</span>` : ""}
+                ${x.proof ? `<img class="evidshot" src="${esc(picURL(x.proof))}"
+                   data-evidshot="${esc(picURL(x.proof))}" alt="evidence">` : ""}</div>`;
+              /* thirty sign-offs on one item is a wall of names, so only the
+                 most recent few are shown until you ask for the rest */
+              const SHOW = 4;
+              if(others.length <= SHOW)
+                return `<div class="signedby">` + others.map(row).join("") + `</div>`;
+              return `<details class="signedby signfold">
+                <summary>${others.length} people signed this — show them</summary>
+                ${others.map(row).join("")}</details>`;
+            })()}
           </span></label>`;
       }).join("") : `<p class="tocempty">Nothing to confirm on this node.</p>`}
       ${isRoot() ? `<div class="row" style="margin-top:8px">
@@ -11122,12 +11184,35 @@ function adoptWorkbookBytes(buf, label, quiet){
   const wb = XLSX.read(buf, {type:"array"});
   const t = {};
   wb.SheetNames.forEach(n=>{ t[n] = XLSX.utils.sheet_to_json(wb.Sheets[n], {defval:""}); });
+  /* Anything this person has added but that has not made it into the shared
+     workbook yet — because the editor has not gathered it — has to survive
+     the refresh, or their own words disappear in front of them. */
+  const keepMine = S.fromWorkbook ? {
+    suggestions:S.suggestions.slice(), questions:S.questions.slice(),
+    pins:S.pins.slice(), checkItems:S.checkItems.slice(), checkoffs:S.checkoffs.slice()
+  } : null;
+
   adoptModel(tablesToModel(t));
+
+  if(keepMine){
+    let back = 0;
+    const merge = (list, mine)=>{
+      const have = new Set(list.map(x=>x.id));
+      mine.forEach(x=>{ if(!have.has(x.id)){ list.push(x); back++; } });
+    };
+    merge(S.suggestions, keepMine.suggestions);
+    merge(S.questions, keepMine.questions);
+    merge(S.pins, keepMine.pins);
+    merge(S.checkItems, keepMine.checkItems);
+    merge(S.checkoffs, keepMine.checkoffs);
+    S._notYetShared = back;
+  }
   rebuild();
   /* a first load frames the map; a quiet check keeps you where you were */
   if(!quiet) fitView(0.96, 0.3);
   sayWorkbookState("Showing " + (label || "the workbook") + ", read at "
-    + new Date().toLocaleTimeString());
+    + new Date().toLocaleTimeString()
+    + (S._notYetShared ? " · " + S._notYetShared + " of yours not gathered yet" : ""));
   if(!quiet) toast("Loaded " + (label || "the workbook") + ", " + S.nodes.size + " nodes");
 }
 
@@ -11470,6 +11555,24 @@ async function readAt(bits){
    folder and someone pointing at the pictures folder inside it should both
    work, and so should a stray leading slash or ./ */
 async function fileFromFolder(path){
+  /* look in the pictures folder, and in the workbook's own folder: a viewer
+     has the second but rarely the first */
+  for(const root of [picDir, bookDir]){
+    if(!root) continue;
+    const f = await readFrom(root, path);
+    if(f) return f;
+  }
+  return null;
+}
+
+async function readFrom(root, path){
+  const was = picDir;
+  picDir = root;
+  try{ return await fileFromFolderIn(path); }
+  finally{ picDir = was; }
+}
+
+async function fileFromFolderIn(path){
   if(!picDir) return null;
   const bits = String(path).replace(/^\.?\//, "").split("/").filter(b=>b && b !== ".");
   if(!bits.length) return null;
@@ -12353,6 +12456,11 @@ function nodeName(id){
   return n ? (n.label || id) : id + " (deleted)";
 }
 function peopleSeen(){
+  /* the roster is who is expected, when there is one: counting only people who
+     have already left something meant a fresh map expected nobody, so nothing
+     ever showed as waiting */
+  const roster = (S.people || []).filter(x=>x.active !== false).map(x=>x.name);
+  if(roster.length) return roster.slice().sort();
   const set = new Set();
   S.checkoffs.forEach(x=>x.person && set.add(x.person));
   S.suggestions.forEach(x=>x.person && set.add(x.person));
@@ -12366,14 +12474,32 @@ function pendingCount(){
   const shortItems = roster
     ? S.checkItems.filter(it=>checkCount(it.id) < roster).length
     : 0;
-  return {openSug, openQ, shortItems, total:openSug + openQ + shortItems};
+  /* what this person still owes: the number that matters in a viewing copy */
+  const me = S.who || "";
+  const mineToDo = me
+    ? S.checkItems.filter(it=>!S.checkoffs.some(x=>x.item === it.id
+        && x.person === me && x.checked === "yes")).length
+    : 0;
+  if(!canEdit()){
+    return {openSug, openQ, shortItems, mineToDo,
+      total:mineToDo + S.questions.filter(x=>x.status === "open").length};
+  }
+  return {openSug, openQ, shortItems, mineToDo,
+    total:openSug + openQ + shortItems};
 }
 function updateReviewBadge(){
   const b = el("revBadge"), btn = el("btnReview");
   if(!b) return;
   const c = pendingCount();
   b.textContent = c.total ? String(c.total) : "";
-  if(btn) btn.style.display = isRoot() ? "" : "none";
+  /* a reader needs this more than the editor does: it is their to-do list */
+  if(btn) btn.style.display = "";
+  if(btn && !canEdit()){
+    btn.firstChild.nodeValue = c.mineToDo
+      ? "You have " + c.mineToDo + " to confirm" : "Nothing waiting on you";
+    b.textContent = "";          // the number is already in the words
+    btn.classList.toggle("primary", c.mineToDo > 0);
+  }
 }
 
 function updateNewCount(){
@@ -12484,6 +12610,9 @@ function renderUpdates(){
 
 function openReview(){
   el("revQ").value = "";
+  /* a reader lands on what they still have to sign, not on other people's
+     suggestions */
+  if(!canEdit()) S.revTab = "confirm";
   renderReview();
   el("reviewDlg").showModal();
 }
@@ -12559,6 +12688,8 @@ function renderReview(){
         <div class="bar"><i style="width:${pct}%"></i></div>
         <p class="byline">${names.length} of ${roster.length || "?"} confirmed${names.length ? " · " + esc(names.join(", ")) : ""}</p>
         ${missing.length ? `<p class="byline" style="color:var(--flag)">waiting on ${esc(missing.join(", "))}</p>` : ""}
+        ${!canEdit() && S.who && missing.indexOf(S.who) >= 0
+          ? `<p class="byline" style="color:var(--flag);font-weight:700">Yours to confirm</p>` : ""}
         <div class="row" style="margin-top:9px">
           <button class="btn" data-go="${esc(it.node)}">Go to the node</button>
           <button class="btn" data-dropitem="${esc(it.id)}">Remove this item</button>
@@ -13445,6 +13576,160 @@ async function boot(){
   };
   el("peopleAssign").onclick = ()=>assignTeam(true);
   el("peopleUnassign").onclick = ()=>assignTeam(false);
+  document.querySelectorAll(".railtab").forEach(t=>{
+    t.onclick = ()=>{
+      document.querySelectorAll(".railtab").forEach(x=>x.classList.toggle("on", x === t));
+      forgetSize();
+      if(t.dataset.pane === "Contents" && outlineStale) setTimeout(renderContents, 0);
+      el("paneTools").hidden = t.dataset.pane !== "Tools";
+      el("paneContents").hidden = t.dataset.pane !== "Contents";
+      if(t.dataset.pane === "Contents") renderContents();
+    };
+  });
+  el("tocQ").addEventListener("input", debounce(renderContents, 160));
+  el("btnBookmark").onclick = ()=>addBookmark();
+  el("btnAskQ").onclick = ()=>askQuestion(S.sel || S.lastNode || "");
+  el("foldAll").onclick = ()=>{
+    S.folded = new Set([...S.nodes.keys()].filter(id=>childrenOf(id).length));
+    S.unfolded.clear(); S.tempOpen.clear();
+    renderContents();
+  };
+  el("unfoldAll").onclick = ()=>{
+    S.unfolded = new Set([...S.nodes.keys()].filter(id=>childrenOf(id).length));
+    S.folded.clear();
+    renderContents();
+  };
+  el("btnClearRecent").onclick = ()=>{
+    S.personal.recent = [];
+    savePersonal(); decorateBadges(); renderContents();
+  };
+
+  el("btnArea").onclick = ()=>{
+    S.areaMode = !S.areaMode;
+    el("btnArea").classList.toggle("primary", S.areaMode);
+    svg().style.cursor = S.areaMode ? "crosshair" : "";
+    toast(S.areaMode ? "Drag on the map to draw the area" : "Area drawing cancelled");
+    if(S.areaMode && window.matchMedia("(max-width:820px)").matches){
+      el("rail").classList.remove("open"); el("scrim").classList.remove("on");
+    }
+  };
+  el("btnLoose").onclick = ()=>{ const c = viewCenterWorld(); addLooseNodeAt(c.x, c.y); };
+
+  el("btnChild").onclick = ()=>addNode("child");
+  el("trayBtn").onclick = ()=>{
+    const panel = el("trayPanel");
+    if(!panel.hidden && !panel.classList.contains("folded")){ panel.hidden = true; return; }
+    panel.hidden = false;
+    panel.classList.remove("folded");
+    renderTray();
+    setTimeout(()=>el("trayAdd").focus(), 60);
+  };
+  el("topToc").onclick = ()=>{
+    const tab = [...document.querySelectorAll(".railtab")].find(t=>t.dataset.pane === "Contents");
+    if(tab) tab.click();
+    if(window.matchMedia("(max-width:820px)").matches){
+      const open = el("rail").classList.contains("open");
+      el("inspector").classList.remove("open");
+      el("rail").classList.toggle("open", !open);
+      el("scrim").classList.toggle("on", !open);
+    }
+  };
+  el("btnImport").onclick = ()=>el("fileIn").click();
+  el("btnExport").onclick = exportXlsx;
+  el("btnTsv").onclick = copyTsv;
+  el("btnNew").onclick = async ()=>{
+    if(S.nodes.size && !confirm("Start an empty map? The current one is kept under Recover an earlier version.")) return;
+    if(S.nodes.size) await saveNow(true);
+    S.nodes.clear(); S.edges.clear(); S.revisions.length=0; S.tagStyles.clear();
+    S.areas.clear(); S.bookmarks.length = 0;
+    S.suggestions.length = 0; S.checkItems.length = 0; S.checkoffs.length = 0;
+  S.questions.length = 0; S.pins.length = 0; S.selQuestion = null;
+    S.questions.length = 0; S.pins.length = 0; S.selQuestion = null;
+    S.meta.locked = false; S.meta.rootHash = ""; S.mode = "root";
+    S.meta.title = "Untitled map"; S.sel = null; S.selArea = null;
+    S.connections = []; S.activeConn = null;
+    S.meta.key = uid("M-");
+    afterMapSwitch();
+    const n = newNode({label:"Start here", type:"start"});
+    S.nodes.set(n.id, n);
+    markClean(); rebuild(); fitView(0.96, 1); select(n.id);
+  };
+  el("crossColorClear").onclick = ()=>{
+    if(!canEdit()){ toast("Switch to editing mode."); return; }
+    S.meta.crossColor = ""; markDirty(); rebuild();
+  };
+  el("btnTidyLines").onclick = ()=>{
+    if(!canEdit()){ toast("Switch to editing mode."); return; }
+    let n = 0;
+    for(const e of S.edges.values()){
+      if(e.route !== "auto" || e.fromSide !== "auto" || e.toSide !== "auto" || e.bow
+         || e.color || e.line || e.width || e.arrow){
+        e.route = "auto"; e.fromSide = "auto"; e.toSide = "auto"; e.bow = 0;
+        e.color = ""; e.line = ""; e.width = ""; e.arrow = ""; n++;
+      }
+    }
+    if(!n){ toast("Every line is already on automatic."); return; }
+    markDirty(); rebuild();
+    toast(n + " line" + (n===1?"":"s") + " back on automatic");
+  };
+  el("btnSibling").onclick = ()=>addNode("sibling");
+  el("btnRoot").onclick = ()=>{ S.sel = null; addNode("root"); };
+  el("btnUnpin").onclick = ()=>{
+    let k = 0, held = 0;
+    for(const n of S.nodes.values()){
+      if(!n.pinned) continue;
+      if(inHoldingArea(n)){ held++; continue; }   // inside an area that holds
+      n.pinned = false; n.x = null; n.y = null; k++;
+    }
+    if(k){ markDirty(); rebuild(); fitView(0.96, 0.6); }
+    toast(k
+      ? k + " node" + (k===1?"":"s") + " back on auto layout"
+        + (held ? ", " + held + " left in place inside areas" : "")
+      : held ? "Everything pinned is inside an area that holds it."
+             : "Nothing was pinned");
+  };
+  el("themeBtn").onclick = ()=>{
+    const now = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    S.themeMode = now;
+    /* a theme changes node sizes, so the map reflows underneath: hold the
+       place you were looking at rather than letting it slide */
+    keepingPlace(()=>{ applyTheme(now); rebuild(); });
+    Store.putKey("theme", now);
+    toast(now === "dark" ? "Dark" : "Light");
+  };
+  el("btnLockMap").onclick = async ()=>{
+    if(!isRoot()) return;
+    if(S.meta.locked){
+      const choice = confirm("Remove the lock so anyone opening this map can edit it?\n\n"
+        + "Cancel to set a new password instead.");
+      if(choice){
+        const pass = prompt("Enter the current editing password to remove the lock.");
+        if(pass == null) return;
+        if(!passwordMatches(await hashOf(pass), pass)){
+          toast("That password does not match."); return; }
+        S.meta.locked = false; S.meta.rootHash = "";
+        markDirty(); updateModeUI(); toast("Lock removed");
+        return;
+      }
+    }
+    const pass = prompt(S.meta.locked ? "New editing password" : "Choose an editing password.\n\n"
+      + "Anyone without it opens the map in viewing mode.");
+    if(pass == null || !pass.trim()) return;
+    S.meta.rootHash = await hashOf(pass.trim());
+    S.meta.locked = true;
+    markDirty(); updateModeUI();
+    alert("Locked.\n\nThis keeps people out of the editor by agreement, not by force — anyone "
+      + "determined can read the page source. Real protection comes from giving viewers the "
+      + "viewer token for your sheet, which cannot overwrite the map.");
+  };
+  el("btnSelectMode").onclick = ()=>setSelectMode(!S.selectMode);
+  el("btnPaste").onclick = pasteBranch;
+  el("btnLink").onclick = ()=>{
+    if(!S.sel){ toast("Select one node first, then pick the second."); return; }
+    S.pairArmed = !S.pairArmed;
+    el("btnLink").classList.toggle("primary", S.pairArmed);
+    toast(S.pairArmed ? "Now tap the second node" : "Cancelled");
+  };
   el("placeCancel").onclick = ()=>{
     el("placeDlg").close(); placeTarget = null; movingWhat = null; };
   el("placeChild").onclick = ()=>movingWhat ? finishMoving("child") : finishPlacing("child");
