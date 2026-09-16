@@ -13793,6 +13793,31 @@ async function boot(){
   el("tagFlag").onclick = ()=>{ S.tagPick.clear(); S.tagOnly = false;
     updateTagCount(); renderTagPicker(); rebuild(); fitView(0.96, 0.4); };
   el("whoClose").onclick = ()=>el("whoDlg").close();
+  /* Wait until the typing stops. Searching between keystrokes meant the map
+     was rebuilt for half-finished words nobody was looking for. */
+  let searchPending = null;
+  const searchNow = ()=>{
+    clearTimeout(searchPending);
+    searchPending = setTimeout(()=>{ searchPending = null; runSearch(); }, 650);
+    if(el("hitCount")) el("hitCount").textContent = "…";
+  };
+  const searchAtOnce = ()=>{
+    clearTimeout(searchPending); searchPending = null; runSearch();
+  };
+  el("q").addEventListener("input", ()=>{ el("mq").value = el("q").value; searchNow(); });
+  el("mq").addEventListener("input", ()=>{ el("q").value = el("mq").value; searchNow(); });
+  el("mq").addEventListener("keydown", ev=>{
+    if(ev.key === "Enter"){ ev.preventDefault(); searchAtOnce(); el("mq").blur(); } });
+  el("q").addEventListener("keydown", ev=>{
+    if(ev.key === "Enter"){ ev.preventDefault(); searchAtOnce(); } });
+  ["q","mq"].forEach(id=>{
+    const box = el(id);
+    if(box) box.addEventListener("blur", ()=>{ if(searchPending) searchAtOnce(); });
+  });
+  el("searchScope").addEventListener("change", ()=>{
+    S.searchScope = el("searchScope").value;
+    savePrefs(); runSearch();
+  });
   el("placeCancel").onclick = ()=>{
     el("placeDlg").close(); placeTarget = null; movingWhat = null; };
   el("placeChild").onclick = ()=>movingWhat ? finishMoving("child") : finishPlacing("child");
