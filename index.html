@@ -978,6 +978,8 @@ dialog#signDlg::backdrop{background:rgba(35,40,45,.42)}
   border-radius:3px;margin-top:8px;display:block}
 .evid{font-family:var(--mono);font-size:10.5px;color:var(--graphite-60);display:block;margin-top:2px}
 .evid b{color:var(--graphite);font-weight:600}
+.checkrow{position:relative;padding-right:22px}
+.checkrow .kill{position:absolute;right:0;top:2px}
 .signfold>summary{cursor:pointer;font-size:11px;color:var(--blueprint);
   list-style:none;padding:2px 0}
 .signfold>summary::-webkit-details-marker{display:none}
@@ -8609,6 +8611,13 @@ function renderAreaInspector(a){
    way to propose a change without touching it. */
 /* Write or update this person's confirmation of one item. */
 function writeCheckoff(itemId, nodeId, on, evidence, proof){
+  /* no name yet: ask once, and stop here rather than writing a sign-off
+     nobody can be held to */
+  if(!S.who){
+    whoAmI(true);
+    toast("Pick your name first, then confirm it.");
+    return;
+  }
   let row = checkoffFor(itemId, S.who);
   if(!row){
     row = newCheckoff({item:itemId, node:nodeId, person:S.who, checked:on ? "yes" : ""});
@@ -8708,7 +8717,7 @@ function contributionBlock(n){
       ${items.length ? items.map(it=>{
         const mine = checkoffFor(it.id, me);
         const done = mine && mine.checked === "yes";
-        return `<label class="check" style="align-items:flex-start">
+        return `<div class="checkrow"><label class="check" style="align-items:flex-start">
           <input type="checkbox" data-check="${esc(it.id)}"${done?" checked":""}>
           <span>${esc(it.label)}
             <span class="fold" style="margin-left:6px">${checkCount(it.id)} confirmed</span>
@@ -8719,9 +8728,10 @@ function contributionBlock(n){
               ${mine.evidence ? `<b>${esc(mine.evidence)}</b>` : ""}
               ${mine.proof ? `<img class="evidshot" src="${esc(mine.proof)}"
                  data-evidshot="${esc(mine.proof)}" alt="evidence">` : ""}</span>` : ""}
-            ${(()=>{
-              /* everyone else who has signed it, with what they gave — without
-                 this an editor gathered sign-offs and could not see them */
+          </span></label>
+          ${(()=>{
+              /* everyone else who has signed it, with what they gave. Outside
+                 the label, or clicking a name would tick the box for you. */
               const others = S.checkoffs.filter(x=>x.item === it.id
                 && x.checked === "yes" && x.person !== me);
               if(!others.length) return "";
@@ -8741,7 +8751,8 @@ function contributionBlock(n){
                 <summary>${others.length} people signed this — show them</summary>
                 ${others.map(row).join("")}</details>`;
             })()}
-          </span></label>`;
+          ${isRoot() ? `<button class="kill" data-killitem="${esc(it.id)}"
+            title="Remove this from everyone">&times;</button>` : ""}`;
       }).join("") : `<p class="tocempty">Nothing to confirm on this node.</p>`}
       ${isRoot() ? `<div class="row" style="margin-top:8px">
         <button class="btn wide" id="addCheckItem">Add something to confirm</button></div>` : ""}
@@ -8848,6 +8859,21 @@ function wireContributions(n){
       label:label.trim() || "Read and understood", requires, prompt:ask.trim()}));
     markDirty(); renderInspector();
   };
+  body.querySelectorAll("[data-killitem]").forEach(b=>{
+    b.onclick = ev=>{
+      ev.preventDefault(); ev.stopPropagation();
+      const id = b.dataset.killitem;
+      const it = S.checkItems.find(x=>x.id === id);
+      if(!it) return;
+      const signed = S.checkoffs.filter(x=>x.item === id && x.checked === "yes").length;
+      if(!confirm("Remove “" + it.label + "” for everyone?"
+        + (signed ? "\n\n" + signed + " sign-off" + (signed===1?"":"s")
+           + " will go with it." : ""))) return;
+      S.checkItems = S.checkItems.filter(x=>x.id !== id);
+      S.checkoffs = S.checkoffs.filter(x=>x.item !== id);
+      markDirty(); renderInspector(); updateReviewBadge();
+    };
+  });
   body.querySelectorAll("[data-sug-accept],[data-sug-decline]").forEach(b=>{
     b.onclick = ()=>{
       const id = b.dataset.sugAccept || b.dataset.sugDecline;
@@ -12497,7 +12523,7 @@ function updateReviewBadge(){
   if(btn && !canEdit()){
     btn.firstChild.nodeValue = c.mineToDo
       ? "You have " + c.mineToDo + " to confirm" : "Nothing waiting on you";
-    b.textContent = "";          // the number is already in the words
+    b.textContent = c.mineToDo ? String(c.mineToDo) : "";
     btn.classList.toggle("primary", c.mineToDo > 0);
   }
 }
@@ -13730,6 +13756,43 @@ async function boot(){
     el("btnLink").classList.toggle("primary", S.pairArmed);
     toast(S.pairArmed ? "Now tap the second node" : "Cancelled");
   };
+  el("trayClose").onclick = ()=>{ el("trayPanel").hidden = true; };
+  el("trayFold").onclick = ()=>el("trayPanel").classList.toggle("folded");
+  const putIt = ()=>{
+    const box = el("trayAdd");
+    addToTray(box.value);
+    box.value = "";
+    box.focus();
+  };
+  el("trayAddBtn").onclick = putIt;
+  el("trayAdd").addEventListener("keydown", ev=>{
+    /* enter files it; shift-enter keeps writing */
+    if(ev.key === "Enter" && !ev.shiftKey){ ev.preventDefault(); putIt(); }
+  });
+  el("imgClose").onclick = ()=>{ el("imgDlg").close(); imgPick = null; };
+  el("imgBrowse").onclick = ()=>el("imgFile").click();
+  el("imgShrink").onclick = ()=>{
+    const before = imgPick && imgPick.value;
+    if(!before) return;
+    el("imgShrink").disabled = true;
+    shrinkForCell(before, out=>{
+      el("imgShrink").disabled = false;
+      imgTake(out);
+      const fits = out.length <= CELL_LIMIT;
+      toast("Shrunk from " + Math.round(before.length/1024) + " KB to "
+        + Math.round(out.length/1024) + " KB"
+        + (fits ? ", small enough to travel in the file"
+                : " — still too big, so it stays on this device"));
+    });
+  };
+  el("nextHit").onclick = ()=>stepHit(1);
+  el("prevHit").onclick = ()=>stepHit(-1);
+  el("mapTitle").addEventListener("keydown", ev=>{
+    if(ev.key === "Enter"){ ev.preventDefault(); ev.target.blur(); }
+  });
+  el("tagFlag").onclick = ()=>{ S.tagPick.clear(); S.tagOnly = false;
+    updateTagCount(); renderTagPicker(); rebuild(); fitView(0.96, 0.4); };
+  el("whoClose").onclick = ()=>el("whoDlg").close();
   el("placeCancel").onclick = ()=>{
     el("placeDlg").close(); placeTarget = null; movingWhat = null; };
   el("placeChild").onclick = ()=>movingWhat ? finishMoving("child") : finishPlacing("child");
