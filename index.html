@@ -952,6 +952,10 @@ dialog#viewerKindDlg::backdrop{background:rgba(35,40,45,.42)}
 @media (max-width:820px){
   #trayPanel{left:8px;right:8px;bottom:8px;width:auto;max-height:56dvh}
 }
+dialog#newCheckDlg{border:1px solid var(--graphite);border-radius:3px;padding:0;
+  background:var(--paper);width:min(420px,94vw);color:var(--graphite);
+  display:flex;flex-direction:column}
+dialog#newCheckDlg::backdrop{background:rgba(35,40,45,.42)}
 dialog#peopleDlg,dialog#whoDlg{border:1px solid var(--graphite);border-radius:3px;padding:0;
   background:var(--paper);width:min(440px,94vw);max-height:86dvh;color:var(--graphite);
   display:flex;flex-direction:column}
@@ -1799,6 +1803,31 @@ body.viewing.panelaway #panelHide{display:none}
     <div id="trayList"></div>
   </div>
 </div>
+
+<dialog id="newCheckDlg">
+  <div class="dlg-head">
+    <h2>Something to confirm</h2>
+    <button class="btn" id="ncCancel">Cancel</button>
+  </div>
+  <div class="hist-controls">
+    <label class="field"><span>What should people confirm?</span>
+      <input type="text" id="ncLabel" placeholder="Read and understood"></label>
+    <label class="field"><span>What do they have to give when they confirm it?</span>
+      <select id="ncNeeds">
+        <option value="">Just their name</option>
+        <option value="ref">A reference, such as an accession number</option>
+        <option value="proof">A screenshot</option>
+        <option value="both">Both</option>
+      </select></label>
+    <label class="field" id="ncAskWrap" hidden><span>What should the field ask for?</span>
+      <input type="text" id="ncAsk" placeholder="Accession number"></label>
+    <div class="row" style="margin-top:8px">
+      <button class="btn wide primary" id="ncAdd">Add it</button>
+    </div>
+    <p class="fineprint">Everyone on the roster is asked for this one, and each person
+      answers for themselves.</p>
+  </div>
+</dialog>
 
 <dialog id="peopleDlg">
   <div class="dlg-head">
@@ -2672,6 +2701,17 @@ function assignTeam(adding){
   toast(hit + (adding ? " put on " : " taken off ") + team
     + (missed.length ? " — no match for " + missed.slice(0, 4).join(", ")
        + (missed.length > 4 ? " and " + (missed.length - 4) + " more" : "") : ""));
+}
+
+let newCheckFor = null;
+function openNewCheck(nodeId){
+  newCheckFor = nodeId;
+  el("ncLabel").value = "Read and understood";
+  el("ncNeeds").value = "";
+  el("ncAsk").value = "";
+  el("ncAskWrap").hidden = true;
+  el("newCheckDlg").showModal();
+  setTimeout(()=>el("ncLabel").select(), 60);
 }
 
 function openPeople(){
@@ -6006,7 +6046,8 @@ function applyView(){
   if(z.textContent !== pct) z.textContent = pct;
 }
 
-function rebuild(){ layout(); buildTagFilters(); updateTagCount(); updateTrayCount(); render();
+function rebuild(){ layout(); buildTagFilters(); updateTagCount(); updateTrayCount();
+  updateReviewBadge(); render();
   renderPortals(); renderInspector(); renderContents();
   updateFab(); updateModeUI(); updateLinkBar(); }
 
@@ -7342,6 +7383,22 @@ const MIN_K = 0.05, MAX_K = 6;
     tapBlockUntil = Date.now() + 500;
   }
 
+/* Dragging a node onto a row in the outline: the map and the panel are
+   different worlds, so the row under the pointer is found by hand. */
+let overRow = null;
+function outlineRowAt(x, y){
+  const el2 = document.elementFromPoint(x, y);
+  const row = el2 && el2.closest && el2.closest("#tocOutline [data-jump]");
+  return row || null;
+}
+function markOutlineTarget(x, y, dragging){
+  const row = dragging ? outlineRowAt(x, y) : null;
+  if(row === overRow) return;
+  if(overRow) overRow.classList.remove("onto");
+  overRow = row;
+  if(overRow) overRow.classList.add("onto");
+}
+
   function abortNodeDrag(){
     if(dragNode && moved){
       const put = (node, x, y)=>{
@@ -7549,6 +7606,18 @@ const MIN_K = 0.05, MAX_K = 6;
     cancelLongPress();
     try{ svg().releasePointerCapture(ev.pointerId); }catch(e){}
 
+    if(mode === "node" && dragNode && overRow){
+      /* dropped on the outline: put it back where it was and ask what was
+         meant by it, rather than leaving it stranded over the panel */
+      const what = dragNode.id, target = overRow.dataset.jump;
+      overRow.classList.remove("onto"); overRow = null;
+      abortNodeDrag();
+      mode = null; moved = false;
+      if(what && target && what !== target) askWhatToDoWith(what, target);
+      return;
+    }
+    if(overRow){ overRow.classList.remove("onto"); overRow = null; }
+
     if(mode === "band"){
       const b = S.band; S.band = null;
       el("gAreas").querySelectorAll("rect.bandrect").forEach(r=>r.remove());
@@ -7677,6 +7746,12 @@ const MIN_K = 0.05, MAX_K = 6;
     mode = null; dragNode = null; panStart = null; pinch = null; downPt = null;
   }
   svg().addEventListener("pointerup", endPointer);
+  /* the pointer leaves the map when it crosses onto the panel, so the move is
+     watched on the window while a node is in hand */
+  window.addEventListener("pointermove", ev=>{
+    if(mode !== "node" || !dragNode) return;
+    markOutlineTarget(ev.clientX, ev.clientY, true);
+  });
   window.addEventListener("blur", ()=>{ pts.clear(); mode = null; pinch = null; panStart = null; });
   document.addEventListener("visibilitychange", ()=>{
     if(document.hidden){ pts.clear(); mode = null; pinch = null; panStart = null; }
@@ -8840,25 +8915,7 @@ function wireContributions(n){
     toast("Suggestion recorded. Push to send it to the sheet.");
   };
   const add = el("addCheckItem");
-  if(add) add.onclick = ()=>{
-    const label = prompt("What should people confirm on this node?", "Read and understood");
-    if(label == null) return;
-    /* an editor decides whether confirming it needs something to show for it */
-    const ans = prompt("What do they have to give when they confirm it?\n\n"
-      + "1 — just their name\n2 — a reference, such as an accession number\n"
-      + "3 — a screenshot\n4 — both\n\nType 1, 2, 3 or 4", "1");
-    if(ans === null) return;
-    const requires = {"2":"ref", "3":"proof", "4":"both"}[String(ans).trim()] || "";
-    let ask = "";
-    if(requires === "ref" || requires === "both"){
-      ask = prompt("What should the field ask for?\n\n"
-        + "Leave it as is for an accession number.", "Accession number") || "";
-      if(ask.trim().toLowerCase() === "accession number") ask = "";
-    }
-    S.checkItems.push(newCheckItem({node:n.id,
-      label:label.trim() || "Read and understood", requires, prompt:ask.trim()}));
-    markDirty(); renderInspector();
-  };
+  if(add) add.onclick = ()=>openNewCheck(n.id);
   body.querySelectorAll("[data-killitem]").forEach(b=>{
     b.onclick = ev=>{
       ev.preventDefault(); ev.stopPropagation();
@@ -11234,6 +11291,7 @@ function adoptWorkbookBytes(buf, label, quiet){
     S._notYetShared = back;
   }
   rebuild();
+  updateReviewBadge();
   /* a first load frames the map; a quiet check keeps you where you were */
   if(!quiet) fitView(0.96, 0.3);
   sayWorkbookState("Showing " + (label || "the workbook") + ", read at "
@@ -12705,17 +12763,32 @@ function renderReview(){
         const missing = roster.filter(pp=>names.indexOf(pp) < 0);
         return {it, names, missing};
       })
-      .filter(r=>!openOnly || r.missing.length || !r.names.length);
+      .filter(r=>!openOnly || r.missing.length || !r.names.length)
+      .filter(r=>canEdit() || !openOnly || !S.who || r.missing.indexOf(S.who) >= 0);
     html = rows.length ? rows.map(({it, names, missing})=>{
       const pct = roster.length ? Math.round(names.length / roster.length * 100) : 0;
+      /* A reader is shown their own standing and nothing about anyone else:
+         who else has signed is the editor's business, and a reader has no
+         business removing an item for everyone. */
+      if(!canEdit()){
+        const mine = S.who && names.indexOf(S.who) >= 0;
+        return `<div class="revcard">
+          <p class="where">on <a href="#" data-go="${esc(it.node)}">${esc(nodeName(it.node))}</a></p>
+          <p class="said" style="margin-bottom:4px">${esc(it.label)}</p>
+          <p class="byline" style="${mine ? "" : "color:var(--flag);font-weight:700"}">${
+            mine ? "You confirmed this" : "Yours to confirm"}</p>
+          <div class="row" style="margin-top:9px">
+            <button class="btn wide" data-go="${esc(it.node)}">${
+              mine ? "Go to the node" : "Go and confirm it"}</button>
+          </div>
+        </div>`;
+      }
       return `<div class="revcard">
         <p class="where">on <a href="#" data-go="${esc(it.node)}">${esc(nodeName(it.node))}</a></p>
         <p class="said" style="margin-bottom:4px">${esc(it.label)}</p>
         <div class="bar"><i style="width:${pct}%"></i></div>
         <p class="byline">${names.length} of ${roster.length || "?"} confirmed${names.length ? " · " + esc(names.join(", ")) : ""}</p>
-        ${missing.length ? `<p class="byline" style="color:var(--flag)">waiting on ${esc(missing.join(", "))}</p>` : ""}
-        ${!canEdit() && S.who && missing.indexOf(S.who) >= 0
-          ? `<p class="byline" style="color:var(--flag);font-weight:700">Yours to confirm</p>` : ""}
+        ${missing.length ? `<p class="byline" style="color:var(--flag)">waiting on ${esc(missing.length)} — ${esc(missing.slice(0, 8).join(", "))}${missing.length > 8 ? " and " + (missing.length - 8) + " more" : ""}</p>` : ""}
         <div class="row" style="margin-top:9px">
           <button class="btn" data-go="${esc(it.node)}">Go to the node</button>
           <button class="btn" data-dropitem="${esc(it.id)}">Remove this item</button>
@@ -13818,6 +13891,24 @@ async function boot(){
     S.searchScope = el("searchScope").value;
     savePrefs(); runSearch();
   });
+  el("ncCancel").onclick = ()=>{ el("newCheckDlg").close(); newCheckFor = null; };
+  el("ncNeeds").onchange = ()=>{
+    const v = el("ncNeeds").value;
+    el("ncAskWrap").hidden = !(v === "ref" || v === "both");
+  };
+  el("ncAdd").onclick = ()=>{
+    const id = newCheckFor;
+    if(!id) return;
+    const label = (el("ncLabel").value || "").trim() || "Read and understood";
+    const requires = el("ncNeeds").value;
+    let ask = (el("ncAsk").value || "").trim();
+    if(ask.toLowerCase() === "accession number") ask = "";
+    S.checkItems.push(newCheckItem({node:id, label, requires, prompt:ask}));
+    el("newCheckDlg").close();
+    newCheckFor = null;
+    markDirty(); renderInspector(); updateReviewBadge();
+    toast("Added — everyone on the roster is asked for it");
+  };
   el("placeCancel").onclick = ()=>{
     el("placeDlg").close(); placeTarget = null; movingWhat = null; };
   el("placeChild").onclick = ()=>movingWhat ? finishMoving("child") : finishPlacing("child");
