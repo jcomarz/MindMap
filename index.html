@@ -1392,7 +1392,8 @@ body.viewing.panelaway #panelHide{display:none}
         <div class="row" style="margin-top:6px">
           <button class="btn wide" id="btnLinkFile">Keep a live file on disk</button>
         </div>
-        <input type="file" id="fileIn" accept=".xlsx,.xlsm,.xls" hidden>
+        <input type="file" id="fileIn" hidden
+  accept=".xlsx,.xlsm,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,application/octet-stream,*/*">
         <p id="saveNote" style="font-size:12px;color:var(--graphite-60);margin:9px 0 0;line-height:1.5">
           Checking storage…</p>
       </div>
@@ -3422,10 +3423,27 @@ function mergeModel(M){
 }
 
 function importXlsx(file){
+  if(!file){ toast("No file came through. Try picking it from Files rather than a preview."); return; }
+  if(typeof XLSX === "undefined"){
+    toast("The spreadsheet reader has not loaded — check the connection and reload.");
+    return;
+  }
+  /* Say what is happening at each step: on a phone a silent failure looks
+     exactly like nothing happening at all. */
+  toast("Reading " + (file.name || "that file") + "…");
   const rd = new FileReader();
+  rd.onerror = ()=>toast("Android would not hand the file over. Copy it to the device first, "
+    + "then pick it from Files.");
   rd.onload = ev=>{
     try{
-      const wb = XLSX.read(new Uint8Array(ev.target.result), {type:"array"});
+      const buf = ev.target.result;
+      if(!buf || !buf.byteLength){ toast("That file came through empty."); return; }
+      const head = new Uint8Array(buf.slice(0, 2));
+      if(!(head[0] === 0x50 && head[1] === 0x4B)){
+        toast("That is not a workbook — it may be a shortcut or a cloud placeholder. "
+          + "Make it available offline first."); return;
+      }
+      const wb = XLSX.read(new Uint8Array(buf), {type:"array"});
       /* Every sheet in the book, not a hand-written handful. This list had
          fallen behind the file format — areas, bookmarks, questions,
          suggestions, check-offs, settings, the tray and the overflow rows that
@@ -3434,7 +3452,9 @@ function importXlsx(file){
       wb.SheetNames.forEach(n=>{
         t[n] = XLSX.utils.sheet_to_json(wb.Sheets[n], {defval:""});
       });
-      if(!t.Nodes.length){ toast("No rows found on a sheet named Nodes"); return; }
+      if(!t.Nodes || !t.Nodes.length){
+        toast("No sheet named Nodes in that workbook — tabs found: "
+          + wb.SheetNames.slice(0, 6).join(", ")); return; }
       if(S.nodes.size) saveNow(true);
       adoptModel(tablesToModel(t));
       S.meta.title = file.name.replace(/\.[^.]+$/,"").replace(/-\d{4}-\d{2}-\d{2}$/,"");
@@ -3444,7 +3464,7 @@ function importXlsx(file){
       toast(S.nodes.size + " nodes loaded");
     }catch(err){
       console.error(err);
-      toast("That file could not be read as a MindMap workbook");
+      toast("Could not read it: " + (err && err.message ? err.message : "unknown"));
     }
   };
   rd.readAsArrayBuffer(file);
@@ -14048,7 +14068,84 @@ async function boot(){
       el("scrim").classList.toggle("on", !open);
     }
   };
+  /* The bar that appears when several nodes are chosen. These lost their
+     handlers in an earlier edit, so the buttons were there and did nothing. */
+  el("mChild").onclick = ()=>linkAllTo("tree");
+  el("mCross").onclick = ()=>linkAllTo("cross");
+  el("mUnlink").onclick = unlinkAllFrom;
+  el("mTag").onclick = openBulkTags;
+  el("mCopy").onclick = ()=>copySelection(false);
+  el("mCopyBranch").onclick = ()=>copySelection(true);
+  el("mRetire").onclick = ()=>{
+    const ids = [...S.multi].filter(id=>S.nodes.has(id));
+    if(!ids.length){ toast("Choose some nodes first."); return; }
+    if(!confirm("Retire " + ids.length + " node" + (ids.length===1?"":"s") + "?")) return;
+    ids.forEach(id=>setField(S.nodes.get(id), "status", "retired"));
+    markDirty(); rebuild(); renderInspector();
+    toast(ids.length + " retired");
+  };
+  el("mDelete").onclick = ()=>{
+    const ids = [...S.multi].filter(id=>S.nodes.has(id));
+    if(!ids.length){ toast("Choose some nodes first."); return; }
+    const kids = ids.reduce((a, id)=>a + childrenOf(id).length, 0);
+    if(!confirm("Delete " + ids.length + " node" + (ids.length===1?"":"s") + "?"
+      + (kids ? "\n\nAnything hanging off them is left where it is." : ""))) return;
+    ids.forEach(id=>{
+      S.nodes.delete(id);
+      [...S.edges.values()].forEach(e=>{ if(e.from === id || e.to === id) S.edges.delete(e.id); });
+    });
+    S.multi.clear(); S.sel = null;
+    markDirty(); rebuild(); renderInspector(); renderContents();
+    toast(ids.length + " deleted");
+  };
+  el("pairClear").onclick = ()=>{
+    S.multi.clear(); S.sel2 = null; S.pairArmed = false;
+    setSelectMode(false);
+    render(); updateLinkBar(); renderInspector();
+  };
+  /* Bookmarks travel between devices as a small file of their own. */
+  el("btnBmExport").onclick = ()=>{
+    const mine = (S.personal.bookmarks || []);
+    if(!mine.length){ toast("No bookmarks to send."); return; }
+    const blob = new Blob([JSON.stringify({v:1, map:S.meta.title, who:S.who,
+      bookmarks:mine}, null, 2)], {type:"application/json"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = (S.meta.title || "map").replace(/[^\w.-]+/g, "-") + "-bookmarks.json";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+    toast(mine.length + " bookmark" + (mine.length===1?"":"s") + " saved");
+  };
+  el("btnBmImport").onclick = ()=>el("bmFile").click();
+  el("bmFile").onchange = e=>{
+    const f = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if(!f) return;
+    const rd = new FileReader();
+    rd.onload = ev=>{
+      try{
+        const got = JSON.parse(String(ev.target.result || "{}"));
+        const list = Array.isArray(got.bookmarks) ? got.bookmarks : [];
+        if(!list.length){ toast("No bookmarks in that file."); return; }
+        const have = new Set((S.personal.bookmarks || []).map(b=>b.id));
+        let added = 0;
+        list.forEach(b=>{ if(b && b.id && !have.has(b.id)){
+          S.personal.bookmarks.push(b); added++; } });
+        savePersonal(); renderContents();
+        toast(added + " brought in" + (list.length - added
+          ? ", " + (list.length - added) + " already here" : ""));
+      }catch(err){ toast("That file could not be read."); }
+    };
+    rd.readAsText(f);
+  };
   el("btnImport").onclick = ()=>el("fileIn").click();
+  el("fileIn").onchange = e=>{
+    const f = e.target.files && e.target.files[0];
+    /* clear it first, so picking the same file twice still fires */
+    e.target.value = "";
+    if(f) importXlsx(f);
+    else toast("Nothing was picked.");
+  };
   el("btnExport").onclick = exportXlsx;
   el("btnTsv").onclick = copyTsv;
   el("btnNew").onclick = async ()=>{
