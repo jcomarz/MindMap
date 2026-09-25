@@ -2120,8 +2120,8 @@ body.viewing.panelaway #panelHide{display:none}
  */
 var TOKEN        = 'change-me';                // full access: reads and rewrites the map
 var VIEWER_TOKEN = '';                         // hand this one out: read, and add suggestions only
-var BUILD = 'b5';                              // lets the app confirm which version is deployed
-var TABS  = ['Nodes','Links','Areas','Bookmarks','Questions','QuestionPins','Suggestions','CheckItems','Checkoffs','Revisions','TagStyles','Settings','Overflow'];
+var BUILD = 'b6';                              // lets the app confirm which version is deployed
+var TABS  = ['Nodes','Links','Areas','Bookmarks','Questions','QuestionPins','Suggestions','CheckItems','Checkoffs','Revisions','TagStyles','Settings','People','Inbox','Overflow'];
 
 function doGet(e)  { return handle(e, null); }
 function doPost(e) { return handle(e, JSON.parse((e.postData && e.postData.contents) || '{}')); }
@@ -13706,7 +13706,7 @@ function tokenHint(err, res){
   if(res && res.deployed === "placeholder")
     return "The deployed script still has the placeholder token. Editing the code is not "
          + "enough — Deploy \u2192 Manage deployments \u2192 edit \u2192 Version: New version.";
-  if(res && res.build && res.build !== "b5")
+  if(res && res.build && res.build !== "b6")
     return "An older copy of the script is live. Copy the bridge script again, paste it over, "
          + "then deploy a New version. Use Test this connection to confirm.";
   if(err && /token/i.test(String(err)))
@@ -13722,7 +13722,7 @@ async function scriptIsCurrent(conn){
     u.searchParams.set("action", "ping");
     const r = await fetchWithTimeout(u.toString(), {method:"GET", redirect:"follow"}, 12000);
     const j = await r.json();
-    return j && j.build === "b5";
+    return j && j.build === "b6";
   }catch(e){ return true; }   // unreachable: let the write speak for itself
 }
 
@@ -13774,7 +13774,14 @@ async function runSync(kind){
       const split = splitForCells(t, SHEET_CELL);
       /* An older script has no Overflow tab, so it would take the first piece
          of a long value and quietly bin the rest. Check before writing. */
-      if((t.Overflow || []).length && !(await scriptIsCurrent(conn))){
+      /* an older bridge silently drops tabs it does not know, which is how the
+         tray and the roster went missing without a word */
+      const carriesAll = await scriptIsCurrent(conn);
+      if(!carriesAll && ((t.Inbox || []).length || (t.People || []).length)){
+        toast("The live script is an older one and will drop the tray and the roster. "
+            + "Copy the bridge script again and deploy a New version.");
+      }
+      if((t.Overflow || []).length && !carriesAll){
         const ok = confirm(
           "The script deployed on this sheet is an older version.\n\n"
           + split.split + " long value" + (split.split===1?"":"s") + " had to be sent in parts, "
@@ -13925,7 +13932,7 @@ function renderConnList(){
           say(`<span style="color:var(--flag)">${esc(nonJsonHint(text))}</span>`);
           return;
         }
-        if(res.build !== "b5"){
+        if(res.build !== "b6"){
           say(`<span style="color:var(--flag)">An older copy of the script is live${res.build?" (build "+esc(res.build)+")":""}.
             Long notes and images cannot round-trip until it is updated, because the Overflow
             tab is missing. Apps Script keeps serving the version you deployed, not the code
