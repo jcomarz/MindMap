@@ -937,7 +937,7 @@ dialog#viewerKindDlg{border:1px solid var(--graphite);border-radius:3px;padding:
 dialog#viewerKindDlg::backdrop{background:rgba(35,40,45,.42)}
 /* The tray floats over the map rather than blocking it, so a note can be
    dragged straight onto a node or an outline row. */
-#trayPanel{position:fixed;right:18px;bottom:18px;z-index:58;width:min(330px,90vw);
+#trayPanel{position:fixed;right:18px;bottom:18px;z-index:58;width:min(360px,92vw);
   background:var(--paper);border:1px solid var(--graphite);border-radius:4px;
   box-shadow:0 10px 30px rgba(0,0,0,.26);display:flex;flex-direction:column;
   max-height:min(64vh,560px);overflow:hidden}
@@ -949,8 +949,48 @@ dialog#viewerKindDlg::backdrop{background:rgba(35,40,45,.42)}
 .tray-inner{padding:10px 12px 12px;overflow:auto;flex:1}
 #trayPanel.folded .tray-inner{display:none}
 #trayAdd{width:100%;min-height:52px}
+.trayrow{display:flex;align-items:flex-start;gap:8px}
+.traymain{flex:1;min-width:0}
+.trayat{display:block;font-family:var(--mono);font-size:10px;color:var(--graphite-60);
+  margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.trayacts{display:flex;align-items:center;gap:4px;flex:0 0 auto}
+.trayacts .btn{padding:4px 9px;font-size:11.5px}
+.trayrow.planted .traytext{opacity:.68}
+.traytext[contenteditable="true"]:focus{outline:2px solid var(--blueprint);
+  outline-offset:2px;border-radius:2px;background:var(--paper)}
+.plantedfold>summary{cursor:pointer;font-size:12px;color:var(--blueprint);padding:8px 2px;
+  list-style:none}
+.plantedfold>summary::-webkit-details-marker{display:none}
+.plantedfold>summary::before{content:"▸ "}
+.plantedfold[open]>summary::before{content:"▾ "}
 @media (max-width:820px){
-  #trayPanel{left:8px;right:8px;bottom:8px;width:auto;max-height:56dvh}
+  /* on a phone the tray is the whole job, so it takes the screen */
+  #trayPanel{left:0;right:0;bottom:0;top:0;width:auto;max-height:none;border-radius:0;
+    border-width:1px 0 0}
+  #trayPanel.folded{top:auto;bottom:0}
+  .tray-inner{padding:12px 14px 18px}
+  #trayAdd{min-height:84px;font-size:16px}
+  .trayrow{padding:10px 2px}
+  .traytext{font-size:15px}
+  .trayacts .btn{padding:9px 13px;font-size:14px}
+  .trayacts .kill{width:34px;height:34px}
+  #traySession{font-size:15px;padding:10px}
+}
+dialog#plantDlg,dialog#plantHowDlg{border:1px solid var(--graphite);border-radius:3px;
+  padding:0;background:var(--paper);width:min(460px,96vw);max-height:88dvh;
+  color:var(--graphite);display:flex;flex-direction:column}
+dialog#plantDlg::backdrop,dialog#plantHowDlg::backdrop{background:rgba(35,40,45,.42)}
+#plFind{width:100%}
+.plrow{display:block;width:100%;text-align:left;padding:11px 10px;border:0;
+  border-bottom:1px solid var(--rule-soft);background:none;cursor:pointer;font-size:14px;
+  color:var(--graphite)}
+.plrow:hover,.plrow:focus{background:var(--blueprint-soft)}
+.plrow b{display:block;font-weight:600}
+.plrow span{font-family:var(--mono);font-size:10.5px;color:var(--graphite-60)}
+@media (max-width:820px){
+  dialog#plantDlg{width:100vw;height:100dvh;max-height:none;border:0;border-radius:0}
+  dialog#plantHowDlg{width:100vw;border-radius:3px 3px 0 0;margin-bottom:0}
+  .plrow{padding:15px 12px;font-size:15px}
 }
 dialog#newCheckDlg{border:1px solid var(--graphite);border-radius:3px;padding:0;
   background:var(--paper);width:min(420px,94vw);color:var(--graphite);
@@ -1793,6 +1833,10 @@ body.viewing.panelaway #panelHide{display:none}
     <button class="btn" id="trayClose">Close</button>
   </div>
   <div class="tray-inner" id="trayInner">
+    <div class="row" style="margin-bottom:8px">
+      <select id="traySession" style="flex:1"></select>
+      <button class="btn" id="trayNewSession" title="Start one for today">+ Huddle</button>
+    </div>
     <textarea id="trayAdd" rows="2"
       placeholder="Jot or paste — the whole thing is kept"></textarea>
     <div class="row" style="margin-top:6px">
@@ -1803,6 +1847,34 @@ body.viewing.panelaway #panelHide{display:none}
     <div id="trayList"></div>
   </div>
 </div>
+
+<dialog id="plantDlg">
+  <div class="dlg-head">
+    <h2>Where does it go?</h2>
+    <button class="btn" id="plCancel">Cancel</button>
+  </div>
+  <div class="hist-controls">
+    <p class="fineprint" id="plWhat" style="margin:0 0 8px"></p>
+    <input type="search" id="plFind" placeholder="Find the node it belongs to"
+      enterkeyhint="search">
+    <div class="row" style="margin-top:8px">
+      <button class="btn wide" id="plLoose">Put it on its own, decide later</button>
+    </div>
+  </div>
+  <div class="dlg-body" id="plList"></div>
+</dialog>
+
+<dialog id="plantHowDlg">
+  <div class="dlg-head">
+    <h2 id="plHowTitle">How does it attach?</h2>
+    <button class="btn" id="plHowCancel">Back</button>
+  </div>
+  <div class="hist-controls">
+    <div class="row"><button class="btn wide primary" id="plHowChild"></button></div>
+    <div class="row" style="margin-top:6px"><button class="btn wide" id="plHowNote"></button></div>
+    <div class="row" style="margin-top:6px"><button class="btn wide" id="plHowCross"></button></div>
+  </div>
+</dialog>
 
 <dialog id="newCheckDlg">
   <div class="dlg-head">
@@ -2240,7 +2312,8 @@ const S = {
   who:"",
   whoKey:"",                   // which person on the roster this device is
   people:[],                   // who may sign things off, and which team they are on
-  inbox:[],                    // jotted down, not yet placed on the map
+  traySession:"",              // which huddle new notes belong to
+  inbox:[],                    // jotted down, and what became of it
   inboxArmed:null,             // the item waiting to be put somewhere
   questions:[],                // asked by anyone; answers are pinned nodes
   pins:[],
@@ -2973,7 +3046,7 @@ const HDR = {
   Overflow:["ref_id","table","column","seq","text"],
   Questions:["question_id","text","person","timestamp","status","note"],
   QuestionPins:["pin_id","question_id","node_id","person","timestamp","note"],
-  Inbox:["item_id","text","created","author"],
+  Inbox:["item_id","text","created","author","session","node_id","planted_at","how","wrote"],
   People:["person_id","name","first","login","initials","teams","active"]
 };
 
@@ -3044,7 +3117,9 @@ function toSheets(){
     timestamp:x.timestamp, note:x.note||""
   }));
   const inbox = (S.inbox || []).map(it=>({
-    item_id:it.id, text:it.text, created:it.at, author:it.by || ""
+    item_id:it.id, text:it.text, created:it.at, author:it.by || "",
+    session:it.session || "", node_id:it.node || "", planted_at:it.plantedAt || "",
+    how:it.how || "", wrote:it.wrote || ""
   }));
   const settings = [
     {key:"locked", value:S.meta.locked ? "yes" : ""},
@@ -3114,7 +3189,10 @@ function tablesToModel(t){
   (t.Inbox || []).forEach(r=>{
     if(!String(r.text||"").trim()) return;
     M.inbox.push({id:String(r.item_id||uid("I-")), text:String(r.text),
-      at:String(r.created||""), by:String(r.author||"")});
+      at:String(r.created||""), by:String(r.author||""),
+      session:String(r.session||""), node:String(r.node_id||""),
+      plantedAt:String(r.planted_at||""), how:String(r.how||""),
+      wrote:String(r.wrote||"")});
   });
 
   for(const r of nodes){
@@ -6282,10 +6360,20 @@ function titleFromText(text){
   return (out || clean.slice(0, 48)) + "…";
 }
 
+/* Which session new notes land in — a huddle, or nothing in particular. */
+function traySessions(){
+  const set = new Set((S.inbox || []).map(x=>x.session).filter(Boolean));
+  return [...set].sort().reverse();
+}
+function todaySession(){
+  return "Huddle " + nowISO().slice(0, 10);
+}
+
 function addToTray(text){
   const t = String(text || "").trim();
   if(!t) return;
-  S.inbox.unshift({id:uid("I-"), text:t, at:nowISO(), by:S.who || ""});
+  S.inbox.unshift({id:uid("I-"), text:t, at:nowISO(), by:S.who || "",
+                   session:S.traySession || "", node:"", plantedAt:""});
   markDirty(); renderTray(); updateTrayCount();
 }
 function dropFromTray(id){
@@ -6451,26 +6539,230 @@ function finishPlacing(where){
 function renderTray(){
   const box = el("trayList");
   if(!box) return;
-  box.innerHTML = S.inbox.length
-    ? S.inbox.map(it=>`<div class="trayrow${S.inboxArmed === it.id ? " armed" : ""}"
-        data-tray="${esc(it.id)}" draggable="true">
-        <span class="traytext">${esc(it.text)}</span>
+  const all = S.inbox || [];
+  const here = S.traySession || "";
+  const mine = all.filter(x=>(x.session || "") === here);
+  const waiting = mine.filter(x=>!x.node);
+  const planted = mine.filter(x=>x.node);
+
+  const row = (it, done)=>`<div class="trayrow${S.inboxArmed === it.id ? " armed" : ""}${
+      done ? " planted" : ""}" data-tray="${esc(it.id)}"${done ? "" : ' draggable="true"'}>
+      <div class="traymain">
+        <span class="traytext" contenteditable="${done ? "false" : "true"}"
+          data-edit="${esc(it.id)}">${esc(it.text)}</span>
+        ${done ? `<span class="trayat">→ ${esc(nodeName(it.node))}</span>` : ""}
+      </div>
+      <div class="trayacts">
+        ${done
+          ? `<button class="btn" data-traygo="${esc(it.id)}">Go</button>
+             <button class="btn" data-trayback="${esc(it.id)}">Undo</button>`
+          : `<button class="btn primary" data-trayplant="${esc(it.id)}">Plant…</button>`}
         <button class="kill" data-traydrop="${esc(it.id)}" title="Throw it away">&times;</button>
-      </div>`).join("")
-    : `<p class="tocempty">Nothing waiting.</p>`;
+      </div>
+    </div>`;
+
+  box.innerHTML =
+    (waiting.length ? waiting.map(x=>row(x, false)).join("")
+                    : `<p class="tocempty">Nothing waiting${here ? " in this one" : ""}.</p>`)
+    + (planted.length ? `<details class="plantedfold"${S.trayDoneOpen ? " open" : ""}>
+        <summary>${planted.length} planted — keep them for talking through</summary>
+        ${planted.map(x=>row(x, true)).join("")}</details>` : "");
+
+  const fold = box.querySelector(".plantedfold");
+  if(fold) fold.addEventListener("toggle", ()=>{ S.trayDoneOpen = fold.open; });
+
+  box.querySelectorAll("[data-edit]").forEach(sp=>{
+    sp.onclick = ev=>ev.stopPropagation();
+    sp.onblur = ()=>{
+      const it = S.inbox.find(x=>x.id === sp.dataset.edit);
+      const t = sp.textContent.trim();
+      if(!it || t === it.text) return;
+      if(!t){ sp.textContent = it.text; return; }
+      it.text = t; markDirty(); updateTrayCount();
+    };
+    sp.onkeydown = ev=>{
+      if(ev.key === "Enter" && !ev.shiftKey){ ev.preventDefault(); sp.blur(); }
+      if(ev.key === "Escape"){ ev.preventDefault();
+        const it = S.inbox.find(x=>x.id === sp.dataset.edit);
+        if(it) sp.textContent = it.text;
+        sp.blur(); }
+    };
+  });
   box.querySelectorAll("[data-traydrop]").forEach(b=>{
     b.onclick = ev=>{ ev.stopPropagation(); dropFromTray(b.dataset.traydrop); };
   });
-  box.querySelectorAll("[data-tray]").forEach(row=>{
-    row.onclick = ()=>armTrayItem(row.dataset.tray);
-    row.addEventListener("dragstart", ev=>{
-      S.inboxArmed = row.dataset.tray;
+  box.querySelectorAll("[data-trayplant]").forEach(b=>{
+    b.onclick = ev=>{ ev.stopPropagation(); openPlant(b.dataset.trayplant); };
+  });
+  box.querySelectorAll("[data-traygo]").forEach(b=>{
+    b.onclick = ev=>{
+      ev.stopPropagation();
+      const it = S.inbox.find(x=>x.id === b.dataset.traygo);
+      if(it && S.nodes.has(it.node)) focusNode(it.node);
+      else toast("That node is no longer on the map.");
+    };
+  });
+  box.querySelectorAll("[data-trayback]").forEach(b=>{
+    b.onclick = ev=>{ ev.stopPropagation(); unplant(b.dataset.trayback); };
+  });
+  box.querySelectorAll("[data-tray]").forEach(r=>{
+    const it = S.inbox.find(x=>x.id === r.dataset.tray);
+    if(it && it.node) return;                 // planted rows are not for dragging
+    r.onclick = ev=>{ if(ev.target.closest(".btn,.kill")) return;
+      armTrayItem(r.dataset.tray); };
+    r.addEventListener("dragstart", ev=>{
+      S.inboxArmed = r.dataset.tray;
       renderTray(); updateTrayFlag();
-      try{ ev.dataTransfer.setData("text/plain", row.dataset.tray); }catch(e){}
+      try{ ev.dataTransfer.setData("text/plain", r.dataset.tray); }catch(e){}
       ev.dataTransfer.effectAllowed = "copy";
     });
   });
+  renderTraySessions();
   updateTrayCount();
+}
+
+let plantItem = null, plantTarget = null;
+
+/* A short path, so two nodes with the same name can be told apart. */
+function trailOf(id, depth){
+  const bits = [];
+  let up = parentOf(id), guard = 0;
+  while(up && guard++ < (depth || 2)){ bits.unshift(nodeName(up)); up = parentOf(up); }
+  return bits.join(" › ");
+}
+
+function openPlant(itemId){
+  const it = (S.inbox || []).find(x=>x.id === itemId);
+  if(!it) return;
+  plantItem = itemId; plantTarget = null;
+  el("plWhat").textContent = "“" + titleFromText(it.text) + "”";
+  el("plFind").value = "";
+  renderPlantList("");
+  el("plantDlg").showModal();
+  /* a phone keyboard popping up over the list is worse than one more tap */
+  if(!window.matchMedia("(max-width:820px)").matches) setTimeout(()=>el("plFind").focus(), 60);
+}
+
+/* What to offer: what you were just looking at, then anything matching. */
+function renderPlantList(q){
+  const box = el("plList");
+  if(!box) return;
+  q = String(q || "").trim().toLowerCase();
+  let ids;
+  if(q){
+    ids = [...S.nodes.values()]
+      .filter(n=>String(n.label || "").toLowerCase().includes(q))
+      .map(n=>n.id);
+    ids = rankHits(ids, [q]).slice(0, 40);
+  } else {
+    const recent = (S.personal.recent || []).map(r=>r.id).filter(id=>S.nodes.has(id));
+    const heads = roots().concat([...S.nodes.keys()].filter(id=>childrenOf(id).length >= 3));
+    ids = [...new Set([S.sel, ...recent, ...heads].filter(Boolean))].slice(0, 25);
+  }
+  box.innerHTML = ids.length
+    ? ids.map(id=>`<button class="plrow" data-pl="${esc(id)}">
+        <b>${esc(nodeName(id))}</b><span>${esc(trailOf(id, 2))}</span></button>`).join("")
+    : `<p class="histempty">Nothing matches. Put it on its own and sort it out later.</p>`;
+  box.querySelectorAll("[data-pl]").forEach(b=>{
+    b.onclick = ()=>askHowToPlant(b.dataset.pl);
+  });
+}
+
+function askHowToPlant(id){
+  plantTarget = id;
+  const name = nodeName(id);
+  el("plHowTitle").textContent = "Onto " + shorten(name, 28);
+  el("plHowChild").textContent = "Under it, as a new step";
+  el("plHowNote").textContent = "Into its notes — no new node";
+  el("plHowCross").textContent = "Beside it, cross-linked";
+  el("plantHowDlg").showModal();
+}
+
+function plantIt(how){
+  const it = (S.inbox || []).find(x=>x.id === plantItem);
+  const target = plantTarget;
+  el("plantHowDlg").close(); el("plantDlg").close();
+  if(!it) return;
+  if(how === "note"){
+    /* the safest of all: nothing new to sign off, just words on a node */
+    const n = S.nodes.get(target);
+    if(!n) return;
+    const stamp = (S.who ? S.who + ", " : "") + nowISO().slice(0, 10);
+    setField(n, "body", String(n.body || "").trim()
+      + (n.body ? "\n\n" : "") + it.text + "\n— " + stamp);
+    it.node = target; it.plantedAt = nowISO(); it.how = "note"; it.wrote = it.text + "\n— " + stamp;
+    markDirty(); rebuild(); renderTray(); focusNode(target);
+    toast("Added to " + nodeName(target) + "'s notes");
+    return;
+  }
+  const n = newNode({label:titleFromText(it.text), body:it.text});
+  S.nodes.set(n.id, n);
+  if(target && S.nodes.has(target)){
+    const e = newEdge({from:target, to:n.id,
+      link_type:how === "cross" ? "cross" : "tree"});
+    S.edges.set(e.id, e);
+    const spot = freeSpotNear(S.nodes.get(target));
+    if(spot){ n.pinned = true; n.x = spot.x; n.y = spot.y; }
+  }
+  it.node = n.id; it.plantedAt = nowISO(); it.how = how;
+  markDirty(); rebuild(); renderTray();
+  pickNode(n.id);
+  toast("Planted" + (target ? " under " + nodeName(target) : ""));
+}
+
+function renderTraySessions(){
+  const sel = el("traySession");
+  if(!sel) return;
+  const list = traySessions();
+  const here = S.traySession || "";
+  if(here && list.indexOf(here) < 0) list.unshift(here);
+  sel.innerHTML = `<option value="">Loose notes</option>`
+    + list.map(x=>`<option value="${esc(x)}"${x === here ? " selected" : ""}>${esc(x)}</option>`).join("");
+  sel.value = here;
+}
+
+/* Taking it back: only while nothing has attached itself to the node, or
+   somebody's sign-off would vanish with it. */
+function unplant(itemId){
+  const it = (S.inbox || []).find(x=>x.id === itemId);
+  if(!it || !it.node) return;
+  const id = it.node;
+  /* Words added to somebody else's node come back out; the node itself was
+     never ours to remove. */
+  if(it.how === "note"){
+    const n = S.nodes.get(id);
+    if(n && it.wrote){
+      let body = String(n.body || "");
+      const at = body.indexOf(it.wrote);
+      if(at >= 0){
+        body = (body.slice(0, at) + body.slice(at + it.wrote.length))
+          .replace(/\n{3,}/g, "\n\n").trim();
+        setField(n, "body", body);
+      }
+    }
+    it.node = ""; it.plantedAt = ""; it.how = ""; it.wrote = "";
+    markDirty(); rebuild(); renderTray();
+    toast("Taken back out of the note");
+    return;
+  }
+  const attached = S.suggestions.filter(x=>x.node === id).length
+    + S.questions.filter(q=>(S.pins || []).some(pn=>pn.question === q.id && pn.node === id)).length
+    + S.checkItems.filter(x=>x.node === id).length;
+  if(attached){
+    toast("People have added to that node — it stays. The note is marked planted.");
+    return;
+  }
+  if(S.nodes.has(id) && childrenOf(id).length){
+    toast("That node has children now, so it stays.");
+    return;
+  }
+  if(S.nodes.has(id)){
+    S.nodes.delete(id);
+    [...S.edges.values()].forEach(e=>{ if(e.from === id || e.to === id) S.edges.delete(e.id); });
+  }
+  it.node = ""; it.plantedAt = "";
+  markDirty(); rebuild(); renderTray();
+  toast("Put back in the tray");
 }
 
 function renderContents(){
@@ -10631,7 +10923,7 @@ function buildWorkbookFrom(data){
     CheckItems:[14,14,34,19,14,12,30],
     Checkoffs:[14,14,14,16,9,19,30,22,40],
     Settings:[14,44],
-    Inbox:[14,60,19,16],
+    Inbox:[14,60,19,16,22,14,19,8,40],
     People:[14,30,12,20,8,30,7],
     Overflow:[16,14,14,6,70]
   };
@@ -13891,6 +14183,19 @@ async function boot(){
     S.searchScope = el("searchScope").value;
     savePrefs(); runSearch();
   });
+  el("plCancel").onclick = ()=>{ el("plantDlg").close(); plantItem = null; };
+  el("plHowCancel").onclick = ()=>el("plantHowDlg").close();
+  el("plHowChild").onclick = ()=>plantIt("child");
+  el("plHowNote").onclick = ()=>plantIt("note");
+  el("plHowCross").onclick = ()=>plantIt("cross");
+  el("plLoose").onclick = ()=>{ plantTarget = null; plantIt("loose"); };
+  el("plFind").addEventListener("input", ()=>renderPlantList(el("plFind").value));
+  el("traySession").onchange = ()=>{ S.traySession = el("traySession").value; renderTray(); };
+  el("trayNewSession").onclick = ()=>{
+    S.traySession = todaySession();
+    renderTray();
+    toast("New notes go into " + S.traySession);
+  };
   el("ncCancel").onclick = ()=>{ el("newCheckDlg").close(); newCheckFor = null; };
   el("ncNeeds").onchange = ()=>{
     const v = el("ncNeeds").value;
