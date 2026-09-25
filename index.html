@@ -803,17 +803,11 @@ body.viewing.panelaway #panelHide{display:none}
 @media (max-width:700px){
   html,body{overflow-x:hidden}
   .mobile-tabs{flex-wrap:wrap;row-gap:6px;padding:7px 10px 6px}
-  /* the search takes the first line to itself; everything else shares the
-     second and scrolls sideways if it still will not fit */
-  .mobile-tabs .mqwrap{position:relative;flex:1;display:flex;min-width:0}
-.mqwrap .mq{flex:1;min-width:0}
-#mqClear{position:absolute;right:6px;top:50%;transform:translateY(-50%);
-  width:26px;height:26px;border-radius:50%;border:0;background:var(--graphite-60);
-  color:var(--paper);font-size:17px;line-height:1;cursor:pointer;display:grid;
-  place-items:center;padding:0}
-#mqClear:hover{background:var(--graphite)}
-#mqClear[hidden]{display:none}
-.mq{flex:1 1 100%;order:-2}
+  /* The search takes the first line to itself; everything else shares the
+     second. The wrapper holding the clear button has to carry that full-width
+     rule, or the search collapses to a sliver beside the buttons. */
+  .mobile-tabs .mqwrap{flex:1 1 100%;order:-2;min-width:0}
+  .mobile-tabs .mq{flex:1;min-width:0;width:100%}
   .mobile-tabs .mhits{order:-1;flex:0 0 auto}
   .mobile-tabs #mRail{order:-1}
   .mobile-tabs > :not(.mq):not(.mhits):not(#mRail){order:1}
@@ -1246,14 +1240,6 @@ body.viewing.panelaway #panelHide{display:none}
     border-bottom:1px solid var(--rule);position:relative;z-index:50;
     padding-top:calc(8px + env(safe-area-inset-top))
   }
-  .mobile-tabs .mqwrap{position:relative;flex:1;display:flex;min-width:0}
-.mqwrap .mq{flex:1;min-width:0}
-#mqClear{position:absolute;right:6px;top:50%;transform:translateY(-50%);
-  width:26px;height:26px;border-radius:50%;border:0;background:var(--graphite-60);
-  color:var(--paper);font-size:17px;line-height:1;cursor:pointer;display:grid;
-  place-items:center;padding:0}
-#mqClear:hover{background:var(--graphite)}
-#mqClear[hidden]{display:none}
 .mq{flex:1;min-width:0;padding:9px 10px;font-size:16px}
   .mobile-tabs .mhits button{font-size:19px;padding:7px 10px}
   #topAdd{display:none}
@@ -1281,14 +1267,6 @@ body.viewing.panelaway #panelHide{display:none}
   /* the panels are already on screen, so their drawer toggles are noise */
   #mRail,#mInsp{display:none}
   .mobile-tabs{padding:8px 16px}
-  .mobile-tabs .mqwrap{position:relative;flex:1;display:flex;min-width:0}
-.mqwrap .mq{flex:1;min-width:0}
-#mqClear{position:absolute;right:6px;top:50%;transform:translateY(-50%);
-  width:26px;height:26px;border-radius:50%;border:0;background:var(--graphite-60);
-  color:var(--paper);font-size:17px;line-height:1;cursor:pointer;display:grid;
-  place-items:center;padding:0}
-#mqClear:hover{background:var(--graphite)}
-#mqClear[hidden]{display:none}
 .mq{flex:0 1 520px}
   /* clear of the inspector column, and above the title block */
   .fab{right:calc(var(--insp) + 22px);bottom:80px;width:46px;height:46px;
@@ -7630,6 +7608,19 @@ function fitView(pad=0.96, minK=0){
   const b = worldBBox(), s = svgSize();
   if(!s.w) return;
   const raw = Math.min(s.w/b.w, s.h/b.h) * pad;
+  /* On a phone, fitting a wide map whole lands at a tenth of size where
+     nothing can be read. Below that point it is more use to arrive somewhere
+     legible and pan from there. */
+  if(!minK && s.w < 560 && raw < 0.3){
+    const go = S.sel && S.nodes.has(S.sel) ? S.sel
+      : (roots()[0] || [...S.nodes.keys()][0]);
+    if(go){
+      S.view.k = 0.45;
+      centerOn(go);
+      toast("Too wide to show whole — start here and pan, or pinch out");
+      return;
+    }
+  }
   const clamped = raw < minK;
   S.view.k = Math.max(MIN_K, Math.min(2.5, clamped ? minK : raw));
   const k = S.view.k;
