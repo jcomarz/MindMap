@@ -13605,18 +13605,39 @@ function targetOf(conn){
   return [(conn.endpoint||"").trim(), (conn.id||"").trim(), (conn.prefix||"").trim()].join("|");
 }
 
-/* Nothing waits forever. A request that never answers is reported as one. */
+/* Nothing waits forever, but a big map genuinely takes a while: the script has
+   to build every tab before it answers. The wait grows with the map rather
+   than being a flat twenty seconds, which used to make a slow-but-fine sheet
+   look like a broken deployment. */
 const NET_TIMEOUT = 20000;
+function waitFor(){
+  const rough = S.nodes.size + S.suggestions.length + S.checkoffs.length
+    + S.revisions.length;
+  return Math.min(180000, Math.max(45000, Math.round(rough * 220)));
+}
+let sawAnswer = false;     // has this sheet ever answered us at all
+
 async function fetchWithTimeout(url, opts, ms){
+  const wait = ms || waitFor();
   const ctl = (typeof AbortController !== "undefined") ? new AbortController() : null;
-  const t = setTimeout(()=>{ try{ ctl && ctl.abort(); }catch(e){} }, ms || NET_TIMEOUT);
+  const t = setTimeout(()=>{ try{ ctl && ctl.abort(); }catch(e){} }, wait);
   try{
-    return await fetch(url, Object.assign({}, opts, ctl ? {signal:ctl.signal} : {}));
+    const r = await fetch(url, Object.assign({}, opts, ctl ? {signal:ctl.signal} : {}));
+    sawAnswer = true;
+    return r;
   }catch(e){
-    if(e && (e.name === "AbortError" || /abort/i.test(String(e.message||""))))
-      throw new Error("No answer in " + Math.round((ms || NET_TIMEOUT)/1000)
-        + " seconds. Check the deployment is set to “Anyone with the link” and that the "
-        + "address ends in /exec.");
+    if(e && (e.name === "AbortError" || /abort/i.test(String(e.message||"")))){
+      const secs = Math.round(wait/1000);
+      /* A sheet that has answered before is not misconfigured; it is busy. */
+      throw new Error(sawAnswer
+        ? "The sheet did not finish within " + secs + " seconds. A map this size can take "
+          + "longer than Apps Script allows in one go. Try again — a second attempt is often "
+          + "quicker — and if it keeps timing out, trim the revision history under History, "
+          + "or move large pictures into a folder beside the workbook."
+        : "No answer in " + secs + " seconds. If this connection has never worked, check the "
+          + "deployment is set to “Anyone with the link” and that the address ends in /exec. "
+          + "If it has worked before, the map may simply be too big for one request.");
+    }
     throw new Error("Could not reach the script: " + (e.message || e)
       + ". If this is a fresh deployment, open the /exec address in a tab once and accept "
       + "the permissions prompt.");
@@ -13645,7 +13666,7 @@ async function callBridge(conn, action, tables){
     method:"POST", redirect:"follow",
     body: JSON.stringify({action, token:conn.token||"", id:conn.id||"",
                           prefix:conn.prefix||"", tables})
-  }, 45000);
+  }, waitFor());
   if(!r.ok) throw new Error("The sheet replied " + r.status);
   const text = await r.text();
   try{ return JSON.parse(text); }
@@ -13703,7 +13724,9 @@ async function runSync(kind){
 
   S.syncing = true;
   document.querySelector(".rail").classList.add("syncing");
-  el("syncNote").textContent = kind === "push" ? "Sending…" : "Fetching…";
+  el("syncNote").textContent = (kind === "push" ? "Sending" : "Fetching")
+    + " — a map this size can take up to "
+    + Math.round(waitFor()/1000) + " seconds.";
   try{
     if(kind === "push" && (S.viewerBuild || !canEdit())){
       /* a viewer sends only the two contribution tabs, by a route that
