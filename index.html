@@ -14136,6 +14136,65 @@ async function boot(){
     };
     rd.readAsText(f);
   };
+  /* The two-node bar. These lost their handlers in an earlier edit, so the
+     buttons appeared and did nothing. a is the one chosen first. */
+  const pair = ()=>{
+    const a = S.sel && S.nodes.get(S.sel) ? S.sel : null;
+    const b = S.sel2 && S.nodes.get(S.sel2) ? S.sel2 : null;
+    return (a && b && a !== b) ? [a, b] : null;
+  };
+  el("pairChild").onclick = ()=>{
+    const p2 = pair(); if(!p2) return;
+    const [a, b] = p2;
+    if(parentOf(b) && parentOf(b) !== a){
+      if(!confirm(nodeName(b) + " already hangs off " + nodeName(parentOf(b))
+        + ".\n\nMove it under " + nodeName(a) + "?")) return;
+      [...S.edges.values()].forEach(e=>{
+        if(e.link_type === "tree" && e.to === b) S.edges.delete(e.id);
+      });
+    }
+    const e = newEdge({from:a, to:b, link_type:"tree"});
+    S.edges.set(e.id, e);
+    markDirty(); rebuild(); updateLinkBar(); renderInspector();
+    toast(nodeName(b) + " now hangs off " + nodeName(a));
+  };
+  el("pairCross").onclick = ()=>{
+    const p2 = pair(); if(!p2) return;
+    const e = newEdge({from:p2[0], to:p2[1], link_type:"cross"});
+    S.edges.set(e.id, e);
+    markDirty(); rebuild(); updateLinkBar(); renderInspector();
+    toast("Cross-linked");
+  };
+  el("pairCut").onclick = ()=>{
+    const p2 = pair(); if(!p2) return;
+    const gone = edgesBetween(p2[0], p2[1]);
+    if(!gone.length) return;
+    gone.forEach(e=>S.edges.delete(e.id));
+    markDirty(); rebuild(); updateLinkBar(); renderInspector();
+    toast(gone.length === 1 ? "Link removed" : gone.length + " links removed");
+  };
+  el("pairSwap").onclick = ()=>{
+    const p2 = pair(); if(!p2) return;
+    const list = edgesBetween(p2[0], p2[1]);
+    if(!list.length) return;
+    list.forEach(e=>{ const f = e.from; e.from = e.to; e.to = f; });
+    markDirty(); rebuild(); updateLinkBar(); renderInspector();
+    toast("Turned around");
+  };
+  el("pairSupersede").onclick = ()=>{
+    const p2 = pair(); if(!p2) return;
+    const [a, b] = p2;
+    if(!confirm("Retire “" + nodeName(a) + "” and stack it under “"
+      + nodeName(b) + "”?")) return;
+    supersede(a, b);
+    updateLinkBar();
+  };
+  /* the phone's search arrows: separate buttons from the desktop pair, and
+     they had no handlers at all */
+  if(el("mNext")) el("mNext").onclick = ()=>stepHit(1);
+  if(el("mPrev")) el("mPrev").onclick = ()=>stepHit(-1);
+  /* toggling the dimming did nothing until something else redrew the map */
+  if(el("dimOthers")) el("dimOthers").onchange = ()=>{ savePrefs(); render(); };
   el("btnImport").onclick = ()=>el("fileIn").click();
   el("fileIn").onchange = e=>{
     const f = e.target.files && e.target.files[0];
