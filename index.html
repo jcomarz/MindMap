@@ -523,12 +523,369 @@ body.focusing .node-g:not(.focusdim) .node-box{stroke-width:calc(var(--node-bord
   .pairacts .btn{flex:1 1 auto;padding:9px 8px;font-size:13px}
 }
 .zoombar{
-  position:absolute;left:14px;bottom:14px;display:flex;gap:4px;
+  /* The drawing is painted at z-index 1, so without a layer of its own this bar
+     sat underneath it: you could see the buttons through the transparent sheet
+     but the map took every press meant for them. */
+  position:absolute;left:14px;bottom:14px;z-index:8;display:flex;gap:4px;
   background:var(--paper);border:1px solid var(--rule);border-radius:2px;padding:4px;
 }
 .zoombar button{border:0;background:transparent;padding:4px 9px;border-radius:2px;font-size:13px}
 .zoombar button:hover{background:var(--paper-2)}
 .zoombar .lvl{font-family:var(--mono);font-size:11px;padding:4px 6px;color:var(--graphite-60);align-self:center;min-width:46px;text-align:center}
+
+/* ---------- the room ---------- */
+/* A node seen from the inside. Its note is the board on the far wall, the
+   children are doors and objects standing on the floor, the parent is the way
+   out on the left, and cross-links are archways along the top. The perspective
+   is painted, not transformed: every word stays upright and sharp and every
+   door stays an ordinary button you can hit with a thumb. */
+#roomView{
+  position:absolute;inset:14px;z-index:3;overflow:hidden;
+  --rv-l:12%;--rv-r:12%;--rv-t:13%;--rv-b:23%;
+  border:1px solid var(--rule);background:var(--rv-wall, var(--paper));
+  display:flex;flex-direction:column;
+  --rv-wall:var(--paper);
+  --rv-wall-2:var(--paper-2);
+  --rv-floor:var(--paper-2);
+  --rv-ceil:var(--paper-2);
+  --rv-line:var(--rule);
+  --rv-board:var(--paper);
+  --rv-door:var(--paper);
+  --rv-door-ink:var(--graphite);
+  --rv-pattern:none;
+  --rv-floor-pattern:none;
+}
+#roomView[hidden]{display:none}
+body.roomon .zoombar,
+body.roomon #titleBlock,
+body.roomon .fab,
+body.roomon #noteOverlay{display:none}
+
+/* the painted box */
+.rv-scene{position:absolute;inset:0;z-index:0;pointer-events:none}
+.rv-scene i{position:absolute;inset:0;display:block}
+.rv-scene .ceil{background:var(--rv-ceil);opacity:.9;
+  clip-path:polygon(0 0,100% 0,calc(100% - var(--rv-r)) var(--rv-t),var(--rv-l) var(--rv-t))}
+.rv-scene .floor{background:var(--rv-floor);background-image:var(--rv-floor-pattern);
+  clip-path:polygon(var(--rv-l) calc(100% - var(--rv-b)),
+    calc(100% - var(--rv-r)) calc(100% - var(--rv-b)),100% 100%,0 100%)}
+.rv-scene .wl{background:linear-gradient(90deg,var(--rv-wall-2),var(--rv-wall));
+  clip-path:polygon(0 0,var(--rv-l) var(--rv-t),
+    var(--rv-l) calc(100% - var(--rv-b)),0 100%)}
+.rv-scene .wr{background:linear-gradient(270deg,var(--rv-wall-2),var(--rv-wall));
+  clip-path:polygon(100% 0,calc(100% - var(--rv-r)) var(--rv-t),
+    calc(100% - var(--rv-r)) calc(100% - var(--rv-b)),100% 100%)}
+.rv-scene .back{inset:var(--rv-t) var(--rv-r) var(--rv-b) var(--rv-l);
+  background:var(--rv-wall);background-image:var(--rv-pattern);
+  box-shadow:0 0 0 1px var(--rv-line) inset}
+
+/* the trail and the archways sit on the back wall's top edge */
+.rv-top{position:absolute;left:0;right:0;top:var(--rv-t);z-index:2;
+  display:flex;flex-direction:column;gap:6px;align-items:center;
+  padding:0 8px;transform:translateY(-100%)}
+/* The trail gets its own ledge. Without one it floated over whichever surface
+   the room happened to paint behind it — sky in the middle, brick at the ends —
+   and no single grey reads on both. */
+.rv-trail{display:flex;flex-wrap:wrap;gap:2px;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:11px;color:var(--rv-dim-ceil, var(--graphite-60));
+  max-width:100%;background:var(--rv-ceil-solid, transparent);
+  padding:2px 8px;border-radius:2px}
+.rv-trail button{border:0;background:transparent;font:inherit;color:inherit;
+  padding:2px 4px;border-radius:2px;cursor:pointer;max-width:150px;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.rv-trail button:hover{background:var(--paper-2);color:var(--graphite)}
+.rv-trail button:focus-visible{outline:2px solid var(--blueprint);outline-offset:1px}
+.rv-trail span{opacity:.5}
+.rv-trail em{font-style:normal;padding:2px 4px;font-weight:500;max-width:200px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rv-arches{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;max-width:100%}
+.rv-arch{
+  border:1px solid var(--rv-line);border-bottom:0;
+  border-radius:40px 40px 0 0;background:var(--rv-door);
+  padding:7px 14px 8px;font-size:12px;color:var(--rv-door-ink);font-family:var(--sans);
+  max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  cursor:pointer;line-height:1.2
+}
+.rv-arch:hover{background:var(--rv-wall-2)}
+.rv-arch.open{outline:2px solid var(--blueprint);outline-offset:1px}
+.rv-arch i{font-style:normal;opacity:.55;margin-right:5px;font-family:var(--mono)}
+
+/* the way out stands on the left wall; the board hangs on the back wall */
+.rv-way{
+  position:absolute;z-index:3;left:max(6px, calc(var(--rv-l) * .18));top:50%;
+  transform:translateY(-50%);
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  border:1px solid var(--rv-line);background:var(--rv-door);color:var(--rv-door-ink);
+  border-radius:3px;padding:14px 9px;width:62px;cursor:pointer;
+  box-shadow:2px 0 0 rgba(35,40,45,.05)
+}
+.rv-way:hover{background:var(--rv-wall-2)}
+.rv-way em{font-style:normal;font-size:19px;line-height:1}
+.rv-way b{font-weight:500;font-size:11.5px;writing-mode:vertical-rl;transform:rotate(180deg);
+  max-height:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rv-way.empty{visibility:hidden}
+
+/* the note, on the far wall — inside it, never hanging off onto the sides */
+.rv-board{
+  position:absolute;z-index:2;
+  left:calc(var(--rv-l) + 14px);right:calc(var(--rv-r) + 14px);
+  top:calc(var(--rv-t) + 14px);bottom:calc(var(--rv-b) + 14px);
+  max-width:820px;margin:0 auto;
+  display:flex;flex-direction:column;min-height:0;
+  background:var(--rv-board);border:1px solid var(--rv-line);border-radius:2px;
+  box-shadow:0 10px 26px -18px rgba(20,24,28,.5), 0 1px 0 rgba(35,40,45,.06)
+}
+.rv-head{display:flex;align-items:flex-start;gap:9px;padding:11px 14px 9px;
+  border-bottom:1px solid var(--rule-soft);flex:0 0 auto}
+.rv-head h3{margin:0;font-size:18px;font-weight:600;line-height:1.25;flex:1;min-width:0;
+  font-family:var(--sans);word-break:break-word;color:var(--rv-ink, var(--graphite))}
+.rv-head .rv-acts{display:flex;gap:5px;flex:0 0 auto}
+.rv-head .btn{padding:4px 9px;font-size:12px}
+.rv-tags{display:flex;gap:4px;flex-wrap:wrap;padding:0 14px 8px;flex:0 0 auto}
+.rv-tags .tagchip{font-size:11px;padding:1px 6px}
+.rv-note{flex:1 1 auto;min-height:0;overflow:auto;padding:12px 16px 16px;
+  font-size:14.5px;line-height:1.62;color:var(--rv-ink, var(--graphite))}
+.rv-note .empty{color:var(--graphite-60);font-style:italic}
+.rv-note img{max-width:100%;height:auto}
+.rv-note table{border-collapse:collapse;font-size:13px;margin:10px 0;max-width:100%}
+/* a table wider than the board scrolls rather than losing its last column */
+.rv-note{overflow:auto;overscroll-behavior:contain}
+.rv-note th,.rv-note td{border:1px solid var(--rule-soft);padding:4px 8px;text-align:left}
+.rv-count{padding:0 14px 10px;font-family:var(--mono);font-size:11px;
+  color:var(--rv-dim, var(--graphite-60));
+  display:flex;gap:12px;flex-wrap:wrap;flex:0 0 auto}
+
+/* what stands on the floor */
+.rv-floorstrip{position:absolute;left:0;right:0;bottom:0;z-index:2;
+  padding:4px 12px calc(12px + env(safe-area-inset-bottom));
+  max-height:calc(var(--rv-b) + 132px);display:flex;flex-direction:column;justify-content:flex-end}
+.rv-peek{
+  margin:0 auto 8px;max-width:640px;background:var(--paper);border:1px solid var(--blueprint);
+  border-radius:3px;padding:10px 12px;box-shadow:0 8px 20px -14px rgba(20,24,28,.55)
+}
+.rv-peek h4{margin:0 0 5px;font-size:14px;font-weight:600;display:flex;gap:8px;align-items:baseline}
+.rv-peek h4 span{font-family:var(--mono);font-size:10.5px;color:var(--graphite-60);font-weight:400}
+.rv-peek p{margin:0;font-size:13px;line-height:1.55;color:var(--note-ink);
+  max-height:5.2em;overflow:hidden}
+.rv-peek .row{margin-top:8px}
+.rv-peek .btn{padding:5px 11px;font-size:12.5px}
+.rv-things{display:flex;gap:9px;overflow-x:auto;overflow-y:hidden;padding:6px 2px 8px;
+  scrollbar-width:thin;align-items:flex-end;min-height:104px}
+.rv-thing{
+  position:relative;flex:0 0 auto;width:124px;min-height:88px;cursor:pointer;
+  display:flex;flex-direction:column;justify-content:flex-end;gap:0;
+  border:1px solid var(--rv-line);background:var(--rv-door);color:var(--rv-door-ink);
+  border-radius:2px;padding:0;text-align:left;font-family:var(--sans);overflow:hidden;
+  box-shadow:0 6px 12px -10px rgba(20,24,28,.6)
+}
+.rv-thing:hover{background:var(--rv-wall-2)}
+.rv-thing.open{outline:2px solid var(--blueprint);outline-offset:1px}
+.rv-thing .lid{flex:1;min-height:34px;border-bottom:1px solid var(--rv-line);
+  background:linear-gradient(180deg,rgba(0,0,0,.035),transparent);position:relative}
+/* a door: a room beyond it, so it gets a frame, a panel line and a knob */
+.rv-thing.door .lid{background:
+  linear-gradient(180deg,rgba(0,0,0,.05),rgba(0,0,0,.01));
+  box-shadow:inset 0 0 0 1px var(--rv-line), inset 0 0 0 7px transparent,
+             inset 0 0 0 8px var(--rv-line)}
+.rv-thing.door .lid::after{content:"";position:absolute;right:11px;top:50%;
+  width:6px;height:6px;border-radius:50%;background:var(--graphite-60);transform:translateY(-50%)}
+/* an item: nothing beyond it, so it is a folded note lying on the shelf */
+.rv-thing.item .lid{background:linear-gradient(135deg,var(--rv-wall-2) 46%,transparent 46%),
+  linear-gradient(180deg,rgba(0,0,0,.03),transparent)}
+.rv-thing .plate{padding:7px 8px;font-size:12px;line-height:1.3;font-weight:500;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;
+  word-break:break-word}
+.rv-thing .deep{position:absolute;top:5px;left:6px;font-family:var(--mono);font-size:10px;
+  background:var(--paper);border:1px solid var(--rv-line);border-radius:2px;padding:0 4px;
+  color:var(--graphite-60)}
+.rv-thing .mk{position:absolute;top:4px;right:5px;width:16px;height:16px;border-radius:50%;
+  display:grid;place-items:center;font-size:10px;font-weight:600;color:#fff;font-family:var(--mono)}
+.rv-thing .mk.todo{background:var(--flag)}
+.rv-thing .mk.flag{background:var(--flag)}
+.rv-thing .mk.sug{background:var(--blueprint)}
+.rv-thing.hit{box-shadow:0 0 0 2px var(--hit-line), 0 6px 12px -10px rgba(20,24,28,.6)}
+.rv-thing.retired{opacity:.55}
+.rv-thing.dragging{opacity:.4}
+.rv-none{font-size:12.5px;color:var(--graphite-60);padding:10px 2px;font-family:var(--sans)}
+.rv-ghost{position:fixed;z-index:120;pointer-events:none;background:var(--paper);
+  border:1px solid var(--blueprint);border-radius:2px;padding:5px 9px;font-size:12px;
+  box-shadow:0 6px 16px -10px rgba(20,24,28,.6);max-width:180px;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+
+/* ---- walking through ----
+   The movement is the dressing doing its job. A study has doors that swing,
+   a workshop has a shutter that lifts, a street is walked along, a scroll
+   rolls up and the next one unrolls. Each is a plain in-and-out pair so you
+   always know which way you went, and each is a transform and an opacity so
+   the browser can hand it to the compositor and leave the main thread free.
+   "Calm" reduces all of them to a crossfade; "Off" skips them entirely. */
+.rv-room{position:absolute;inset:0;transform-origin:50% 55%}
+.rv-room.fwd{animation:rvFwd .17s ease-in forwards}
+.rv-room.back{animation:rvBack .17s ease-in forwards}
+.rv-room.arrive{animation:rvArrive .25s cubic-bezier(.2,.8,.3,1)}
+.rv-room.arriveback{animation:rvArriveBack .25s cubic-bezier(.2,.8,.3,1)}
+@keyframes rvFwd{to{transform:scale(1.14);opacity:0}}
+@keyframes rvBack{to{transform:scale(.88);opacity:0}}
+@keyframes rvArrive{from{transform:scale(.9);opacity:0}}
+@keyframes rvArriveBack{from{transform:scale(1.12);opacity:0}}
+
+/* a study: you pass through the door frame, so the room swings past you */
+#roomView[data-skin="study"] .rv-room.fwd{animation:rvDoorFwd .19s ease-in forwards}
+#roomView[data-skin="study"] .rv-room.back{animation:rvDoorBack .19s ease-in forwards}
+#roomView[data-skin="study"] .rv-room.arrive{animation:rvDoorIn .28s cubic-bezier(.2,.8,.3,1)}
+#roomView[data-skin="study"] .rv-room.arriveback{animation:rvDoorInBack .28s cubic-bezier(.2,.8,.3,1)}
+@keyframes rvDoorFwd{to{transform:perspective(1100px) rotateY(-7deg) scale(1.12);opacity:0}}
+@keyframes rvDoorBack{to{transform:perspective(1100px) rotateY(7deg) scale(.9);opacity:0}}
+@keyframes rvDoorIn{from{transform:perspective(1100px) rotateY(8deg) scale(.92);opacity:0}}
+@keyframes rvDoorInBack{from{transform:perspective(1100px) rotateY(-8deg) scale(1.1);opacity:0}}
+
+/* a workshop: the shutter lifts and the next bay comes up underneath */
+#roomView[data-skin="workshop"] .rv-room.fwd{animation:rvLift .17s ease-in forwards}
+#roomView[data-skin="workshop"] .rv-room.back{animation:rvDrop .17s ease-in forwards}
+#roomView[data-skin="workshop"] .rv-room.arrive{animation:rvUpIn .26s cubic-bezier(.2,.8,.3,1)}
+#roomView[data-skin="workshop"] .rv-room.arriveback{animation:rvDownIn .26s cubic-bezier(.2,.8,.3,1)}
+@keyframes rvLift{to{transform:translateY(-9%) scale(1.03);opacity:0}}
+@keyframes rvDrop{to{transform:translateY(9%) scale(.97);opacity:0}}
+@keyframes rvUpIn{from{transform:translateY(11%) scale(.98);opacity:0}}
+@keyframes rvDownIn{from{transform:translateY(-11%) scale(1.02);opacity:0}}
+
+/* a street: you walk along it, so the frontage slides past */
+#roomView[data-skin="street"] .rv-room.fwd{animation:rvWalkOn .18s ease-in forwards}
+#roomView[data-skin="street"] .rv-room.back{animation:rvWalkBack .18s ease-in forwards}
+#roomView[data-skin="street"] .rv-room.arrive{animation:rvWalkIn .27s cubic-bezier(.2,.8,.3,1)}
+#roomView[data-skin="street"] .rv-room.arriveback{animation:rvWalkInBack .27s cubic-bezier(.2,.8,.3,1)}
+@keyframes rvWalkOn{to{transform:translateX(-13%) scale(1.04);opacity:0}}
+@keyframes rvWalkBack{to{transform:translateX(13%) scale(1.04);opacity:0}}
+@keyframes rvWalkIn{from{transform:translateX(15%);opacity:0}}
+@keyframes rvWalkInBack{from{transform:translateX(-15%);opacity:0}}
+
+/* a scroll: this one rolls up, the next one unrolls */
+#roomView[data-skin="scroll"] .rv-room{transform-origin:50% 22%}
+#roomView[data-skin="scroll"] .rv-room.fwd,
+#roomView[data-skin="scroll"] .rv-room.back{animation:rvRollUp .18s ease-in forwards}
+#roomView[data-skin="scroll"] .rv-room.arrive,
+#roomView[data-skin="scroll"] .rv-room.arriveback{animation:rvUnroll .28s cubic-bezier(.2,.8,.3,1)}
+@keyframes rvRollUp{to{transform:scaleY(.82) translateY(-3%);opacity:0}}
+@keyframes rvUnroll{from{transform:scaleY(.78);opacity:0}}
+
+/* Calm keeps the cue and drops the movement, which is what that setting
+   promises everywhere else in the tool. */
+html[data-motion="calm"] .rv-room.fwd,
+html[data-motion="calm"] .rv-room.back{animation:rvFade .12s linear forwards !important}
+html[data-motion="calm"] .rv-room.arrive,
+html[data-motion="calm"] .rv-room.arriveback{animation:rvFadeIn .18s linear !important}
+@keyframes rvFade{to{opacity:0}}
+@keyframes rvFadeIn{from{opacity:0}}
+
+/* The door you chose opens before you go through it, so you can see which
+   one you took — and the one you came back out of is marked for a moment,
+   which is the only way to find your place again in a room of thirty. */
+.rv-thing.swing .lid{animation:rvSwing .16s ease-in forwards;transform-origin:left center}
+/* nothing lies beyond a folded note, so it lifts rather than swinging open */
+.rv-thing.item.swing .lid{animation:rvLiftNote .16s ease-in forwards}
+.rv-arch.swing{animation:rvArchGo .16s ease-in forwards}
+@keyframes rvSwing{to{transform:perspective(420px) rotateY(-38deg)}}
+@keyframes rvLiftNote{to{transform:translateY(-7px) rotate(-2deg);opacity:.5}}
+@keyframes rvArchGo{to{transform:translateY(-6px);opacity:.4}}
+
+/* A door you are peeking at stands ajar, which is how you find it again in a
+   strip of thirty without reading every name. */
+.rv-thing.open .lid{transform:perspective(460px) rotateY(-15deg);
+  transform-origin:left center;transition:transform .16s ease-out}
+.rv-thing.item.open .lid{transform:translateY(-4px);transition:transform .16s ease-out}
+.rv-arch.open{transform:translateY(-3px);transition:transform .16s ease-out}
+.rv-peek{animation:rvPeekUp .2s cubic-bezier(.2,.8,.3,1)}
+@keyframes rvPeekUp{from{transform:translateY(10px);opacity:0}}
+html[data-motion="calm"] .rv-thing.open .lid,
+html[data-motion="calm"] .rv-thing.item.open .lid,
+html[data-motion="calm"] .rv-arch.open{transition:none}
+html[data-motion="off"] .rv-peek,
+html[data-motion="calm"] .rv-peek{animation:none}
+.rv-thing.from{outline:2px solid var(--blueprint);outline-offset:1px}
+.rv-thing.from .plate{font-weight:600}
+html[data-motion="calm"] .rv-thing.swing .lid,
+html[data-motion="calm"] .rv-arch.swing{animation:none}
+
+@media (prefers-reduced-motion:reduce){
+  .rv-room,.rv-room.fwd,.rv-room.back,.rv-room.arrive,.rv-room.arriveback,
+  .rv-thing.swing .lid,.rv-arch.swing,.rv-peek{animation:none !important}
+  .rv-thing.open .lid,.rv-arch.open{transition:none !important}
+}
+
+/* Each view offers the other where you are already looking: the board carries
+   the way out to the drawing, the zoom bar carries the way into the room. A
+   twelfth button in the top bar cost a phone a whole extra row. */
+#zRoom{font-family:var(--sans)}
+
+/* ---- room styles ---- */
+#roomView[data-skin="study"]{
+  --rv-wall:#EFE6D8;--rv-wall-2:#DFD2BE;--rv-floor:#B8875A;--rv-ceil:#E6DCCB;
+  --rv-line:#A98A66;--rv-board:#FBF7EF;--rv-door:#EFE2CE;--rv-door-ink:#3A2E22;
+  --rv-floor-pattern:repeating-linear-gradient(90deg,rgba(0,0,0,.07) 0 2px,transparent 2px 26px)
+}
+html[data-theme="dark"] #roomView[data-skin="study"]{
+  --rv-wall:#2A241C;--rv-wall-2:#1E1A14;--rv-floor:#3A2A1C;--rv-ceil:#241F18;
+  --rv-line:#6A563C;--rv-board:#211C15;--rv-door:#332B20;--rv-door-ink:#E6DCC9
+}
+#roomView[data-skin="workshop"]{
+  --rv-wall:#E7EAEC;--rv-wall-2:#D3D8DC;--rv-floor:#BFC4C8;--rv-ceil:#DDE1E4;
+  --rv-line:#8E979E;--rv-board:#FAFBFB;--rv-door:#DDE2E5;--rv-door-ink:#222A30;
+  --rv-pattern:radial-gradient(circle,rgba(0,0,0,.14) 1px,transparent 1.4px);
+  background-size:16px 16px
+}
+#roomView[data-skin="workshop"] .rv-scene .back{background-size:16px 16px}
+html[data-theme="dark"] #roomView[data-skin="workshop"]{
+  --rv-wall:#22282C;--rv-wall-2:#191E22;--rv-floor:#171C20;--rv-ceil:#1D2327;
+  --rv-line:#4C565E;--rv-board:#1B2125;--rv-door:#262E33;--rv-door-ink:#DDE4E9;
+  --rv-pattern:radial-gradient(circle,rgba(255,255,255,.12) 1px,transparent 1.4px)
+}
+#roomView[data-skin="street"]{
+  --rv-wall:#C9714F;--rv-wall-2:#A85A3B;--rv-floor:#9A9E9F;
+  --rv-ceil:#9FC6E4;--rv-line:#8A4C33;--rv-board:#FBF6EE;--rv-door:#E8D6BE;
+  --rv-door-ink:#3A2216;
+  --rv-pattern:repeating-linear-gradient(0deg,rgba(255,255,255,.16) 0 1px,transparent 1px 15px),
+               repeating-linear-gradient(90deg,rgba(255,255,255,.16) 0 1px,transparent 1px 34px);
+  --rv-floor-pattern:repeating-linear-gradient(90deg,rgba(0,0,0,.1) 0 1px,transparent 1px 40px)
+}
+html[data-theme="dark"] #roomView[data-skin="street"]{
+  --rv-wall:#4A2A1E;--rv-wall-2:#361D14;--rv-floor:#2B2E30;--rv-ceil:#16283A;
+  --rv-line:#7A4630;--rv-board:#1F1913;--rv-door:#43301F;--rv-door-ink:#EEDFC9
+}
+#roomView[data-skin="scroll"]{
+  --rv-wall:#F4EAD3;--rv-wall-2:#E4D6B8;--rv-floor:#D9C7A3;--rv-ceil:#EEE3C9;
+  --rv-line:#B49B6C;--rv-board:#FCF7E8;--rv-door:#EFE3C7;--rv-door-ink:#3D3222
+}
+html[data-theme="dark"] #roomView[data-skin="scroll"]{
+  --rv-wall:#2C2519;--rv-wall-2:#201B12;--rv-floor:#241E15;--rv-ceil:#262016;
+  --rv-line:#6E5C3C;--rv-board:#241E14;--rv-door:#332C1E;--rv-door-ink:#EADFC4
+}
+#roomView[data-skin="scroll"] .rv-board{border-radius:2px;
+  box-shadow:0 0 0 1px var(--rv-line), 0 14px 30px -20px rgba(20,24,28,.6)}
+#roomView[data-skin="scroll"] .rv-board::before,
+#roomView[data-skin="scroll"] .rv-board::after{content:"";display:block;flex:0 0 auto;
+  height:9px;background:linear-gradient(180deg,var(--rv-wall-2),var(--rv-board));
+  border-bottom:1px solid var(--rv-line)}
+#roomView[data-skin="scroll"] .rv-board::after{
+  background:linear-gradient(0deg,var(--rv-wall-2),var(--rv-board));
+  border-bottom:0;border-top:1px solid var(--rv-line)}
+
+@media (max-width:820px){
+  #roomView{inset:0;border:0}
+  #roomView{--rv-l:7%;--rv-r:7%;--rv-t:9%;--rv-b:25%}
+  .rv-way{width:40px;padding:10px 4px}
+  .rv-way b{max-height:110px;font-size:11px}
+  .rv-board{left:calc(var(--rv-l) + 38px);right:calc(var(--rv-r) + 8px);
+    top:calc(var(--rv-t) + 8px);bottom:calc(var(--rv-b) + 8px)}
+  .rv-note{font-size:15px;padding:11px 13px 14px}
+  .rv-head{flex-wrap:wrap;padding:9px 11px 7px}
+  .rv-head h3{flex:1 1 100%;font-size:16px}
+  .rv-head .rv-acts{flex:1 1 100%;justify-content:flex-end}
+  .rv-things{min-height:92px;gap:7px}
+  .rv-thing{width:112px;min-height:84px}
+  .rv-thing .plate{-webkit-line-clamp:2;font-size:11.5px}
+  .rv-top{padding:7px 8px 0}
+  .rv-floorstrip{padding:2px 7px 8px}
+}
 
 /* ---------- svg content ---------- */
 /* theme decoration */
@@ -1443,6 +1800,19 @@ body.viewing.panelaway #panelHide{display:none}
           Fade everything that does not match a search</label>
         <label class="check"><input type="checkbox" id="portals" checked>
           Show cross-links as hollow portals, and as a stub when the other end is away</label>
+        <label class="field"><span>What opens first</span>
+          <select id="vistaPref">
+            <option value="room">The room — stand inside the node you pick</option>
+            <option value="map">The drawing — the whole map at once</option>
+          </select></label>
+        <label class="field"><span>How the room is dressed</span>
+          <select id="roomSkin">
+            <option value="plain">Plain — drafting paper and hairlines</option>
+            <option value="study">A study — warm walls, a board, a wooden floor</option>
+            <option value="workshop">A workshop — pegboard wall, concrete floor</option>
+            <option value="street">A street — brick, sky and paving</option>
+            <option value="scroll">A scroll — parchment, rolled at both ends</option>
+          </select></label>
         <label class="field"><span>How branches are arranged</span>
           <select id="branchShape">
             <option value="tidy">Tidy columns</option>
@@ -1666,6 +2036,41 @@ body.viewing.panelaway #panelHide{display:none}
       </svg>
     </div>
 
+
+    <!-- the room: a node seen from the inside -->
+    <div id="roomView" hidden data-skin="plain">
+      <div class="rv-scene" aria-hidden="true">
+        <i class="ceil"></i><i class="wl"></i><i class="wr"></i>
+        <i class="floor"></i><i class="back"></i>
+      </div>
+      <div class="rv-room" id="rvRoom">
+        <div class="rv-top">
+          <div class="rv-trail" id="rvTrail"></div>
+          <div class="rv-arches" id="rvArches"></div>
+        </div>
+        <div class="rv-mid">
+          <button class="rv-way empty" id="rvOut"><em>&#8592;</em><b></b></button>
+          <div class="rv-board">
+            <div class="rv-head">
+              <h3 id="rvTitle">Nothing picked</h3>
+              <div class="rv-acts">
+                <button class="btn" id="rvEdit" hidden>Edit</button>
+                <button class="btn" id="rvAdd" hidden>Add</button>
+                <button class="btn" id="vistaBtn" title="See the whole map as a drawing">Drawing</button>
+              </div>
+            </div>
+            <div class="rv-tags" id="rvTags" hidden></div>
+            <div class="rv-note" id="rvNote"></div>
+            <div class="rv-count" id="rvCount"></div>
+          </div>
+        </div>
+        <div class="rv-floorstrip">
+          <div class="rv-peek" id="rvPeek" hidden></div>
+          <div class="rv-things" id="rvThings"></div>
+        </div>
+      </div>
+    </div>
+
     <div class="titleblock" id="titleBlock">
       <div><b>Map</b><span id="tbTitle">Untitled</span></div>
       <div><b>Nodes</b><span id="tbCount">0</span></div>
@@ -1714,6 +2119,7 @@ body.viewing.panelaway #panelHide{display:none}
       <span class="lvl" id="zLvl">100%</span>
       <button id="zIn" title="Zoom in">+</button>
       <button id="zFit" title="Fit map">Fit</button>
+      <button id="zRoom" title="Stand inside the node you have picked">Room</button>
     </div>
   </main>
 
@@ -2279,6 +2685,8 @@ const S = {
   pickZoom:"in",               // off | in | note
   focusMode:"off",             // off | linked | family
   portals:true,                // cross-links drawn hollow, and as stubs when far off
+  vista:"room",                // room | map — stand inside a node, or see the drawing
+  roomSkin:"plain",            // how the room is dressed
   branchShape:"tidy",          // tidy | radial
   branchGrid:true,             // pack big fans into a grid rather than one column
   avoidNodes:true,             // steer links around nodes they do not touch
@@ -6123,6 +6531,7 @@ function applyView(){
 }
 
 function rebuild(){ layout(); buildTagFilters(); updateTagCount(); updateTrayCount();
+  renderRoomSoon();
   updateReviewBadge(); render();
   renderPortals(); renderInspector(); renderContents();
   updateFab(); updateModeUI(); updateLinkBar(); }
@@ -8166,6 +8575,7 @@ function select(id){
   S.sel = id; S.selArea = null; S.selQuestion = null; S.sel2 = null;
   S.multi = new Set(id ? [id] : []);
   if(id){ S.lastNode = id; markVisited(id); }
+  if(S.vista === "room") renderRoomSoon();
   if(hadPair){ render(); renderInspector(); updateFab(); updateLinkBar(); return; }
   if(hadArea){ render(); renderInspector(); updateFab(); updateLinkBar(); return; }
   /* swap two classes instead of rebuilding the drawing — a full render on
@@ -9859,10 +10269,15 @@ function runSearch(){
     keepingPlace(()=>{ layout(); render(); renderContents(); });
   }
   renderResults();
+  /* the room lights the doors that matched and marks the words on the board */
+  renderRoomSoon();
 }
 
 function goToTarget(t){
   if(!t) return;
+  /* centring means nothing when you are standing in a room: to arrive at a
+     match you have to be put in it */
+  if(t.kind === "node" && inRoom()) return select(t.id);
   if(t.kind === "node") return centerOn(t.id, Math.max(S.view.k, .8));
   if(t.kind === "area") return zoomToArea(t.id);
   const b = S.bookmarks.concat(S.personal.bookmarks).find(x=>x.id === t.id);
@@ -11119,6 +11534,8 @@ async function afterMapSwitch(){
   if(el("branchGrid")) el("branchGrid").checked = S.branchGrid;
   if(el("followOutline")) el("followOutline").checked = S.followOutline;
   if(el("branchShape")) el("branchShape").value = S.branchShape;
+  if(el("vistaPref")) el("vistaPref").value = S.vista;
+  if(el("roomSkin")) el("roomSkin").value = S.roomSkin;
   if(el("portals")) el("portals").checked = S.portals;
   if(el("searchExcludes")) el("searchExcludes").checked = S.searchExcludes;
   if(el("routeTree")) el("routeTree").value = S.meta.routeTree || "curve";
@@ -12451,7 +12868,7 @@ async function loadPersonal(){
    different map. */
 const PREF_KEYS = ["notesMode","motion","showIds","avoidNodes","branchGrid",
                    "focusMode","pickZoom","followOutline","railOpen","branchShape",
-                   "searchExcludes","portals"];
+                   "searchExcludes","portals","vista","roomSkin"];
 async function savePrefs(){
   const out = {};
   PREF_KEYS.forEach(k=>{ out[k] = S[k]; });
@@ -13973,7 +14390,583 @@ function renderConnList(){
 /* =====================================================================
    WIRING
    ===================================================================== */
+/* =====================================================================
+   THE ROOM — a node seen from the inside
+   =====================================================================
+   The map is a drawing of the whole thing from above, which is the right
+   picture when you are arranging it and the wrong one when you are working
+   through it. The room is the other view: you stand in one node. Its note is
+   the board on the far wall, its children are the doors and the things on the
+   floor, its parent is the way out, and its cross-links are the archways
+   along the top. One tap on a door opens it a crack so you can see what is in
+   there; a second tap walks you through. Nothing here changes the map — it is
+   a way of being in it. */
+
+let roomPeek = "";          // which door is open a crack
+let roomFocus = -1;         // which thing the arrow keys are on
+let roomWalking = false;
+
+function inRoom(){ return S.vista === "room"; }
+
+/* Both ends of every cross-link this node has, with the label if one was
+   written on the link and which way it was drawn. */
+function crossOf(id){
+  const out = [];
+  for(const e of S.edges.values()){
+    if(e.link_type !== "cross") continue;
+    if(e.from === id && S.nodes.has(e.to)) out.push({id:e.to, label:e.label || "", way:"out"});
+    else if(e.to === id && S.nodes.has(e.from)) out.push({id:e.from, label:e.label || "", way:"in"});
+  }
+  return out;
+}
+
+/* The way up, as buttons, so you can step back several rooms at once. */
+function ancestryOf(id){
+  const line = [];
+  let up = parentOf(id), guard = 0;
+  while(up && guard++ < 60){ line.unshift(up); up = parentOf(up); }
+  return line;
+}
+
+/* One mark on a door, which is the only thing a door says beyond its name.
+   In a viewing copy it is what this person still owes; in the editor it is
+   what is waiting to be dealt with.
+
+   A room with thirty doors used to walk the whole suggestion list and the
+   whole check-off list once per door. The counting is done once for the room
+   instead, which is what keeps a wide room opening instantly. */
+function roomTally(){
+  const kids = new Map();                 // id -> how many rooms lead off it
+  for(const e of S.edges.values()){
+    if(e.link_type !== "tree") continue;
+    kids.set(e.from, (kids.get(e.from) || 0) + 1);
+  }
+  const me = S.who || "";
+  const done = new Set();                 // items this person has signed
+  const signed = new Map();               // item -> how many have signed
+  for(const c of S.checkoffs){
+    if(c.checked !== "yes") continue;
+    signed.set(c.item, (signed.get(c.item) || 0) + 1);
+    if(c.person === me) done.add(c.item);
+  }
+  const roster = canEdit() ? peopleSeen().length : 0;
+  const owes = new Set(), short = new Set();
+  for(const it of S.checkItems){
+    if(!done.has(it.id)) owes.add(it.node);
+    if(roster && (signed.get(it.id) || 0) < roster) short.add(it.node);
+  }
+  const sug = new Set();
+  for(const x of S.suggestions) if(x.status === "open") sug.add(x.node);
+  return {kids, owes, short, sug, me};
+}
+
+function roomMark(id, t){
+  const n = S.nodes.get(id);
+  if(!n) return "";
+  t = t || roomTally();
+  if(!canEdit()) return t.owes.has(id) ? "todo" : "";
+  if(n.flag) return "flag";
+  if(t.sug.has(id) || t.short.has(id)) return "sug";
+  return "";
+}
+
+/* The first words of a note, for the crack in the door. */
+function peekText(id){
+  const n = S.nodes.get(id);
+  const body = String((n && n.body) || "").replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+    .replace(/\s+/g, " ").trim();
+  if(!body) return "";
+  return body.length > 420 ? body.slice(0, 420) + "…" : body;
+}
+
+/* When a tag filter or "current logic only" is on, the room hides the same
+   doors the drawing hides — otherwise you would filter the map and then walk
+   straight into something you had just filtered away. The room you are
+   standing in is never hidden from you, whatever the filter says. */
+function roomAllowed(){
+  const sc = el("showScope") ? el("showScope").value : "all";
+  const only = S.tagOnly && S.tagPick.size;
+  if(sc === "all" && !only) return null;
+  const held = S._only;
+  S._only = null;                      /* an in-progress family arrange is not a filter */
+  let set = null;
+  try{ set = visibleNodes(); }catch(e){ set = null; }
+  S._only = held;
+  return set;
+}
+
+function roomThings(id){
+  const ok = roomAllowed();
+  return childrenOf(id).filter(k=>S.nodes.has(k) && (!ok || ok.has(k)));
+}
+
+/* A room dressed as a street has brick walls and a parchment board, so the
+   quiet greys that read well on drafting paper stop reading. Rather than guess
+   a grey per style per mode, the two surfaces are measured and the ink is
+   chosen to clear the line against what it actually sits on — the same
+   reasoning as the node text on the map. */
+function rvSetInks(){
+  const view = el("roomView");
+  if(!view) return;
+  const hex = c=>{
+    const m = String(c).match(/[\d.]+/g);
+    if(!m || m.length < 3) return "#FFFFFF";
+    return "#" + m.slice(0, 3).map(x=>Math.round(+x).toString(16).padStart(2, "0")).join("");
+  };
+  const ceil = view.querySelector(".rv-scene .ceil");
+  const board = view.querySelector(".rv-board");
+  if(board){
+    const b = hex(getComputedStyle(board).backgroundColor);
+    view.style.setProperty("--rv-ink", inkFor(b, 9));
+    view.style.setProperty("--rv-dim", inkFor(b, 5.2));
+  }
+  if(ceil){
+    /* the ceiling is laid over the wall at nine tenths, so the ink is chosen
+       against the blend rather than the swatch */
+    const c = mixHex(hex(getComputedStyle(ceil).backgroundColor),
+                     hex(getComputedStyle(view).backgroundColor), .1);
+    view.style.setProperty("--rv-ceil-solid", c);
+    view.style.setProperty("--rv-dim-ceil", inkFor(c, 5.2));
+  }
+}
+
+function renderRoom(){
+  const view = el("roomView");
+  if(!view || view.hidden) return;
+  const id = S.sel && S.nodes.has(S.sel) ? S.sel : null;
+  view.dataset.skin = S.roomSkin || "plain";
+  rvSetInks();
+
+  /* nothing picked: the hall, with a door for every root. A map with one
+     root has no hall worth standing in, so you are simply put inside it. */
+  if(!id){
+    const rs = roots().filter(k=>S.nodes.has(k));
+    if(rs.length === 1){ select(rs[0]); return; }
+    el("rvTitle").textContent = "The hall";
+    el("rvNote").innerHTML = '<p class="empty">Every branch of this map starts behind one of '
+      + 'these doors. Walk into one, or switch to the drawing to see the whole thing at once.</p>';
+    el("rvTags").hidden = true;
+    el("rvCount").textContent = "";
+    el("rvTrail").innerHTML = "";
+    el("rvArches").innerHTML = "";
+    el("rvEdit").hidden = true; el("rvAdd").hidden = true;
+    wayOut(null);
+    paintThings(rs);
+    return;
+  }
+
+  const n = S.nodes.get(id);
+  el("rvTitle").textContent = n.label || n.id;
+
+  /* the board on the wall */
+  const note = el("rvNote");
+  if(String(n.body || "").trim()){
+    note.innerHTML = noteToHtml(n.body, n);
+    wireTableSort(note);
+    const q = (S.hitQuery || "").toLowerCase();
+    if(q) markMatches(note, q);
+  } else {
+    note.innerHTML = '<p class="empty">Nothing written on this one yet.</p>';
+  }
+  note.scrollTop = 0;
+
+  /* tags, as they are drawn on the map */
+  const tags = (n.tags || []).filter(Boolean);
+  const tw = el("rvTags");
+  tw.hidden = !tags.length;
+  tw.innerHTML = tags.map(t=>{
+    const st = styleFor(t);
+    return '<span class="tagchip"><i style="border-top-color:' + esc(st.color)
+      + '"></i>' + esc(t) + '</span>';
+  }).join("");
+
+  /* what is in here, in words */
+  const kids = roomThings(id);
+  const allow = roomAllowed();
+  const cross = crossOf(id).filter(c=>!allow || allow.has(c.id));
+  const hiddenHere = childrenOf(id).length + crossOf(id).length - kids.length - cross.length;
+  const bits = [];
+  if(kids.length) bits.push(kids.length + (kids.length === 1 ? " door" : " doors"));
+  if(cross.length) bits.push(cross.length + (cross.length === 1 ? " archway" : " archways"));
+  const items = itemsFor(id);
+  /* A viewing copy counts only what this person still owes — nobody else's
+     standing is their business. The editor sees the whole picture. */
+  if(canEdit()){
+    if(items.length) bits.push(items.length + " to confirm");
+    const sug = suggestionsFor(id).filter(x=>x.status === "open");
+    if(sug.length) bits.push(sug.length + " suggested");
+  }
+  if(hiddenHere > 0) bits.push(hiddenHere + " hidden by the filter");
+  if(S.showIds) bits.push(n.id + " · v" + (n.rev || 1));
+  const owed = canEdit() ? 0 : items.filter(it=>!S.checkoffs.some(x=>
+    x.item === it.id && x.person === (S.who || "") && x.checked === "yes")).length;
+  el("rvCount").innerHTML = (owed
+      ? '<b style="color:var(--flag)">' + (owed === 1
+          ? "1 thing in here still needs you"
+          : owed + " things in here still need you") + '</b>'
+      : "")
+    + (bits.length ? '<span>' + esc(bits.join("   ·   ")) + '</span>' : "");
+
+  /* the trail up */
+  const line = ancestryOf(id);
+  el("rvTrail").innerHTML = line.length
+    ? line.map(k=>'<button data-room="' + esc(k) + '">' + esc(nodeName(k)) + '</button>')
+        .join('<span>&#8250;</span>')
+      + '<span>&#8250;</span><em>' + esc(n.label || n.id) + '</em>'
+    : "";
+
+  /* the archways along the top */
+  el("rvArches").innerHTML = cross.map(c=>
+    '<button class="rv-arch' + (roomPeek === c.id ? " open" : "")
+    + (roomSwing === c.id ? " swing" : "") + '" data-thing="'
+    + esc(c.id) + '"><i>' + (c.way === "out" ? "&#8594;" : "&#8592;") + '</i>'
+    + esc(nodeName(c.id)) + '</button>').join("");
+
+  el("rvEdit").hidden = false;
+  el("rvEdit").textContent = canEdit() ? "Edit" : "Respond";
+  el("rvEdit").title = canEdit() ? "Open this room's panel to change it"
+    : "Suggest a change, ask a question, or confirm what is asked here";
+  el("rvEdit").classList.toggle("primary", !canEdit() && owed > 0);
+  el("rvAdd").hidden = !canEdit();
+  wayOut(parentOf(id));
+  paintThings(kids);
+}
+
+/* The door on the left wall, back to the room this one is inside. */
+function wayOut(pid){
+  const b = el("rvOut");
+  if(!b) return;
+  if(!pid || !S.nodes.has(pid)){
+    b.classList.add("empty"); b.dataset.room = ""; b.querySelector("b").textContent = "";
+    return;
+  }
+  b.classList.remove("empty");
+  b.dataset.room = pid;
+  b.querySelector("b").textContent = nodeName(pid);
+  b.title = "Back out to " + nodeName(pid);
+}
+
+/* Everything standing on the floor. A child with rooms of its own is a door;
+   one with nothing behind it is a folded note on the shelf. */
+function paintThings(ids){
+  const strip = el("rvThings");
+  if(!strip) return;
+  if(!ids.length){
+    strip.innerHTML = '<p class="rv-none">Nothing leads on from here. '
+      + (canEdit() ? "Add opens a new room off this one." : "") + '</p>';
+    drawPeek();
+    return;
+  }
+  const hits = new Set(S.hits || []);
+  const t = roomTally();
+  strip.innerHTML = ids.map(k=>{
+    const n = S.nodes.get(k);
+    const deep = t.kids.get(k) || 0;
+    const mk = roomMark(k, t);
+    return '<button class="rv-thing ' + (deep ? "door" : "item")
+      + (roomPeek === k ? " open" : "")
+      + (roomCameFrom === k ? " from" : "")
+      + (roomSwing === k ? " swing" : "")
+      + (hits.has(k) ? " hit" : "")
+      + (n.status === "retired" ? " retired" : "") + '" data-thing="' + esc(k) + '">'
+      + '<span class="lid"></span>'
+      + (deep ? '<span class="deep">' + deep + '</span>' : "")
+      + (mk ? '<span class="mk ' + mk + '">' + (mk === "sug" ? "&#8226;" : "!") + '</span>' : "")
+      + '<span class="plate">' + esc(n.label || n.id) + '</span></button>';
+  }).join("");
+  drawPeek();
+}
+
+/* The crack in the door: the name, what is written in there, and how much is
+   behind it. A second tap on the door walks through. */
+function drawPeek(){
+  const p = el("rvPeek");
+  if(!p) return;
+  if(!roomPeek || !S.nodes.has(roomPeek)){ p.hidden = true; p.innerHTML = ""; return; }
+  const k = roomPeek, n = S.nodes.get(k);
+  const deep = childrenOf(k).length, cr = crossOf(k).length;
+  const inside = [];
+  if(deep) inside.push(deep + (deep === 1 ? " door" : " doors"));
+  if(cr) inside.push(cr + (cr === 1 ? " archway" : " archways"));
+  const items = itemsFor(k).length;
+  if(items) inside.push(items + " to confirm");
+  const words = peekText(k);
+  p.hidden = false;
+  p.innerHTML = '<h4>' + esc(n.label || n.id)
+    + (inside.length ? '<span>' + esc(inside.join(" · ")) + '</span>' : '<span>nothing beyond it</span>')
+    + '</h4>'
+    + (words ? '<p>' + esc(words) + '</p>' : '<p class="empty">Nothing written on it.</p>')
+    + '<div class="row"><button class="btn primary" data-walk="' + esc(k) + '">Go in</button>'
+    + '<button class="btn" data-shut="1">Shut it</button></div>';
+}
+
+/* Walk through. The door you chose opens first, then the room you are leaving
+   goes the way you are going and the next one arrives from the other side —
+   which way depends on how the room is dressed, so a street is walked along
+   and a scroll rolls up. Off skips all of it; Calm keeps the crossfade. */
+let roomCameFrom = "";      // the door you stepped back out of, for a moment
+let roomSwing = "";         // the door swinging open right now
+let roomFromTimer = null;
+
+function rvThingEl(id){
+  const strip = el("rvThings");
+  const arch = el("rvArches");
+  return (strip && strip.querySelector('[data-thing="' + CSS.escape(id) + '"]'))
+      || (arch && arch.querySelector('[data-thing="' + CSS.escape(id) + '"]'))
+      || null;
+}
+
+function roomGo(id, way){
+  if(!S.nodes.has(id) || roomWalking) return;
+  const leaving = S.sel;
+  roomPeek = ""; roomFocus = -1;
+  const room = el("rvRoom");
+  /* "Calm" means no movement, not no cue: the room still crossfades, which is
+     what tells you the board in front of you is a different one. Only "Off"
+     and the system's own reduced-motion setting skip it entirely. */
+  let sysStill = false;
+  try{ sysStill = matchMedia("(prefers-reduced-motion: reduce)").matches; }catch(e){}
+  const still = S.motion === "off" || sysStill || !room;
+
+  /* coming back out, the door you came through is marked when you land, so
+     you can find your place again in a room with thirty of them */
+  roomCameFrom = way === "out" ? (leaving || "") : "";
+
+  const land = ()=>{
+    roomSwing = "";
+    select(id);
+    renderRoom();
+    if(roomCameFrom){
+      const back = rvThingEl(roomCameFrom);
+      if(back){
+        back.classList.add("from");
+        back.scrollIntoView({block:"nearest", inline:"center"});
+      }
+      clearTimeout(roomFromTimer);
+      roomFromTimer = setTimeout(()=>{
+        roomCameFrom = "";
+        document.querySelectorAll(".rv-thing.from")
+          .forEach(x=>x.classList.remove("from"));
+      }, 2400);
+    }
+  };
+
+  if(still){ roomSwing = ""; land(); return; }
+
+  roomWalking = true;
+  /* The door swings before the room moves, so the movement has a cause. The
+     id is held rather than the element: a redraw queued by the selection was
+     landing in between and taking the class off again. */
+  const door = way === "out" ? null : rvThingEl(id);
+  if(door){ roomSwing = id; door.classList.add("swing"); }
+  const hold = door && S.motion === "full" ? 110 : 0;
+
+  setTimeout(()=>{
+    room.classList.remove("arrive", "arriveback");
+    room.classList.add(way === "out" ? "back" : "fwd");
+    setTimeout(()=>{
+      land();
+      room.classList.remove("fwd", "back");
+      room.classList.add(way === "out" ? "arriveback" : "arrive");
+      setTimeout(()=>{
+        room.classList.remove("arrive", "arriveback");
+        roomWalking = false;
+      }, 290);
+    }, S.motion === "calm" ? 120 : 185);
+  }, hold);
+}
+
+/* One tap opens the door a crack, the next one walks through it. */
+function roomTap(id){
+  if(!S.nodes.has(id)) return;
+  if(roomPeek === id){ roomGo(id, "in"); return; }
+  roomPeek = id;
+  renderRoom();
+  const p = el("rvPeek");
+  if(p && !p.hidden) p.scrollIntoView({block:"nearest"});
+}
+
+function shutPeek(){
+  if(!roomPeek) return false;
+  roomPeek = "";
+  renderRoom();
+  return true;
+}
+
+/* Switching between the room and the drawing. The map keeps its position
+   underneath, so coming back lands where you left it. */
+function setVista(v, quiet){
+  S.vista = v === "map" ? "map" : "room";
+  const view = el("roomView");
+  if(!view) return;
+  document.body.classList.toggle("roomon", inRoom());
+  view.hidden = !inRoom();
+
+  if(inRoom()){
+    closeNote();
+    roomPeek = "";
+    renderRoom();
+  } else {
+    forgetSize();
+    applyView();
+    if(S.sel && S.nodes.has(S.sel)) centerOn(S.sel);
+  }
+  savePrefs();
+  if(!quiet) toast(inRoom() ? "In the room" : "The whole drawing");
+}
+
+let roomTimer = null;
+function renderRoomSoon(){
+  if(!inRoom()) return;
+  clearTimeout(roomTimer);
+  roomTimer = setTimeout(renderRoom, 0);
+}
+
+/* Dragging a door onto the outline is how a room is moved somewhere else —
+   the same gesture as dragging a node on the drawing. The map keeps its own
+   copy of this because its pointer handling lives in a closed scope. */
+let rvOverRow = null;
+function rvRowAt(x, y){
+  const t = document.elementFromPoint(x, y);
+  return (t && t.closest && t.closest("#tocOutline [data-jump]")) || null;
+}
+function rvMarkRow(x, y){
+  const row = rvRowAt(x, y);
+  if(row === rvOverRow) return;
+  if(rvOverRow) rvOverRow.classList.remove("onto");
+  rvOverRow = row;
+  if(rvOverRow) rvOverRow.classList.add("onto");
+}
+function wireThingDrag(strip){
+  let from = null, start = null, ghost = null, live = false;
+  strip.addEventListener("pointerdown", ev=>{
+    const t = ev.target.closest && ev.target.closest(".rv-thing");
+    if(!t || !canEdit()) return;
+    from = t; start = {x:ev.clientX, y:ev.clientY}; live = false;
+  });
+  const move = ev=>{
+    if(!from || !start) return;
+    const far = Math.abs(ev.clientX - start.x) + Math.abs(ev.clientY - start.y);
+    if(!live && far < 10) return;
+    if(!live){
+      live = true;
+      from.classList.add("dragging");
+      ghost = document.createElement("div");
+      ghost.className = "rv-ghost";
+      ghost.textContent = nodeName(from.dataset.thing);
+      document.body.appendChild(ghost);
+    }
+    ghost.style.left = (ev.clientX + 12) + "px";
+    ghost.style.top = (ev.clientY - 10) + "px";
+    rvMarkRow(ev.clientX, ev.clientY);
+  };
+  const up = ev=>{
+    if(!from) return;
+    const what = from.dataset.thing;
+    from.classList.remove("dragging");
+    if(ghost){ ghost.remove(); ghost = null; }
+    const row = rvOverRow;
+    if(rvOverRow){ rvOverRow.classList.remove("onto"); rvOverRow = null; }
+    const was = live;
+    from = null; start = null; live = false;
+    if(was && row && row.dataset.jump && row.dataset.jump !== what){
+      askWhatToDoWith(what, row.dataset.jump);
+    } else if(!was){
+      roomTap(what);
+    }
+  };
+  window.addEventListener("pointermove", move);
+  window.addEventListener("pointerup", up);
+  window.addEventListener("pointercancel", up);
+}
+
+function wireRoom(){
+  const view = el("roomView");
+  if(!view) return;
+
+  el("vistaBtn").onclick = ()=>setVista("map");
+  if(el("zRoom")) el("zRoom").onclick = ()=>setVista("room");
+
+  /* the doors, the things on the floor and the archways all behave alike */
+  el("rvThings").addEventListener("click", ev=>{
+    const t = ev.target.closest && ev.target.closest(".rv-thing");
+    if(t) ev.preventDefault();          /* the drag wiring decides what a tap means */
+  });
+  wireThingDrag(el("rvThings"));
+
+  el("rvArches").addEventListener("click", ev=>{
+    const a = ev.target.closest && ev.target.closest("[data-thing]");
+    if(a) roomTap(a.dataset.thing);
+  });
+
+  el("rvPeek").addEventListener("click", ev=>{
+    const go = ev.target.closest && ev.target.closest("[data-walk]");
+    if(go){ roomGo(go.dataset.walk, "in"); return; }
+    if(ev.target.closest && ev.target.closest("[data-shut]")) shutPeek();
+  });
+
+  el("rvTrail").addEventListener("click", ev=>{
+    const b = ev.target.closest && ev.target.closest("[data-room]");
+    if(b && b.dataset.room) roomGo(b.dataset.room, "out");
+  });
+
+  el("rvOut").onclick = ()=>{
+    const pid = el("rvOut").dataset.room;
+    if(pid && S.nodes.has(pid)) roomGo(pid, "out");
+  };
+
+  el("rvEdit").onclick = ()=>{
+    if(!S.sel) return;
+    if(window.matchMedia("(max-width:820px)").matches){
+      el("inspector").classList.add("open");
+      el("scrim").classList.add("on");
+    } else showPanel(true);
+  };
+  el("rvAdd").onclick = ()=>{
+    if(!canEdit() || !S.sel) return;
+    addNode("child");
+  };
+
+  /* walking with the keyboard, for the people who never touch a mouse */
+  window.addEventListener("keydown", ev=>{
+    if(!inRoom()) return;
+    const tag = (ev.target && ev.target.tagName) || "";
+    if(/INPUT|TEXTAREA|SELECT/.test(tag) || ev.target.isContentEditable) return;
+    if(document.querySelector("dialog[open]")) return;
+    const things = [...el("rvThings").querySelectorAll(".rv-thing")];
+    if(ev.key === "Escape"){ if(shutPeek()) ev.preventDefault(); return; }
+    if(ev.key === "ArrowLeft" || ev.key === "ArrowRight"){
+      if(!things.length) return;
+      ev.preventDefault();
+      roomFocus = ev.key === "ArrowRight"
+        ? Math.min(things.length - 1, roomFocus + 1)
+        : Math.max(0, roomFocus - 1);
+      const t = things[roomFocus];
+      if(t){ roomPeek = t.dataset.thing; renderRoom();
+        const again = el("rvThings").querySelectorAll(".rv-thing")[roomFocus];
+        if(again) again.scrollIntoView({block:"nearest", inline:"center"}); }
+      return;
+    }
+    if(ev.key === "Enter" && roomPeek){ ev.preventDefault(); roomGo(roomPeek, "in"); return; }
+    if(ev.key === "ArrowUp" || ev.key === "Backspace"){
+      const pid = el("rvOut").dataset.room;
+      if(pid && S.nodes.has(pid)){ ev.preventDefault(); roomGo(pid, "out"); }
+      return;
+    }
+    if(ev.key === "ArrowDown" && things.length && !roomPeek){
+      ev.preventDefault(); roomFocus = 0; roomPeek = things[0].dataset.thing; renderRoom();
+    }
+  });
+
+  if(el("roomSkin")) el("roomSkin").onchange = e=>{
+    S.roomSkin = e.target.value; savePrefs(); renderRoom();
+  };
+  if(el("vistaPref")) el("vistaPref").onchange = e=>setVista(e.target.value, true);
+}
+
+
 async function boot(){
+  wireRoom();
   el("modeRoot").onclick = ()=>setMode("root");
   el("modeViewer").onclick = ()=>setMode("viewer");
   el("btnWho").onclick = ()=>{ whoAmI(true); updateModeUI(); renderInspector(); };
@@ -14770,6 +15763,8 @@ async function boot(){
     const custom = await Store.getKey("themes");
     if(Array.isArray(custom)) S.customThemes = custom;
     await loadPrefs();
+    if(el("vistaPref")) el("vistaPref").value = S.vista;
+    if(el("roomSkin")) el("roomSkin").value = S.roomSkin;
     organiseRail();
     /* a folder named before is used again without asking */
     if(await recallPictureFolder()){
@@ -14995,6 +15990,15 @@ async function boot(){
   window.addEventListener("blur", ()=>{ if(S.dirty) saveNow(false); });
   setInterval(()=>{ if(S.dirty) saveNow(false); }, 45000);
   setInterval(updateSaveNote, 30000);
+
+  /* Whichever view was left open is the one that comes back. The room needs a
+     node to stand in, so if nothing was selected it starts in the hall. */
+  if(!S.sel && S.nodes.size){
+    const first = (S.personal.recent || []).map(r=>r.id).find(k=>S.nodes.has(k))
+      || roots()[0] || [...S.nodes.keys()][0];
+    if(first) S.sel = first;
+  }
+  setVista(S.vista, true);
 
   if(fromLink){
     const c = activeConnection();
