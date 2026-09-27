@@ -543,7 +543,7 @@ body.focusing .node-g:not(.focusdim) .node-box{stroke-width:calc(var(--node-bord
   position:absolute;inset:14px;z-index:3;overflow:hidden;
   /* the floor band never gets shorter than the things standing on it, or a
      short screen puts the board through the doors */
-  --rv-l:12%;--rv-r:12%;--rv-t:12%;--rv-b:max(25%, 178px);
+  --rv-l:12%;--rv-r:12%;--rv-t:12%;--rv-b:max(30%, 208px);
   border:1px solid var(--rule);background:var(--rv-wall, var(--paper));
   display:flex;flex-direction:column;
   --rv-wall:var(--paper);
@@ -563,23 +563,389 @@ body.roomon #titleBlock,
 body.roomon .fab,
 body.roomon #noteOverlay{display:none}
 
-/* the painted box */
-.rv-scene{position:absolute;inset:0;z-index:0;pointer-events:none}
-.rv-scene i{position:absolute;inset:0;display:block}
-.rv-scene .ceil{background:var(--rv-ceil);opacity:.9;
-  clip-path:polygon(0 0,100% 0,calc(100% - var(--rv-r)) var(--rv-t),var(--rv-l) var(--rv-t))}
-.rv-scene .floor{background:var(--rv-floor);background-image:var(--rv-floor-pattern);
-  clip-path:polygon(var(--rv-l) calc(100% - var(--rv-b)),
-    calc(100% - var(--rv-r)) calc(100% - var(--rv-b)),100% 100%,0 100%)}
-.rv-scene .wl{background:linear-gradient(90deg,var(--rv-wall-2),var(--rv-wall));
-  clip-path:polygon(0 0,var(--rv-l) var(--rv-t),
-    var(--rv-l) calc(100% - var(--rv-b)),0 100%)}
-.rv-scene .wr{background:linear-gradient(270deg,var(--rv-wall-2),var(--rv-wall));
-  clip-path:polygon(100% 0,calc(100% - var(--rv-r)) var(--rv-t),
-    calc(100% - var(--rv-r)) calc(100% - var(--rv-b)),100% 100%)}
-.rv-scene .back{inset:var(--rv-t) var(--rv-r) var(--rv-b) var(--rv-l);
-  background:var(--rv-wall);background-image:var(--rv-pattern);
-  box-shadow:0 0 0 1px var(--rv-line) inset}
+/* ---------------------------------------------------------------
+   THE BACKDROP
+
+   Three things make the look in the reference: everything is drawn with a
+   heavy dark outline, the colour inside it is flat and saturated with one
+   band of shade, and the floor is a curved shape with the world carrying on
+   behind it rather than a box with four corners. So the room is a sky, a
+   horizon with things on it, and a big rounded floor sitting in front.
+   --------------------------------------------------------------- */
+#roomView{
+  --rv-ink:#151A1F;            /* every outline in the room */
+  --rv-stroke:2.5px;
+  --rv-sky-a:#8FC5E8;
+  --rv-sky-b:#D8ECF7;
+  --rv-far:#BFD9E8;
+  --rv-far-2:#A8C7DB;
+  --rv-ground:#E8D5AE;
+  --rv-ground-2:#D6BE90;
+  --rv-band:#F2E6CC;
+}
+html[data-theme="dark"] #roomView{
+  --rv-ink:#0A0D10;
+  --rv-sky-a:#1B2B3C;
+  --rv-sky-b:#2A3E52;
+  --rv-far:#22323F;
+  --rv-far-2:#1A2733;
+  --rv-ground:#3A3428;
+  --rv-ground-2:#2B2619;
+  --rv-band:#443C2C;
+}
+
+/* A backdrop of your own, if you have one: a drawing, a photograph of the
+   bench, a floor plan. It replaces everything the room draws for itself, and
+   the line you set is where the creatures stand on it. */
+.rv-photo{position:absolute;inset:0;z-index:0;pointer-events:none;
+  background-size:cover;background-position:center;background-repeat:no-repeat}
+.rv-photo[hidden]{display:none}
+#roomView[data-photo="1"] .rv-scene,
+#roomView[data-photo="1"] .rv-props{display:none}
+/* the ground is tinted rather than drawn, so the picture still reads */
+#roomView[data-photo="1"] .rv-photo::after{content:"";position:absolute;
+  left:0;right:0;bottom:0;height:var(--rv-b);
+  background:linear-gradient(180deg,rgba(12,16,20,0) 0%,rgba(12,16,20,.22) 100%)}
+#roomView[data-photo="1"] .rv-thing .plate,
+#roomView[data-photo="1"] .rv-arch b{
+  background:rgba(255,255,255,.94);color:#15191D}
+html[data-theme="dark"] #roomView[data-photo="1"] .rv-thing .plate,
+html[data-theme="dark"] #roomView[data-photo="1"] .rv-arch b{
+  background:rgba(14,18,22,.92);color:#E9EEF2}
+
+.rv-scene{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.rv-scene i{position:absolute;display:block}
+
+/* the sky, and the world going on behind the room */
+.rv-scene .sky{inset:0 0 auto 0;height:calc(100% - var(--rv-b) + 14px);
+  background:linear-gradient(180deg,var(--rv-sky-a) 0%,var(--rv-sky-b) 82%)}
+/* a low skyline so the horizon is not an empty band */
+.rv-scene .far{left:-4%;right:-4%;bottom:calc(var(--rv-b) - 16px);height:96px;
+  background:var(--rv-far);
+  border-top:var(--rv-stroke) solid var(--rv-ink);
+  clip-path:polygon(0 100%,0 62%,7% 40%,13% 58%,21% 26%,29% 52%,35% 34%,44% 60%,
+    52% 30%,60% 56%,67% 38%,75% 62%,82% 36%,90% 58%,96% 44%,100% 66%,100% 100%)}
+.rv-scene .far2{left:-6%;right:-6%;bottom:calc(var(--rv-b) - 10px);height:64px;
+  background:var(--rv-far-2);
+  clip-path:polygon(0 100%,0 70%,9% 46%,17% 68%,26% 40%,34% 64%,43% 44%,51% 70%,
+    59% 42%,68% 66%,76% 46%,85% 68%,93% 48%,100% 72%,100% 100%)}
+
+/* the floor: one big rounded shape with a thick outline, the way a drawn
+   room is drawn rather than a box in perspective */
+.rv-scene .ground{
+  left:-7%;right:-7%;bottom:-8%;height:calc(var(--rv-b) + 8%);
+  background:
+    radial-gradient(120% 90% at 50% 8%,
+      var(--rv-ground) 0%, var(--rv-ground) 58%, var(--rv-ground-2) 100%);
+  border:var(--rv-stroke) solid var(--rv-ink);
+  border-radius:50% 50% 0 0 / 22% 22% 0 0;
+  box-shadow:inset 0 9px 0 -3px rgba(255,255,255,.28)}
+/* a band of floor along the back, like the boards or the paving in a drawn room */
+.rv-scene .band{
+  left:-7%;right:-7%;bottom:calc(var(--rv-b) - 20px);height:52px;
+  background:var(--rv-band);
+  border-radius:50% 50% 0 0 / 60% 60% 0 0;
+  border:var(--rv-stroke) solid var(--rv-ink);border-bottom:0;
+  opacity:.9}
+
+
+/* ---------- each dressing's own light and ground ----------
+   Three of these are rooms and two are outdoors, so the band behind the
+   floor is a wall in one and a sky in another. Where it is a wall the
+   silhouette along the horizon becomes a picture rail instead of hills. */
+#roomView[data-skin="study"]{
+  --rv-sky-a:#E7D3B4;--rv-sky-b:#F3E6CE;--rv-far:#C8A87D;--rv-far-2:#B8955F;
+  --rv-ground:#C8884E;--rv-ground-2:#A96B36;--rv-band:#8E5A2C}
+html[data-theme="dark"] #roomView[data-skin="study"]{
+  --rv-sky-a:#2A2118;--rv-sky-b:#382C1F;--rv-far:#4A3925;--rv-far-2:#3B2D1C;
+  --rv-ground:#5A3D22;--rv-ground-2:#402A15;--rv-band:#2E1E0F}
+#roomView[data-skin="workshop"]{
+  --rv-sky-a:#C3CBD2;--rv-sky-b:#DDE3E8;--rv-far:#A3AEB7;--rv-far-2:#8D99A3;
+  --rv-ground:#B7BEC4;--rv-ground-2:#98A1A8;--rv-band:#7E888F}
+html[data-theme="dark"] #roomView[data-skin="workshop"]{
+  --rv-sky-a:#1A2026;--rv-sky-b:#242C33;--rv-far:#2C353D;--rv-far-2:#222A31;
+  --rv-ground:#39424A;--rv-ground-2:#2A3138;--rv-band:#1F262C}
+#roomView[data-skin="street"]{
+  --rv-sky-a:#4FA3DE;--rv-sky-b:#BFE2F5;--rv-far:#CFE6F2;--rv-far-2:#AFD2E6;
+  --rv-ground:#D8D2C4;--rv-ground-2:#B9B2A2;--rv-band:#9C8C6E}
+html[data-theme="dark"] #roomView[data-skin="street"]{
+  --rv-sky-a:#13263A;--rv-sky-b:#26445E;--rv-far:#2B4557;--rv-far-2:#1F3444;
+  --rv-ground:#3B3D3E;--rv-ground-2:#2A2C2D;--rv-band:#1E2021}
+#roomView[data-skin="scroll"]{
+  --rv-sky-a:#DFCFA6;--rv-sky-b:#F1E5C6;--rv-far:#C5B183;--rv-far-2:#B29C6B;
+  --rv-ground:#D9C79C;--rv-ground-2:#BFA97A;--rv-band:#9C8757}
+html[data-theme="dark"] #roomView[data-skin="scroll"]{
+  --rv-sky-a:#241E14;--rv-sky-b:#31291B;--rv-far:#3E3421;--rv-far-2:#2F2718;
+  --rv-ground:#3A3122;--rv-ground-2:#2A2317;--rv-band:#1F1A11}
+
+/* indoors, the horizon is a picture rail rather than a range of hills */
+#roomView[data-skin="study"] .rv-scene .far,
+#roomView[data-skin="workshop"] .rv-scene .far,
+#roomView[data-skin="scroll"] .rv-scene .far{
+  clip-path:none;height:14px;border-radius:0;
+  border-top:var(--rv-stroke) solid var(--rv-ink);
+  border-bottom:var(--rv-stroke) solid var(--rv-ink)}
+#roomView[data-skin="study"] .rv-scene .far2,
+#roomView[data-skin="workshop"] .rv-scene .far2,
+#roomView[data-skin="scroll"] .rv-scene .far2{display:none}
+
+
+/* ---------------------------------------------------------------
+   COMPACT — for a phone held in one hand
+
+   Everything the other dressings spend on scenery goes back to the floor and
+   the note. No props, no horizon, hairlines instead of heavy outlines, and
+   the creatures shrink so eight of them fit across a phone without their
+   names colliding. It is the same room, drawn small.
+   --------------------------------------------------------------- */
+#roomView[data-skin="compact"]{
+  --rv-sky-a:var(--paper);--rv-sky-b:var(--paper);
+  --rv-far:var(--rule-soft);--rv-far-2:var(--rule-soft);
+  --rv-ground:var(--paper-2);--rv-ground-2:var(--paper-2);--rv-band:var(--rule-soft);
+  --rv-ink:var(--rule);--rv-stroke:1px;
+  --rv-board:var(--paper);--rv-line:var(--rule);--rv-door-ink:var(--graphite);
+  --rv-wall:var(--paper);--rv-wall-2:var(--paper-2);
+  --rv-open:var(--graphite);--rv-open-lit:var(--graphite-60)}
+#roomView[data-skin="compact"] .rv-props{display:none}
+#roomView[data-skin="compact"] .rv-scene .far2{display:none}
+#roomView[data-skin="compact"] .rv-scene .far{clip-path:none;height:1px;
+  background:var(--rule);border:0;opacity:.8}
+#roomView[data-skin="compact"] .rv-scene .band{display:none}
+#roomView[data-skin="compact"] .rv-scene .ground{border-radius:26px 26px 0 0 / 9px 9px 0 0;
+  box-shadow:none}
+#roomView[data-skin="compact"] .rv-board{border-width:1px;border-radius:4px;
+  box-shadow:0 1px 0 rgba(35,40,45,.08)}
+#roomView[data-skin="compact"] .rv-board::before,
+#roomView[data-skin="compact"] .rv-board::after{display:none}
+#roomView[data-skin="compact"] .rv-head{border-bottom-width:1px;padding:8px 12px 6px}
+#roomView[data-skin="compact"] .rv-head h3{font-size:15px}
+#roomView[data-skin="compact"] .rv-thing{width:74px;margin:-48px 0 0 -37px}
+#roomView[data-skin="compact"] .rv-thing.door .body{width:40px;height:43px}
+#roomView[data-skin="compact"] .rv-thing.door .arch{width:52px;height:40px;border-width:1.5px}
+#roomView[data-skin="compact"] .rv-thing.item .body{width:30px;height:27px}
+#roomView[data-skin="compact"] .rv-thing .body{border-width:1.5px;box-shadow:none}
+#roomView[data-skin="compact"] .rv-thing .face{height:10px;top:32%}
+#roomView[data-skin="compact"] .rv-thing .eye{width:5px;height:6px}
+#roomView[data-skin="compact"] .rv-thing .eye::after{display:none}
+#roomView[data-skin="compact"] .rv-thing .mouth{width:7px;height:3px;border-width:1.4px}
+#roomView[data-skin="compact"] .rv-thing .plate{font-size:9.5px;padding:2px 4px;
+  border-width:1px;border-radius:2px;max-width:74px;box-shadow:none}
+#roomView[data-skin="compact"] .rv-thing .plate::before{display:none}
+#roomView[data-skin="compact"] .rv-thing .note{display:none}
+#roomView[data-skin="compact"] .rv-arch u{width:54px;height:38px;border-width:1.5px}
+#roomView[data-skin="compact"] .rv-arch{width:74px}
+#roomView[data-skin="compact"] .rv-arch b{font-size:9px;border-width:1px;max-width:74px}
+#roomView[data-skin="compact"] .rv-way{width:38px;padding:9px 4px;border-width:1.5px;
+  border-radius:4px;box-shadow:none}
+#roomView[data-skin="compact"] .rv-bar{border-width:1.5px;border-radius:9px;min-height:40px;
+  padding:5px 7px;background:var(--paper);box-shadow:0 1px 0 rgba(35,40,45,.1)}
+#roomView[data-skin="compact"] .rvb{border-width:1px;border-radius:5px;
+  background:var(--paper-2);color:var(--graphite);box-shadow:none;padding:4px 9px}
+#roomView[data-skin="compact"] .rvb .tick{border-width:1px;top:-6px}
+#roomView[data-skin="compact"] .rv-bar-mid{background:var(--paper-2);color:var(--graphite-60);
+  border-width:1px;border-radius:4px}
+#roomView[data-skin="compact"] .rv-peek{border-width:1.5px;border-radius:6px;
+  box-shadow:0 6px 16px -12px rgba(20,24,28,.5)}
+#roomView[data-skin="compact"] .rv-peek::after{border-right-width:1.5px;border-bottom-width:1.5px}
+
+/* ---------------------------------------------------------------
+   BOARDROOM — for the projector
+
+   The same room, drawn as a diagram: no faces, no colour by chance, no
+   wandering. Each thing is a labelled tile in a tidy grid, the note is the
+   biggest thing on the page, and the palette is two greys and one accent.
+   Nothing in it needs explaining to a room full of people.
+   --------------------------------------------------------------- */
+#roomView[data-skin="boardroom"]{
+  --rv-sky-a:#FFFFFF;--rv-sky-b:#FFFFFF;
+  --rv-far:#E6E8EA;--rv-far-2:#E6E8EA;
+  --rv-ground:#F5F6F7;--rv-ground-2:#EDEFF1;--rv-band:#E6E8EA;
+  --rv-ink:#5A636B;--rv-stroke:1px;
+  --rv-board:#FFFFFF;--rv-line:#C9CED3;--rv-door-ink:#1E252B;
+  --rv-wall:#FFFFFF;--rv-wall-2:#F1F3F4;
+  --rv-open:#2F6BAF;--rv-open-lit:#4E8BD0}
+html[data-theme="dark"] #roomView[data-skin="boardroom"]{
+  --rv-sky-a:#15191D;--rv-sky-b:#15191D;
+  --rv-far:#272D33;--rv-far-2:#272D33;
+  --rv-ground:#1B2126;--rv-ground-2:#161B20;--rv-band:#272D33;
+  --rv-ink:#7C8792;--rv-board:#1B2126;--rv-line:#3A434B;--rv-door-ink:#E7ECF0;
+  --rv-wall:#15191D;--rv-wall-2:#1E242A}
+#roomView[data-skin="boardroom"] .rv-props{display:none}
+#roomView[data-skin="boardroom"] .rv-scene .far2,
+#roomView[data-skin="boardroom"] .rv-scene .band{display:none}
+#roomView[data-skin="boardroom"] .rv-scene .far{clip-path:none;height:1px;
+  background:var(--rv-line);border:0}
+#roomView[data-skin="boardroom"] .rv-scene .ground{border-radius:0;border-left:0;
+  border-right:0;border-bottom:0;box-shadow:none;left:0;right:0}
+/* the note is the point, so it gets weight and width */
+#roomView[data-skin="boardroom"] .rv-board{border-width:1px;border-radius:4px;
+  box-shadow:0 2px 10px -6px rgba(20,30,40,.22);max-width:940px}
+#roomView[data-skin="boardroom"] .rv-board::before,
+#roomView[data-skin="boardroom"] .rv-board::after{display:none}
+#roomView[data-skin="boardroom"] .rv-head{border-bottom-width:1px;padding:13px 18px 11px}
+#roomView[data-skin="boardroom"] .rv-head h3{font-size:20px;letter-spacing:-.01em}
+#roomView[data-skin="boardroom"] .rv-note{font-size:15.5px;line-height:1.65}
+/* every child is a plain labelled tile, not a creature */
+#roomView[data-skin="boardroom"] .rv-thing .bob{animation:none !important}
+#roomView[data-skin="boardroom"] .rv-thing .face,
+#roomView[data-skin="boardroom"] .rv-thing .note,
+#roomView[data-skin="boardroom"] .rv-thing .shade,
+#roomView[data-skin="boardroom"] .rv-thing .arch{display:none}
+#roomView[data-skin="boardroom"] .rv-thing{width:150px;margin:0}
+#roomView[data-skin="boardroom"] .rv-thing .body{width:100% !important;height:8px !important;
+  border-radius:3px 3px 0 0;border-width:1px;border-bottom:0;
+  background:var(--rv-accent, #2F6BAF);box-shadow:none}
+#roomView[data-skin="boardroom"] .rv-thing.item .body{background:var(--rv-line)}
+#roomView[data-skin="boardroom"] .rv-thing .plate{position:relative;left:auto;right:auto;
+  bottom:auto;margin:0;max-width:none;border-radius:0 0 3px 3px;border-width:1px;
+  border-top:0;padding:8px 9px;font-size:12.5px;-webkit-line-clamp:2;
+  box-shadow:0 1px 4px -2px rgba(20,30,40,.25);text-align:left;min-height:42px}
+#roomView[data-skin="boardroom"] .rv-thing .deep{position:absolute;right:7px;bottom:7px;
+  left:auto;transform:none;border-width:1px;border-radius:3px;font-size:10px;
+  background:var(--rv-wall-2)}
+#roomView[data-skin="boardroom"] .rv-thing .mk{top:-8px;right:-6px;border-width:1px}
+#roomView[data-skin="boardroom"] .rv-arch u{width:56px;height:30px;border-radius:4px;
+  border-width:1px;border-bottom:1px solid var(--rv-ink);background:var(--rv-wall-2)}
+#roomView[data-skin="boardroom"] .rv-arch i{color:var(--rv-open);bottom:6px;filter:none}
+#roomView[data-skin="boardroom"] .rv-arch b{border-width:1px;border-radius:3px;font-size:11px}
+#roomView[data-skin="boardroom"] .rv-way{border-width:1px;border-radius:4px;box-shadow:none}
+#roomView[data-skin="boardroom"] .rv-bar{background:var(--rv-board);border-width:1px;
+  border-radius:6px;box-shadow:0 2px 10px -6px rgba(20,30,40,.25);min-height:44px}
+#roomView[data-skin="boardroom"] .rvb{background:var(--rv-wall-2);color:var(--rv-door-ink);
+  border-width:1px;border-radius:4px;box-shadow:none}
+#roomView[data-skin="boardroom"] .rvb .tick{border-width:1px}
+#roomView[data-skin="boardroom"] .rv-bar-mid{background:transparent;border-width:1px;
+  border-radius:4px;color:var(--rv-door-ink)}
+#roomView[data-skin="boardroom"] .rv-peek{border-width:1px;border-radius:5px}
+#roomView[data-skin="boardroom"] .rv-peek::after{border-right-width:1px;border-bottom-width:1px}
+#roomView[data-skin="boardroom"] .rv-exits,
+#roomView[data-skin="compact"] .rv-exits{bottom:calc(var(--rv-b) + 12px);
+  left:auto;right:16px;justify-content:flex-end}
+/* lined up is the only arrangement that reads from the back of a room */
+#roomView[data-skin="boardroom"] .rv-field{display:flex !important;flex-wrap:wrap;
+  align-content:flex-start;gap:12px;padding:14px 16px;overflow-y:auto}
+#roomView[data-skin="boardroom"] .rv-thing{position:relative !important;
+  transform:none !important;z-index:auto !important}
+
+/* ---------- what stands at the back of each room ----------
+   A handful of drawn props along the horizon. They are scenery, not controls,
+   so nothing here takes a click. */
+.rv-props{position:absolute;left:0;right:0;bottom:calc(var(--rv-b) - 14px);
+  height:150px;z-index:1;pointer-events:none}
+.rv-props i{position:absolute;bottom:0;display:block;
+  border:var(--rv-stroke) solid var(--rv-ink)}
+.rv-props i::before,.rv-props i::after{content:"";position:absolute;display:block;
+  border:var(--rv-stroke) solid var(--rv-ink)}
+
+/* a study: a bookcase, a lamp, a plant, a poster */
+#roomView[data-skin="study"] .rv-props .p1{left:1%;width:132px;height:112px;
+  background:#C98B57;border-radius:3px;
+  box-shadow:inset 0 0 0 7px #B3764A}
+#roomView[data-skin="study"] .rv-props .p1::before{left:9px;right:9px;top:14px;height:26px;
+  background:repeating-linear-gradient(90deg,
+    #E0574B 0 9px,#F0B429 9px 17px,#3E92CC 17px 24px,#57A773 24px 33px);
+  border-radius:1px}
+#roomView[data-skin="study"] .rv-props .p1::after{left:9px;right:9px;top:54px;height:26px;
+  background:repeating-linear-gradient(90deg,
+    #57A773 0 8px,#E0574B 8px 16px,#F0B429 16px 26px,#8E6FBF 26px 33px);
+  border-radius:1px}
+#roomView[data-skin="study"] .rv-props .p2{left:13%;width:86px;height:66px;
+  background:#D9614F;border-radius:16px 16px 6px 6px}
+#roomView[data-skin="study"] .rv-props .p2::before{left:8px;right:8px;top:10px;height:22px;
+  background:#EE8570;border-radius:9px}
+#roomView[data-skin="study"] .rv-props .p2::after{left:-9px;bottom:0;width:20px;height:40px;
+  background:#D9614F;border-radius:9px 4px 4px 9px}
+#roomView[data-skin="study"] .rv-props .p3{right:4%;width:14px;height:82px;
+  background:#9A8B78;border-radius:3px}
+#roomView[data-skin="study"] .rv-props .p3::before{left:-31px;top:-30px;width:76px;height:38px;
+  background:#F3D77A;border-radius:38px 38px 5px 5px}
+#roomView[data-skin="study"] .rv-props .p4{right:17%;width:56px;height:46px;
+  background:#B5794E;border-radius:6px 6px 14px 14px}
+#roomView[data-skin="study"] .rv-props .p4::before{left:-10px;bottom:34px;width:76px;height:62px;
+  background:#4F9A5E;border-radius:50% 50% 42% 42%}
+
+/* a workshop: crates, a bench, a lamp on a stalk */
+#roomView[data-skin="workshop"] .rv-props .p1{left:1%;width:96px;height:78px;
+  background:#C79A5B;border-radius:3px}
+#roomView[data-skin="workshop"] .rv-props .p1::before{left:8px;right:8px;top:10px;bottom:10px;
+  background:transparent;border-radius:2px}
+#roomView[data-skin="workshop"] .rv-props .p1::after{left:-2px;right:-2px;top:34px;height:9px;
+  background:#A87C41;border-left:0;border-right:0}
+#roomView[data-skin="workshop"] .rv-props .p2{left:13%;width:64px;height:54px;
+  background:#B98C4E;border-radius:3px}
+#roomView[data-skin="workshop"] .rv-props .p2::before{left:6px;right:6px;top:20px;height:8px;
+  background:#9C7137;border-left:0;border-right:0}
+#roomView[data-skin="workshop"] .rv-props .p3{right:2%;width:168px;height:58px;
+  background:#8D949B;border-radius:3px}
+#roomView[data-skin="workshop"] .rv-props .p3::before{left:12px;top:-30px;width:34px;height:30px;
+  background:#C0392B;border-radius:4px 4px 0 0}
+#roomView[data-skin="workshop"] .rv-props .p3::after{right:16px;top:-22px;width:52px;height:22px;
+  background:#E0A526;border-radius:3px}
+#roomView[data-skin="workshop"] .rv-props .p4{right:20%;width:11px;height:96px;
+  background:#6E767E;border-radius:3px}
+#roomView[data-skin="workshop"] .rv-props .p4::before{left:-25px;top:-22px;width:60px;height:30px;
+  background:#EDD06A;border-radius:30px 30px 4px 4px}
+
+/* a street: shopfronts along the back */
+#roomView[data-skin="street"] .rv-props{height:172px}
+#roomView[data-skin="street"] .rv-props .p1{left:0%;width:150px;height:150px;
+  background:#7C4A33;border-radius:5px 5px 0 0}
+#roomView[data-skin="street"] .rv-props .p1::before{left:14px;right:14px;top:22px;height:40px;
+  background:#F4E3C4;border-radius:3px}
+#roomView[data-skin="street"] .rv-props .p1::after{left:44px;right:44px;bottom:0;top:84px;
+  background:#4E2C1C;border-bottom:0;border-radius:6px 6px 0 0}
+#roomView[data-skin="street"] .rv-props .p2{left:19%;width:186px;height:166px;
+  background:#3E5C77;border-radius:5px 5px 0 0}
+#roomView[data-skin="street"] .rv-props .p2::before{left:16px;right:16px;top:20px;height:34px;
+  background:#F0C33C;border-radius:3px}
+#roomView[data-skin="street"] .rv-props .p2::after{left:56px;right:56px;top:76px;bottom:0;
+  background:#22384A;border-bottom:0;border-radius:36px 36px 0 0}
+#roomView[data-skin="street"] .rv-props .p3{right:0%;width:162px;height:142px;
+  background:#8D5E86;border-radius:5px 5px 0 0}
+#roomView[data-skin="street"] .rv-props .p3::before{left:14px;right:14px;top:18px;height:32px;
+  background:#F6B8D0;border-radius:3px}
+#roomView[data-skin="street"] .rv-props .p3::after{left:34px;right:34px;top:70px;bottom:0;
+  background:#5E3B59;border-bottom:0;border-radius:4px 4px 0 0}
+#roomView[data-skin="street"] .rv-props .p4{right:20%;width:13px;height:104px;
+  background:#4A5158;border-radius:3px}
+#roomView[data-skin="street"] .rv-props .p4::before{left:-16px;top:-26px;width:42px;height:30px;
+  background:#F5DE8C;border-radius:5px 5px 3px 3px}
+
+/* a scroll: pots, a low table, a hanging lantern */
+#roomView[data-skin="scroll"] .rv-props .p1{left:1%;width:74px;height:72px;
+  background:#B0774A;border-radius:12px 12px 26px 26px}
+#roomView[data-skin="scroll"] .rv-props .p1::before{left:-6px;right:-6px;top:6px;height:14px;
+  background:#9A6238;border-radius:8px}
+#roomView[data-skin="scroll"] .rv-props .p1::after{left:10px;bottom:56px;width:52px;height:56px;
+  background:#5B8F4E;border-radius:52% 52% 36% 36%}
+#roomView[data-skin="scroll"] .rv-props .p2{left:14%;width:124px;height:42px;
+  background:#9C6F43;border-radius:5px}
+#roomView[data-skin="scroll"] .rv-props .p2::before{left:12px;top:-24px;width:34px;height:26px;
+  background:#E9DCBA;border-radius:3px}
+#roomView[data-skin="scroll"] .rv-props .p2::after{right:14px;top:-18px;width:28px;height:20px;
+  background:#C0554A;border-radius:4px}
+#roomView[data-skin="scroll"] .rv-props .p3{right:3%;width:12px;height:70px;
+  background:#8A6E42;border-radius:3px}
+#roomView[data-skin="scroll"] .rv-props .p3::before{left:-24px;top:-36px;width:58px;height:44px;
+  background:#E8A33D;border-radius:10px 10px 22px 22px}
+#roomView[data-skin="scroll"] .rv-props .p4{right:18%;width:60px;height:58px;
+  background:#A9743F;border-radius:10px 10px 22px 22px}
+#roomView[data-skin="scroll"] .rv-props .p4::before{left:8px;bottom:44px;width:42px;height:48px;
+  background:#6E9B57;border-radius:52% 52% 34% 34%}
+
+/* plain keeps the drafting look: pale ground, a rule along the horizon */
+#roomView[data-skin="plain"]{
+  --rv-sky-a:#EDEEE8;--rv-sky-b:#F8F8F4;--rv-far:#DFE1DA;--rv-far-2:#D3D6CE;
+  --rv-ground:#F2F2EC;--rv-ground-2:#E2E3DB;--rv-band:#EAEBE4;--rv-ink:#3A4249;
+  --rv-stroke:1.6px}
+html[data-theme="dark"] #roomView[data-skin="plain"]{
+  --rv-sky-a:#191D21;--rv-sky-b:#20252A;--rv-far:#242A30;--rv-far-2:#1D2227;
+  --rv-ground:#262B31;--rv-ground-2:#1E2226;--rv-band:#2A3036;--rv-ink:#8892A0}
+#roomView[data-skin="plain"] .rv-scene .far,
+#roomView[data-skin="plain"] .rv-scene .far2{clip-path:none;height:2px;
+  background:var(--rv-ink);opacity:.35;border:0}
+#roomView[data-skin="plain"] .rv-scene .far2{display:none}
+#roomView[data-skin="plain"] .rv-props{display:none}
 
 /* the trail and the archways sit on the back wall's top edge */
 .rv-top{position:absolute;left:0;right:0;top:var(--rv-t);z-index:2;
@@ -600,26 +966,45 @@ body.roomon #noteOverlay{display:none}
 .rv-trail span{opacity:.5}
 .rv-trail em{font-style:normal;padding:2px 4px;font-weight:500;max-width:200px;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rv-arches{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;max-width:100%}
+/* A cross-link is a side exit, so it is an opening cut into the foot of the
+   back wall with the name of the room it leads to over the top. Same dark
+   doorway as the creatures that lead somewhere, so the language is one. */
+.rv-exits{position:absolute;z-index:3;left:26%;right:26%;
+  bottom:calc(var(--rv-b) - 6px);
+  display:flex;gap:16px;justify-content:center;align-items:flex-end;
+  flex-wrap:wrap-reverse;pointer-events:none}
 .rv-arch{
-  border:1px solid var(--rv-line);border-bottom:0;
-  border-radius:40px 40px 0 0;background:var(--rv-door);
-  padding:7px 14px 8px;font-size:12px;color:var(--rv-door-ink);font-family:var(--sans);
-  max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  cursor:pointer;line-height:1.2
+  position:relative;pointer-events:auto;flex:0 0 auto;width:96px;
+  border:0;background:transparent;padding:0;cursor:pointer;
+  font-family:var(--sans);color:var(--rv-door-ink);
+  display:flex;flex-direction:column;align-items:center;gap:0
 }
-.rv-arch:hover{background:var(--rv-wall-2)}
-.rv-arch.open{outline:2px solid var(--blueprint);outline-offset:1px}
-.rv-arch i{font-style:normal;opacity:.55;margin-right:5px;font-family:var(--mono)}
+.rv-arch b{display:block;order:-1;max-width:96px;margin-bottom:3px;
+  padding:2px 5px;font-size:10px;font-weight:500;line-height:1.2;
+  background:var(--rv-board);border:2px solid var(--rv-ink);border-radius:5px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rv-arch u{display:block;width:74px;height:54px;text-decoration:none;
+  border:2.5px solid var(--rv-ink);border-bottom:0;border-radius:37px 37px 0 0;
+  background:var(--rv-open, #241E18);
+  background:radial-gradient(ellipse at 50% 118%,
+    var(--rv-open-lit, #3A3128) 0%, var(--rv-open, #241E18) 74%);
+  box-shadow:inset 0 3px 7px -3px rgba(0,0,0,.7)}
+.rv-arch i{position:absolute;left:50%;bottom:9px;transform:translateX(-50%);
+  font-style:normal;font-size:15px;line-height:1;font-family:var(--mono);
+  color:var(--rv-open-lit, #3A3128);filter:brightness(1.8)}
+.rv-arch:hover u{border-color:var(--blueprint)}
+.rv-arch:hover b{border-color:var(--blueprint)}
+.rv-arch.open u{border-color:var(--blueprint);box-shadow:inset 0 3px 7px -3px rgba(0,0,0,.7),
+  0 0 0 2px var(--blueprint)}
 
 /* the way out stands on the left wall; the board hangs on the back wall */
 .rv-way{
   position:absolute;z-index:3;left:max(6px, calc(var(--rv-l) * .18));top:50%;
   transform:translateY(-50%);
   display:flex;flex-direction:column;align-items:center;gap:6px;
-  border:1px solid var(--rv-line);background:var(--rv-door);color:var(--rv-door-ink);
-  border-radius:3px;padding:14px 9px;width:62px;cursor:pointer;
-  box-shadow:2px 0 0 rgba(35,40,45,.05)
+  border:2.5px solid var(--rv-ink);background:var(--rv-door);color:var(--rv-door-ink);
+  border-radius:8px;padding:14px 9px;width:62px;cursor:pointer;
+  box-shadow:0 3px 0 rgba(20,24,28,.26)
 }
 .rv-way:hover{background:var(--rv-wall-2)}
 .rv-way em{font-style:normal;font-size:19px;line-height:1}
@@ -627,27 +1012,47 @@ body.roomon #noteOverlay{display:none}
   max-height:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rv-way.empty{visibility:hidden}
 
-/* the note, on the far wall — inside it, never hanging off onto the sides */
+/* What hangs on the far wall. It is only as tall as what is on it — a node
+   whose children carry all the detail has nothing to say here, and a board
+   sized for an essay then leaves a slab of nothing. The floor takes back
+   whatever the wall does not need. */
 .rv-board{
   position:absolute;z-index:2;
   left:calc(var(--rv-l) + 14px);right:calc(var(--rv-r) + 14px);
   top:calc(var(--rv-t) + 14px);bottom:calc(var(--rv-b) + 14px);
   max-width:820px;margin:0 auto;
   display:flex;flex-direction:column;min-height:0;
-  background:var(--rv-board);border:1px solid var(--rv-line);border-radius:2px;
-  box-shadow:0 10px 26px -18px rgba(20,24,28,.5), 0 1px 0 rgba(35,40,45,.06)
+  background:var(--rv-board);border:3px solid var(--rv-ink);border-radius:10px;
+  box-shadow:0 4px 0 rgba(20,24,28,.26), inset 0 3px 0 rgba(255,255,255,.4)
 }
-.rv-head{display:flex;align-items:flex-start;gap:9px;padding:11px 14px 9px;
-  border-bottom:1px solid var(--rule-soft);flex:0 0 auto}
+/* two strings, so the sign is hung rather than floating */
+.rv-board::before,.rv-board::after{content:"";position:absolute;top:-16px;width:3px;
+  height:16px;background:var(--rv-ink);border-radius:2px}
+.rv-board::before{left:16%}
+.rv-board::after{right:16%}
+.rv-head{display:flex;align-items:flex-start;gap:9px;padding:10px 15px 8px;
+  border-bottom:2.5px solid var(--rv-ink);flex:0 0 auto}
 .rv-head h3{margin:0;font-size:18px;font-weight:600;line-height:1.25;flex:1;min-width:0;
   font-family:var(--sans);word-break:break-word;color:var(--rv-ink, var(--graphite))}
 .rv-head .rv-acts{display:flex;gap:5px;flex:0 0 auto}
 .rv-head .btn{padding:4px 9px;font-size:12px}
 .rv-tags{display:flex;gap:4px;flex-wrap:wrap;padding:0 14px 8px;flex:0 0 auto}
 .rv-tags .tagchip{font-size:11px;padding:1px 6px}
-.rv-note{flex:1 1 auto;min-height:0;overflow:auto;padding:12px 16px 16px;
+/* a picture on this node is hung beside the note, not stacked above it:
+   side by side is what fills a wide wall */
+.rv-wallrow{display:flex;gap:14px;align-items:flex-start;flex:1 1 auto;min-height:0;
+  padding:0 16px 0}
+.rv-wallrow[hidden]{display:none}
+.rv-pic{margin:12px 0 0;flex:0 0 auto;width:min(38%, 260px);
+  background:var(--rv-board);padding:7px;border:1px solid var(--rv-line);
+  box-shadow:0 6px 14px -10px rgba(20,24,28,.7), inset 0 0 0 1px rgba(255,255,255,.35)}
+.rv-pic[hidden]{display:none}
+.rv-pic img{display:block;width:100%;height:auto;max-height:260px;object-fit:cover;
+  border:1px solid var(--rule-soft)}
+.rv-note{flex:1 1 auto;min-height:0;overflow:auto;padding:12px 0 16px;
   font-size:14.5px;line-height:1.62;color:var(--rv-ink, var(--graphite))}
-.rv-note .empty{color:var(--graphite-60);font-style:italic}
+.rv-note .empty{color:var(--rv-dim, var(--graphite-60));font-style:italic;font-size:13px}
+
 .rv-note img{max-width:100%;height:auto}
 .rv-note table{border-collapse:collapse;font-size:13px;margin:10px 0;max-width:100%}
 /* a table wider than the board scrolls rather than losing its last column */
@@ -657,112 +1062,173 @@ body.roomon #noteOverlay{display:none}
   color:var(--rv-dim, var(--graphite-60));
   display:flex;gap:12px;flex-wrap:wrap;flex:0 0 auto}
 
-/* what stands on the floor */
-.rv-floorstrip{position:absolute;left:0;right:0;bottom:0;z-index:2;
-  padding:4px 12px calc(12px + env(safe-area-inset-bottom));
-  max-height:calc(var(--rv-b) + 40px);display:flex;flex-direction:column;justify-content:flex-end}
-.rv-peek{
-  margin:0 auto 8px;max-width:640px;background:var(--paper);border:1px solid var(--blueprint);
-  border-radius:3px;padding:10px 12px;box-shadow:0 8px 20px -14px rgba(20,24,28,.55)
+/* ---------------------------------------------------------------
+   THE FLOOR IS A PLACE, NOT A SHELF
+
+   A row of furniture along the bottom is still a toolbar wearing a costume.
+   What makes a room feel inhabited is that the things in it are somewhere
+   rather than in order, that they are out in the middle of the floor, and
+   that they are doing something when you are not looking at them.
+
+   So the floor is a field with depth. Every child of this node lives at a
+   spot on it and wanders slowly around that spot. Further back is smaller
+   and drawn behind; nearer the front is bigger and drawn in front. Each one
+   carries a sign with its name, notices you when you come close, and opens
+   when you pick it. There is a button to line them all up when you need to
+   read rather than wander.
+   --------------------------------------------------------------- */
+.rv-floorstrip{position:absolute;left:0;right:66px;bottom:64px;top:calc(100% - var(--rv-b) - 26px);
+  z-index:2;pointer-events:none}
+.rv-field{position:absolute;inset:0;pointer-events:auto;overflow:visible}
+
+/* a thing on the floor: JS puts it somewhere, CSS gives it life */
+.rv-thing{
+  position:absolute;left:0;top:0;width:96px;margin:-64px 0 0 -48px;
+  border:0;background:transparent;padding:0;cursor:pointer;
+  color:var(--rv-door-ink);font-family:var(--sans);text-align:center;
+  transition:filter .15s
 }
-.rv-peek h4{margin:0 0 5px;font-size:14px;font-weight:600;display:flex;gap:8px;align-items:baseline}
+.rv-thing{transform-origin:50% 96%}
+.rv-thing .turn{display:block;transform:scaleX(var(--face, 1));
+  transition:transform .14s ease-out}
+.rv-thing .bob{display:block;position:relative;
+  animation:rvBob 2.4s ease-in-out infinite;
+  animation-delay:calc(var(--i, 0) * -0.31s)}
+@keyframes rvBob{0%,100%{transform:translateY(0) rotate(0)}
+  50%{transform:translateY(-3.5px) rotate(var(--tilt, 1.4deg))}}
+
+/* it stands on the floor, so it puts something there */
+.rv-thing .shade{position:absolute;left:50%;bottom:-7px;width:44px;height:11px;
+  transform:translateX(-50%);border-radius:50%;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 50%,
+    rgba(16,20,24,.38) 0%, rgba(16,20,24,0) 70%)}
+
+/* the body */
+.rv-thing .body{position:relative;display:block;margin:0 auto;
+  background:var(--rv-hue, var(--rv-door));
+  border:2.5px solid var(--rv-ink);
+  box-shadow:inset 0 -9px 0 -4px rgba(0,0,0,.14),
+             inset 0 7px 0 -4px rgba(255,255,255,.45)}
+/* a thing with rooms beyond it is bigger and stands up, with an arch behind */
+.rv-thing.door .body{width:58px;height:62px;border-radius:26px 26px 13px 13px}
+/* A creature with rooms behind it stands in a doorway, and you can see it is
+   dark in there. That reads at a glance from across the room, which a faint
+   outline did not. */
+.rv-thing.door .arch{position:absolute;left:50%;bottom:0;width:74px;height:58px;
+  transform:translateX(-50%);border-radius:37px 37px 2px 2px;
+  border:2.5px solid var(--rv-ink);border-bottom:0;
+  background:var(--rv-open, #241E18);
+  background:radial-gradient(ellipse at 50% 120%,
+    var(--rv-open-lit, #3A3128) 0%, var(--rv-open, #241E18) 72%);
+  box-shadow:inset 0 3px 7px -3px rgba(0,0,0,.7)}
+/* a dead end is small and round, and carries its note */
+.rv-thing.item .body{width:42px;height:38px;border-radius:19px}
+.rv-thing.item .note{position:absolute;right:-9px;bottom:2px;width:15px;height:18px;
+  background:var(--rv-board);border:2px solid var(--rv-ink);border-radius:1px;
+  transform:rotate(-9deg);
+  box-shadow:inset 0 3px 0 -2px var(--rv-line), inset 0 7px 0 -6px var(--rv-line)}
+
+/* the face, which is the whole trick */
+.rv-thing .face{position:absolute;left:0;right:0;top:34%;height:14px}
+.rv-thing.item .face{top:30%}
+.rv-thing .eye{position:absolute;top:0;width:7px;height:9px;border-radius:50%;
+  background:var(--rv-ink);transition:height .12s}
+.rv-thing .eye.l{left:28%}
+.rv-thing .eye.r{right:28%}
+.rv-thing.item .eye{width:6px;height:7px}
+.rv-thing .eye::after{content:"";position:absolute;left:1.5px;top:1.5px;width:2.6px;height:2.6px;
+  border-radius:50%;background:rgba(255,255,255,.9)}
+.rv-thing .mouth{position:absolute;left:50%;top:13px;width:11px;height:5px;
+  transform:translateX(-50%);border-radius:0 0 11px 11px;
+  border:2px solid var(--rv-ink);border-top:0;opacity:.85}
+.rv-thing.item .mouth{top:10px;width:8px;height:4px}
+/* blinking, off its own clock so a crowd does not blink in unison */
+.rv-thing .eye{animation:rvBlink 7s steps(1,end) infinite;
+  animation-delay:calc(var(--i, 0) * -1.37s)}
+@keyframes rvBlink{0%,96%{height:9px}97%,99%{height:2px}100%{height:9px}}
+
+/* the sign it carries */
+.rv-thing .plate{position:relative;display:block;margin:6px auto 0;max-width:96px;
+  padding:3px 5px;font-size:10.5px;line-height:1.22;font-weight:500;
+  background:var(--rv-board);
+  border:2px solid var(--rv-ink);border-radius:5px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  word-break:break-word;
+  box-shadow:0 2px 0 rgba(20,24,28,.28)}
+/* the little post the sign is nailed to */
+.rv-thing .plate::before{content:"";position:absolute;left:50%;top:-6px;width:3px;height:7px;
+  transform:translateX(-50%);background:var(--rv-ink)}
+
+/* how many rooms lie beyond, worn on the front */
+.rv-thing .deep{position:absolute;left:50%;bottom:6px;transform:translateX(-50%);z-index:4;
+  font-family:var(--mono);font-size:9.5px;line-height:1.35;padding:0 4px;
+  background:var(--rv-board);border:2px solid var(--rv-ink);border-radius:8px;
+  color:var(--rv-door-ink)}
+.rv-thing .mk{position:absolute;top:-7px;right:6px;width:19px;height:19px;border-radius:50%;
+  z-index:3;display:grid;place-items:center;font-size:10px;font-weight:600;color:#fff;
+  font-family:var(--mono);border:2px solid var(--rv-ink)}
+.rv-thing .mk.todo,.rv-thing .mk.flag{background:var(--flag)}
+.rv-thing .mk.sug{background:var(--blueprint)}
+
+/* it notices you */
+.rv-thing:hover .body{border-color:var(--blueprint)}
+.rv-thing:hover .mouth{height:8px;width:13px;opacity:.9}
+.rv-thing:hover .bob{animation-duration:.6s}
+.rv-thing.hit .body{box-shadow:0 0 0 3px var(--hit-line)}
+.rv-thing.open .body{border-color:var(--blueprint);box-shadow:0 0 0 3px var(--blueprint)}
+.rv-thing.open .bob{animation:rvHop .5s ease-in-out infinite}
+@keyframes rvHop{0%,100%{transform:translateY(0)}45%{transform:translateY(-9px)}}
+.rv-thing.from .body{border-color:var(--blueprint)}
+.rv-thing.retired{opacity:.5;filter:grayscale(.7)}
+.rv-thing.dragging{opacity:.4}
+.rv-thing.walking .bob{animation:rvWaddle .38s ease-in-out infinite}
+@keyframes rvWaddle{0%,100%{transform:translateY(0) rotate(-3.5deg)}
+  50%{transform:translateY(-3px) rotate(3.5deg)}}
+
+/* A crowded room cannot show every sign at once without the signs covering
+   the creatures holding them, so in a crowd the name comes out when you point
+   at one — and the button to line them all up is right there. */
+.rv-field[data-crowd="1"] .rv-thing .plate{opacity:0;transform:translateY(-5px);
+  transition:opacity .13s, transform .13s;pointer-events:none}
+.rv-field[data-crowd="1"] .rv-thing:hover .plate,
+.rv-field[data-crowd="1"] .rv-thing:focus-visible .plate,
+.rv-field[data-crowd="1"] .rv-thing.open .plate,
+.rv-field[data-crowd="1"] .rv-thing.hit .plate,
+.rv-field[data-crowd="1"] .rv-thing.from .plate{opacity:1;transform:none}
+.rv-field[data-crowd="1"] .rv-thing:hover{z-index:200 !important}
+
+/* lined up, for when you want to read rather than watch */
+.rv-field[data-lay="row"]{display:flex;flex-wrap:wrap;align-content:flex-end;
+  gap:8px 10px;padding:6px 10px 10px;overflow-y:auto}
+.rv-field[data-lay="row"] .rv-thing{position:relative;margin:0;transform:none !important;
+  align-self:flex-end}
+.rv-field[data-lay="row"] .rv-thing .bob,
+.rv-field[data-lay="row"] .rv-thing .eye{animation:none}
+.rv-field[data-lay="row"] .rv-thing .shade{display:none}
+
+/* the handful of controls that sit on the floor */
+.rvb.urge{background:linear-gradient(180deg,#F5CE55 0%,#E0A526 100%);color:#2A1D05}
+
+/* the speech bubble, which is what a peek is when the thing can talk */
+.rv-peek{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);z-index:20;
+  width:min(560px, calc(100% - 28px));pointer-events:auto;
+  background:var(--paper);border:3px solid var(--rv-ink);
+  border-radius:14px;padding:10px 13px;
+  box-shadow:0 4px 0 rgba(20,24,28,.26)}
+.rv-peek::after{content:"";position:absolute;left:var(--tail, 50%);bottom:-9px;
+  width:15px;height:15px;transform:translateX(-50%) rotate(45deg);
+  background:var(--paper);border-right:3px solid var(--rv-ink);
+  border-bottom:3px solid var(--rv-ink)}
+.rv-peek h4{margin:0 0 4px;font-size:13.5px;font-weight:600;display:flex;gap:8px;
+  align-items:baseline;flex-wrap:wrap}
 .rv-peek h4 span{font-family:var(--mono);font-size:10.5px;color:var(--graphite-60);font-weight:400}
-.rv-peek p{margin:0;font-size:13px;line-height:1.55;color:var(--note-ink);
-  max-height:5.2em;overflow:hidden}
+.rv-peek p{margin:0;font-size:12.5px;line-height:1.5;color:var(--note-ink);
+  max-height:4.6em;overflow:hidden}
 .rv-peek .row{margin-top:8px}
 .rv-peek .btn{padding:5px 11px;font-size:12.5px}
-.rv-things{display:flex;gap:11px;overflow-x:auto;overflow-y:hidden;padding:8px 2px 10px;
-  scrollbar-width:thin;align-items:flex-end;min-height:152px}
 
-/* A door is a door and a dead end is a crate: the silhouettes differ, so a
-   row of them reads as a room with things in it rather than a row of tabs.
-   Both stand on the floor line, which is why the strip aligns to the bottom. */
-.rv-thing{
-  position:relative;flex:0 0 auto;width:98px;cursor:pointer;
-  display:flex;flex-direction:column;justify-content:flex-end;
-  border:0;background:transparent;color:var(--rv-door-ink);
-  padding:0;text-align:center;font-family:var(--sans)
-}
-.rv-thing .lid{position:relative;border:1.5px solid var(--rv-line);background:var(--rv-door);
-  border-radius:2px 2px 0 0}
-.rv-thing:hover .lid{background:var(--rv-wall-2)}
-.rv-thing.open{outline:none}
-.rv-thing.open .lid,
-.rv-thing.from .lid{box-shadow:0 0 0 2px var(--blueprint)}
-
-/* ---- a door: a room lies beyond it ---- */
-.rv-thing.door{height:138px}
-.rv-thing.door .lid{
-  height:100%;
-  background:var(--rv-door);
-  background:linear-gradient(97deg,var(--rv-door) 0 62%,
-    color-mix(in srgb, var(--rv-door) 88%, #000) 100%);
-  box-shadow:inset 0 0 0 6px var(--rv-line);
-  box-shadow:inset 0 0 0 5px color-mix(in srgb, var(--rv-door) 92%, #000),
-             inset 0 0 0 6px var(--rv-line)
-}
-/* one sunken panel above the plate */
-.rv-thing.door .lid::before{content:"";position:absolute;left:13px;right:13px;top:22px;
-  height:47px;border:1px solid var(--rv-line);border-radius:1px;
-  background:var(--rv-wall-2);
-  background:color-mix(in srgb, var(--rv-door) 94%, #000);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.35)}
-.rv-thing.door .knob{position:absolute;right:11px;top:52%;width:7px;height:7px;z-index:2;
-  border-radius:50%;background:var(--rv-door-ink);opacity:.55;
-  box-shadow:0 0 0 2px var(--rv-door);
-  box-shadow:0 0 0 2px color-mix(in srgb, var(--rv-door) 70%, transparent)}
-.rv-thing.near .knob{opacity:.95}
-
-/* ---- a crate: nothing lies beyond it, only what is written on it ---- */
-.rv-thing.item{height:100px}
-.rv-thing.item .lid{
-  height:100%;border-radius:2px;
-  background:var(--rv-door);
-  background:linear-gradient(180deg,
-    color-mix(in srgb, var(--rv-door) 96%, #fff) 0 11px, var(--rv-door) 11px)
-}
-/* a slat across the lid, and a corner turned up, so it is plainly not a door */
-.rv-thing.item .lid::before{content:"";position:absolute;left:7px;right:7px;top:14px;
-  height:11px;border:1px solid var(--rv-line);border-radius:1px;
-  background:transparent;
-  background:color-mix(in srgb, var(--rv-line) 22%, transparent)}
-.rv-thing.item .lid::after{content:"";position:absolute;right:6px;top:4px;
-  width:12px;height:12px;
-  background:linear-gradient(225deg,var(--rv-wall-2) 50%,transparent 50%);
-  border-left:1px solid var(--rv-line);border-bottom:1px solid var(--rv-line)}
-
-/* The name is a plate screwed to the front, not a caption underneath: with it
-   underneath, the light under the door and the shadow on the floor both
-   landed on the words instead of at the object's foot. */
-.rv-thing .plate{position:absolute;left:11px;right:11px;bottom:11px;z-index:2;
-  padding:4px 4px;font-size:11px;line-height:1.24;font-weight:500;
-  background:var(--rv-board);
-  background:color-mix(in srgb, var(--rv-door) 82%, #fff);
-  border:1px solid var(--rv-line);border-radius:1px;
-  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;
-  word-break:break-word;text-align:center}
-.rv-thing.item .plate{left:7px;right:7px;bottom:7px;-webkit-line-clamp:3}
-html[data-theme="dark"] .rv-thing .plate{
-  background:var(--rv-board);
-  background:color-mix(in srgb, var(--rv-door) 80%, #000)}
-/* how many rooms lie beyond, as the number over the door */
-.rv-thing .deep{position:absolute;left:50%;top:7px;transform:translateX(-50%);z-index:2;
-  font-family:var(--mono);font-size:10px;letter-spacing:.04em;
-  background:var(--rv-wall-2);
-  background:color-mix(in srgb, var(--rv-door-ink) 14%, var(--rv-door));
-  border:1px solid var(--rv-line);border-radius:1px;padding:0 5px;
-  color:var(--rv-door-ink)}
-.rv-thing.item .deep{top:-1px}
-.rv-thing .mk{position:absolute;top:-6px;right:-4px;width:17px;height:17px;border-radius:50%;
-  z-index:3;display:grid;place-items:center;font-size:10px;font-weight:600;color:#fff;
-  font-family:var(--mono);box-shadow:0 1px 3px rgba(20,24,28,.3)}
-.rv-thing .mk.todo{background:var(--flag)}
-.rv-thing .mk.flag{background:var(--flag)}
-.rv-thing .mk.sug{background:var(--blueprint)}
-.rv-thing.hit .lid{box-shadow:0 0 0 2px var(--hit-line)}
-.rv-thing.retired{opacity:.55}
-.rv-thing.dragging{opacity:.4}
-.rv-none{font-size:12.5px;color:var(--graphite-60);padding:10px 2px;font-family:var(--sans)}
+.rv-none{font-size:12.5px;color:var(--rv-dim, var(--graphite-60));font-family:var(--sans);
+  position:absolute;left:0;right:0;bottom:16px;text-align:center}
 .rv-ghost{position:fixed;z-index:120;pointer-events:none;background:var(--paper);
   border:1px solid var(--blueprint);border-radius:2px;padding:5px 9px;font-size:12px;
   box-shadow:0 6px 16px -10px rgba(20,24,28,.6);max-width:180px;overflow:hidden;
@@ -877,35 +1343,25 @@ html[data-motion="calm"] .rv-arch.swing{animation:none}
    transforms and opacity so the compositor carries it and the main thread
    stays free, and all of it stops dead on "Still". */
 
-/* depth: the surfaces slide against each other as the pointer crosses */
+/* Depth: the surfaces slide against each other as the pointer crosses. The
+   offsets are written straight onto the five surfaces that move. Driving them
+   from a custom property on the room was tidier to read and cost twenty
+   frames a second: changing a property there makes the browser re-check the
+   style of everything inside, and everything inside is forty creatures. */
 .rv-scene i,
 .rv-board,
-.rv-things,
 .rv-way,
-.rv-stuff,
 .rv-air i{transition:transform .5s cubic-bezier(.2,.7,.3,1)}
-.rv-scene .back{transform:translate3d(calc(var(--px,0) * 7px), calc(var(--py,0) * 5px), 0)}
-.rv-scene .ceil{transform:translate3d(calc(var(--px,0) * 3px), calc(var(--py,0) * 2px), 0)}
-.rv-scene .floor{transform:translate3d(calc(var(--px,0) * 3px), calc(var(--py,0) * -2px), 0)}
-.rv-board{transform:translate3d(calc(var(--px,0) * 4px), calc(var(--py,0) * 3px), 0)}
-.rv-things{transform:translate3d(calc(var(--px,0) * -9px), 0, 0)}
-.rv-way{transform:translateY(-50%) translate3d(calc(var(--px,0) * -7px), 0, 0)}
-.rv-stuff{transform:translateY(-50%) translate3d(calc(var(--px,0) * -7px), 0, 0)}
+.rv-way{transform:translateY(-50%)}
+
 
 /* every door stands in a slot, so its shadow and the light under it are not
    clipped by the door's own frame */
-.rv-slot{position:relative;flex:0 0 auto;display:flex;flex-direction:column;
-  animation:rvIdle 7s ease-in-out infinite;
-  animation-delay:calc(var(--i, 0) * -0.83s)}
+.rv-slot{display:contents}
 @keyframes rvIdle{
   0%,100%{transform:translateY(0) rotate(0deg)}
   50%{transform:translateY(-2px) rotate(-.22deg)}
 }
-/* it rests on the floor, so it casts something */
-.rv-slot::after{content:"";position:absolute;left:8%;right:8%;bottom:-5px;height:7px;
-  border-radius:50%;background:radial-gradient(ellipse at 50% 50%,
-    rgba(18,22,26,.34) 0%, rgba(18,22,26,0) 72%);pointer-events:none}
-
 /* light under the door: something behind it is waiting for you */
 .rv-glow{position:absolute;left:4%;right:4%;bottom:-3px;height:17px;pointer-events:none;
   background:linear-gradient(0deg, var(--rv-glow, #E8A33D) 0%, transparent 70%);
@@ -922,48 +1378,6 @@ html[data-motion="calm"] .rv-arch.swing{animation:none}
 .rv-thing{transition:transform .18s ease-out, background .15s}
 .rv-thing.near{transform:translateY(-4px) scale(1.025)}
 .rv-thing.near .lid::after{background:var(--rv-glow, var(--graphite))}
-
-/* ---------- what is in the room besides doors ----------
-   The things this node is actually asking of people stand against the right
-   wall as objects you can walk up to: a clipboard for what must be confirmed,
-   a spike of slips for what has been suggested, a pinned card for what has
-   been asked. Each one opens the panel it belongs to. */
-.rv-stuff{position:absolute;z-index:3;right:max(6px, calc(var(--rv-r) * .18));top:50%;
-  display:flex;flex-direction:column;gap:9px;align-items:center}
-.rv-obj{
-  position:relative;width:58px;border:1px solid var(--rv-line);background:var(--rv-door);
-  color:var(--rv-door-ink);border-radius:3px;padding:8px 5px 7px;cursor:pointer;
-  display:flex;flex-direction:column;align-items:center;gap:5px;font-family:var(--sans);
-  box-shadow:-2px 0 0 rgba(35,40,45,.05);
-  transition:transform .18s ease-out, background .15s;
-  animation:rvIdle 9s ease-in-out infinite}
-.rv-obj:hover{background:var(--rv-wall-2);transform:translateY(-3px)}
-.rv-obj b{font-family:var(--mono);font-size:14px;font-weight:600;line-height:1}
-.rv-obj span{font-size:9.5px;line-height:1.15;text-align:center;opacity:.8}
-.rv-obj .pic{width:26px;height:30px;position:relative;flex:0 0 auto}
-/* a clipboard */
-.rv-obj.confirm .pic{border:1.4px solid currentColor;border-radius:2px}
-.rv-obj.confirm .pic::before{content:"";position:absolute;left:50%;top:-4px;width:12px;height:6px;
-  transform:translateX(-50%);border:1.4px solid currentColor;border-radius:2px;
-  background:var(--rv-door)}
-.rv-obj.confirm .pic::after{content:"";position:absolute;left:4px;right:4px;top:10px;height:9px;
-  background:repeating-linear-gradient(180deg,currentColor 0 1.2px,transparent 1.2px 4px);
-  opacity:.65}
-/* a spike of slips */
-.rv-obj.suggest .pic::before{content:"";position:absolute;inset:6px 1px 2px;
-  border:1.4px solid currentColor;border-radius:1px;background:var(--rv-door);
-  box-shadow:2px -3px 0 -1px var(--rv-door), 2px -3px 0 currentColor,
-             4px -6px 0 -1px var(--rv-door), 4px -6px 0 currentColor}
-/* a pinned card */
-.rv-obj.ask .pic::before{content:"";position:absolute;inset:5px 0 3px;
-  border:1.4px solid currentColor;border-radius:2px;background:var(--rv-door)}
-.rv-obj.ask .pic::after{content:"";position:absolute;left:50%;top:1px;width:6px;height:6px;
-  transform:translateX(-50%);border-radius:50%;background:currentColor}
-.rv-obj .tick{position:absolute;top:-6px;right:-6px;min-width:17px;height:17px;padding:0 3px;
-  border-radius:9px;background:var(--flag);color:#fff;font-family:var(--mono);font-size:10px;
-  display:grid;place-items:center;font-weight:600}
-.rv-obj.suggest .tick{background:var(--blueprint)}
-.rv-obj.ask .tick{background:var(--graphite)}
 
 /* ---------- the air ----------
    One signature per dressing, slow enough to sit under a conversation. */
@@ -1017,33 +1431,118 @@ html[data-motion="calm"] .rv-arch.swing{animation:none}
   animation:rvGrain 44s linear infinite}
 @keyframes rvGrain{from{transform:translate(0,0)}to{transform:translate(9.4px,8.4px)}}
 
+
+
+
+/* ---------------------------------------------------------------
+   THE CONTROL PANEL
+
+   Everything you do to a room, rather than in it, lives in one bar along the
+   bottom: what must be confirmed, what has been asked, what has been
+   suggested, and the handful of buttons for arranging and editing. It is
+   drawn like everything else here — a rounded panel with a heavy outline —
+   so it reads as part of the room rather than browser furniture.
+   --------------------------------------------------------------- */
+.rv-bar{
+  position:absolute;left:10px;right:10px;bottom:9px;z-index:30;
+  display:flex;align-items:center;gap:10px;
+  padding:7px 10px;min-height:48px;
+  background:linear-gradient(180deg,#5AA8DE 0%,#3B85BE 100%);
+  border:3px solid var(--rv-ink);border-radius:26px;
+  box-shadow:inset 0 3px 0 rgba(255,255,255,.35), 0 4px 0 rgba(20,24,28,.22)
+}
+html[data-theme="dark"] .rv-bar{
+  background:linear-gradient(180deg,#2F5D80 0%,#1E3E58 100%)}
+.rv-bar-left,.rv-bar-right{display:flex;align-items:center;gap:7px;flex:0 0 auto}
+.rv-bar-mid{flex:1 1 auto;min-width:0;
+  font-family:var(--mono);font-size:11.5px;color:#0E2233;
+  background:rgba(255,255,255,.82);border:2px solid var(--rv-ink);border-radius:15px;
+  padding:5px 12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+html[data-theme="dark"] .rv-bar-mid{background:rgba(9,17,24,.6);color:#CFE2F0}
+.rv-bar-mid b{color:#A5341F;font-weight:600}
+html[data-theme="dark"] .rv-bar-mid b{color:#F09A7E}
+
+/* a button on the panel */
+.rvb{
+  display:flex;align-items:center;gap:6px;position:relative;
+  border:2.5px solid var(--rv-ink);border-radius:17px;
+  background:linear-gradient(180deg,#FBFBF7 0%,#DEE3E6 100%);
+  color:#16202A;font-family:var(--sans);font-size:12.5px;font-weight:500;
+  padding:5px 12px;cursor:pointer;line-height:1.2;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.9), 0 2px 0 rgba(20,24,28,.3)
+}
+.rvb:hover{background:linear-gradient(180deg,#FFF 0%,#E9EEF1 100%)}
+.rvb:active{transform:translateY(2px);box-shadow:inset 0 2px 0 rgba(255,255,255,.9)}
+html[data-theme="dark"] .rvb{
+  background:linear-gradient(180deg,#39434C 0%,#252D34 100%);color:#E6EDF3}
+html[data-theme="dark"] .rvb:hover{background:linear-gradient(180deg,#44505A 0%,#2C353D 100%)}
+.rvb .ic{font-size:14px;line-height:1}
+.rvb.on{background:linear-gradient(180deg,#F5CE55 0%,#E0A526 100%);color:#2A1D05}
+.rvb .tick{position:absolute;top:-7px;right:-6px;min-width:19px;height:19px;padding:0 4px;
+  border-radius:10px;border:2px solid var(--rv-ink);
+  background:#D8452E;color:#fff;font-family:var(--mono);font-size:10px;font-weight:600;
+  display:grid;place-items:center}
+.rvb.suggest .tick{background:#3E8FD6}
+.rvb.ask .tick{background:#6A5ACD}
+.rvb.confirm.mine{background:linear-gradient(180deg,#F0836A 0%,#D8452E 100%);color:#fff}
+
+@media (max-width:820px){
+  .rv-bar{left:6px;right:6px;bottom:calc(6px + env(safe-area-inset-bottom));
+    gap:6px;padding:6px 7px;border-radius:22px;border-width:2.5px}
+  .rv-bar-mid{display:none}
+  .rvb{padding:6px 9px;border-radius:15px}
+  .rvb .lb{display:none}
+  .rvb .ic{font-size:16px}
+  .rv-bar-left,.rv-bar-right{gap:6px}
+  .rv-bar-right{margin-left:auto}
+}
+
+/* how dark it is through a doorway, per dressing */
+#roomView{--rv-open:#241E18;--rv-open-lit:#3A3128}
+/* Plain follows the map's own theme, but the floor was the same tone as the
+   wall, so the room read as one flat page. A shade of separation is enough. */
+#roomView[data-skin="plain"]{--rv-open:#1E2226;--rv-open-lit:#333A41;
+  --rv-floor:#E4E5DF;--rv-wall-2:#EDEEE8;--rv-ceil:#EFF0EA;
+  --rv-floor-pattern:repeating-linear-gradient(90deg,
+    rgba(35,40,45,.055) 0 1px,transparent 1px 42px)}
+html[data-theme="dark"] #roomView[data-skin="plain"]{
+  --rv-floor:#22272C;--rv-wall-2:#1A1E22;--rv-ceil:#1C2125;
+  --rv-floor-pattern:repeating-linear-gradient(90deg,
+    rgba(255,255,255,.05) 0 1px,transparent 1px 42px)}
+#roomView[data-skin="study"]{--rv-open:#2A1F15;--rv-open-lit:#45341F}
+#roomView[data-skin="workshop"]{--rv-open:#15191C;--rv-open-lit:#2A3238}
+#roomView[data-skin="street"]{--rv-open:#2A1A12;--rv-open-lit:#46281A}
+#roomView[data-skin="scroll"]{--rv-open:#2B2318;--rv-open-lit:#463A25}
+
 /* ---------- how much life ---------- */
 #roomView[data-life="quiet"] .rv-air{display:none}
 #roomView[data-life="quiet"] .rv-slot,
-#roomView[data-life="quiet"] .rv-obj{animation:none}
+#roomView[data-life="quiet"] .rv-thing .bob,
+#roomView[data-life="quiet"] .rv-thing .eye,
+#roomView[data-life="quiet"] .rv-thing .eye{animation:none}
 #roomView[data-life="still"] .rv-air{display:none}
 #roomView[data-life="still"] .rv-slot,
-#roomView[data-life="still"] .rv-obj,
+#roomView[data-life="still"] .rv-thing .bob,
+#roomView[data-life="still"] .rv-thing .eye,
 #roomView[data-life="still"] .rv-glow{animation:none}
 #roomView[data-life="still"] .rv-scene i,
-#roomView[data-life="still"] .rv-board,
-#roomView[data-life="still"] .rv-things,
-#roomView[data-life="still"] .rv-way,
-#roomView[data-life="still"] .rv-stuff{transform:none;transition:none}
+#roomView[data-life="still"] .rv-board{transform:none;transition:none}
+#roomView[data-life="still"] .rv-way{transform:translateY(-50%);transition:none}
+
 #roomView[data-life="still"] .rv-thing{transition:none}
 #roomView[data-life="still"] .rv-thing.near{transform:none}
 
 @media (prefers-reduced-motion:reduce){
   .rv-air{display:none !important}
-  .rv-slot,.rv-obj,.rv-glow{animation:none !important}
-  .rv-scene i,.rv-board,.rv-things,.rv-way,.rv-stuff,.rv-thing{transition:none !important}
+  .rv-slot,.rv-glow,.rv-thing .bob,.rv-thing .eye{animation:none !important}
+  .rv-scene i,.rv-board,.rv-way,.rv-thing{transition:none !important}
 }
 
 @media (max-width:820px){
-  .rv-stuff{right:max(4px, calc(var(--rv-r) * .1));gap:7px}
-  .rv-obj{width:46px;padding:6px 3px 5px}
-  .rv-obj .pic{width:21px;height:25px}
-  .rv-obj span{font-size:8.5px}
+  /* On a phone the right wall is too thin to stand anything against, so the
+     things this node is asking for line up on the shelf above the floor. */
+  /* and the trail keeps clear of the Room / Drawing switch */
+  .rv-trail{max-width:calc(100% - 168px);margin-right:auto;margin-left:8px}
 }
 
 /* The switch between the room and the drawing. It lives in one corner and is
@@ -1085,7 +1584,7 @@ html[data-theme="dark"] #roomView[data-skin="study"]{
 }
 #roomView[data-skin="workshop"] .rv-scene .back{background-size:16px 16px}
 html[data-theme="dark"] #roomView[data-skin="workshop"]{
-  --rv-wall:#22282C;--rv-wall-2:#191E22;--rv-floor:#171C20;--rv-ceil:#1D2327;
+  --rv-wall:#22282C;--rv-wall-2:#191E22;--rv-floor:#2B3238;--rv-ceil:#1D2327;
   --rv-line:#4C565E;--rv-board:#1B2125;--rv-door:#262E33;--rv-door-ink:#DDE4E9;
   --rv-pattern:radial-gradient(circle,rgba(255,255,255,.12) 1px,transparent 1.4px)
 }
@@ -1121,8 +1620,8 @@ html[data-theme="dark"] #roomView[data-skin="scroll"]{
 
 @media (max-width:820px){
   #roomView{inset:0;border:0}
-  #roomView{--rv-l:7%;--rv-r:7%;--rv-t:8%;--rv-b:max(26%, 148px)}
-  .rv-way{width:40px;padding:10px 4px}
+  #roomView{--rv-l:7%;--rv-r:7%;--rv-t:9%;--rv-b:max(35%, 196px)}
+  .rv-way{width:34px;padding:9px 3px}
   .rv-way b{max-height:110px;font-size:11px}
   .rv-board{left:calc(var(--rv-l) + 38px);right:calc(var(--rv-r) + 8px);
     top:calc(var(--rv-t) + 8px);bottom:calc(var(--rv-b) + 8px)}
@@ -1130,14 +1629,14 @@ html[data-theme="dark"] #roomView[data-skin="scroll"]{
   .rv-head{flex-wrap:wrap;padding:9px 11px 7px}
   .rv-head h3{flex:1 1 100%;font-size:16px}
   .rv-head .rv-acts{flex:1 1 100%;justify-content:flex-end}
-  .rv-things{min-height:122px;gap:8px}
-  .rv-thing{width:84px}
-  .rv-thing.door{height:116px}
-  .rv-thing.door .lid::before{height:34px;top:18px}
-  .rv-thing.item{height:86px}
-  .rv-thing .plate{-webkit-line-clamp:3;font-size:10.5px;left:8px;right:8px;bottom:8px}
+  .rv-thing{width:74px;margin:-52px 0 0 -37px}
+  .rv-thing.door .body{width:44px;height:48px}
+  .rv-thing.door .arch{width:58px;height:44px}
+  .rv-thing.item .body{width:32px;height:29px}
+  .rv-thing .face{height:12px}
+  .rv-thing .plate{font-size:9.5px;max-width:74px;-webkit-line-clamp:2;padding:2px 4px}
   .rv-top{padding:7px 8px 0}
-  .rv-floorstrip{padding:2px 7px 8px}
+  .rv-floorstrip{top:calc(100% - var(--rv-b) - 18px)}
 }
 
 /* ---------- svg content ---------- */
@@ -2058,6 +2557,14 @@ body.viewing.panelaway #panelHide{display:none}
             <option value="room">The room — stand inside the node you pick</option>
             <option value="map">The drawing — the whole map at once</option>
           </select></label>
+        <div class="row" style="margin-bottom:6px">
+          <button class="btn" id="mapBackdrop">Backdrop for every room</button>
+          <button class="btn" id="mapRandom">One each, from my folder</button>
+          <button class="btn" id="mapBackdropOff">Clear it</button>
+        </div>
+        <p class="fineprint" id="bdPoolNote" style="margin:-2px 0 8px"></p>
+        <p class="fineprint" style="margin:-2px 0 10px">A web address, or the name of a file in
+          your synced picture folder. One room can override it with its own.</p>
         <label class="field"><span>How much the room moves</span>
           <select id="roomLife">
             <option value="full">Full — depth, air, and light under the doors</option>
@@ -2071,6 +2578,8 @@ body.viewing.panelaway #panelHide{display:none}
             <option value="workshop">A workshop — pegboard wall, concrete floor</option>
             <option value="street">A street — brick, sky and paving</option>
             <option value="scroll">A scroll — parchment, rolled at both ends</option>
+            <option value="compact">Compact — small and quick, for a phone</option>
+            <option value="boardroom">Boardroom — plain and legible, for a projector</option>
           </select></label>
         <label class="field"><span>How branches are arranged</span>
           <select id="branchShape">
@@ -2299,35 +2808,46 @@ body.viewing.panelaway #panelHide{display:none}
     <!-- the room: a node seen from the inside -->
     <div id="roomView" hidden data-skin="plain">
       <div class="rv-scene" aria-hidden="true">
-        <i class="ceil"></i><i class="wl"></i><i class="wr"></i>
-        <i class="floor"></i><i class="back"></i>
+        <i class="sky"></i><i class="far2"></i><i class="far"></i>
+        <i class="ground"></i><i class="band"></i>
       </div>
+      <div class="rv-props" aria-hidden="true">
+        <i class="p1"></i><i class="p2"></i><i class="p3"></i><i class="p4"></i>
+      </div>
+      <div class="rv-photo" id="rvPhoto" aria-hidden="true" hidden></div>
       <div class="rv-air" aria-hidden="true"><i class="shaft"></i><i class="motes"></i></div>
       <div class="rv-room" id="rvRoom">
         <div class="rv-top">
           <div class="rv-trail" id="rvTrail"></div>
-          <div class="rv-arches" id="rvArches"></div>
         </div>
         <div class="rv-mid">
           <button class="rv-way empty" id="rvOut"><em>&#8592;</em><b></b></button>
-          <div class="rv-stuff" id="rvStuff"></div>
-          <div class="rv-board">
+          <div class="rv-board" id="rvBoard">
             <div class="rv-head">
               <h3 id="rvTitle">Nothing picked</h3>
-              <div class="rv-acts">
-                <button class="btn" id="rvEdit" hidden>Edit</button>
-                <button class="btn" id="rvAdd" hidden>Add</button>
-
-              </div>
             </div>
             <div class="rv-tags" id="rvTags" hidden></div>
-            <div class="rv-note" id="rvNote"></div>
+            <div class="rv-wallrow">
+              <figure class="rv-pic" id="rvPic" hidden><img alt=""></figure>
+              <div class="rv-note" id="rvNote"></div>
+            </div>
             <div class="rv-count" id="rvCount"></div>
           </div>
+          <div class="rv-exits" id="rvArches"></div>
         </div>
         <div class="rv-floorstrip">
+          <div class="rv-field" id="rvField" data-lay="roam"></div>
           <div class="rv-peek" id="rvPeek" hidden></div>
-          <div class="rv-things" id="rvThings"></div>
+        </div>
+        <div class="rv-bar" id="rvBar">
+          <div class="rv-bar-left" id="rvStuff"></div>
+          <div class="rv-bar-mid" id="rvBarSays"></div>
+          <div class="rv-bar-right">
+            <button class="rvb" id="rvLayout" title="Line everything up, or let it wander">
+              <span class="ic">&#9776;</span><span class="lb">Line up</span></button>
+            <button class="rvb" id="rvEdit" hidden><span class="ic">&#9998;</span><span class="lb">Edit</span></button>
+            <button class="rvb" id="rvAdd" hidden><span class="ic">+</span><span class="lb">Add</span></button>
+          </div>
         </div>
       </div>
     </div>
@@ -2924,7 +3444,7 @@ function writeAll(ss, prefix, tables) {
 const S = {
   meta:{ title:"Sample accessioning", author:"jerico", created:nowISO(), key:null,
          lastEdited:null, lastOpened:null, bytes:0, provisional:false,
-         locked:false, rootHash:"", routeTree:"curve", routeCross:"curve", crossLine:"dashed", crossColor:"", newBadgeImage:"", sevArt:{} },
+         locked:false, rootHash:"", routeTree:"curve", routeCross:"curve", crossLine:"dashed", crossColor:"", newBadgeImage:"", backdrop:"", backdropFloor:62, sevArt:{} },
   nodes:new Map(),      // id -> node
   areas:new Map(),      // id -> labelled region drawn behind the map
   bookmarks:[],         // saved viewpoints
@@ -2954,6 +3474,7 @@ const S = {
   vista:"room",                // room | map — stand inside a node, or see the drawing
   roomSkin:"plain",            // how the room is dressed
   roomLife:"full",             // full | quiet | still — how much the room moves
+  roomFloor:"roam",            // roam | row — wandering, or lined up to read
   branchShape:"tidy",          // tidy | radial
   branchGrid:true,             // pack big fans into a grid rather than one column
   avoidNodes:true,             // steer links around nodes they do not touch
@@ -2994,6 +3515,7 @@ function newNode(o={}){
     id:uid("N-"), label:"New node", body:"", type:"step", tags:[],
     status:"active", flag:"", image:"", imageH:120, edit:0,
     badge:"", badgeAt:"", badgeImage:"", supersededBy:"", tableSort:"", order:"",
+    backdrop:"", backdropFloor:"", backdropSalt:"", spots:"",
     created:nowISO(), modified:nowISO(),
     rev:1, author:S.meta.author, x:null, y:null, pinned:false, collapsed:false
   }, o);
@@ -3720,6 +4242,10 @@ function toSheets(){
     node_id:n.id, label:n.label, body:n.body, type:n.type,
     tags:(n.tags||[]).join(", "), status:n.status, flag:n.flag||"",
     image:n.image||"", image_h:n.image?(n.imageH||120):"",
+    backdrop:n.backdrop||"", backdrop_floor:n.backdropFloor === "" || n.backdropFloor == null
+      ? "" : Number(n.backdropFloor),
+    backdrop_salt:n.backdropSalt === "" || n.backdropSalt == null ? "" : Number(n.backdropSalt),
+    spots:n.spots || "",
     created:n.created, modified:n.modified, rev:n.rev, edit:n.edit|0, author:n.author,
     badge:n.badge||"", badge_at:n.badgeAt||"", badge_image:n.badgeImage||"",
     superseded_by:n.supersededBy || "",
@@ -3782,7 +4308,9 @@ function toSheets(){
     {key:"route_cross", value:S.meta.routeCross || "curve"},
     {key:"cross_line", value:S.meta.crossLine || "dashed"},
     {key:"cross_color", value:S.meta.crossColor || ""},
-    {key:"new_badge_image", value:S.meta.newBadgeImage || ""}
+    {key:"new_badge_image", value:S.meta.newBadgeImage || ""},
+    {key:"backdrop", value:S.meta.backdrop || ""},
+    {key:"backdrop_floor", value:S.meta.backdropFloor == null ? 62 : S.meta.backdropFloor}
   ].concat(SEVERITIES.map(sv=>({key:sv.key, value:(S.meta.sevArt || {})[sv.key] || ""})));
   const sync = S.connections.filter(c=>(c.endpoint||"").trim()).map(c=>({
     name:c.name, endpoint:c.endpoint, spreadsheet_id:c.id||"", prefix:c.prefix||"",
@@ -3856,6 +4384,12 @@ function tablesToModel(t){
       tags:String(r.tags||"").split(",").map(x=>x.trim()).filter(Boolean),
       status:String(r.status||"active").toLowerCase(), flag:String(r.flag||""),
       image:String(r.image||"").trim(), imageH:Number(r.image_h)||120,
+      backdrop:String(r.backdrop||"").trim(),
+      backdropFloor:(r.backdrop_floor === "" || r.backdrop_floor == null)
+        ? "" : Number(r.backdrop_floor),
+      backdropSalt:(r.backdrop_salt === "" || r.backdrop_salt == null)
+        ? "" : Number(r.backdrop_salt),
+      spots:String(r.spots || "").trim(),
       created:String(r.created||nowISO()), modified:String(r.modified||nowISO()),
       rev:Number(r.rev)||1, edit:Number(r.edit)||0, author:String(r.author||S.meta.author),
       badge:String(r.badge||""), badgeAt:String(r.badge_at||""), badgeImage:String(r.badge_image||""),
@@ -4001,6 +4535,9 @@ function adoptModel(M, keepConnections){
   S.meta.crossLine = M.settings.cross_line || "dashed";
   S.meta.crossColor = M.settings.cross_color || "";
   S.meta.newBadgeImage = M.settings.new_badge_image || "";
+  S.meta.backdrop = M.settings.backdrop || "";
+  S.meta.backdropFloor = M.settings.backdrop_floor === "" || M.settings.backdrop_floor == null
+    ? 62 : Number(M.settings.backdrop_floor);
   /* the severity artwork was written to the sheet but never read back, so it
      survived a save and vanished on the next open */
   S.inbox = (M.inbox || []).slice();
@@ -9998,6 +10535,26 @@ function renderInspector(){
         <button class="btn" id="fBadgeImg">${n.badgeImage ? "Change this node's badge" : "Badge for this node"}</button>
       </div>
       <div class="row" style="margin-top:8px">
+        <button class="btn" id="fBackdrop">${n.backdrop ? "Change this room's backdrop" : "Backdrop for this room"}</button>
+        <button class="btn" id="fBackdropOff"${n.backdrop?"":" disabled"}>Use the map's</button>
+      </div>
+      ${S.meta.backdrop === "random" && !n.backdrop ? `<div class="row" style="margin-top:6px">
+        <button class="btn" id="fShuffle">Give it a different one</button>
+        <button class="btn" id="fPin">Keep this one</button>
+      </div>
+      <p class="fineprint" style="margin:5px 0 0">Rooms are taking one each from your
+        folder. The same room gets the same picture every time, until you shuffle it.</p>` : ""}
+      ${n.spots ? `<div class="row" style="margin-top:6px">
+        <button class="btn" id="fScatter">Scatter them again</button></div>
+      <p class="fineprint" style="margin:5px 0 0">${spotsOf(n).size} of the things in here
+        have been put in a particular spot. Drag one on the floor to move it.</p>`
+      : `<p class="fineprint" style="margin:6px 0 0">Drag a thing around the floor of this
+        room to park it somewhere — useful when the backdrop has furniture in it.</p>`}
+      ${n.backdrop ? `<label class="field" style="margin-top:6px"><span>Where the floor starts in it
+        — ${Math.round(Number(n.backdropFloor) || 62)}% down</span>
+        <input type="range" id="fBackdropFloor" min="15" max="88" step="1"
+               value="${Math.round(Number(n.backdropFloor) || 62)}"></label>` : ""}
+      <div class="row" style="margin-top:8px">
         <button class="btn" id="fMyArt">${hasOwnArt(n.id) ? "Change my own picture" : "Use my own picture here"}</button>
         <button class="btn" id="fMyArtOff"${hasOwnArt(n.id)?"":" disabled"}>Back to the host's</button>
       </div>
@@ -10118,6 +10675,36 @@ function renderInspector(){
     v=>{ setField(n, "image", v); rebuild(); },
     ()=>{ setField(n, "image", ""); rebuild(); });
   if(el("fImgH")) el("fImgH").onchange = e=>commit("imageH", Number(e.target.value));
+  el("fBackdrop").onclick = ()=>{
+    pickImage("Backdrop for this room", n.backdrop || "",
+      v=>{ setField(n, "backdrop", v); if(!n.backdropFloor) n.backdropFloor = 62;
+           markDirty(); renderInspector(); renderRoomSoon(); },
+      ()=>{ setField(n, "backdrop", ""); markDirty(); renderInspector(); renderRoomSoon(); });
+  };
+  el("fBackdropOff").onclick = ()=>{
+    setField(n, "backdrop", ""); markDirty(); renderInspector(); renderRoomSoon();
+  };
+  if(el("fShuffle")) el("fShuffle").onclick = ()=>{
+    n.backdropSalt = (Number(n.backdropSalt) || 0) + 1;
+    markDirty(); renderRoomSoon();
+  };
+  if(el("fPin")) el("fPin").onclick = ()=>{
+    const nm = bdNameFor(n.id);
+    if(!nm){ toast("No folder picture to keep yet."); return; }
+    setField(n, "backdrop", nm);
+    markDirty(); renderInspector(); renderRoomSoon();
+    toast("This room keeps " + nm);
+  };
+  if(el("fScatter")) el("fScatter").onclick = ()=>{
+    if(clearSpots(n.id)){ renderInspector(); renderRoomSoon(); toast("Scattered"); }
+  };
+  if(el("fBackdropFloor")) el("fBackdropFloor").oninput = e=>{
+    n.backdropFloor = Number(e.target.value);
+    markDirty(); renderRoomSoon();
+    const lab = e.target.parentElement.querySelector("span");
+    if(lab) lab.textContent = "Where the floor starts in it \u2014 "
+      + Math.round(n.backdropFloor) + "% down";
+  };
   el("fMyArt").onclick = ()=>{
     const cur = ((S.personal.art||{})[n.id]||{});
     pickImage("My own picture for this node", cur.image || n.image || "",
@@ -11806,6 +12393,7 @@ async function afterMapSwitch(){
   if(el("vistaPref")) el("vistaPref").value = S.vista;
   if(el("roomSkin")) el("roomSkin").value = S.roomSkin;
   if(el("roomLife")) el("roomLife").value = S.roomLife;
+  layoutButton();
   if(el("portals")) el("portals").checked = S.portals;
   if(el("searchExcludes")) el("searchExcludes").checked = S.searchExcludes;
   if(el("routeTree")) el("routeTree").value = S.meta.routeTree || "curve";
@@ -13138,7 +13726,7 @@ async function loadPersonal(){
    different map. */
 const PREF_KEYS = ["notesMode","motion","showIds","avoidNodes","branchGrid",
                    "focusMode","pickZoom","followOutline","railOpen","branchShape",
-                   "searchExcludes","portals","vista","roomSkin","roomLife"];
+                   "searchExcludes","portals","vista","roomSkin","roomLife","roomFloor"];
 async function savePrefs(){
   const out = {};
   PREF_KEYS.forEach(k=>{ out[k] = S[k]; });
@@ -14677,6 +15265,8 @@ let roomFocus = -1;         // which thing the arrow keys are on
 let roomWalking = false;
 
 function inRoom(){ return S.vista === "room"; }
+/* A boardroom is read from the back of the room, so nothing in it wanders. */
+function floorIsRow(){ return S.roomFloor === "row" || S.roomSkin === "boardroom"; }
 
 /* Both ends of every cross-link this node has, with the label if one was
    written on the link and which way it was drawn. */
@@ -14765,6 +15355,8 @@ function roomAllowed(){
   return set;
 }
 
+function kidsAhead(id){ return childrenOf(id).some(k=>S.nodes.has(k)); }
+
 function roomThings(id){
   const ok = roomAllowed();
   return childrenOf(id).filter(k=>S.nodes.has(k) && (!ok || ok.has(k)));
@@ -14783,7 +15375,8 @@ function rvSetInks(){
     if(!m || m.length < 3) return "#FFFFFF";
     return "#" + m.slice(0, 3).map(x=>Math.round(+x).toString(16).padStart(2, "0")).join("");
   };
-  const ceil = view.querySelector(".rv-scene .ceil");
+  /* the band behind the room is the sky now, or the wall in an indoor one */
+  const ceil = view.querySelector(".rv-scene .sky");
   const board = view.querySelector(".rv-board");
   if(board){
     const b = hex(getComputedStyle(board).backgroundColor);
@@ -14793,11 +15386,30 @@ function rvSetInks(){
   if(ceil){
     /* the ceiling is laid over the wall at nine tenths, so the ink is chosen
        against the blend rather than the swatch */
-    const c = mixHex(hex(getComputedStyle(ceil).backgroundColor),
-                     hex(getComputedStyle(view).backgroundColor), .1);
+    /* a gradient reports no single colour, so the painted top of it is read
+       from the element's own computed background image where there is one */
+    let top = hex(getComputedStyle(ceil).backgroundColor);
+    const grad = getComputedStyle(ceil).backgroundImage;
+    const first = /rgba?\(([^)]+)\)/.exec(grad || "");
+    if(first) top = hex(first[0]);
+    const c = mixHex(top, hex(getComputedStyle(view).backgroundColor), .06);
     view.style.setProperty("--rv-ceil-solid", c);
     view.style.setProperty("--rv-dim-ceil", inkFor(c, 5.2));
   }
+}
+
+/* A room's own backdrop wins; otherwise the map's, if one is set. Both can
+   be a web address or the name of a file in the synced picture folder, which
+   is the same folder the node pictures already come from. */
+function backdropFor(id){
+  const n = id && S.nodes.get(id);
+  const name = bdNameFor(id);
+  if(!name) return null;
+  const floor = (n && n.backdropFloor !== "" && n.backdropFloor != null)
+    ? Number(n.backdropFloor)
+    : (S.meta.backdropFloor === "" || S.meta.backdropFloor == null
+        ? 62 : Number(S.meta.backdropFloor));
+  return {name, floor:Math.max(15, Math.min(88, floor || 62))};
 }
 
 function renderRoom(){
@@ -14805,6 +15417,29 @@ function renderRoom(){
   if(!view || view.hidden) return;
   const id = S.sel && S.nodes.has(S.sel) ? S.sel : null;
   view.dataset.skin = S.roomSkin || "plain";
+  /* the room is drawn now and the picture catches up: waiting on a file
+     before showing anything is what makes a place feel slow */
+  const photo = backdropFor(S.sel);
+  const ph = el("rvPhoto");
+  view.dataset.photo = photo ? "1" : "0";
+  if(ph){
+    if(!photo){ ph.hidden = true; ph.style.backgroundImage = ""; }
+    else {
+      const want = photo.name, mine = S.sel;
+      if(ph.dataset.name !== want){
+        ph.dataset.name = want;
+        backdropURL(want).then(url=>{
+          /* you may have walked on while it was reading */
+          if(S.sel !== mine || ph.dataset.name !== want) return;
+          if(!url){ ph.hidden = true; view.dataset.photo = "0"; return; }
+          ph.hidden = false;
+          ph.style.backgroundImage = 'url("' + url.replace(/"/g, '\\"') + '")';
+        });
+      } else ph.hidden = false;
+    }
+  }
+  bdWarmNeighbours(S.sel);
+  paraEls = null;                /* the scene is redrawn, so the list is stale */
   applyLife();
   rvSetInks();
 
@@ -14830,17 +15465,31 @@ function renderRoom(){
   const n = S.nodes.get(id);
   el("rvTitle").textContent = n.label || n.id;
 
-  /* the board on the wall */
+  /* what is on the wall: the note, and a picture beside it if there is one */
   const note = el("rvNote");
-  if(String(n.body || "").trim()){
+  const words = String(n.body || "").trim();
+  if(words){
     note.innerHTML = noteToHtml(n.body, n);
     wireTableSort(note);
     const q = (S.hitQuery || "").toLowerCase();
     if(q) markMatches(note, q);
   } else {
-    note.innerHTML = '<p class="empty">Nothing written on this one yet.</p>';
+    note.innerHTML = "";
   }
   note.scrollTop = 0;
+
+  const pic = el("rvPic");
+  const art = picURL(artFor(n, "image") || "");
+  if(pic){
+    if(art){ pic.hidden = false; pic.querySelector("img").src = art; }
+    else { pic.hidden = true; pic.querySelector("img").removeAttribute("src"); }
+  }
+  /* With neither a note nor a picture there is nothing to hang, so the sheet
+     comes off the wall altogether rather than hanging there blank. The count
+     line underneath already says what is in the room. */
+  const row = document.querySelector(".rv-wallrow");
+  if(row) row.hidden = !(words || art);
+  el("rvBoard").dataset.bare = (words || art) ? "0" : "1";
 
   /* tags, as they are drawn on the map */
   const tags = (n.tags || []).filter(Boolean);
@@ -14858,7 +15507,9 @@ function renderRoom(){
   const cross = crossOf(id).filter(c=>!allow || allow.has(c.id));
   const hiddenHere = childrenOf(id).length + crossOf(id).length - kids.length - cross.length;
   const bits = [];
-  if(kids.length) bits.push(kids.length + (kids.length === 1 ? " door" : " doors"));
+  if(kids.length) bits.push(kids.length + (kids.length === 1 ? " thing here" : " things here"));
+  if(!words && !art) bits.unshift(kidsAhead(id)
+    ? "nothing written here — the detail is below" : "nothing written here yet");
   if(cross.length) bits.push(cross.length + (cross.length === 1 ? " archway" : " archways"));
   const items = itemsFor(id);
   /* A viewing copy counts only what this person still owes — nobody else's
@@ -14872,6 +15523,10 @@ function renderRoom(){
   if(S.showIds) bits.push(n.id + " · v" + (n.rev || 1));
   const owed = canEdit() ? 0 : items.filter(it=>!S.checkoffs.some(x=>
     x.item === it.id && x.person === (S.who || "") && x.checked === "yes")).length;
+  if(el("rvBarSays")) el("rvBarSays").innerHTML = (owed
+      ? '<b>' + (owed === 1 ? "1 thing here still needs you"
+          : owed + " things here still need you") + '</b> \u00b7 ' : "")
+    + esc(bits.join("   \u00b7   "));
   el("rvCount").innerHTML = (owed
       ? '<b style="color:var(--flag)">' + (owed === 1
           ? "1 thing in here still needs you"
@@ -14887,19 +15542,23 @@ function renderRoom(){
       + '<span>&#8250;</span><em>' + esc(n.label || n.id) + '</em>'
     : "";
 
-  /* the archways along the top */
+  /* the side exits, cut into the foot of the back wall */
+  view.dataset.exits = cross.length ? "1" : "0";
   el("rvArches").innerHTML = cross.map(c=>
     '<button class="rv-arch' + (roomPeek === c.id ? " open" : "")
-    + (roomSwing === c.id ? " swing" : "") + '" data-thing="'
-    + esc(c.id) + '"><i>' + (c.way === "out" ? "&#8594;" : "&#8592;") + '</i>'
-    + esc(nodeName(c.id)) + '</button>').join("");
+    + (roomSwing === c.id ? " swing" : "") + '" data-thing="' + esc(c.id) + '"'
+    + ' title="' + esc((c.way === "out" ? "Leads to " : "Comes in from ") + nodeName(c.id))
+    + (c.label ? " — " + esc(c.label) : "") + '">'
+    + '<b>' + esc(nodeName(c.id)) + '</b>'
+    + '<u><i>' + (c.way === "out" ? "&#8594;" : "&#8592;") + '</i></u></button>').join("");
 
   paintStuff(id, items, owed);
+  fitWall();
   el("rvEdit").hidden = false;
-  el("rvEdit").textContent = canEdit() ? "Edit" : "Respond";
+  el("rvEdit").querySelector(".lb").textContent = canEdit() ? "Edit" : "Respond";
   el("rvEdit").title = canEdit() ? "Open this room's panel to change it"
     : "Suggest a change, ask a question, or confirm what is asked here";
-  el("rvEdit").classList.toggle("primary", !canEdit() && owed > 0);
+  el("rvEdit").classList.toggle("on", !canEdit() && owed > 0);
   el("rvAdd").hidden = !canEdit();
   wayOut(parentOf(id));
   paintThings(kids);
@@ -14909,26 +15568,76 @@ function renderRoom(){
    things you can walk up to rather than counters in a panel somewhere else.
    A viewer sees only what is theirs to do. */
 function paintStuff(id, items, owed){
-  const box = el("rvStuff");
+  const box = el("rvStuff"), says = el("rvBarSays");
   if(!box) return;
-  if(!id){ box.innerHTML = ""; return; }
+  if(!id){ box.innerHTML = ""; if(says) says.textContent = ""; return; }
   const out = [];
   const asks = questionsForNode(id).filter(q=>q.status === "open").length;
   const sug = canEdit() ? suggestionsFor(id).filter(x=>x.status === "open").length : 0;
   if(canEdit()){
-    if(items.length) out.push(["confirm", items.length, "to confirm",
+    if(items.length) out.push(["confirm", items.length, "&#9745;", "To confirm",
       items.length + " thing" + (items.length === 1 ? "" : "s") + " people must confirm here"]);
-    if(sug) out.push(["suggest", sug, "suggested",
+    if(sug) out.push(["suggest", sug, "&#9998;", "Suggested",
       sug + " suggestion" + (sug === 1 ? "" : "s") + " waiting on this one"]);
   } else if(owed){
-    out.push(["confirm", owed, "for you", owed + " still waiting on you here"]);
+    out.push(["confirm mine", owed, "&#9745;", "For you",
+      owed + " still waiting on you here"]);
   }
-  if(asks) out.push(["ask", asks, asks === 1 ? "question" : "questions",
+  if(asks) out.push(["ask", asks, "?", asks === 1 ? "Question" : "Questions",
     asks + " open question" + (asks === 1 ? "" : "s") + " pinned here"]);
-  box.innerHTML = out.map(([kind, n, label, title])=>
-    '<button class="rv-obj ' + kind + '" data-open="' + kind + '" title="' + esc(title) + '">'
-    + '<span class="pic"></span><span>' + esc(label) + '</span>'
-    + '<span class="tick">' + n + '</span></button>').join("");
+  box.innerHTML = out.map(([kind, n2, ic, label, title])=>
+    '<button class="rvb ' + kind + '" data-open="' + kind.split(" ")[0] + '"'
+    + ' title="' + esc(title) + '"><span class="ic">' + ic + '</span>'
+    + '<span class="lb">' + esc(label) + '</span>'
+    + '<span class="tick">' + n2 + '</span></button>').join("");
+}
+
+
+/* ---------------------------------------------------------------
+   HOW MUCH WALL, HOW MUCH FLOOR
+
+   The wall is measured, not assumed. It is let go to its natural height, that
+   height is read once, and the floor is given everything left over. A node
+   with a page of detail gets a wall and a strip of floor; a node that is only
+   a name over eight children gets a nameplate and a room you can walk around
+   in. Neither is a setting anybody has to find.
+   --------------------------------------------------------------- */
+function fitWall(){
+  const view = el("roomView"), board = el("rvBoard");
+  if(!view || !board || view.hidden) return;
+  const vh = view.clientHeight;
+  if(!vh) return;
+  const narrow = window.matchMedia("(max-width:820px)").matches;
+  const wallTop = vh * (narrow ? 0.09 : 0.12) + 14;
+
+  /* Measure it standing to its own height, once. The board used to be pinned
+     top and bottom, so it filled the wall whatever was on it and a node with
+     no note got a slab of white. */
+  board.style.bottom = "auto";
+  board.style.height = "auto";
+  const natural = board.offsetHeight;
+
+  const boardH = Math.min(natural, vh * (narrow ? 0.52 : 0.56));
+  board.style.height = Math.round(boardH) + "px";
+
+  /* the side exits stand against the foot of the wall, so that strip of wall
+     is spoken for before the floor takes the rest */
+  const exits = el("rvArches");
+  const exitH = exits && exits.children.length ? (narrow ? 72 : 80) : 0;
+
+  /* the floor takes what is left, within reason at both ends. The control
+     panel sits on the bottom of it, so its height comes off too. */
+  const barH = 64;
+  const minFloor = narrow ? 190 : 208;
+  const maxFloor = vh * (narrow ? 0.60 : 0.55);
+  let floor = vh - wallTop - boardH - exitH - (narrow ? 20 : 14);
+  /* a backdrop of your own decides where the ground is; the drawn rooms
+     work it out from how much the wall needed */
+  const photo = backdropFor(S.sel);
+  if(photo) floor = vh * (100 - photo.floor) / 100;
+  floor = Math.max(minFloor, Math.min(maxFloor, floor));
+  view.style.setProperty("--rv-b", Math.round(floor) + "px");
+
 }
 
 /* The door on the left wall, back to the room this one is inside. */
@@ -14945,43 +15654,421 @@ function wayOut(pid){
   b.title = "Back out to " + nodeName(pid);
 }
 
-/* Everything standing on the floor. A child with rooms of its own is a door;
-   one with nothing behind it is a folded note on the shelf. */
+
+/* =====================================================================
+   BACKDROPS FROM A FOLDER
+   =====================================================================
+   A few hundred full-size drawings is a lot of bytes, and a room has to open
+   now, not in four seconds. So nothing is read until a room actually asks for
+   it, what is read is shrunk once and kept shrunk, and only a handful are
+   held open at a time. Walking into a room quietly warms the ones next door,
+   which is why moving about feels instant after the first hop. */
+
+const BD_MAX_W   = 1600;    // nobody needs more than this behind a room
+const BD_QUALITY = 0.82;
+const BD_LIVE    = 10;      // object URLs held open at once
+const bdLive = new Map();   // name -> object URL, in the order last used
+let bdPool = null;          // the folder listing, names only
+let bdPending = new Map();  // name -> promise, so two rooms never read it twice
+let bdWarmed = new Set();
+
+function isPicName(name){ return /\.(png|jpe?g|gif|webp|avif|svg)$/i.test(name); }
+
+/* The listing is names only. Reading a directory is cheap; reading the files
+   in it is not, so this never opens one. */
+async function backdropPool(force){
+  if(bdPool && !force) return bdPool;
+  if(!force){
+    try{
+      const saved = await Store.getKey("bdPool");
+      if(saved && Array.isArray(saved.names) && saved.names.length){
+        bdPool = saved.names;
+        return bdPool;
+      }
+    }catch(e){}
+  }
+  const names = [];
+  for(const root of [picDir, bookDir]){
+    if(!root) continue;
+    try{
+      const perm = await root.queryPermission({mode:"read"});
+      if(perm !== "granted" && await root.requestPermission({mode:"read"}) !== "granted") continue;
+    }catch(e){ continue; }
+    try{
+      for await (const [name, h] of root.entries()){
+        if(h.kind === "file" && isPicName(name)) names.push(name);
+        /* one level down, so a "backdrops" folder beside the pictures works */
+        else if(h.kind === "directory"){
+          try{
+            for await (const [inner, ih] of h.entries()){
+              if(ih.kind === "file" && isPicName(inner)) names.push(name + "/" + inner);
+            }
+          }catch(e){}
+        }
+      }
+    }catch(e){}
+    if(names.length) break;
+  }
+  bdPool = [...new Set(names)].sort();
+  try{ await Store.putKey("bdPool", {names:bdPool, at:nowISO()}); }catch(e){}
+  return bdPool;
+}
+
+/* Shrink once, keep it shrunk. A 3 MB drawing becomes about 200 KB, and the
+   shrunk copy lives in this browser so the big file is never read again. */
+async function bdShrink(file){
+  try{
+    const bmp = await createImageBitmap(file);
+    const scale = Math.min(1, BD_MAX_W / bmp.width);
+    const w = Math.max(1, Math.round(bmp.width * scale));
+    const h = Math.max(1, Math.round(bmp.height * scale));
+    const cv = document.createElement("canvas");
+    cv.width = w; cv.height = h;
+    cv.getContext("2d").drawImage(bmp, 0, 0, w, h);
+    bmp.close && bmp.close();
+    const blob = await new Promise(res=>cv.toBlob(res, "image/webp", BD_QUALITY));
+    return blob && blob.size < file.size ? blob : file;
+  }catch(e){ return file; }
+}
+
+function bdKeep(name, url){
+  bdLive.delete(name);
+  bdLive.set(name, url);
+  while(bdLive.size > BD_LIVE){
+    const oldest = bdLive.keys().next().value;
+    const gone = bdLive.get(oldest);
+    bdLive.delete(oldest);
+    try{ if(gone && gone.startsWith("blob:")) URL.revokeObjectURL(gone); }catch(e){}
+  }
+  return url;
+}
+
+/* The address to draw. A web address is handed straight back; a file in the
+   folder goes through the shrink-and-remember path exactly once. */
+async function backdropURL(name){
+  if(!name) return "";
+  if(!isFolderPath(name)) return name;
+  if(bdLive.has(name)) return bdKeep(name, bdLive.get(name));
+  if(bdPending.has(name)) return bdPending.get(name);
+
+  const job = (async ()=>{
+    const key = "bd:" + BD_MAX_W + ":" + name;
+    if(Store.mode === "idb"){
+      try{
+        const cached = await Store.getKey(key);
+        if(cached instanceof Blob) return bdKeep(name, URL.createObjectURL(cached));
+      }catch(e){}
+    }
+    const f = await fileFromFolder(name);
+    if(!f) return "";
+    const small = await bdShrink(f);
+    if(Store.mode === "idb"){
+      try{ await Store.putKey(key, small); }catch(e){}
+    }
+    return bdKeep(name, URL.createObjectURL(small));
+  })().finally(()=>bdPending.delete(name));
+
+  bdPending.set(name, job);
+  return job;
+}
+
+/* Which backdrop this room gets. A room can be given one outright; otherwise
+   the map's applies, and the map's can be the word "random", which hands each
+   room its own from the folder — the same one every time you come back, so
+   you can still learn your way around. */
+function bdNameFor(id){
+  const n = id && S.nodes.get(id);
+  if(n && n.backdrop) return n.backdrop;
+  const map = S.meta.backdrop || "";
+  if(!map) return "";
+  if(map !== "random") return map;
+  const pool = bdPool;
+  if(!pool || !pool.length) return "";
+  const salt = Number((n && n.backdropSalt) || 0) | 0;
+  return pool[(rvSeed(String(id || "hall")) + salt * 2654435761) % pool.length];
+}
+
+/* Once you are in a room, the rooms next door are read quietly, so walking
+   through the map does not wait on a file each time. */
+function bdWarmNeighbours(id){
+  if(!id || !S.nodes.has(id)) return;
+  const near = [parentOf(id), ...childrenOf(id).slice(0, 5),
+    ...crossOf(id).slice(0, 2).map(c=>c.id)].filter(Boolean);
+  whenIdle(()=>{
+    near.forEach(k=>{
+      const nm = bdNameFor(k);
+      if(!nm || !isFolderPath(nm) || bdLive.has(nm) || bdWarmed.has(nm)) return;
+      bdWarmed.add(nm);
+      backdropURL(nm);
+    });
+  });
+}
+
+/* ---- where the critters stand on a drawn room ----
+   A drawn room has furniture in it, so scattering eight creatures over the
+   whole floor puts one inside the printing press. Drag one where it belongs
+   and it stays there; the spots are kept on the room, not on the creature,
+   because they are about this floor. */
+function spotsOf(n){
+  const out = new Map();
+  String((n && n.spots) || "").split(";").forEach(bit=>{
+    const at = bit.indexOf("@");
+    if(at < 1) return;
+    const id = bit.slice(0, at);
+    const [u, v] = bit.slice(at + 1).split(",").map(Number);
+    if(id && isFinite(u) && isFinite(v)) out.set(id, {u, v});
+  });
+  return out;
+}
+function writeSpots(n, map){
+  n.spots = [...map.entries()]
+    .map(([id, p])=>id + "@" + p.u.toFixed(3) + "," + p.v.toFixed(3)).join(";");
+}
+function setSpot(parentId, childId, u, v){
+  const n = S.nodes.get(parentId);
+  if(!n) return;
+  const map = spotsOf(n);
+  map.set(childId, {u:Math.max(.03, Math.min(.97, u)), v:Math.max(.05, Math.min(.98, v))});
+  writeSpots(n, map);
+  markDirty();
+}
+function clearSpots(parentId){
+  const n = S.nodes.get(parentId);
+  if(!n || !n.spots) return false;
+  setField(n, "spots", "");
+  markDirty();
+  return true;
+}
+
+/* ---------------------------------------------------------------
+   WHAT IS ON THE FLOOR
+
+   Every child of this node is a small creature standing somewhere on the
+   floor, not an item in a list. It has a place of its own, it wanders
+   slowly around that place, it blinks and breathes, it notices you when you
+   come near, and it carries a sign with its name. A creature with rooms of
+   its own is bigger and stands under an archway; one with nothing beyond it
+   is small and round and carries its note.
+
+   Where each one starts is worked out from its id, so it is in the same
+   corner of the room every time you come back — a room you cannot learn your
+   way around is worse than a list. The wander stays close to that spot for
+   the same reason.
+   --------------------------------------------------------------- */
+
+/* six friendly colours, picked so the ink on them reads in either theme */
+const RV_HUES = ["#E9B44C", "#7FB77E", "#6FA8DC", "#D98CA0", "#B39CD9", "#7FC8C3"];
+const RV_DARK = ["#7A5A1E", "#37552F", "#2C4C6B", "#6B3A47", "#4B3D68", "#2E5A57"];
+
+function rvSeed(id){
+  let h = 2166136261;
+  for(let i = 0; i < id.length; i++){ h ^= id.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return (h >>> 0);
+}
+/* the nth number from one id, so colour, corner and gait never move together */
+function rvRand(seed, n){
+  let x = (seed + n * 2654435761) >>> 0;
+  x ^= x << 13; x >>>= 0; x ^= x >> 17; x ^= x << 5; x >>>= 0;
+  return x / 4294967296;
+}
+
+let roamers = [];              // one per creature on the floor
+let roamRaf = null, roamLast = 0;
+let fieldBox = {w:0, h:0};
+
+function fieldSize(){
+  const f = el("rvField");
+  if(!f) return {w:0, h:0};
+  const b = f.getBoundingClientRect();
+  return {w:b.width, h:b.height};
+}
+
+/* The floor narrows towards the back, so a creature's room to move narrows
+   with it. Without this they walk out through the side walls. */
+function floorSpot(u, v){
+  const inset = 0.10 + (1 - v) * 0.20;
+  return {
+    x: (inset + u * (1 - inset * 2)) * fieldBox.w,
+    y: (0.2 + v * 0.7) * fieldBox.h
+  };
+}
+
 function paintThings(ids){
-  const strip = el("rvThings");
-  if(!strip) return;
+  const field = el("rvField");
+  if(!field) return;
+  stopRoaming();
   if(!ids.length){
-    strip.innerHTML = '<p class="rv-none">Nothing leads on from here. '
-      + (canEdit() ? "Add opens a new room off this one." : "") + '</p>';
+    field.innerHTML = '<p class="rv-none">Nothing leads on from here.'
+      + (canEdit() ? " Add opens a new room off this one." : "") + '</p>';
+    roamers = [];
     drawPeek();
     return;
   }
   const hits = new Set(S.hits || []);
   const t = roomTally();
-  /* Each door stands in a slot of its own so its shadow and the light under
-     it are not clipped by the door frame, and so each can breathe on its own
-     beat — a row breathing as one reads as a loading bar, not a room. */
-  strip.innerHTML = ids.map((k, i)=>{
+  const dark = document.documentElement.getAttribute("data-theme") === "dark";
+
+  field.innerHTML = ids.map((k, i)=>{
     const n = S.nodes.get(k);
     const deep = t.kids.get(k) || 0;
     const mk = roomMark(k, t);
-    return '<span class="rv-slot' + (mk ? " " + mk : "") + '" style="--i:' + (i % 9) + '">'
-      + '<button class="rv-thing ' + (deep ? "door" : "item")
+    const sd = rvSeed(k);
+    const hue = (dark ? RV_DARK : RV_HUES)[Math.floor(rvRand(sd, 1) * 6) % 6];
+    const tilt = (rvRand(sd, 5) > .5 ? 1 : -1) * (1 + rvRand(sd, 6) * 1.6);
+    return '<button class="rv-thing ' + (deep ? "door" : "item")
       + (roomPeek === k ? " open" : "")
       + (roomCameFrom === k ? " from" : "")
       + (roomSwing === k ? " swing" : "")
       + (hits.has(k) ? " hit" : "")
-      + (n.status === "retired" ? " retired" : "") + '" data-thing="' + esc(k) + '">'
-      + '<span class="lid">' + (deep ? '<span class="knob"></span>' : "")
-      + (deep ? '<span class="deep">' + deep + '</span>' : "")
-      + '<span class="plate">' + esc(n.label || n.id) + '</span></span>'
-      + (mk ? '<span class="mk ' + mk + '">' + (mk === "sug" ? "&#8226;" : "!") + '</span>' : "")
-      + '</button>'
-      + (mk ? '<span class="rv-glow"></span>' : "")
-      + '</span>';
+      + (mk ? " " + mk : "")
+      + (n.status === "retired" ? " retired" : "") + '"'
+      + ' data-thing="' + esc(k) + '"'
+      + ' title="' + esc(n.label || k) + '"'
+      + ' style="--i:' + (i % 11) + ';--rv-hue:' + hue + ';--tilt:' + tilt.toFixed(2) + 'deg">'
+      + '<span class="bob"><span class="turn">'
+      +   (deep ? '<span class="arch"></span>' : "")
+      +   '<span class="body">'
+      +     '<span class="face"><i class="eye l"></i><i class="eye r"></i>'
+      +     '<i class="mouth"></i></span>'
+      +   '</span>'
+      +   (deep ? "" : '<span class="note"></span>')
+      + '</span>'
+      +   (deep ? '<span class="deep">' + deep + '</span>' : "")
+      +   (mk ? '<span class="mk ' + mk + '">' + (mk === "sug" ? "&#8226;" : "!") + '</span>' : "")
+      +   '<span class="shade"></span>'
+      + '</span>'
+      + '<span class="plate">' + esc(n.label || n.id) + '</span>'
+      + '</button>';
   }).join("");
+
+  field.dataset.lay = floorIsRow() ? "row" : "roam";
+  fitWall();                     /* the floor's size is settled before they stand on it */
+  placeRoamers(ids);
+  /* how many will fit before the signs start covering each other */
+  const room = Math.max(3, Math.floor((fieldBox.w * fieldBox.h)
+    / (window.matchMedia("(max-width:820px)").matches ? 21000 : 12600)));
+  const packed = !floorIsRow() && ids.length > room;
+  field.dataset.crowd = packed ? "1" : "0";
+  const lay = el("rvLayout");
+  if(lay){
+    lay.classList.toggle("urge", packed);
+    lay.title = packed
+      ? "Too many in here to show every name at once — point at one, or line them all up"
+      : "Line everything up, or let it wander";
+  }
   drawPeek();
-  measureDoors();
+}
+
+/* Give everyone a home corner and let them go. */
+function placeRoamers(ids){
+  const field = el("rvField");
+  if(!field) return;
+  fieldBox = fieldSize();
+  /* a drawn room has furniture in it, so anything put somewhere by hand
+     stays exactly there and only the rest are scattered */
+  const placed = spotsOf(S.nodes.get(S.sel));
+  roamers = ids.map((k, i)=>{
+    const elm = field.querySelector('[data-thing="' + CSS.escape(k) + '"]');
+    if(!elm) return null;
+    const sd = rvSeed(k);
+    const fixed = placed.get(k);
+    /* spread them over the floor rather than letting the random numbers
+       pile three of them in one corner: a coarse grid, jittered */
+    const cols = Math.max(3, Math.ceil(Math.sqrt(ids.length * 1.9)));
+    const rows = Math.max(2, Math.ceil(ids.length / cols));
+    const cx = i % cols, cy = Math.floor(i / cols);
+    const u = (cx + 0.5 + (rvRand(sd, 2) - 0.5) * 0.7) / cols;
+    const v = rows < 2 ? 0.62
+      : (cy + 0.5 + (rvRand(sd, 3) - 0.5) * 0.55) / rows;
+    const home = fixed
+      ? {u:fixed.u, v:fixed.v}
+      : {u:Math.min(.97, Math.max(.03, u)), v:Math.min(.98, Math.max(.05, v))};
+    return {id:k, el:elm, home, u:home.u, v:home.v, fixed:!!fixed,
+      tu:home.u, tv:home.v, face:1, wait:rvRand(sd, 4) * 1.1, moving:false};
+  }).filter(Boolean);
+  roamers.forEach(placeOne);
+  startRoaming();
+}
+
+/* one write per creature: where it is, how big, and who is in front */
+function placeOne(r){
+  const p = floorSpot(r.u, r.v);
+  const scale = 0.74 + r.v * 0.42;
+  r.el.style.transform = "translate3d(" + p.x.toFixed(1) + "px," + p.y.toFixed(1)
+    + "px,0) scale(" + scale.toFixed(3) + ")";
+  /* The flip is on the body alone — turn the whole creature and it walks off
+     holding its name written backwards. Both of these are written only when
+     they change: a custom property or a stacking order rewritten sixty times
+     a second for forty creatures is its own frame budget. */
+  if(r.wroteFace !== r.face){
+    r.el.style.setProperty("--face", r.face < 0 ? -1 : 1);
+    r.wroteFace = r.face;
+  }
+  const z = 10 + Math.round(r.v * 80);
+  if(r.wroteZ !== z){ r.el.style.zIndex = String(z); r.wroteZ = z; }
+}
+
+function stopRoaming(){
+  if(roamRaf){ cancelAnimationFrame(roamRaf); roamRaf = null; }
+}
+function startRoaming(){
+  stopRoaming();
+  if(!roamers.length) return;
+  if(floorIsRow() || lifeLevel() !== "full") return;
+  roamLast = performance.now();
+  roamRaf = requestAnimationFrame(roamStep);
+}
+
+function roamStep(now){
+  roamRaf = null;
+  const view = el("roomView");
+  if(!view || view.hidden || !roamers.length) return;
+  /* a tab in the background hands back one enormous gap; cap it */
+  const dt = Math.min(0.05, (now - roamLast) / 1000);
+  roamLast = now;
+  if(!fieldBox.w) fieldBox = fieldSize();
+
+  for(const r of roamers){
+    if(r.fixed){                      /* put here on purpose, so it stays here */
+      if(r.moving){ r.moving = false; r.el.classList.remove("walking"); }
+      continue;
+    }
+    if(r.id === roomPeek){            /* the one you are talking to stands still */
+      if(r.moving){ r.moving = false; r.el.classList.remove("walking"); }
+      continue;
+    }
+    if(r.wait > 0){
+      r.wait -= dt;
+      if(r.moving){ r.moving = false; r.el.classList.remove("walking"); }
+      continue;
+    }
+    const du = r.tu - r.u, dv = r.tv - r.v;
+    const far = Math.hypot(du, dv);
+    if(far < 0.004){
+      /* somewhere new, near enough to home that you can still find it */
+      r.tu = Math.min(.97, Math.max(.03, r.home.u + (Math.random() - .5) * 0.2));
+      r.tv = Math.min(.96, Math.max(.08, r.home.v + (Math.random() - .5) * 0.16));
+      r.wait = 0.3 + Math.random() * 1.9;
+      continue;
+    }
+    /* a slow amble: about a sixteenth of the floor a second */
+    const go = Math.min(1, (0.062 * dt) / far);
+    r.u += du * go;
+    r.v += dv * go;
+    const want = du > 0.002 ? 1 : du < -0.002 ? -1 : r.face;
+    if(want !== r.face) r.face = want;
+    if(!r.moving){ r.moving = true; r.el.classList.add("walking"); }
+    placeOne(r);
+  }
+  roamRaf = requestAnimationFrame(roamStep);
+}
+
+/* The floor is re-measured when the room changes shape, or everyone drifts
+   off the edge of it. */
+function refloor(){
+  if(!inRoom()) return;
+  fieldBox = fieldSize();
+  roamers.forEach(placeOne);
 }
 
 /* The crack in the door: the name, what is written in there, and how much is
@@ -14993,12 +16080,21 @@ function drawPeek(){
   const k = roomPeek, n = S.nodes.get(k);
   const deep = childrenOf(k).length, cr = crossOf(k).length;
   const inside = [];
-  if(deep) inside.push(deep + (deep === 1 ? " door" : " doors"));
+  if(deep) inside.push(deep + (deep === 1 ? " room inside" : " rooms inside"));
   if(cr) inside.push(cr + (cr === 1 ? " archway" : " archways"));
   const items = itemsFor(k).length;
   if(items) inside.push(items + " to confirm");
   const words = peekText(k);
   p.hidden = false;
+  /* the tail points at whoever is speaking */
+  const who = roamers.find(r=>r.id === k);
+  const f = el("rvField");
+  if(who && f && !floorIsRow()){
+    const fb = f.getBoundingClientRect(), pb = p.getBoundingClientRect();
+    const at = floorSpot(who.u, who.v).x;
+    p.style.setProperty("--tail",
+      Math.max(16, Math.min(fb.width - 16, at)) - (fb.width - pb.width) / 2 + "px");
+  } else if(f) p.style.setProperty("--tail", "50%");
   p.innerHTML = '<h4>' + esc(n.label || n.id)
     + (inside.length ? '<span>' + esc(inside.join(" · ")) + '</span>' : '<span>nothing beyond it</span>')
     + '</h4>'
@@ -15016,7 +16112,7 @@ let roomSwing = "";         // the door swinging open right now
 let roomFromTimer = null;
 
 function rvThingEl(id){
-  const strip = el("rvThings");
+  const strip = el("rvField");
   const arch = el("rvArches");
   return (strip && strip.querySelector('[data-thing="' + CSS.escape(id) + '"]'))
       || (arch && arch.querySelector('[data-thing="' + CSS.escape(id) + '"]'))
@@ -15047,7 +16143,7 @@ function roomGo(id, way){
       const back = rvThingEl(roomCameFrom);
       if(back){
         back.classList.add("from");
-        back.scrollIntoView({block:"nearest", inline:"center"});
+        if(S.roomFloor === "row") back.scrollIntoView({block:"nearest"});
       }
       clearTimeout(roomFromTimer);
       roomFromTimer = setTimeout(()=>{
@@ -15115,7 +16211,9 @@ function setVista(v, quiet){
     closeNote();
     roomPeek = "";
     renderRoom();
+    setTimeout(refloor, 60);       /* the field only has a size once it is shown */
   } else {
+    stopRoaming();
     forgetSize();
     applyView();
     if(S.sel && S.nodes.has(S.sel)) centerOn(S.sel);
@@ -15180,6 +16278,21 @@ function wireThingDrag(strip){
     from = null; start = null; live = false;
     if(was && row && row.dataset.jump && row.dataset.jump !== what){
       askWhatToDoWith(what, row.dataset.jump);
+    } else if(was && canEdit() && !floorIsRow()){
+      /* dropped on the floor rather than the outline: that is where it lives
+         now, which is the only sane way to place things on a drawn room */
+      const fb = el("rvField").getBoundingClientRect();
+      if(ev.clientX >= fb.left && ev.clientX <= fb.right
+         && ev.clientY >= fb.top - 40 && ev.clientY <= fb.bottom + 20){
+        const inset = 0.10, span = 1 - inset * 2;
+        const v = Math.max(.05, Math.min(.96, (((ev.clientY - fb.top) / fb.height) - 0.2) / 0.7));
+        const ins = 0.10 + (1 - v) * 0.20;
+        const u = Math.max(.03, Math.min(.97,
+          (((ev.clientX - fb.left) / fb.width) - ins) / (1 - ins * 2)));
+        setSpot(S.sel, what, u, v);
+        renderRoom();
+        toast("Put where you dropped it");
+      }
     } else if(!was){
       roomTap(what);
     }
@@ -15199,18 +16312,7 @@ function wireThingDrag(strip){
    and one class, written once a frame, so nothing is recalculated in JS while
    the pointer moves.
    --------------------------------------------------------------- */
-let doorSpots = [];          // where each door is, measured when the room is drawn
-let lifeRaf = null, lifePt = null, nearDoor = null;
-
-function measureDoors(){
-  const strip = el("rvThings");
-  if(!strip){ doorSpots = []; return; }
-  /* read once, here, rather than once per pointer move */
-  doorSpots = [...strip.querySelectorAll(".rv-thing")].map(elm=>{
-    const b = elm.getBoundingClientRect();
-    return {el:elm, mid:b.left + b.width / 2, top:b.top};
-  });
-}
+let lifeRaf = null, lifePt = null;
 
 function lifeLevel(){
   let sys = false;
@@ -15225,13 +16327,40 @@ function applyLife(){
   if(!view) return;
   const lv = lifeLevel();
   view.dataset.life = lv;
-  if(lv === "still"){
-    view.style.setProperty("--px", 0);
-    view.style.setProperty("--py", 0);
-    if(nearDoor){ nearDoor.classList.remove("near"); nearDoor = null; }
-  }
+  if(lv === "still"){ lifePt = null; paraReset(); }
+  /* wandering is the most expensive thing here, so it is the first to go */
+  if(lv === "full" && !floorIsRow() && inRoom()) startRoaming();
+  else stopRoaming();
 }
 
+function layoutButton(){
+  const b = el("rvLayout");
+  if(!b) return;
+  const row = S.roomFloor === "row";
+  b.querySelector(".lb").textContent = row ? "Let them wander" : "Line up";
+  b.querySelector(".ic").innerHTML = row ? "&#10022;" : "&#9776;";
+  b.classList.toggle("on", row);
+}
+
+/* the handful of surfaces that shift, and how far each one goes */
+let paraEls = null;
+function paraTargets(){
+  const v = el("roomView");
+  if(!v) return [];
+  const narrow = window.matchMedia("(max-width:820px)").matches;
+  const out = [
+    [v.querySelector(".rv-scene .back"), 7, 5, ""],
+    [v.querySelector(".rv-scene .ceil"), 3, 2, ""],
+    [v.querySelector(".rv-scene .floor"), 3, -2, ""],
+    [v.querySelector(".rv-board"), 4, 3, ""],
+    [el("rvOut"), -7, 0, "translateY(-50%) "],
+    [el("rvArches"), 4, 2, ""]
+  ];
+  return out.filter(x=>x[0]);
+}
+function paraReset(){
+  (paraEls || paraTargets()).forEach(([e, , , pre])=>{ e.style.transform = pre; });
+}
 function lifeFrame(){
   lifeRaf = null;
   const view = el("roomView");
@@ -15239,18 +16368,12 @@ function lifeFrame(){
   const b = view.getBoundingClientRect();
   if(!b.width) return;
   /* -1 at one wall, +1 at the other */
-  view.style.setProperty("--px", (((lifePt.x - b.left) / b.width) * 2 - 1).toFixed(3));
-  view.style.setProperty("--py", (((lifePt.y - b.top) / b.height) * 2 - 1).toFixed(3));
-  /* the door you are heading for */
-  let best = null, gap = 95;
-  for(const d of doorSpots){
-    const away = Math.abs(d.mid - lifePt.x);
-    if(away < gap && lifePt.y > d.top - 70){ gap = away; best = d.el; }
-  }
-  if(best !== nearDoor){
-    if(nearDoor) nearDoor.classList.remove("near");
-    nearDoor = best;
-    if(nearDoor) nearDoor.classList.add("near");
+  const px = ((lifePt.x - b.left) / b.width) * 2 - 1;
+  const py = ((lifePt.y - b.top) / b.height) * 2 - 1;
+  if(!paraEls) paraEls = paraTargets();
+  for(const [e, ax, ay, pre] of paraEls){
+    e.style.transform = pre + "translate3d(" + (px * ax).toFixed(2) + "px,"
+      + (py * ay).toFixed(2) + "px,0)";
   }
 }
 
@@ -15266,17 +16389,22 @@ function wireRoom(){
     lifePt = {x:ev.clientX, y:ev.clientY};
     if(!lifeRaf) lifeRaf = requestAnimationFrame(lifeFrame);
   });
-  view.addEventListener("pointerleave", ()=>{
-    lifePt = null;
-    view.style.setProperty("--px", 0);
-    view.style.setProperty("--py", 0);
-    if(nearDoor){ nearDoor.classList.remove("near"); nearDoor = null; }
+  view.addEventListener("pointerleave", ()=>{ lifePt = null; paraReset(); });
+  window.addEventListener("resize", ()=>{ paraEls = null; if(inRoom()) refloor(); });
+  /* a backgrounded tab should not be animating a room nobody is looking at */
+  document.addEventListener("visibilitychange", ()=>{
+    if(document.hidden) stopRoaming();
+    else if(inRoom()) startRoaming();
   });
-  el("rvThings").addEventListener("scroll", ()=>measureDoors(), {passive:true});
-  window.addEventListener("resize", ()=>{ if(inRoom()) measureDoors(); });
+  el("rvLayout").onclick = ()=>{
+    S.roomFloor = S.roomFloor === "row" ? "roam" : "row";
+    savePrefs();
+    layoutButton();
+    renderRoom();
+  };
 
   /* the things against the wall open what they stand for */
-  el("rvStuff").addEventListener("click", ev=>{
+  el("rvBar").addEventListener("click", ev=>{
     const o = ev.target.closest && ev.target.closest("[data-open]");
     if(o && S.sel) openPanelFor(S.sel, o.dataset.open);
   });
@@ -15285,11 +16413,11 @@ function wireRoom(){
   el("vistaMap").onclick = ()=>setVista("map");
 
   /* the doors, the things on the floor and the archways all behave alike */
-  el("rvThings").addEventListener("click", ev=>{
+  el("rvField").addEventListener("click", ev=>{
     const t = ev.target.closest && ev.target.closest(".rv-thing");
     if(t) ev.preventDefault();          /* the drag wiring decides what a tap means */
   });
-  wireThingDrag(el("rvThings"));
+  wireThingDrag(el("rvField"));
 
   el("rvArches").addEventListener("click", ev=>{
     const a = ev.target.closest && ev.target.closest("[data-thing]");
@@ -15330,7 +16458,7 @@ function wireRoom(){
     const tag = (ev.target && ev.target.tagName) || "";
     if(/INPUT|TEXTAREA|SELECT/.test(tag) || ev.target.isContentEditable) return;
     if(document.querySelector("dialog[open]")) return;
-    const things = [...el("rvThings").querySelectorAll(".rv-thing")];
+    const things = [...el("rvField").querySelectorAll(".rv-thing")];
     if(ev.key === "Escape"){ if(shutPeek()) ev.preventDefault(); return; }
     if(ev.key === "ArrowLeft" || ev.key === "ArrowRight"){
       if(!things.length) return;
@@ -15340,8 +16468,8 @@ function wireRoom(){
         : Math.max(0, roomFocus - 1);
       const t = things[roomFocus];
       if(t){ roomPeek = t.dataset.thing; renderRoom();
-        const again = el("rvThings").querySelectorAll(".rv-thing")[roomFocus];
-        if(again) again.scrollIntoView({block:"nearest", inline:"center"}); }
+        const again = el("rvField").querySelectorAll(".rv-thing")[roomFocus];
+        if(again && S.roomFloor === "row") again.scrollIntoView({block:"nearest"}); }
       return;
     }
     if(ev.key === "Enter" && roomPeek){ ev.preventDefault(); roomGo(roomPeek, "in"); return; }
@@ -15356,7 +16484,49 @@ function wireRoom(){
   });
 
   if(el("roomSkin")) el("roomSkin").onchange = e=>{
-    S.roomSkin = e.target.value; savePrefs(); renderRoom();
+    const was = S.roomSkin;
+    S.roomSkin = e.target.value;
+    /* Compact and Boardroom are for reading, so they open lined up. Either
+       can be set wandering again from the panel; changing dressing again
+       puts the floor back the way the scenic rooms want it. */
+    const working = k=>k === "compact" || k === "boardroom";
+    if(working(S.roomSkin) && !working(was)) S.roomFloor = "row";
+    else if(!working(S.roomSkin) && working(was)) S.roomFloor = "roam";
+    savePrefs(); layoutButton(); renderRoom();
+  };
+  if(el("mapBackdrop")) el("mapBackdrop").onclick = ()=>{
+    if(!canEdit()){ toast("Switch to editing mode first."); return; }
+    pickImage("Backdrop for every room", S.meta.backdrop || "",
+      v=>{ S.meta.backdrop = v; if(!S.meta.backdropFloor) S.meta.backdropFloor = 62;
+           markDirty(); renderRoomSoon(); toast("Backdrop set for every room"); },
+      ()=>{ S.meta.backdrop = ""; markDirty(); renderRoomSoon(); });
+  };
+  if(el("bdPoolNote")) backdropPool().then(list=>{
+    const note = el("bdPoolNote");
+    if(!note) return;
+    note.textContent = list && list.length
+      ? list.length + " pictures in your folder"
+        + (S.meta.backdrop === "random" ? " \u2014 every room takes one." : ".")
+      : "";
+  }).catch(()=>{});
+  if(el("mapRandom")) el("mapRandom").onclick = async ()=>{
+    if(!canEdit()){ toast("Switch to editing mode first."); return; }
+    const note = el("bdPoolNote");
+    if(note) note.textContent = "Looking through the folder\u2026";
+    const pool = await backdropPool(true);
+    if(!pool.length){
+      if(note) note.textContent = "No pictures found. Pick the folder under "
+        + "Badges and pictures first.";
+      toast("No pictures in the folder yet.");
+      return;
+    }
+    S.meta.backdrop = "random";
+    markDirty(); renderRoomSoon();
+    if(note) note.textContent = pool.length + " pictures found \u2014 every room takes one.";
+    toast(pool.length + " backdrops, one per room");
+  };
+  if(el("mapBackdropOff")) el("mapBackdropOff").onclick = ()=>{
+    S.meta.backdrop = ""; markDirty(); renderRoomSoon(); toast("Backdrop cleared");
   };
   if(el("roomLife")) el("roomLife").onchange = e=>{
     S.roomLife = e.target.value; savePrefs(); applyLife(); renderRoom();
@@ -16166,6 +17336,7 @@ async function boot(){
     if(el("vistaPref")) el("vistaPref").value = S.vista;
     if(el("roomSkin")) el("roomSkin").value = S.roomSkin;
   if(el("roomLife")) el("roomLife").value = S.roomLife;
+  layoutButton();
     organiseRail();
     /* a folder named before is used again without asking */
     if(await recallPictureFolder()){
@@ -16173,6 +17344,13 @@ async function boot(){
         const n = await warmPictures();
         if(n){ render(); renderInspector(); }
       }, 500);
+    }
+    /* the folder listing is kept from last time, so a room knows which
+       picture is its own before anything is read off the disk */
+    if(S.meta.backdrop === "random" || !bdPool){
+      backdropPool().then(list=>{
+        if(list && list.length && S.meta.backdrop === "random") renderRoomSoon();
+      }).catch(()=>{});
     }
   if(S.fromWorkbook){
     const where = el("workbookWhere");
