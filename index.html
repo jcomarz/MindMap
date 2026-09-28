@@ -164,6 +164,7 @@ button{cursor:pointer}
 #tocOutline details:not([open]) > *:not(summary){display:none}
 .tocitem[draggable]{cursor:grab}
 .tocitem.dragging{opacity:.45}
+.bulk-rule{border:0;border-top:1px solid var(--rule);margin:14px 0 12px}
 .tocitem.over-a{box-shadow:inset 0 2px 0 var(--blueprint)}
 .tocitem.over-b{box-shadow:inset 0 -2px 0 var(--blueprint)}
 .tocitem.retired .toclabel{text-decoration:line-through;text-decoration-color:var(--rule)}
@@ -2336,6 +2337,88 @@ body.viewing.panelaway #panelHide{display:none}
 
 .rvb.warn{border-color:var(--flag);color:var(--flag)}
 .rvb.warn:hover{background:var(--flag);color:#fff}
+/* ---------------------------------------------------------------
+   The way in. A guest opening their copy has one thing to do and no
+   way of knowing it: point the page at the folder it all lives in.
+   The browser will only ask that question from inside a click, so it
+   has to be a button — and if it has to be a button it may as well be
+   a friendly one that does the whole setup behind it.
+   --------------------------------------------------------------- */
+.hello{position:fixed;inset:0;z-index:300;display:flex;align-items:center;
+  justify-content:center;padding:18px;
+  background:rgba(28,32,38,.55);backdrop-filter:blur(3px)}
+.hello[hidden]{display:none}
+.hello-card{width:min(420px,100%);max-height:calc(100dvh - 36px);overflow:auto;
+  background:var(--paper);border:3px solid var(--graphite);border-radius:16px;
+  padding:0 22px 20px;text-align:center;
+  box-shadow:0 18px 50px rgba(20,24,28,.4);
+  animation:helloIn .28s cubic-bezier(.2,.9,.3,1)}
+@keyframes helloIn{from{opacity:0;transform:translateY(14px) scale(.97)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){ .hello-card{animation:none} }
+
+/* three of them waiting by the door */
+.hello-art{position:relative;height:116px;margin:0 -22px 4px;overflow:hidden;
+  background:linear-gradient(#cfe3f2, #eaf3fa);border-radius:13px 13px 0 0}
+.hello-art .h-floor{position:absolute;left:-8%;right:-8%;bottom:0;height:46px;
+  background:#b9cfae;border-top:3px solid var(--graphite);border-radius:50% 50% 0 0}
+/* standing on the hill, not sunk into it */
+.h-crit{position:absolute;bottom:34px;z-index:2;
+  width:30px;height:34px;border-radius:50% 50% 44% 44%;
+  border:3px solid var(--graphite);background:var(--flag)}
+.h-crit i{position:absolute;top:9px;width:5px;height:5px;border-radius:50%;
+  background:var(--graphite)}
+.h-crit i:first-child{left:6px} .h-crit i:last-child{right:6px}
+.h-crit.a{left:26%;background:#f2b134;animation:helloBob 2.1s ease-in-out infinite}
+.h-crit.b{left:45%;bottom:40px;background:#6fc3a0;width:34px;height:38px;
+  animation:helloBob 1.7s ease-in-out .3s infinite}
+.h-crit.c{left:64%;background:#e98ba4;animation:helloBob 2.4s ease-in-out .6s infinite}
+/* a little shadow each, so they are on the ground rather than floating */
+.h-crit::after{content:"";position:absolute;left:50%;bottom:-7px;z-index:-1;
+  width:26px;height:7px;border-radius:50%;transform:translateX(-50%);
+  background:rgba(40,60,40,.22)}
+@keyframes helloBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+html[data-motion="off"] .h-crit{animation:none !important}
+@media (prefers-reduced-motion:reduce){ .h-crit{animation:none !important} }
+
+.hello-card h2{margin:10px 0 6px;font-size:19px;font-weight:600}
+.hello-what{margin:0 0 14px;font-size:13.5px;line-height:1.5;color:var(--graphite-60)}
+.hello-name{display:block;text-align:left;margin:0 0 14px}
+.hello-name[hidden]{display:none}
+.hello-name span{display:block;font-size:11.5px;color:var(--graphite-60);margin-bottom:4px}
+.hello-name input{width:100%;box-sizing:border-box;padding:9px 11px;font-size:16px;
+  border:2px solid var(--rule);border-radius:8px;background:var(--paper)}
+.hello-name input:focus{border-color:var(--blueprint);outline:0}
+
+.hello-steps{list-style:none;margin:0 0 16px;padding:0;text-align:left}
+.hello-steps li{display:flex;align-items:center;gap:9px;padding:6px 2px;
+  font-size:13px;color:var(--graphite-60)}
+.hello-steps li i{flex:0 0 auto;width:17px;height:17px;border-radius:50%;
+  border:2px solid var(--rule);position:relative}
+.hello-steps li b{flex:1;font-weight:400}
+.hello-steps li s{flex:0 0 auto;text-decoration:none;font-family:var(--mono);font-size:10.5px}
+.hello-steps li.doing i{border-color:var(--blueprint);
+  border-top-color:transparent;animation:helloSpin .7s linear infinite}
+@keyframes helloSpin{to{transform:rotate(360deg)}}
+.hello-steps li.done{color:var(--graphite)}
+.hello-steps li.done i{border-color:var(--blueprint);background:var(--blueprint)}
+.hello-steps li.done i::after{content:"";position:absolute;left:4px;top:1px;
+  width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(43deg)}
+.hello-steps li.missed i{border-color:var(--flag)}
+.hello-steps li.missed s{color:var(--flag)}
+
+.hello-go{width:100%;padding:13px 16px;font-size:16px;font-weight:600;
+  border:3px solid var(--graphite);border-radius:11px;cursor:pointer;
+  background:var(--blueprint);color:#fff;box-shadow:0 4px 0 var(--graphite)}
+.hello-go:hover{filter:brightness(1.07)}
+.hello-go:active{transform:translateY(3px);box-shadow:0 1px 0 var(--graphite)}
+.hello-go:disabled{opacity:.65;cursor:default;transform:none;box-shadow:0 4px 0 var(--graphite)}
+.hello-skip{display:block;margin:9px auto 0;border:0;background:none;
+  font:inherit;font-size:12.5px;color:var(--graphite-60);cursor:pointer;
+  text-decoration:underline;text-underline-offset:2px}
+.hello-skip[hidden]{display:none}
+.hello-skip:hover{color:var(--graphite)}
+.hello-fine{margin:12px 0 0;font-size:11.5px;line-height:1.45;color:var(--graphite-60)}
+
 .folderstate{display:flex;align-items:center;gap:9px;flex-wrap:wrap;
   margin:-2px 0 10px;font-size:12px;color:var(--graphite-60);
   font-family:var(--sans);line-height:1.4}
@@ -3738,18 +3821,34 @@ body.viewing.panelaway #panelHide{display:none}
 
 <dialog id="bulkDlg">
   <div class="dlg-head">
-    <h2>Tags for the selection</h2>
+    <h2>Tags and dates for the selection</h2>
     <button class="btn" id="bulkClose">Done</button>
   </div>
   <div class="hist-controls">
+    <label class="field"><span>Pick everything carrying a tag</span>
+      <select id="bulkByTag"><option value="">Choose a tag&hellip;</option></select></label>
     <p class="fineprint" id="bulkWho"></p>
     <label class="check"><input type="checkbox" id="bulkKids">
       Include everything underneath them</label>
+
     <label class="field" style="margin-top:8px"><span>Add these tags</span>
       <input type="text" id="bulkAdd" placeholder="huddle/2026-08-19, acc3"></label>
     <div class="row">
       <button class="btn wide primary" id="bulkApply">Add to them all</button>
     </div>
+
+    <hr class="bulk-rule">
+    <label class="field"><span>Date for them all</span>
+      <input type="date" id="bulkDate"></label>
+    <div class="row">
+      <button class="btn wide primary" id="bulkDateApply">Set that date on them</button>
+    </div>
+    <div class="row" style="margin-top:6px">
+      <button class="btn" id="bulkDateFromTag"
+        title="Read the date out of each one's own tags — huddle/2026-09-16 becomes 16 September 2026">Take each date from its tag</button>
+      <button class="btn" id="bulkDateClear">Clear their dates</button>
+    </div>
+    <p class="fineprint" id="bulkDateNote" style="margin:7px 0 0"></p>
   </div>
   <div class="dlg-body" id="bulkList"></div>
 </dialog>
@@ -4007,6 +4106,30 @@ function writeAll(ss, prefix, tables) {
 
 <div id="viewerSlot"></div>
 <div id="printroot"></div>
+<div class="hello" id="hello" hidden>
+  <div class="hello-card" role="dialog" aria-modal="true" aria-labelledby="helloTitle">
+    <div class="hello-art" aria-hidden="true">
+      <span class="h-crit a"><i></i><i></i></span>
+      <span class="h-crit b"><i></i><i></i></span>
+      <span class="h-crit c"><i></i><i></i></span>
+      <span class="h-floor"></span>
+    </div>
+    <h2 id="helloTitle">Welcome to the board</h2>
+    <p class="hello-what" id="helloWhat"></p>
+    <label class="hello-name" id="helloNameWrap">
+      <span>Your name, so your sign-offs are yours</span>
+      <input id="helloName" autocomplete="name" placeholder="First name is plenty">
+    </label>
+    <ul class="hello-steps" id="helloSteps">
+      <li data-step="folder"><i></i><b>Open the shared folder</b><s></s></li>
+      <li data-step="pics"><i></i><b>Load the rooms and backdrops</b><s></s></li>
+      <li data-step="sync"><i></i><b>Catch up with everybody</b><s></s></li>
+    </ul>
+    <button class="hello-go" id="helloGo">Let&rsquo;s go</button>
+    <button class="hello-skip" id="helloSkip">Not now</button>
+    <p class="hello-fine" id="helloFine"></p>
+  </div>
+</div>
 <div class="fnudge" id="folderNudge" hidden>
   <span class="fn-what" id="folderNudgeWhat"></span>
   <button class="fn-go" id="folderNudgeGo">Reconnect</button>
@@ -4058,6 +4181,8 @@ const S = {
   roomLife:"full",             // full | quiet | still — how much the room moves
   roomFloor:"roam",            // roam | row — wandering, or lined up to read
   roomSort:"order",            // order | name | date | changed — how a room is ordered
+  bdMine:"",                   // a viewer's own backdrop choice, never the map's
+  metGuest:"",                 // the day this browser was last shown the way in
   roomWorld:"",                // standing in what a search or a tag found
   branchShape:"tidy",          // tidy | radial
   branchGrid:true,             // pack big fans into a grid rather than one column
@@ -9121,10 +9246,109 @@ function openBulkTags(){
   renderBulkTags();
   el("bulkDlg").showModal();
 }
+
+/* ---------------------------------------------------------------
+   Dates, by the handful.
+
+   Tags and dates are two ways of saying the same thing here — a tag
+   like huddle/2026-09-16 already carries the date it happened on —
+   so the two live together: pick everything carrying a tag, then put
+   a date on the lot. And because the date is usually already written
+   into the tag, it can be read back out rather than typed again.
+   --------------------------------------------------------------- */
+
+/* A date hiding inside a piece of text, in either order, returned the way
+   the date field wants it. Two-digit years are left alone: they are more
+   often a version or a batch than a year. */
+function dateInText(text){
+  const t = String(text || "");
+  let m = /(20\d{2})[-/._](\d{1,2})[-/._](\d{1,2})/.exec(t);
+  if(m) return isoDay(m[1], m[2], m[3]);
+  m = /(\d{1,2})[-/._](\d{1,2})[-/._](20\d{2})/.exec(t);
+  if(m){
+    /* day-month or month-day: anything over twelve settles it, and where
+       neither does, the American order is the one this floor writes in */
+    const a = +m[1], b = +m[2];
+    return a > 12 ? isoDay(m[3], b, a) : isoDay(m[3], a, b);
+  }
+  m = /(20\d{2})(\d{2})(\d{2})(?!\d)/.exec(t);
+  if(m) return isoDay(m[1], m[2], m[3]);
+  return "";
+}
+function isoDay(y, mo, d){
+  const M = +mo, D = +d;
+  if(!(M >= 1 && M <= 12 && D >= 1 && D <= 31)) return "";
+  return y + "-" + String(M).padStart(2, "0") + "-" + String(D).padStart(2, "0");
+}
+function dateFromTagsOf(node){
+  for(const t of (node.tags || [])){
+    const d = dateInText(t);
+    if(d) return d;
+  }
+  return "";
+}
+
+/* Everything carrying one tag, whatever else is selected. */
+function pickByTag(tag){
+  if(!tag) return;
+  const ids = [...S.nodes.values()].filter(n=>(n.tags || []).includes(tag)).map(n=>n.id);
+  if(!ids.length){ toast("Nothing carries that tag."); return; }
+  setMulti(ids);
+  renderBulkTags();
+  /* the tag usually says the date, so offer it rather than making them type it */
+  const guess = dateInText(tag);
+  if(guess && !el("bulkDate").value) el("bulkDate").value = guess;
+  el("bulkDateNote").textContent = ids.length + " picked"
+    + (guess ? " \u2014 that tag reads as " + prettyDay(guess) + ", filled in below." : ".");
+}
+
+function prettyDay(iso){
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ""));
+  if(!m) return String(iso || "");
+  const names = ["January","February","March","April","May","June","July",
+                 "August","September","October","November","December"];
+  return +m[3] + " " + names[+m[2] - 1] + " " + m[1];
+}
+
+function setBulkDate(iso, how){
+  const ids = bulkTargets();
+  if(!ids.length){ toast("Nothing selected."); return; }
+  let n = 0, skipped = 0;
+  ids.forEach(id=>{
+    const node = S.nodes.get(id);
+    let want = iso;
+    if(how === "fromTag"){
+      want = dateFromTagsOf(node);
+      if(!want){ skipped++; return; }
+    }
+    if(String(node.date || "") === String(want || "")) return;
+    setField(node, "date", want || "");
+    n++;
+  });
+  markDirty(); rebuild(); renderInspector(); renderRoomSoon(); renderBulkTags();
+  const said = how === "clear" ? "Date taken off " + n
+    : how === "fromTag" ? "Date read from the tag on " + n
+    : prettyDay(iso) + " set on " + n;
+  el("bulkDateNote").textContent = said + " node" + (n === 1 ? "" : "s")
+    + (skipped ? ", " + skipped + " had no date in a tag" : "")
+    + (n === 0 && !skipped ? " \u2014 they already said that" : "");
+  toast(said + " node" + (n === 1 ? "" : "s"));
+}
 function renderBulkTags(){
   const ids = bulkTargets();
+  /* every tag in the map, so a whole huddle can be picked out by name */
+  const sel = el("bulkByTag");
+  if(sel){
+    const keep = sel.value;
+    sel.innerHTML = '<option value="">Choose a tag\u2026</option>'
+      + allTagsWithCounts().map(([t, c])=>'<option value="' + esc(t) + '">'
+          + esc(t) + " \u2014 " + c + "</option>").join("");
+    sel.value = keep;
+  }
+  const dated = ids.filter(id=>String((S.nodes.get(id) || {}).date || "")).length;
   el("bulkWho").textContent = ids.length
     ? ids.length + " node" + (ids.length===1?"":"s") + " selected"
+      + (dated ? " \u00b7 " + dated + " already dated" : "")
     : "Nothing selected.";
   const counts = new Map();
   ids.forEach(id=>(S.nodes.get(id).tags||[]).forEach(t=>counts.set(t, (counts.get(t)||0)+1)));
@@ -14017,7 +14241,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-09-28a";
+const APP_BUILD = "2026-09-28b";
 
 function isHandle(h){
   return !!h && typeof h === "object" && typeof h.queryPermission === "function";
@@ -14086,6 +14310,7 @@ let folderMissAt = 0;
    browser — this is the moment the prompt is certainly wanted, so it is
    driven from the failure itself rather than from a guess made on startup. */
 function folderMissed(){
+  if(helloOpen) return;
   const now = Date.now();
   if(now - folderMissAt < 4000) return;      /* one prompt, not one per picture */
   folderMissAt = now;
@@ -14149,9 +14374,153 @@ async function paintFolderState(){
   }
 }
 
+/* ---------------------------------------------------------------
+   Showing somebody in.
+
+   It is shown on a first visit, and again whenever the folder cannot
+   be read — which, for a guest, is most visits, because a browser
+   forgets its permission to read a folder every time it is closed.
+   Rather than explain any of that, it is one button that does the
+   lot: asks for the folder, loads the pictures and the backdrops,
+   and pulls in everybody else's sign-offs on the way.
+   --------------------------------------------------------------- */
+let helloOpen = false;
+
+function helloStep(which, how, note){
+  const li = document.querySelector('#helloSteps li[data-step="' + which + '"]');
+  if(!li) return;
+  li.classList.toggle("doing", how === "doing");
+  li.classList.toggle("done", how === "done");
+  li.classList.toggle("missed", how === "missed");
+  li.querySelector("s").textContent = note || "";
+}
+
+/* Has this browser been shown the way in before? Kept beside the other
+   preferences, so a browser that clears them simply gets the welcome again —
+   which is the right answer, because it will have lost the folder too. */
+async function shouldSayHello(){
+  if(helloOpen) return false;
+  if(typeof window.showDirectoryPicker !== "function") return false;
+  if(!S.nodes.size) return false;
+  /* nothing for it to do: a map that reads no folder and syncs with nobody
+     has no setup to walk anybody through */
+  if(!folderWanted() && !S.fromWorkbook) return false;
+  const first = !S.metGuest;
+  if(first) return true;
+  /* been here before: only when something it needs is actually out of reach */
+  if(!folderWanted() && !canCatchUp()) return false;
+  if(!heldFolders().length) return true;
+  return (await foldersWaiting()).length > 0;
+}
+
+function sayHello(first){
+  const box = el("hello");
+  if(!box) return;
+  helloOpen = true;
+  const held = heldFolders();
+  const name = S.bookName || S.meta.title || "this board";
+  el("helloWhat").textContent = first
+    ? "Everything here lives in one shared folder. Point this page at it once and "
+      + "the rooms, the pictures and everybody's sign-offs come with it."
+    : held.length
+      ? "Your browser forgets its way into the folder each time it closes. "
+        + "One tap puts it back and catches you up."
+      : "The folder this board reads from is not linked in this browser yet.";
+  const wrap = el("helloNameWrap");
+  wrap.hidden = !!S.who || (S.people || []).some(x=>x.active !== false);
+  el("helloName").value = S.who || "";
+  el("helloSkip").hidden = !!first;
+  el("helloFine").textContent = first
+    ? "Nothing leaves your computer. The folder is the one already syncing to you."
+    : "";
+  ["folder","pics","sync"].forEach(k=>helloStep(k, "", ""));
+  el("helloGo").disabled = false;
+  el("helloGo").textContent = "Let\u2019s go";
+  box.hidden = false;
+  setTimeout(()=>{ (wrap.hidden ? el("helloGo") : el("helloName")).focus(); }, 120);
+}
+
+async function shutHello(done){
+  const box = el("hello");
+  if(box) box.hidden = true;
+  helloOpen = false;
+  S.metGuest = nowISO().slice(0, 10);
+  savePrefs();
+  if(done) offerReconnect().catch(()=>{});
+}
+
+/* The one button. Everything it does has to happen inside this click, because
+   a browser will only put the folder question to somebody who asked for it. */
+async function helloGo(){
+  const go = el("helloGo");
+  go.disabled = true; go.textContent = "One moment\u2026";
+
+  const typed = (el("helloName").value || "").trim();
+  if(typed && !el("helloNameWrap").hidden){ S.who = typed; savePersonal(); }
+
+  /* 1 — the folder */
+  helloStep("folder", "doing");
+  let reach = false;
+  try{
+    if(heldFolders().length){
+      for(const f of heldFolders()){
+        if(await folderSays(f.h, f.mode, true) === "granted") reach = true;
+        else if(f.mode === "readwrite"
+          && await folderSays(f.h, "read", true) === "granted") reach = true;
+      }
+    }
+    if(!reach){
+      /* one folder for everything: the workbook, everybody's files, the pictures */
+      const dir = await window.showDirectoryPicker(
+        {id:"mindmap-folder", mode:"readwrite"}).catch(async ()=>
+        await window.showDirectoryPicker({id:"mindmap-folder", mode:"read"}));
+      if(dir){
+        picDir = dir;
+        if(!bookDir) bookDir = dir;
+        await rememberHandle("picDir", dir);
+        await rememberHandle("bookDir", dir);
+        reach = true;
+      }
+    }
+  }catch(e){ /* they changed their mind at the picker */ }
+  helloStep("folder", reach ? "done" : "missed",
+    reach ? (picDir && picDir.name || "linked") : "not linked");
+  if(!reach){
+    go.disabled = false; go.textContent = "Try again";
+    el("helloSkip").hidden = false;
+    return;
+  }
+
+  /* 2 — the pictures and the backdrops */
+  helloStep("pics", "doing");
+  let pool = [];
+  try{
+    picCache.clear(); bdLive.clear(); bdPool = null;
+    await warmPictures(true);
+    pool = await backdropPool(true);
+  }catch(e){}
+  /* a folder full of pictures and no backdrop chosen: choose one for them,
+     in their own copy, because that is plainly what the folder is for */
+  if(pool.length && !S.meta.backdrop && !S.bdMine){ S.bdMine = "random"; savePrefs(); }
+  helloStep("pics", pool.length || picCache.size ? "done" : "missed",
+    pool.length ? pool.length + " backdrops" : picCache.size ? picCache.size + " pictures" : "none found");
+
+  /* 3 — everybody else */
+  helloStep("sync", "doing");
+  let added = 0;
+  try{ if(canCatchUp()) added = await catchUp(true); }catch(e){}
+  helloStep("sync", "done", canCatchUp()
+    ? (added ? added + " new" : "up to date") : "nothing to read");
+
+  rebuild(); renderInspector(); render(); renderRoomSoon();
+  go.textContent = "In you go";
+  setTimeout(()=>shutHello(true), 620);
+}
+
 async function offerReconnect(){
   const bar = el("folderNudge");
   if(!bar) return;
+  if(helloOpen){ bar.hidden = true; return; }
   /* clear of the storage banner, which lives at the very top */
   const sb = el("storeBanner");
   bar.style.top = (sb && !sb.hidden
@@ -14207,7 +14576,7 @@ async function offerReconnect(){
 /* Does this map actually need a folder? A map of plain notes does not, and
    nagging about one it will never read is just noise. */
 function folderWanted(){
-  if(S.meta.backdrop === "random") return "backdrops";
+  if(S.meta.backdrop === "random" || S.bdMine === "random") return "backdrops";
   if(isFolderPath(S.meta.backdrop)) return "backdrops";
   for(const n of S.nodes.values()){
     if(isFolderPath(n.image) || isFolderPath(n.badgeImage)) return "pictures";
@@ -14827,7 +15196,8 @@ async function loadPersonal(){
    different map. */
 const PREF_KEYS = ["notesMode","motion","showIds","avoidNodes","branchGrid",
                    "focusMode","pickZoom","followOutline","railOpen","branchShape",
-                   "searchExcludes","portals","vista","roomSkin","roomCast","roomLife","roomFloor","roomSort"];
+                   "searchExcludes","portals","vista","roomSkin","roomCast","roomLife","roomFloor","roomSort",
+                   "bdMine"];
 async function savePrefs(){
   const out = {};
   PREF_KEYS.forEach(k=>{ out[k] = S[k]; });
@@ -17135,7 +17505,7 @@ async function backdropURL(name){
 function bdNameFor(id){
   const n = id && S.nodes.get(id);
   if(n && n.backdrop) return n.backdrop;
-  const map = S.meta.backdrop || "";
+  const map = S.meta.backdrop || S.bdMine || "";
   if(!map) return "";
   if(map !== "random") return map;
   const pool = bdPool;
@@ -18478,24 +18848,39 @@ function wireRoom(){
         + (S.meta.backdrop === "random" ? " \u2014 every room takes one." : ".")
       : "";
   }).catch(()=>{});
+  /* Which picture is behind a room is how somebody's own copy looks, not a
+     change to the map, so a viewer may turn it on without being told to
+     switch to editing. Theirs is kept beside their other preferences and is
+     never written back to the workbook; an editor's is the map's, for
+     everybody. */
   if(el("mapRandom")) el("mapRandom").onclick = async ()=>{
-    if(!canEdit()){ toast("Switch to editing mode first."); return; }
     const note = el("bdPoolNote");
     if(note) note.textContent = "Looking through the folder\u2026";
+    if(!picDir && !bookDir){
+      /* asked from inside this click, which is the only time a browser allows it */
+      if(note) note.textContent = "Choose the folder your pictures are in.";
+      await choosePictureFolder();
+    } else {
+      await reconnectFolders();
+    }
     const pool = await backdropPool(true);
     if(!pool.length){
-      if(note) note.textContent = "No pictures found. Pick the folder under "
-        + "Badges and pictures first.";
+      if(note) note.textContent = "No pictures found in that folder. A folder called "
+        + "backdrops inside it is used on its own if there is one.";
       toast("No pictures in the folder yet.");
       return;
     }
-    S.meta.backdrop = "random";
-    markDirty(); renderRoomSoon();
-    if(note) note.textContent = pool.length + " pictures found \u2014 every room takes one.";
+    if(canEdit()){ S.meta.backdrop = "random"; markDirty(); }
+    else { S.bdMine = "random"; savePrefs(); }
+    renderRoomSoon();
+    if(note) note.textContent = pool.length + " pictures found \u2014 every room takes one"
+      + (canEdit() ? "." : ", in your copy.");
     toast(pool.length + " backdrops, one per room");
   };
   if(el("mapBackdropOff")) el("mapBackdropOff").onclick = ()=>{
-    S.meta.backdrop = ""; markDirty(); renderRoomSoon(); toast("Backdrop cleared");
+    if(canEdit()){ S.meta.backdrop = ""; markDirty(); }
+    S.bdMine = ""; savePrefs();
+    renderRoomSoon(); toast("Backdrop cleared");
   };
   if(el("roomCast")) el("roomCast").onchange = e=>{
     S.roomCast = e.target.value; savePrefs(); renderRoom();
@@ -18959,10 +19344,37 @@ async function boot(){
   el("bulkClose").onclick = ()=>el("bulkDlg").close();
   el("bulkApply").onclick = applyBulkTags;
   el("bulkKids").onchange = renderBulkTags;
+  el("bulkByTag").onchange = ev=>pickByTag(ev.target.value);
+  el("bulkDateApply").onclick = ()=>{
+    const d = el("bulkDate").value;
+    if(!d){ toast("Pick a date first."); return; }
+    setBulkDate(d, "set");
+  };
+  el("bulkDateFromTag").onclick = ()=>setBulkDate("", "fromTag");
+  el("bulkDateClear").onclick = ()=>setBulkDate("", "clear");
+  el("bulkDate").addEventListener("keydown", ev=>{
+    if(ev.key === "Enter"){ ev.preventDefault(); el("bulkDateApply").click(); }
+  });
   el("bulkAdd").addEventListener("keydown", ev=>{
     if(ev.key === "Enter"){ ev.preventDefault(); applyBulkTags(); }
   });
   el("openFromDisk").onclick = ()=>refreshFromWorkbook();
+  el("helloGo").onclick = ()=>{ helloGo().catch(()=>{ shutHello(false); }); };
+  el("helloSkip").onclick = ()=>{ shutHello(false); };
+  el("helloName").addEventListener("keydown", ev=>{
+    if(ev.key === "Enter"){ ev.preventDefault(); el("helloGo").click(); }
+  });
+  /* On a return visit it can be waved away like anything else. On a first
+     visit it cannot: there is one thing to do and no other way to find it. */
+  el("hello").addEventListener("click", ev=>{
+    if(ev.target === el("hello") && !el("helloSkip").hidden) shutHello(false);
+  });
+  document.addEventListener("keydown", ev=>{
+    if(ev.key === "Escape" && helloOpen && !el("helloSkip").hidden){
+      ev.stopPropagation(); shutHello(false);
+    }
+  }, true);
+
   el("folderNudgeGo").onclick = ()=>{
     if(!heldFolders().length){ el("folderNudge").hidden = true; choosePictureFolder(); return; }
     reconnectFolders().catch(()=>{});
@@ -19336,9 +19748,16 @@ async function boot(){
     }, 500);
     /* The workbook's own handle comes back on a later tick, so the question
        of whether any of it can still be read is asked after all of that has
-       settled, and again a moment later in case something was slow. */
-    setTimeout(()=>{ offerReconnect().catch(()=>{}); }, 1400);
-    setTimeout(()=>{ offerReconnect().catch(()=>{}); }, 3200);
+       settled, and again a moment later in case something was slow. The
+       welcome gets first refusal: when it is going to be shown there is no
+       point in a bar behind it saying the same thing. */
+    setTimeout(async ()=>{
+      try{
+        if(await shouldSayHello()){ sayHello(!S.metGuest); return; }
+      }catch(e){}
+      offerReconnect().catch(()=>{});
+    }, 1400);
+    setTimeout(()=>{ if(!helloOpen) offerReconnect().catch(()=>{}); }, 3200);
     /* the folder listing is kept from last time, so a room knows which
        picture is its own before anything is read off the disk */
     if(S.meta.backdrop === "random" || !bdPool){
