@@ -14368,7 +14368,7 @@ async function catchUp(quiet){
         /* one at a time, with a breath: a folder of sixty of these parsed in
            one run locks the page up and asks the sync client for all of them
            at once */
-        await new Promise(r=>setTimeout(r, 0));
+        await breath();
         try{
           const wb = XLSX.read(await f.arrayBuffer(), {type:"array"});
           const t = {};
@@ -14473,7 +14473,7 @@ async function gatherFeedback(){
     if(h.kind !== "file" || !/^feedback[ -].*\.xlsx?$/i.test(name)) continue;
     /* sixty of these parsed back to back locks the page up and, in a synced
        folder, asks the sync client for sixty files at once */
-    await new Promise(r=>setTimeout(r, 0));
+    await breath();
     try{
       const f = await h.getFile();
       const wb = XLSX.read(await f.arrayBuffer(), {type:"array"});
@@ -15089,6 +15089,7 @@ async function choosePictureFolder(){
     picDir = await window.showDirectoryPicker({id:"mindmap-folder", mode:"read"});
     const kept = await rememberHandle("picDir", picDir);
     picCache.clear();
+    picForget();
     const n = await warmPictures();
     rebuild(); renderInspector();
     if(n){
@@ -15124,7 +15125,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-09-28p";
+const APP_BUILD = "2026-09-28q";
 
 function isHandle(h){
   return !!h && typeof h === "object" && typeof h.queryPermission === "function";
@@ -15378,6 +15379,7 @@ async function helloGo(){
         if(!bookDir) bookDir = dir;
         await rememberHandle("picDir", dir);
         await rememberHandle("bookDir", dir);
+        picForget();
         reach = true;
       }
     }
@@ -15635,6 +15637,22 @@ async function picturesFromMemory(){
    So: a handful up front and the rest on demand, with a breath
    between each one and never two at once.
    --------------------------------------------------------------- */
+/* A breath: hand the thread back so the page can paint and answer, then carry
+   on. setTimeout(0) looks like the way to do this, but a browser clamps a
+   chain of nested timers to four milliseconds each, which turns a hundred
+   breaths into half a second of sitting still. A message to ourselves is not
+   clamped, so the pause is only as long as the work the page had waiting. */
+const breathChan = typeof MessageChannel === "function" ? new MessageChannel() : null;
+const breathQueue = [];
+if(breathChan) breathChan.port1.onmessage = ()=>{ const f = breathQueue.shift(); if(f) f(); };
+function breath(){
+  if(typeof scheduler === "object" && scheduler && typeof scheduler.yield === "function"){
+    try{ return scheduler.yield(); }catch(e){}
+  }
+  if(!breathChan) return new Promise(r=>setTimeout(r, 0));
+  return new Promise(r=>{ breathQueue.push(r); breathChan.port2.postMessage(0); });
+}
+
 const BD_POOL_MAX = 4000;     /* a folder bigger than this is a mistake, not a pool */
 const PIC_WARM = 12;          /* read this many when the folder is first opened */
 const picPending = new Map(); /* one read per picture, however many ask for it */
@@ -15678,7 +15696,7 @@ async function picRead(path){
     try{ url = URL.createObjectURL(keep); }catch(e){ return ""; }
     picCache.set(path, url);
     /* a breath, so a run of these cannot monopolise the main thread */
-    await new Promise(r=>setTimeout(r, 0));
+    await breath();
     return url;
   }).finally(()=>picPending.delete(path));
   picPending.set(path, job);
@@ -15781,20 +15799,73 @@ async function renamePictureFor(n){
   }
 }
 
-let picLater = null;
+/* ---------------------------------------------------------------
+   Asking for a picture, without asking a thousand times.
+
+   Drawing must never start a read. The first version of this had
+   picURL kick one off, and since a finished read redraws the page,
+   and redrawing calls picURL again for everything still unread, each
+   picture that arrived set off a fresh round for all the others. On a
+   map with a few hundred pictures that is a runaway — and it only
+   caught fire once a folder was picked, because until then the reads
+   returned empty straight away.
+
+   So drawing only writes down what it wanted. One pump reads them, a
+   few at a time, and redraws once per batch. Nothing it does can make
+   more work for itself.
+   --------------------------------------------------------------- */
+const picWant = new Set();    /* asked for while drawing, not yet read */
+const picGone = new Set();    /* looked for and not there: not asked for again */
+let picPumping = false;
+let picDrawAt = 0;
+const PIC_BATCH = 14;         /* read this many before drawing again */
+const PIC_DRAW_GAP = 450;     /* and never redraw more often than this */
+
 function picURL(src){
   if(!isFolderPath(src)) return src;
   const got = picCache.get(src);
   if(got) return got;
-  /* not read yet: ask for it, and redraw once a few have landed. The path is
-     handed back meanwhile, which resolves on its own where the page happens
-     to sit beside the folder. */
-  picRead(src).then(url=>{
-    if(!url) return;
-    clearTimeout(picLater);
-    picLater = setTimeout(()=>{ render(); renderInspector(); renderRoomSoon(); }, 220);
-  }).catch(()=>{});
+  if(!picGone.has(src) && (picDir || bookDir || Store.mode === "idb")){
+    picWant.add(src);
+    if(!picPumping) picPump();
+  }
   return src;
+}
+
+async function picPump(){
+  if(picPumping) return;
+  picPumping = true;
+  try{
+    while(picWant.size){
+      let did = 0;
+      for(const path of [...picWant]){
+        picWant.delete(path);
+        if(picCache.has(path) || picGone.has(path)) continue;
+        const url = await picRead(path);
+        if(!url) picGone.add(path);
+        if(++did >= PIC_BATCH) break;
+      }
+      if(!did) break;
+      /* One redraw for the batch, and not even that if the last one was a
+         moment ago: on a big map a full redraw costs more than the reads do,
+         and a picture arriving is never urgent. */
+      const now = Date.now();
+      if(now - picDrawAt >= PIC_DRAW_GAP || !picWant.size){
+        picDrawAt = now;
+        render(); renderInspector(); renderRoomSoon();
+      }
+      /* and a real pause between batches, so the page is not merely yielding
+         between two pieces of heavy work */
+      await new Promise(r=>setTimeout(r, 60));
+    }
+  }catch(e){ /* a picture is never worth stopping for */ }
+  finally{ picPumping = false; }
+}
+
+/* A new folder is a fresh chance for everything that was missing. */
+function picForget(){
+  picGone.clear();
+  picWant.clear();
 }
 
 function pickWorkbookFile(){
@@ -18215,10 +18286,20 @@ function renderRoom(){
   const ph = el("rvPhoto");
   view.dataset.photo = photo ? "1" : "0";
   if(ph){
-    if(!photo){ ph.hidden = true; ph.style.backgroundImage = ""; }
+    if(!photo){
+      ph.hidden = true;
+      ph.style.backgroundImage = "";
+      /* and forget which picture it was holding. Leaving that behind meant
+         that coming back to the same room later found the name unchanged,
+         decided the picture was already up, and unhid a layer whose image
+         had been wiped — a blank wall where the backdrop used to be. */
+      ph.dataset.name = "";
+    }
     else {
       const want = photo.name, mine = S.sel;
-      if(ph.dataset.name !== want){
+      /* the name matching is only worth trusting while there is actually a
+         picture behind it */
+      if(ph.dataset.name !== want || !ph.style.backgroundImage){
         ph.dataset.name = want;
         backdropURL(want).then(url=>{
           /* you may have walked on while it was reading */
@@ -18735,7 +18816,7 @@ async function backdropPool(force){
        that locks the page up. */
     let seen = 0;
     const breathe = async ()=>{
-      if(++seen % 150 === 0) await new Promise(r=>setTimeout(r, 0));
+      if(++seen % 150 === 0) await breath();
       return names.length < BD_POOL_MAX;
     };
     try{
