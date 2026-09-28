@@ -1419,6 +1419,9 @@ html[data-theme="dark"] #roomView[data-skin="plain"]{
   background:var(--paper);border:3px solid var(--rv-ink);
   border-radius:14px;padding:10px 13px;
   box-shadow:0 4px 0 rgba(20,24,28,.26)}
+/* display:flex above beats the browser's own [hidden] rule, which is how a
+   shut bubble stayed on screen as an empty bar */
+.rv-peek[hidden]{display:none}
 .rv-peek h4{flex:0 0 auto}
 .rv-peek p{flex:0 1 auto;overflow:auto}
 .rv-peek .rv-kids{flex:0 1 auto}
@@ -1848,9 +1851,15 @@ html[data-theme="dark"] .rv-bar-mid b{color:#F09A7E}
   background:var(--rv-board);border:3px solid var(--rv-ink);border-radius:14px;
   box-shadow:0 6px 0 rgba(20,24,28,.24)}
 .rv-list[hidden]{display:none}
-.rv-list input{flex:0 0 auto;margin:9px 10px 6px;padding:7px 10px;font-size:13px;
+/* the filter and the order sit on one line at the top of the list */
+.rv-list-head{flex:0 0 auto;display:flex;gap:7px;margin:9px 10px 6px;align-items:center}
+.rv-list input{flex:1 1 auto;min-width:0;margin:0;padding:7px 10px;font-size:13px;
   border:2px solid var(--rv-line);border-radius:8px;background:var(--rv-wall);
   color:var(--rv-door-ink)}
+.rv-list select{flex:0 0 auto;padding:7px 8px;font-size:12.5px;font-family:var(--sans);
+  border:2px solid var(--rv-line);border-radius:8px;background:var(--rv-wall);
+  color:var(--rv-door-ink);cursor:pointer;max-width:42%}
+.rv-list select:focus-visible{outline:2px solid var(--blueprint);outline-offset:1px}
 .rv-list-body{flex:1 1 auto;min-height:0;overflow:auto;padding:0 8px 9px}
 .rv-list h5{margin:8px 4px 4px;font-family:var(--mono);font-size:10.5px;
   font-weight:500;letter-spacing:.05em;text-transform:uppercase;
@@ -2316,6 +2325,12 @@ body.viewing.panelaway #panelHide{display:none}
 .status-pill{font-family:var(--mono);font-size:10px;border:1px solid var(--rule);border-radius:2px;padding:1px 5px}
 .status-pill.retired{color:var(--retired);border-style:dashed}
 
+.folderstate{display:flex;align-items:center;gap:9px;flex-wrap:wrap;
+  margin:-2px 0 10px;font-size:12px;color:var(--graphite-60);
+  font-family:var(--sans);line-height:1.4}
+.folderstate b{font-weight:600;color:var(--graphite)}
+.folderstate .ok{color:var(--blueprint)}
+.folderstate .wait{color:var(--flag)}
 .fnudge{
   position:fixed;left:50%;top:14px;transform:translateX(-50%);
   display:flex;align-items:center;gap:10px;max-width:min(92vw,620px);
@@ -3027,6 +3042,10 @@ body.viewing.panelaway #panelHide{display:none}
           <button class="btn" id="mapBackdropOff">Clear it</button>
         </div>
         <p class="fineprint" id="bdPoolNote" style="margin:-2px 0 8px"></p>
+        <div class="folderstate" id="folderState">
+          <span id="folderStateWhat"></span>
+          <button class="btn small" id="folderStateGo" hidden>Reconnect</button>
+        </div>
         <p class="fineprint" style="margin:-2px 0 10px">A web address, or the name of a file in
           your synced picture folder. One room can override it with its own.</p>
         <label class="field"><span>How much the room moves</span>
@@ -3322,7 +3341,15 @@ body.viewing.panelaway #panelHide{display:none}
           <div class="rv-peek" id="rvPeek" hidden></div>
         </div>
         <div class="rv-list" id="rvList" hidden>
-          <input type="search" id="rvListQ" placeholder="Filter" enterkeyhint="go">
+          <div class="rv-list-head">
+            <input type="search" id="rvListQ" placeholder="Filter" enterkeyhint="go">
+            <select id="rvListSort" aria-label="Order this list" title="How this list is ordered">
+              <option value="order">As arranged</option>
+              <option value="name">By name</option>
+              <option value="date">By date</option>
+              <option value="changed">Last changed</option>
+            </select>
+          </div>
           <div class="rv-list-body" id="rvListBody"></div>
         </div>
         <div class="rv-bar" id="rvBar">
@@ -3339,10 +3366,6 @@ body.viewing.panelaway #panelHide{display:none}
               <span class="ic">&#9873;</span><span class="lb">Example</span></button>
             <button class="rvb" id="rvWorld" title="Step into what the filter found">
               <span class="ic">&#9678;</span><span class="lb">Found</span></button>
-            <button class="rvb" id="rvSort" title="How the things in here are ordered">
-              <span class="ic">&#8645;</span><span class="lb">Order</span></button>
-            <button class="rvb" id="rvKeep" hidden title="Make where they are standing the map's, for everyone">
-              <span class="ic">&#10003;</span><span class="lb">Keep them here</span></button>
             <button class="rvb" id="rvLayout" title="Line everything up, or let it wander">
               <span class="ic">&#9776;</span><span class="lb">Line up</span></button>
             <button class="rvb" id="rvEdit" hidden><span class="ic">&#9998;</span><span class="lb">Edit</span></button>
@@ -13654,14 +13677,14 @@ async function rememberFolder(){
   try{
     const dir = await window.showDirectoryPicker({id:"mindmap-folder", mode:"readwrite"});
     bookDir = dir;
-    try{ await Store.putKey("bookDir:" + (S.meta.key || "map"), dir); }catch(e){}
+    await rememberHandle("bookDir", dir);
     const found = await findWorkbookIn(dir);
     if(!found){
       sayWorkbookState("No " + (S.bookName || "workbook") + " in that folder.");
       return;
     }
     bookHandle = found;
-    try{ await Store.putKey("bookHandle:" + (S.meta.key || "map"), found); }catch(e){}
+    await rememberHandle("bookHandle", found);
     await readRememberedWorkbook(true);
     sayWorkbookState("Set up. This folder is remembered, so from now on it is Refresh only. "
       + "Your notes are saved as " + feedbackName() + " beside the workbook.");
@@ -13693,14 +13716,14 @@ async function rememberWorkbook(){
         + ".\n\nUse it anyway?")) return;
     }
     bookHandle = h;
-    try{ await Store.putKey("bookHandle:" + (S.meta.key || "map"), h); }catch(e){}
+    await rememberHandle("bookHandle", h);
     await readRememberedWorkbook();
   }catch(e){ /* they changed their mind */ }
 }
 
 async function recallWorkbookHandle(){
   try{
-    const h = await Store.getKey("bookHandle:" + (S.meta.key || "map"));
+    const h = await recallHandle("bookHandle");
     if(h){ bookHandle = h; return true; }
   }catch(e){}
   return false;
@@ -13929,7 +13952,7 @@ async function choosePictureFolder(){
   }
   try{
     picDir = await window.showDirectoryPicker({id:"mindmap-folder", mode:"read"});
-    try{ await Store.putKey("picDir:" + (S.meta.key || "map"), picDir); }catch(e){}
+    await rememberHandle("picDir", picDir);
     picCache.clear();
     const n = await warmPictures();
     rebuild(); renderInspector();
@@ -13954,6 +13977,28 @@ async function choosePictureFolder(){
    throws. Everything remembered is asked about together, once, from
    one button, instead of picking the folder all over again.
    --------------------------------------------------------------- */
+/* A folder is remembered under this map's own name and under a plain "last"
+   name as well. Loading a fresh copy of the workbook mints a new map key, and
+   when that happened the folder was still sitting in this browser under the
+   old key and could not be found — which is the real reason it kept having to
+   be picked again. The plain name survives that. */
+async function rememberHandle(kind, h){
+  if(!h) return;
+  try{ await Store.putKey(kind + ":" + (S.meta.key || "map"), h); }catch(e){}
+  try{ await Store.putKey(kind + ":last", h); }catch(e){}
+}
+async function recallHandle(kind){
+  const mine = kind + ":" + (S.meta.key || "map");
+  try{ const h = await Store.getKey(mine); if(h) return h; }catch(e){}
+  try{
+    const h = await Store.getKey(kind + ":last");
+    /* found under the plain name: file it under this map's too, so the next
+       load finds it first time */
+    if(h){ try{ await Store.putKey(mine, h); }catch(e){} return h; }
+  }catch(e){}
+  return null;
+}
+
 async function folderSays(h, mode, ask){
   if(!h || !h.queryPermission) return "granted";
   let state = "prompt";
@@ -13982,11 +14027,43 @@ async function foldersWaiting(){
 
 let folderNudgeShown = false;
 
+/* The same question, in the place somebody goes looking for it. The bar at
+   the top is easy to miss or to wave away; this is always here. */
+async function paintFolderState(){
+  const box = el("folderState"), what = el("folderStateWhat"), go = el("folderStateGo");
+  if(!box || !what) return;
+  const held = heldFolders();
+  if(!held.length){
+    what.innerHTML = "No folder linked yet \u2014 pick one under Badges and pictures "
+      + "and it is remembered from then on.";
+    if(go) go.hidden = true;
+    return;
+  }
+  const waiting = await foldersWaiting();
+  const names = held.map(f=>f.h.name || f.what);
+  if(!waiting.length){
+    what.innerHTML = '<span class="ok">\u25CF</span> Reading <b>'
+      + esc(names.join("</b>, <b>")) + "</b>.";
+    if(go) go.hidden = true;
+  } else {
+    what.innerHTML = '<span class="wait">\u25CF</span> <b>'
+      + esc(waiting.map(f=>f.h.name || f.what).join("</b>, <b>"))
+      + "</b> remembered, but this browser wants a nod before reading "
+      + (waiting.length === 1 ? "it" : "them") + " again.";
+    if(go) go.hidden = false;
+  }
+}
+
 async function offerReconnect(){
   const bar = el("folderNudge");
   if(!bar) return;
   const waiting = await foldersWaiting();
-  if(!waiting.length){ bar.hidden = true; folderNudgeShown = false; return; }
+  if(!waiting.length){
+    bar.hidden = true; folderNudgeShown = false;
+    paintFolderState().catch(()=>{});
+    return;
+  }
+  paintFolderState().catch(()=>{});
   const names = [...new Set(waiting.map(f=>f.h.name || f.what))];
   el("folderNudgeWhat").textContent = names.length === 1
     ? "“" + names[0] + "” is remembered — this browser just needs a nod to read it again."
@@ -14010,6 +14087,7 @@ async function reconnectFolders(){
   if(btn){ btn.disabled = false; btn.textContent = "Reconnect"; }
   el("folderNudge").hidden = true;
   folderNudgeShown = false;
+  paintFolderState().catch(()=>{});
   if(!ok){ toast("Still blocked. Choosing the folder again will fix it."); return; }
   picCache.clear();
   try{ await warmPictures(); }catch(e){}
@@ -14020,9 +14098,18 @@ async function reconnectFolders(){
   if(typeof catchUp === "function" && canCatchUp()) catchUp(true).catch(()=>{});
 }
 
+/* Pick every remembered folder back up. None of this asks the browser for
+   anything: it is just finding the handles again. */
+async function recallFolders(){
+  if(!picDir)     { try{ picDir     = await recallHandle("picDir");     }catch(e){} }
+  if(!bookDir)    { try{ bookDir    = await recallHandle("bookDir");    }catch(e){} }
+  if(!bookHandle) { try{ bookHandle = await recallHandle("bookHandle"); }catch(e){} }
+  return !!(picDir || bookDir || bookHandle);
+}
+
 async function recallPictureFolder(){
   try{
-    const d = await Store.getKey("picDir:" + (S.meta.key || "map"));
+    const d = await recallHandle("picDir");
     if(d){ picDir = d; return true; }
   }catch(e){}
   return false;
@@ -16733,6 +16820,7 @@ function isPicName(name){ return /\.(png|jpe?g|gif|webp|avif|svg)$/i.test(name);
    in it is not, so this never opens one. */
 async function backdropPool(force){
   if(bdPool && !force) return bdPool;
+  if(force && (picDir || bookDir)) offerReconnect().catch(()=>{});
   if(!force){
     try{
       const saved = await Store.getKey("bdPool");
@@ -17042,8 +17130,6 @@ function clearTempSpots(room){
   if(tempRoom === room) return;
   tempRoom = room;
   tempSpots = new Map();
-  const b = el("rvKeep");
-  if(b) b.hidden = true;
 }
 
 /* Give everyone a home corner and let them go. */
@@ -17054,10 +17140,8 @@ function placeRoamers(ids){
   /* a drawn room has furniture in it, so anything put somewhere by hand
      stays exactly there and only the rest are scattered */
   const placed = spotsOf(S.nodes.get(S.sel));
-  /* Ordering the room means nothing if everyone is then thrown at the floor
-     at random, so when an order is chosen it decides where they stand: back
-     row first, left to right, the way you would read them. */
-  const ordered = (S.roomSort || "order") !== "order";
+  /* They wander. An order imposed on the floor only ever read as a grid of
+     things standing still, and the list is where order belongs anyway. */
   const cols0 = Math.max(3, Math.ceil(Math.sqrt(ids.length * 1.9)));
   roamers = ids.map((k, i)=>{
     const elm = field.querySelector('[data-thing="' + CSS.escape(k) + '"]');
@@ -17069,16 +17153,13 @@ function placeRoamers(ids){
     const cols = cols0;
     const rows = Math.max(2, Math.ceil(ids.length / cols));
     const cx = i % cols, cy = Math.floor(i / cols);
-    /* in reading order the jitter goes, so the order is legible */
-    const u = ordered ? (cx + 0.5) / cols
-      : (cx + 0.5 + (rvRand(sd, 2) - 0.5) * 0.7) / cols;
+    const u = (cx + 0.5 + (rvRand(sd, 2) - 0.5) * 0.7) / cols;
     const v = rows < 2 ? 0.62
-      : ordered ? (cy + 0.5) / rows
       : (cy + 0.5 + (rvRand(sd, 3) - 0.5) * 0.55) / rows;
     const home = fixed
       ? {u:fixed.u, v:fixed.v}
       : {u:Math.min(.97, Math.max(.03, u)), v:Math.min(.98, Math.max(.05, v))};
-    return {id:k, el:elm, home, u:home.u, v:home.v, fixed:!!fixed || ordered,
+    return {id:k, el:elm, home, u:home.u, v:home.v, fixed:!!fixed,
       tu:home.u, tv:home.v, face:1, wait:rvRand(sd, 4) * 1.1, moving:false};
   }).filter(Boolean);
   roamers.forEach(placeOne);
@@ -17173,7 +17254,7 @@ function drawPeek(){
   if(!p) return;
   if(!roomPeek || !S.nodes.has(roomPeek)){ p.hidden = true; p.innerHTML = ""; return; }
   const k = roomPeek, n = S.nodes.get(k);
-  const kids = roomOrder(childrenOf(k).filter(x=>S.nodes.has(x)));
+  const kids = roomOrder(childrenOf(k).filter(x=>S.nodes.has(x)));   /* the list in the bubble, so it is ordered */
   const deep = kids.length, cr = crossOf(k).length;
   const inside = [];
   if(deep) inside.push(deep + (deep === 1 ? " room inside" : " rooms inside"));
@@ -17503,8 +17584,6 @@ function wireThingDrag(strip){
     if(!held || floorIsRow()) return;
     tempSpots.set(what, {u:held.u, v:held.v});
     held.home = {u:held.u, v:held.v};
-    const keep = el("rvKeep");
-    if(keep) keep.hidden = !canEdit();
     sayBar(tempSpots.size === 1
       ? "Moved. It stands there until you leave the room."
       : tempSpots.size + " moved. They stand there until you leave the room.");
@@ -17800,29 +17879,16 @@ function wireRoom(){
     if(canCatchUp() && Date.now() - lastCatch > 45000) catchUp(true);
   });
   catchUpSoon();
-  const SORTS = [["order","As arranged"],["name","By name"],
-                 ["date","By date"],["changed","Last changed first"]];
+  /* Order lives in the Go to list, which is the orderly way to look at a
+     room anyway. The floor is a floor: things wander about on it. */
   function sortButton(){
-    const b = el("rvSort");
-    if(!b) return;
-    const found = SORTS.find(x=>x[0] === (S.roomSort || "order")) || SORTS[0];
-    b.querySelector(".lb").textContent = found[1];
-    b.title = "Ordered " + found[1].toLowerCase() + " \u2014 tap to change";
-    b.classList.toggle("on", (S.roomSort || "order") !== "order");
+    const sel = el("rvListSort");
+    if(sel) sel.value = S.roomSort || "order";
   }
-  el("rvSort").onclick = ()=>{
-    const at = SORTS.findIndex(x=>x[0] === (S.roomSort || "order"));
-    S.roomSort = SORTS[(at + 1) % SORTS.length][0];
-    savePrefs(); sortButton();
-    if(listOpen) renderList();
-    renderRoom();
-    /* the order is not a list somewhere else: it is where they are standing,
-       back row first and left to right, and they hold that line while it is
-       on. "As arranged" lets them wander off again. */
-    const lab = (SORTS.find(x=>x[0] === S.roomSort) || [,""])[1] || S.roomSort;
-    sayBar(S.roomSort === "order"
-      ? "Wandering again."
-      : "Standing in order: " + String(lab).toLowerCase() + ", back row first.");
+  el("rvListSort").onchange = ()=>{
+    S.roomSort = el("rvListSort").value || "order";
+    savePrefs();
+    renderList();
   };
   sortButton();
   let exFor = "", exProof = "";
@@ -18041,6 +18107,7 @@ function wireRoom(){
            markDirty(); renderRoomSoon(); toast("Backdrop set for every room"); },
       ()=>{ S.meta.backdrop = ""; markDirty(); renderRoomSoon(); });
   };
+  paintFolderState().catch(()=>{});
   if(el("bdPoolNote")) backdropPool().then(list=>{
     const note = el("bdPoolNote");
     if(!note) return;
@@ -18534,17 +18601,8 @@ async function boot(){
     if(ev.key === "Enter"){ ev.preventDefault(); applyBulkTags(); }
   });
   el("openFromDisk").onclick = ()=>refreshFromWorkbook();
-  el("rvKeep").onclick = ()=>{
-    if(!canEdit() || !S.sel || !tempSpots.size) return;
-    for(const [k, at] of tempSpots) setSpot(S.sel, k, at.u, at.v);
-    tempSpots = new Map();
-    el("rvKeep").hidden = true;
-    markDirty();
-    renderRoom();
-    toast("Kept. That is where they stand now, for everybody.");
-  };
-
   el("folderNudgeGo").onclick = ()=>{ reconnectFolders().catch(()=>{}); };
+  el("folderStateGo").onclick = ()=>{ reconnectFolders().catch(()=>{}); };
   el("folderNudgeX").onclick = ()=>{ el("folderNudge").hidden = true; };
 
   el("chooseWorkbook").onclick = ()=>{
@@ -18895,8 +18953,8 @@ async function boot(){
   if(el("roomLife")) el("roomLife").value = S.roomLife;
   layoutButton();
     organiseRail();
-    /* a folder named before is used again without asking */
-    await recallPictureFolder();
+    /* every folder named before is picked back up without asking */
+    await recallFolders();
     /* pictures read on an earlier visit are drawn immediately, whether or
        not the folder itself can be opened yet */
     try{ if(await picturesFromMemory()){ render(); renderInspector(); } }catch(e){}
@@ -18905,10 +18963,12 @@ async function boot(){
         const n = await warmPictures();
         if(n){ render(); renderInspector(); }
       }catch(e){}
-      /* and if the folder is sitting there waiting to be asked about, say so
-         once rather than letting every picture fail quietly */
-      try{ await offerReconnect(); }catch(e){}
     }, 500);
+    /* The workbook's own handle comes back on a later tick, so the question
+       of whether any of it can still be read is asked after all of that has
+       settled, and again a moment later in case something was slow. */
+    setTimeout(()=>{ offerReconnect().catch(()=>{}); }, 1400);
+    setTimeout(()=>{ offerReconnect().catch(()=>{}); }, 3200);
     /* the folder listing is kept from last time, so a room knows which
        picture is its own before anything is read off the disk */
     if(S.meta.backdrop === "random" || !bdPool){
@@ -18926,7 +18986,7 @@ async function boot(){
     setTimeout(async ()=>{
       /* a remembered file first, then the address if one was baked in */
       try{
-        const d = await Store.getKey("bookDir:" + (S.meta.key || "map"));
+        const d = await recallHandle("bookDir");
         if(d) bookDir = d;
       }catch(e){}
       const had = await recallWorkbookHandle();
