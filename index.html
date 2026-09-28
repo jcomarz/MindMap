@@ -14254,7 +14254,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-09-28d";
+const APP_BUILD = "2026-09-28e";
 
 function isHandle(h){
   return !!h && typeof h === "object" && typeof h.queryPermission === "function";
@@ -17008,6 +17008,28 @@ function renderRoom(){
   /* standing in a real room again: the hall was where they were, not where
      they want to stay */
   if(id) hallOnPurpose = false;
+
+  /* Wipe the wall before anything draws on it.
+
+     There are three ways of being somewhere — inside a node, in the hall, or
+     standing in what a search found — and each used to be responsible for
+     taking down whatever the last one hung up. The hall forgot the picture,
+     so a photograph from the room you had just left stayed on the wall beside
+     the hall's own words. Clearing here means no way in can inherit the last
+     one's leavings, including any added later. */
+  const wipePic = el("rvPic");
+  if(wipePic){
+    wipePic.hidden = true;
+    const img = wipePic.querySelector("img");
+    if(img) img.removeAttribute("src");
+  }
+  const wipeTags = el("rvTags");
+  if(wipeTags){ wipeTags.hidden = true; wipeTags.innerHTML = ""; }
+  const wipeRow = document.querySelector(".rv-wallrow");
+  if(wipeRow) wipeRow.hidden = false;
+  if(el("rvBoard")) el("rvBoard").dataset.bare = "0";
+  view.dataset.exits = "0";
+  if(el("rvBarSays")) el("rvBarSays").textContent = "";
   view.dataset.skin = S.roomSkin || "plain";
   view.dataset.cast = S.roomCast || "blob";
   /* the room is drawn now and the picture catches up: waiting on a file
@@ -17090,6 +17112,8 @@ function renderRoom(){
     wayOut(null);
     paintStuff(null, [], 0);
     paintBoss(null); paintBanners(null);
+    markWorldButton();
+    fitWall();
     paintThings(rs);
     return;
   }
