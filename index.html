@@ -1370,6 +1370,13 @@ html[data-theme="dark"] #roomView[data-skin="plain"]{
 .rv-thing.from .body{border-color:var(--blueprint)}
 .rv-thing.retired{opacity:.5;filter:grayscale(.7)}
 .rv-thing.dragging{opacity:.4}
+/* being carried: up off the floor, shadow spread out under it, and no
+   transition so it tracks the finger exactly */
+.rv-thing.lifted{z-index:400 !important;cursor:grabbing;transition:none}
+.rv-thing.lifted .bob{animation:none;transform:translateY(-7px) scale(1.06)}
+.rv-thing.lifted .shade{opacity:.22;transform:translateX(-50%) scale(1.5,.7)}
+.rv-thing.lifted .plate{opacity:1}
+.rv-thing{touch-action:none}
 .rv-thing.walking .bob{animation:rvWaddle .38s ease-in-out infinite}
 @keyframes rvWaddle{0%,100%{transform:translateY(0) rotate(-3.5deg)}
   50%{transform:translateY(-3px) rotate(3.5deg)}}
@@ -1399,12 +1406,23 @@ html[data-theme="dark"] #roomView[data-skin="plain"]{
 .rvb.urge{background:linear-gradient(180deg,#F5CE55 0%,#E0A526 100%);color:#2A1D05}
 
 /* the speech bubble, which is what a peek is when the thing can talk */
-.rv-peek{position:absolute;left:50%;bottom:6px;transform:translateX(-50%);z-index:120;
-  width:min(560px, calc(100% - 28px));pointer-events:auto;
-  max-height:calc(100% - 12px);overflow:auto;
+/* It sits over the back wall, where the note would be, and not down by the
+   floor: there it covered the very creatures you were picking between, and
+   Go in ended up below the fold. The tail points down at whoever is talking.
+   Where exactly is measured off the board, so it lands over the wall however
+   the panel is arranged. */
+.rv-peek{position:fixed;left:var(--peek-l, 50%);top:var(--peek-t, 14px);
+  bottom:auto;transform:none;z-index:120;
+  width:var(--peek-w, min(560px, 92vw));pointer-events:auto;
+  max-height:var(--peek-max, 320px);overflow:hidden;
+  display:flex;flex-direction:column;
   background:var(--paper);border:3px solid var(--rv-ink);
   border-radius:14px;padding:10px 13px;
   box-shadow:0 4px 0 rgba(20,24,28,.26)}
+.rv-peek h4{flex:0 0 auto}
+.rv-peek p{flex:0 1 auto;overflow:auto}
+.rv-peek .rv-kids{flex:0 1 auto}
+.rv-peek .row{flex:0 0 auto}
 .rv-peek::after{content:"";position:absolute;left:var(--tail, 50%);bottom:-9px;
   width:15px;height:15px;transform:translateX(-50%) rotate(45deg);
   background:var(--paper);border-right:3px solid var(--rv-ink);
@@ -1534,7 +1552,8 @@ html[data-motion="calm"] .rv-room.arriveback{animation:rvFadeIn .18s linear !imp
   transform-origin:left center;transition:transform .16s ease-out}
 .rv-thing.item.open .lid{transform:translateY(-4px);transition:transform .16s ease-out}
 .rv-arch.open{transform:translateY(-3px);transition:transform .16s ease-out}
-.rv-peek{animation:rvPeekUp .2s cubic-bezier(.2,.8,.3,1)}
+.rv-peek{animation:rvPeekDown .2s cubic-bezier(.2,.8,.3,1)}
+@keyframes rvPeekDown{from{opacity:0;transform:translateY(-9px)}to{opacity:1;transform:none}}
 @keyframes rvPeekUp{from{transform:translateY(10px);opacity:0}}
 html[data-motion="calm"] .rv-thing.open .lid,
 html[data-motion="calm"] .rv-thing.item.open .lid,
@@ -2297,6 +2316,30 @@ body.viewing.panelaway #panelHide{display:none}
 .status-pill{font-family:var(--mono);font-size:10px;border:1px solid var(--rule);border-radius:2px;padding:1px 5px}
 .status-pill.retired{color:var(--retired);border-style:dashed}
 
+.fnudge{
+  position:fixed;left:50%;top:14px;transform:translateX(-50%);
+  display:flex;align-items:center;gap:10px;max-width:min(92vw,620px);
+  background:var(--graphite);color:var(--paper);
+  padding:9px 10px 9px 15px;border-radius:3px;z-index:70;
+  box-shadow:0 10px 30px rgba(0,0,0,.3);font-size:13px;line-height:1.35
+}
+.fnudge[hidden]{display:none}
+.fn-what{flex:1 1 auto;min-width:0}
+.fn-go{
+  flex:0 0 auto;background:var(--paper);color:var(--graphite);border:0;
+  padding:6px 13px;border-radius:2px;font:inherit;font-weight:600;cursor:pointer
+}
+.fn-go:hover{opacity:.86}
+.fn-go:disabled{opacity:.6;cursor:default}
+.fn-x{
+  flex:0 0 auto;background:none;border:0;color:var(--paper);opacity:.65;
+  font-size:19px;line-height:1;padding:2px 6px;cursor:pointer
+}
+.fn-x:hover{opacity:1}
+@media (max-width:620px){
+  .fnudge{left:8px;right:8px;transform:none;max-width:none;flex-wrap:wrap}
+  .fn-what{flex:1 1 100%}
+}
 .toast{
   position:fixed;left:50%;bottom:22px;transform:translateX(-50%);
   background:var(--graphite);color:var(--paper);padding:8px 14px;border-radius:2px;
@@ -3298,6 +3341,8 @@ body.viewing.panelaway #panelHide{display:none}
               <span class="ic">&#9678;</span><span class="lb">Found</span></button>
             <button class="rvb" id="rvSort" title="How the things in here are ordered">
               <span class="ic">&#8645;</span><span class="lb">Order</span></button>
+            <button class="rvb" id="rvKeep" hidden title="Make where they are standing the map's, for everyone">
+              <span class="ic">&#10003;</span><span class="lb">Keep them here</span></button>
             <button class="rvb" id="rvLayout" title="Line everything up, or let it wander">
               <span class="ic">&#9776;</span><span class="lb">Line up</span></button>
             <button class="rvb" id="rvEdit" hidden><span class="ic">&#9998;</span><span class="lb">Edit</span></button>
@@ -3911,6 +3956,11 @@ function writeAll(ss, prefix, tables) {
 
 <div id="viewerSlot"></div>
 <div id="printroot"></div>
+<div class="fnudge" id="folderNudge" hidden>
+  <span class="fn-what" id="folderNudgeWhat"></span>
+  <button class="fn-go" id="folderNudgeGo">Reconnect</button>
+  <button class="fn-x" id="folderNudgeX" title="Not now">&times;</button>
+</div>
 <div class="toast" id="toast"></div>
 <script>
 "use strict";
@@ -13896,6 +13946,80 @@ async function choosePictureFolder(){
   }catch(e){ /* changed their mind */ }
 }
 
+/* ---------------------------------------------------------------
+   A folder is remembered across refreshes; the browser's permission
+   to read it is not. A handle that comes back says "ask me", and the
+   asking is only allowed from a click — so a refresh cannot quietly
+   re-open the folder however hard it tries, and hammering at it just
+   throws. Everything remembered is asked about together, once, from
+   one button, instead of picking the folder all over again.
+   --------------------------------------------------------------- */
+async function folderSays(h, mode, ask){
+  if(!h || !h.queryPermission) return "granted";
+  let state = "prompt";
+  try{ state = await h.queryPermission({mode:mode || "read"}); }catch(e){ return "denied"; }
+  if(state === "granted" || !ask) return state;
+  try{ return await h.requestPermission({mode:mode || "read"}); }catch(e){ return state; }
+}
+
+/* Everything this map has been pointed at, and what it is for. */
+function heldFolders(){
+  return [
+    {h:bookDir,    mode:"readwrite", what:"the shared folder"},
+    {h:picDir,     mode:"read",      what:"the pictures folder"},
+    {h:bookHandle, mode:"readwrite", what:S.bookName || "the workbook"}
+  ].filter(x=>x.h && x.h.queryPermission);
+}
+
+/* Anything remembered but waiting to be asked about? */
+async function foldersWaiting(){
+  const out = [];
+  for(const f of heldFolders()){
+    if(await folderSays(f.h, f.mode) !== "granted") out.push(f);
+  }
+  return out;
+}
+
+let folderNudgeShown = false;
+
+async function offerReconnect(){
+  const bar = el("folderNudge");
+  if(!bar) return;
+  const waiting = await foldersWaiting();
+  if(!waiting.length){ bar.hidden = true; folderNudgeShown = false; return; }
+  const names = [...new Set(waiting.map(f=>f.h.name || f.what))];
+  el("folderNudgeWhat").textContent = names.length === 1
+    ? "“" + names[0] + "” is remembered — this browser just needs a nod to read it again."
+    : names.length + " remembered folders need a nod before they can be read again.";
+  bar.hidden = false;
+  folderNudgeShown = true;
+}
+
+/* One click, every handle: this is inside a real click, so the browser
+   allows the question to be put. */
+async function reconnectFolders(){
+  const btn = el("folderNudgeGo");
+  if(btn){ btn.disabled = true; btn.textContent = "Asking…"; }
+  let ok = 0, no = 0;
+  for(const f of heldFolders()){
+    const said = await folderSays(f.h, f.mode, true);
+    if(said === "granted") ok++;
+    else if(f.mode === "readwrite" && await folderSays(f.h, "read", true) === "granted") ok++;
+    else no++;
+  }
+  if(btn){ btn.disabled = false; btn.textContent = "Reconnect"; }
+  el("folderNudge").hidden = true;
+  folderNudgeShown = false;
+  if(!ok){ toast("Still blocked. Choosing the folder again will fix it."); return; }
+  picCache.clear();
+  try{ await warmPictures(); }catch(e){}
+  try{ await backdropPool(true); }catch(e){}
+  bdLive.clear();
+  rebuild(); renderInspector(); renderRoomSoon();
+  toast(no ? "Reconnected, " + no + " still waiting." : "Reconnected.");
+  if(typeof catchUp === "function" && canCatchUp()) catchUp(true).catch(()=>{});
+}
+
 async function recallPictureFolder(){
   try{
     const d = await Store.getKey("picDir:" + (S.meta.key || "map"));
@@ -13903,6 +14027,11 @@ async function recallPictureFolder(){
   }catch(e){}
   return false;
 }
+
+document.addEventListener("visibilitychange", ()=>{
+  if(document.hidden || folderNudgeShown) return;
+  setTimeout(()=>{ offerReconnect().catch(()=>{}); }, 400);
+});
 
 function isFolderPath(src){
   return !!src && !/^(https?:|data:|blob:)/i.test(src);
@@ -13954,25 +14083,52 @@ async function fileFromFolderIn(path){
   return null;
 }
 
-/* Read every picture named by a path, once, and keep the handle to it. */
-async function warmPictures(){
-  if(!picDir) return 0;
-  const perm = await picDir.queryPermission({mode:"read"});
-  if(perm !== "granted"){
-    const ok = await picDir.requestPermission({mode:"read"});
-    if(ok !== "granted") return 0;
-  }
+/* Which pictures this map is asking for. */
+function picturesWanted(){
   const wanted = new Set();
   S.nodes.forEach(n=>{
     if(isFolderPath(n.image)) wanted.add(n.image);
     if(isFolderPath(n.badgeImage)) wanted.add(n.badgeImage);
   });
+  return wanted;
+}
+
+/* A picture that has been read once is kept in this browser, shrunk, so that
+   opening the map again draws it straight away — no folder, no asking. This
+   is what runs on a refresh. */
+async function picturesFromMemory(){
+  if(Store.mode !== "idb") return 0;
+  let got = 0;
+  for(const path of picturesWanted()){
+    if(picCache.has(path)){ got++; continue; }
+    try{
+      const blob = await Store.getKey("pic:" + path);
+      if(blob instanceof Blob){ picCache.set(path, URL.createObjectURL(blob)); got++; }
+    }catch(e){}
+  }
+  return got;
+}
+
+/* Read every picture named by a path, once, and keep a copy of it. */
+async function warmPictures(ask){
+  if(!picDir) return await picturesFromMemory();
+  if(await folderSays(picDir, "read", ask) !== "granted") return await picturesFromMemory();
   let found = 0;
-  for(const path of wanted){
+  for(const path of picturesWanted()){
     if(picCache.has(path)){ found++; continue; }
-    const f = await fileFromFolder(path);
-    if(!f) continue;
-    picCache.set(path, URL.createObjectURL(f));
+    let f = null;
+    try{ f = await fileFromFolder(path); }catch(e){}
+    if(!f){
+      try{
+        const blob = Store.mode === "idb" && await Store.getKey("pic:" + path);
+        if(blob instanceof Blob){ picCache.set(path, URL.createObjectURL(blob)); found++; }
+      }catch(e){}
+      continue;
+    }
+    let keep = f;
+    try{ keep = await bdShrink(f); }catch(e){}
+    if(Store.mode === "idb"){ try{ await Store.putKey("pic:" + path, keep); }catch(e){} }
+    picCache.set(path, URL.createObjectURL(keep));
     found++;
   }
   return found;
@@ -16364,7 +16520,8 @@ function renderRoom(){
   el("rvEdit").querySelector(".lb").textContent = canEdit() ? "Edit" : "Respond";
   el("rvEdit").title = canEdit() ? "Open this room's panel to change it"
     : "Suggest a change, ask a question, or confirm what is asked here";
-  el("rvEdit").classList.toggle("on", !canEdit() && owed > 0);
+  el("rvEdit").classList.toggle("on",
+    (!canEdit() && owed > 0) || (!panelIsAway() && !window.matchMedia("(max-width:820px)").matches));
   el("rvAdd").hidden = !canEdit();
   wayOut(parentOf(id));
   paintThings(kids);
@@ -16535,6 +16692,7 @@ function fitWall(){
      window still lands inside it rather than over the search bar */
   view.style.setProperty("--rv-top",
     Math.round(view.getBoundingClientRect().top) + "px");
+  if(typeof placePeek === "function") placePeek();
 }
 
 /* The door on the left wall, back to the room this one is inside. */
@@ -16587,10 +16745,7 @@ async function backdropPool(force){
   const names = [];
   for(const root of [picDir, bookDir]){
     if(!root) continue;
-    try{
-      const perm = await root.queryPermission({mode:"read"});
-      if(perm !== "granted" && await root.requestPermission({mode:"read"}) !== "granted") continue;
-    }catch(e){ continue; }
+    if(await folderSays(root, "read", !!force) !== "granted") continue;
     /* A folder actually called backdrops is somebody saying which pictures
        are backdrops, so when there is one it is the whole pool and the node
        pictures sitting beside it are left alone. Without one, everything in
@@ -16808,6 +16963,10 @@ function paintThings(ids){
   const field = el("rvField");
   if(!field) return;
   stopRoaming();
+  /* first thing, before any way out of here: a room with nothing in it is
+     still a different room, so walking through one forgets an arrangement
+     just as surely as walking through a full one */
+  clearTempSpots(S.roomWorld ? "world:" + S.roomWorld : (S.sel || ""));
   if(!ids.length){
     field.innerHTML = '<p class="rv-none">Nothing leads on from here.'
       + (canEdit() ? " Add opens a new room off this one." : "") + '</p>';
@@ -16873,6 +17032,20 @@ function paintThings(ids){
   drawPeek();
 }
 
+/* Where somebody has dragged one to, for as long as you are in this room.
+   It is not written down and it is not anybody else's: it is how you felt
+   like arranging the place while you were looking at it. */
+let tempSpots = new Map();
+let tempRoom = "";
+
+function clearTempSpots(room){
+  if(tempRoom === room) return;
+  tempRoom = room;
+  tempSpots = new Map();
+  const b = el("rvKeep");
+  if(b) b.hidden = true;
+}
+
 /* Give everyone a home corner and let them go. */
 function placeRoamers(ids){
   const field = el("rvField");
@@ -16881,23 +17054,31 @@ function placeRoamers(ids){
   /* a drawn room has furniture in it, so anything put somewhere by hand
      stays exactly there and only the rest are scattered */
   const placed = spotsOf(S.nodes.get(S.sel));
+  /* Ordering the room means nothing if everyone is then thrown at the floor
+     at random, so when an order is chosen it decides where they stand: back
+     row first, left to right, the way you would read them. */
+  const ordered = (S.roomSort || "order") !== "order";
+  const cols0 = Math.max(3, Math.ceil(Math.sqrt(ids.length * 1.9)));
   roamers = ids.map((k, i)=>{
     const elm = field.querySelector('[data-thing="' + CSS.escape(k) + '"]');
     if(!elm) return null;
     const sd = rvSeed(k);
-    const fixed = placed.get(k);
+    const fixed = tempSpots.get(k) || placed.get(k);
     /* spread them over the floor rather than letting the random numbers
        pile three of them in one corner: a coarse grid, jittered */
-    const cols = Math.max(3, Math.ceil(Math.sqrt(ids.length * 1.9)));
+    const cols = cols0;
     const rows = Math.max(2, Math.ceil(ids.length / cols));
     const cx = i % cols, cy = Math.floor(i / cols);
-    const u = (cx + 0.5 + (rvRand(sd, 2) - 0.5) * 0.7) / cols;
+    /* in reading order the jitter goes, so the order is legible */
+    const u = ordered ? (cx + 0.5) / cols
+      : (cx + 0.5 + (rvRand(sd, 2) - 0.5) * 0.7) / cols;
     const v = rows < 2 ? 0.62
+      : ordered ? (cy + 0.5) / rows
       : (cy + 0.5 + (rvRand(sd, 3) - 0.5) * 0.55) / rows;
     const home = fixed
       ? {u:fixed.u, v:fixed.v}
       : {u:Math.min(.97, Math.max(.03, u)), v:Math.min(.98, Math.max(.05, v))};
-    return {id:k, el:elm, home, u:home.u, v:home.v, fixed:!!fixed,
+    return {id:k, el:elm, home, u:home.u, v:home.v, fixed:!!fixed || ordered,
       tu:home.u, tv:home.v, face:1, wait:rvRand(sd, 4) * 1.1, moving:false};
   }).filter(Boolean);
   roamers.forEach(placeOne);
@@ -17001,6 +17182,7 @@ function drawPeek(){
   if(items) inside.push(items + " to confirm");
   const words = peekText(k);
   p.hidden = false;
+  placePeek();
   /* the tail points at whoever is speaking */
   const who = roamers.find(r=>r.id === k);
   const f = el("rvField");
@@ -17035,6 +17217,30 @@ function drawPeek(){
         + '</div>' : "")
     + '<div class="row"><button class="btn primary" data-walk="' + esc(k) + '">Go in</button>'
     + '<button class="btn" data-shut="1">Shut it</button></div>';
+}
+
+/* Where the bubble goes: over the board, as wide as the board, and never
+   taller than the wall it is covering. A phone has its own rule for this —
+   there the room is the whole screen and the bubble spans it. */
+function placePeek(){
+  const p = el("rvPeek"), board = el("rvBoard"), view = el("roomView");
+  if(!p || !board || !view || p.hidden) return;
+  if(window.matchMedia("(max-width:820px)").matches){
+    p.style.removeProperty("--peek-l");
+    p.style.removeProperty("--peek-w");
+    p.style.removeProperty("--peek-t");
+    p.style.removeProperty("--peek-max");
+    return;
+  }
+  const b = board.getBoundingClientRect();
+  const v = view.getBoundingClientRect();
+  const w = Math.max(280, Math.min(560, b.width - 16));
+  p.style.setProperty("--peek-l", Math.round(b.left + (b.width - w) / 2) + "px");
+  p.style.setProperty("--peek-w", Math.round(w) + "px");
+  const top = Math.max(v.top + 8, b.top + 10);
+  p.style.setProperty("--peek-t", Math.round(top) + "px");
+  p.style.setProperty("--peek-max",
+    Math.round(Math.max(170, Math.min(b.height - 16, v.height * 0.62))) + "px");
 }
 
 /* Walk through. The door you chose opens first, then the room you are leaving
@@ -17202,60 +17408,108 @@ function rvMarkRow(x, y){
   rvOverRow = row;
   if(rvOverRow) rvOverRow.classList.add("onto");
 }
+/* A word in the middle of the console, briefly, then back to whatever the
+   room was saying. */
+let barSaidTimer = null;
+function sayBar(msg){
+  const box = el("rvBarSays");
+  if(!box) return;
+  if(barSaidTimer){ clearTimeout(barSaidTimer); barSaidTimer = null; }
+  if(box._was == null) box._was = box.innerHTML;
+  box.textContent = msg;
+  barSaidTimer = setTimeout(()=>{
+    barSaidTimer = null;
+    if(box._was != null){ box.innerHTML = box._was; box._was = null; }
+  }, 2600);
+}
+
+/* Screen point to floor point: the inverse of floorSpot, so a creature can
+   be put exactly where the finger let go of it. */
+function floorUV(cx, cy){
+  const f = el("rvField");
+  if(!f) return null;
+  const fb = f.getBoundingClientRect();
+  if(!fb.width || !fb.height) return null;
+  const v = Math.max(.04, Math.min(.97, (((cy - fb.top) / fb.height) - 0.2) / 0.7));
+  const ins = 0.10 + (1 - v) * 0.20;
+  const u = Math.max(.02, Math.min(.98,
+    (((cx - fb.left) / fb.width) - ins) / (1 - ins * 2)));
+  return {u, v};
+}
+
+/* Picking one up and putting it down somewhere else.
+
+   Anybody can do this, including somebody with a read-only copy: it is how
+   the room looks to you while you are in it, not a change to the map. Walk
+   out and the room is as it always was. An editor who likes the arrangement
+   can press Keep them here and then it is the map's.
+
+   The creature itself follows the finger rather than a ghost of it, because
+   the whole point is seeing where it will stand. For an editor the outline
+   rail still lights up on the way past, so dragging one onto another to link
+   them works exactly as before. */
 function wireThingDrag(strip){
-  let from = null, start = null, ghost = null, live = false;
+  let from = null, start = null, live = false, hold = null, wasFixed = false;
   strip.addEventListener("pointerdown", ev=>{
     const t = ev.target.closest && ev.target.closest(".rv-thing");
-    if(!t || !canEdit()) return;
+    if(!t) return;
+    if(ev.button != null && ev.button !== 0) return;
     from = t; start = {x:ev.clientX, y:ev.clientY}; live = false;
+    hold = roamers.find(r=>r.id === t.dataset.thing) || null;
+    wasFixed = !!(hold && hold.fixed);
+    if(!fieldBox.w) fieldBox = fieldSize();
   });
   const move = ev=>{
     if(!from || !start) return;
     const far = Math.abs(ev.clientX - start.x) + Math.abs(ev.clientY - start.y);
-    if(!live && far < 10) return;
+    if(!live && far < 8) return;
     if(!live){
       live = true;
-      from.classList.add("dragging");
-      ghost = document.createElement("div");
-      ghost.className = "rv-ghost";
-      ghost.textContent = nodeName(from.dataset.thing);
-      document.body.appendChild(ghost);
+      from.classList.add("lifted");
+      /* the finger is moving a creature, not scrolling the page */
+      try{ from.setPointerCapture(ev.pointerId); }catch(e){}
+      /* it stops wandering the moment it is picked up */
+      if(hold){ hold.fixed = true; hold.moving = false;
+        hold.el.classList.remove("walking"); }
+      /* nothing to read while your hand is over it */
+      if(roomPeek){ roomPeek = ""; markPeek(); }
     }
-    ghost.style.left = (ev.clientX + 12) + "px";
-    ghost.style.top = (ev.clientY - 10) + "px";
-    rvMarkRow(ev.clientX, ev.clientY);
+    if(hold && !floorIsRow()){
+      const at = floorUV(ev.clientX, ev.clientY);
+      if(at){
+        hold.u = at.u; hold.v = at.v; hold.tu = at.u; hold.tv = at.v;
+        placeOne(hold);
+      }
+    }
+    if(canEdit()) rvMarkRow(ev.clientX, ev.clientY);
+    if(ev.cancelable) ev.preventDefault();
   };
   const up = ev=>{
     if(!from) return;
     const what = from.dataset.thing;
-    from.classList.remove("dragging");
-    if(ghost){ ghost.remove(); ghost = null; }
+    from.classList.remove("lifted");
     const row = rvOverRow;
     if(rvOverRow){ rvOverRow.classList.remove("onto"); rvOverRow = null; }
-    const was = live;
-    from = null; start = null; live = false;
-    if(was && row && row.dataset.jump && row.dataset.jump !== what){
+    const was = live, held = hold;
+    from = null; start = null; live = false; hold = null;
+    if(!was){ roomTap(what); return; }
+    /* dropped on the outline: that is somebody saying these two belong
+       together, which is the editor's business */
+    if(row && canEdit() && row.dataset.jump && row.dataset.jump !== what){
+      if(held && !wasFixed){ held.fixed = false; }
       askWhatToDoWith(what, row.dataset.jump);
-    } else if(was && canEdit() && !floorIsRow()){
-      /* dropped on the floor rather than the outline: that is where it lives
-         now, which is the only sane way to place things on a drawn room */
-      const fb = el("rvField").getBoundingClientRect();
-      if(ev.clientX >= fb.left && ev.clientX <= fb.right
-         && ev.clientY >= fb.top - 40 && ev.clientY <= fb.bottom + 20){
-        const inset = 0.10, span = 1 - inset * 2;
-        const v = Math.max(.05, Math.min(.96, (((ev.clientY - fb.top) / fb.height) - 0.2) / 0.7));
-        const ins = 0.10 + (1 - v) * 0.20;
-        const u = Math.max(.03, Math.min(.97,
-          (((ev.clientX - fb.left) / fb.width) - ins) / (1 - ins * 2)));
-        setSpot(S.sel, what, u, v);
-        renderRoom();
-        toast("Put where you dropped it");
-      }
-    } else if(!was){
-      roomTap(what);
+      return;
     }
+    if(!held || floorIsRow()) return;
+    tempSpots.set(what, {u:held.u, v:held.v});
+    held.home = {u:held.u, v:held.v};
+    const keep = el("rvKeep");
+    if(keep) keep.hidden = !canEdit();
+    sayBar(tempSpots.size === 1
+      ? "Moved. It stands there until you leave the room."
+      : tempSpots.size + " moved. They stand there until you leave the room.");
   };
-  window.addEventListener("pointermove", move);
+  window.addEventListener("pointermove", move, {passive:false});
   window.addEventListener("pointerup", up);
   window.addEventListener("pointercancel", up);
 }
@@ -17562,6 +17816,13 @@ function wireRoom(){
     savePrefs(); sortButton();
     if(listOpen) renderList();
     renderRoom();
+    /* the order is not a list somewhere else: it is where they are standing,
+       back row first and left to right, and they hold that line while it is
+       on. "As arranged" lets them wander off again. */
+    const lab = (SORTS.find(x=>x[0] === S.roomSort) || [,""])[1] || S.roomSort;
+    sayBar(S.roomSort === "order"
+      ? "Wandering again."
+      : "Standing in order: " + String(lab).toLowerCase() + ", back row first.");
   };
   sortButton();
   let exFor = "", exProof = "";
@@ -17705,9 +17966,21 @@ function wireRoom(){
   el("rvEdit").onclick = ()=>{
     if(!S.sel) return;
     if(window.matchMedia("(max-width:820px)").matches){
-      el("inspector").classList.add("open");
-      el("scrim").classList.add("on");
-    } else showPanel(true);
+      const ins = el("inspector");
+      const open = ins.classList.contains("open");
+      ins.classList.toggle("open", !open);
+      el("scrim").classList.toggle("on", !open);
+      return;
+    }
+    /* On a desktop the panel is usually already there, so pressing Edit did
+       nothing at all. It is a toggle: out of the way, or back. */
+    const away = panelIsAway();
+    showPanel(away);
+    el("rvEdit").classList.toggle("on", away);
+    if(away) setTimeout(()=>{
+      const f = el("fLabel");
+      if(f && f.offsetParent){ f.focus(); f.select && f.select(); }
+    }, 80);
   };
   el("rvAdd").onclick = ()=>{
     if(!canEdit() || !S.sel) return;
@@ -18261,6 +18534,19 @@ async function boot(){
     if(ev.key === "Enter"){ ev.preventDefault(); applyBulkTags(); }
   });
   el("openFromDisk").onclick = ()=>refreshFromWorkbook();
+  el("rvKeep").onclick = ()=>{
+    if(!canEdit() || !S.sel || !tempSpots.size) return;
+    for(const [k, at] of tempSpots) setSpot(S.sel, k, at.u, at.v);
+    tempSpots = new Map();
+    el("rvKeep").hidden = true;
+    markDirty();
+    renderRoom();
+    toast("Kept. That is where they stand now, for everybody.");
+  };
+
+  el("folderNudgeGo").onclick = ()=>{ reconnectFolders().catch(()=>{}); };
+  el("folderNudgeX").onclick = ()=>{ el("folderNudge").hidden = true; };
+
   el("chooseWorkbook").onclick = ()=>{
     el("chooseWorkbook").classList.remove("primary");
     if(canWriteFolder()) rememberFolder();
@@ -18610,12 +18896,19 @@ async function boot(){
   layoutButton();
     organiseRail();
     /* a folder named before is used again without asking */
-    if(await recallPictureFolder()){
-      setTimeout(async ()=>{
+    await recallPictureFolder();
+    /* pictures read on an earlier visit are drawn immediately, whether or
+       not the folder itself can be opened yet */
+    try{ if(await picturesFromMemory()){ render(); renderInspector(); } }catch(e){}
+    setTimeout(async ()=>{
+      try{
         const n = await warmPictures();
         if(n){ render(); renderInspector(); }
-      }, 500);
-    }
+      }catch(e){}
+      /* and if the folder is sitting there waiting to be asked about, say so
+         once rather than letting every picture fail quietly */
+      try{ await offerReconnect(); }catch(e){}
+    }, 500);
     /* the folder listing is kept from last time, so a room knows which
        picture is its own before anything is read off the disk */
     if(S.meta.backdrop === "random" || !bdPool){
