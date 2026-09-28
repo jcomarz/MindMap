@@ -1131,10 +1131,13 @@ html[data-theme="dark"] #roomView[data-skin="plain"]{
 /* The trail gets its own ledge. Without one it floated over whichever surface
    the room happened to paint behind it — sky in the middle, brick at the ends —
    and no single grey reads on both. */
-.rv-trail{display:flex;flex-wrap:wrap;gap:2px;align-items:center;justify-content:center;
+.rv-trail{display:flex;flex-wrap:nowrap;gap:2px;align-items:center;justify-content:center;
   font-family:var(--mono);font-size:11px;color:var(--rv-dim-ceil, var(--graphite-60));
-  max-width:100%;background:var(--rv-ceil-solid, transparent);
+  max-width:100%;overflow:hidden;background:var(--rv-ceil-solid, transparent);
   padding:2px 8px;border-radius:2px}
+.rv-trail>*{flex:0 1 auto;min-width:0}
+.rv-trail>span{flex:0 0 auto}
+.rv-trail button.more{flex:0 0 auto;font-weight:700;letter-spacing:.06em}
 .rv-trail button{border:0;background:transparent;font:inherit;color:inherit;
   padding:2px 4px;border-radius:2px;cursor:pointer;max-width:150px;overflow:hidden;
   text-overflow:ellipsis;white-space:nowrap}
@@ -14098,6 +14101,11 @@ async function paintFolderState(){
      remembering on this side can fix it. */
   const loose = !isWebOrigin();
   const held = heldFolders();
+  if(!held.length && folderWanted() && !loose){
+    what.innerHTML = '<span class="wait">\u25CF</span> This map draws from a folder, '
+      + "and none is linked in this browser. Pick it once and it is remembered.";
+    return;
+  }
   if(!held.length){
     what.innerHTML = loose
       ? '<span class="wait">\u25CF</span> No folder linked. This page was opened straight '
@@ -14130,20 +14138,63 @@ async function offerReconnect(){
   bar.style.top = (sb && !sb.hidden
     ? Math.round(sb.getBoundingClientRect().bottom) + 10 : 14) + "px";
   const waiting = await foldersWaiting();
-  if(!waiting.length){
+  const wants = folderWanted();
+  const held = heldFolders().length;
+  const chip = el("rvFolder");
+  const quiet = ()=>{
     bar.hidden = true; folderNudgeShown = false;
-    if(el("rvFolder")) el("rvFolder").hidden = true;
+    if(chip) chip.hidden = true;
     paintFolderState().catch(()=>{});
+  };
+
+  /* Nothing remembered at all, on a map that plainly wants a folder. This is
+     the case that used to say nothing anywhere: no bar, no chip, and pictures
+     that simply never arrived. There is nothing to reconnect here — there is
+     a folder to pick — so it says that instead. */
+  if(!held){
+    if(!wants || typeof window.showDirectoryPicker !== "function"){ quiet(); return; }
+    paintFolderState().catch(()=>{});
+    if(chip){
+      chip.hidden = false;
+      chip.querySelector(".lb").textContent = "Link folder";
+      chip.title = "Point this at the folder holding the pictures and backdrops";
+    }
+    el("folderNudgeWhat").textContent = wants === "pictures"
+      ? "This map draws its pictures from a folder, and none is linked here yet."
+      : "This map takes a backdrop for each room from a folder, and none is linked here yet.";
+    el("folderNudgeGo").textContent = "Pick the folder";
+    bar.hidden = false;
+    folderNudgeShown = true;
     return;
   }
+
+  if(!waiting.length){ quiet(); return; }
+
   paintFolderState().catch(()=>{});
-  if(el("rvFolder")) el("rvFolder").hidden = false;
+  if(chip){
+    chip.hidden = false;
+    chip.querySelector(".lb").textContent = "Reconnect folder";
+    chip.title = "A folder is remembered but needs a nod before it can be read";
+  }
+  el("folderNudgeGo").textContent = "Reconnect";
   const names = [...new Set(waiting.map(f=>f.h.name || f.what))];
   el("folderNudgeWhat").textContent = names.length === 1
-    ? "“" + names[0] + "” is remembered — this browser just needs a nod to read it again."
+    ? "\u201c" + names[0] + "\u201d is remembered \u2014 this browser just needs a nod to read it again."
     : names.length + " remembered folders need a nod before they can be read again.";
   bar.hidden = false;
   folderNudgeShown = true;
+}
+
+/* Does this map actually need a folder? A map of plain notes does not, and
+   nagging about one it will never read is just noise. */
+function folderWanted(){
+  if(S.meta.backdrop === "random") return "backdrops";
+  if(isFolderPath(S.meta.backdrop)) return "backdrops";
+  for(const n of S.nodes.values()){
+    if(isFolderPath(n.image) || isFolderPath(n.badgeImage)) return "pictures";
+    if(isFolderPath(n.backdrop)) return "backdrops";
+  }
+  return "";
 }
 
 /* One click, every handle: this is inside a real click, so the browser
@@ -16642,11 +16693,22 @@ function renderRoom(){
       : "")
     + (bits.length ? '<span>' + esc(bits.join("   ·   ")) + '</span>' : "");
 
-  /* the trail up */
+  /* The trail up, on one line always. Deep in a map it used to wrap to two or
+     three, and every line of it came straight off the top of the note and the
+     floor below. The near end is what you actually use, so the far end folds
+     into one button that opens the list. */
   const line = ancestryOf(id);
-  el("rvTrail").innerHTML = line.length
-    ? line.map(k=>'<button data-room="' + esc(k) + '">' + esc(nodeName(k)) + '</button>')
-        .join('<span>&#8250;</span>')
+  const room = window.matchMedia("(max-width:820px)").matches ? 2 : 4;
+  const crumb = k=>'<button data-room="' + esc(k) + '">' + esc(nodeName(k)) + '</button>';
+  let parts;
+  if(!line.length) parts = [];
+  else if(line.length <= room) parts = line.map(crumb);
+  else parts = ['<button data-room="' + esc(line[0]) + '">' + esc(nodeName(line[0]))
+      + '</button>', '<button class="more" data-crumbs="1" title="'
+      + esc(line.slice(1, line.length - (room - 1)).map(nodeName).join("  \u203a  "))
+      + '">\u2026</button>'].concat(line.slice(line.length - (room - 1)).map(crumb));
+  el("rvTrail").innerHTML = parts.length
+    ? parts.join('<span>&#8250;</span>')
       + '<span>&#8250;</span><em>' + esc(n.label || n.id) + '</em>'
     : "";
 
@@ -16823,7 +16885,20 @@ function fitWall(){
   const narrow = window.matchMedia("(max-width:820px)").matches;
   const bunting = el("rvBunting") && !el("rvBunting").hidden;
   view.dataset.bunting = bunting ? "1" : "0";
-  const wallTop = vh * (narrow ? 0.09 : 0.12) + 14 + (bunting ? 62 : 0);
+  /* The band above the note holds the trail and nothing else, so it is as
+     tall as the trail actually is. A twelfth of the room left a wide empty
+     stripe between the trail and the top of the note on a big screen. */
+  /* The band above the note carries the trail and nothing else, so it is made
+     as tall as the trail actually is and no taller. It used to be a flat
+     twelfth of the room, which on a big screen left a wide empty stripe
+     between the trail and the top of the note, and pushed everything down. */
+  const trail = el("rvTrail");
+  const trailH = trail && trail.offsetParent !== null
+    ? Math.ceil(trail.getBoundingClientRect().height) : 0;
+  const wallTop = Math.max(narrow ? 24 : 28, trailH + (narrow ? 10 : 13));
+  /* the CSS hangs the trail off this line and the note just under it */
+  view.style.setProperty("--rv-t", Math.round(wallTop) + "px");
+  const boardTop = wallTop + (bunting ? 76 : 14);
 
   /* Measure it standing to its own height, once. The board used to be pinned
      top and bottom, so it filled the wall whatever was on it and a node with
@@ -16849,8 +16924,8 @@ function fitWall(){
      to be capped at just over half the height whatever the note was doing,
      which is what left all that empty wall between the note and the first
      creature. */
-  const maxFloor = Math.max(minFloor, vh - wallTop - (narrow ? 84 : 96));
-  let floor = vh - wallTop - boardH - exitH - (narrow ? 12 : 10);
+  const maxFloor = Math.max(minFloor, vh - boardTop - (narrow ? 76 : 88));
+  let floor = vh - boardTop - boardH - exitH - (narrow ? 10 : 8);
   /* a backdrop of your own decides where the ground is; the drawn rooms
      work it out from how much the wall needed */
   const photo = backdropFor(S.sel);
@@ -17148,7 +17223,15 @@ function measureFloorBack(){
   if(!f || !b){ floorBackV = 0.05; return floorBackV; }
   const fb = f.getBoundingClientRect(), bb = b.getBoundingClientRect();
   if(!fb.height){ floorBackV = 0.05; return floorBackV; }
-  const rise = 58;                    /* a creature stands about this far above its feet */
+  /* how far the tallest of them reaches above its feet, measured off a real
+     one: the compact skin on a phone draws them well under half the size a
+     flat guess assumed, and every pixel of that guess was dead floor */
+  let rise = 44;
+  const one = f.querySelector(".rv-thing .bob");
+  if(one){
+    const ob = one.getBoundingClientRect();
+    if(ob.height > 8) rise = Math.round(ob.height * 1.06);
+  }
   const need = (bb.bottom - fb.top) + rise;
   floorBackV = need <= 0 ? 0.03
     : Math.max(0.03, Math.min(0.55, (need / fb.height - FLOOR_TOP) / FLOOR_SPAN));
@@ -18260,6 +18343,7 @@ function wireRoom(){
   });
 
   el("rvTrail").addEventListener("click", ev=>{
+    if(ev.target.closest && ev.target.closest("[data-crumbs]")){ showList(true); return; }
     const b = ev.target.closest && ev.target.closest("[data-room]");
     if(!b) return;
     if(S.roomWorld){ leaveWorld(); return; }
@@ -18843,10 +18927,16 @@ async function boot(){
     if(ev.key === "Enter"){ ev.preventDefault(); applyBulkTags(); }
   });
   el("openFromDisk").onclick = ()=>refreshFromWorkbook();
-  el("folderNudgeGo").onclick = ()=>{ reconnectFolders().catch(()=>{}); };
+  el("folderNudgeGo").onclick = ()=>{
+    if(!heldFolders().length){ el("folderNudge").hidden = true; choosePictureFolder(); return; }
+    reconnectFolders().catch(()=>{});
+  };
   el("folderStateGo").onclick = ()=>{ reconnectFolders().catch(()=>{}); };
   el("folderStatePick").onclick = ()=>{ choosePictureFolder(); };
-  el("rvFolder").onclick = ()=>{ reconnectFolders().catch(()=>{}); };
+  el("rvFolder").onclick = ()=>{
+    if(!heldFolders().length){ choosePictureFolder(); return; }
+    reconnectFolders().catch(()=>{});
+  };
   el("folderNudgeX").onclick = ()=>{ el("folderNudge").hidden = true; };
 
   el("chooseWorkbook").onclick = ()=>{
