@@ -227,6 +227,28 @@ details[open]>summary .toctwist{cursor:pointer;transform:rotate(90deg)}
 /* a second heading inside a group, for a thing that belongs with the first
    without being the same thing */
 /* a heading inside a dialog, the same weight as a group's in the panel */
+.moodgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:620px){ .moodgrid{grid-template-columns:1fr} }
+.moodcard{display:flex;flex-direction:column;align-items:flex-start;gap:5px;
+  text-align:left;padding:0 0 13px;border:2px solid var(--rule);border-radius:6px;
+  background:var(--paper);font:inherit;cursor:pointer;overflow:hidden}
+.moodcard:hover{border-color:var(--blueprint)}
+.moodcard.on{border-color:var(--blueprint);box-shadow:inset 0 0 0 1px var(--blueprint)}
+.moodcard b{font-size:14px;font-weight:600;padding:0 13px}
+.moodcard s{text-decoration:none;font-size:11.5px;line-height:1.45;
+  color:var(--graphite-60);padding:0 13px}
+.mc-art{display:flex;align-items:flex-end;justify-content:center;gap:9px;
+  width:100%;height:74px;margin-bottom:9px;border-bottom:1px solid var(--rule-soft)}
+.mc-art.pro{background:#EDF1F5}
+.mc-art.pro i{width:44px;height:19px;border-radius:3px;background:#FBFCFD;
+  border:1px solid #C3CCD5;margin-bottom:14px}
+.mc-art.pro i:first-child{border-left:3px solid var(--blueprint)}
+.mc-art.silly{background:linear-gradient(#CFE3F2,#EAF3FA)}
+.mc-art.silly i{width:26px;height:30px;border-radius:50% 50% 44% 44%;
+  border:2.5px solid #23282D;margin-bottom:12px}
+.mc-art.silly i:nth-child(1){background:#f2b134}
+.mc-art.silly i:nth-child(2){background:#6fc3a0;height:34px}
+.mc-art.silly i:nth-child(3){background:#e98ba4}
 .dlgsub{margin:18px 0 9px;font-size:12px;font-weight:600;color:var(--graphite-60);
   padding-top:14px;border-top:1px solid var(--rule-soft)}
 .dlgsub:first-child{margin-top:0;padding-top:0;border-top:0}
@@ -854,6 +876,120 @@ html[data-theme="dark"] #roomView[data-photo="1"] .rv-arch b{
 #roomView[data-cast="cat"] .rv-thing .face{top:26%}
 #roomView[data-cast="cat"] .rv-thing .mouth{display:none}
 
+/* ---------------------------------------------------------------
+   Professional.
+
+   Not a theme laid over the cartoon but the absence of it: the rooms
+   are named plates on clean paper, there is no cast, no weather and
+   nothing behind the wall. The console loses its chunky outlines and
+   becomes a toolbar. It reads on a projector and it prints.
+   --------------------------------------------------------------- */
+#roomView[data-skin="pro"]{
+  --rv-sky-a:#EDF1F5;--rv-sky-b:#F7F9FB;--rv-far:#DCE3EA;--rv-far-2:#CDD6DF;
+  --rv-ground:#E4E9EE;--rv-ground-2:#D3DAE2;--rv-band:#B9C3CC;
+  --rv-ink:#2A3440;--rv-line:#C3CCD5;--rv-wall:#FBFCFD;--rv-wall-2:#EFF3F7;
+  --rv-board:#FFFFFF;--rv-door-ink:#1E2730;--rv-dim:#66727E}
+html[data-theme="dark"] #roomView[data-skin="pro"]{
+  --rv-sky-a:#161B21;--rv-sky-b:#1D242B;--rv-far:#232B33;--rv-far-2:#1B2229;
+  --rv-ground:#20272E;--rv-ground-2:#191F25;--rv-band:#121116;
+  --rv-ink:#8C99A6;--rv-line:#333C45;--rv-wall:#1A2027;--rv-wall-2:#222A32;
+  --rv-board:#171D23;--rv-door-ink:#DCE3EA;--rv-dim:#8C99A6}
+
+/* no horizon, no drifting air, no curve to the floor: a plain surface */
+#roomView[data-mood="pro"] .rv-props,
+#roomView[data-mood="pro"] .rv-air,
+#roomView[data-mood="pro"] .rv-scene .far,
+#roomView[data-mood="pro"] .rv-scene .far2,
+#roomView[data-mood="pro"] .rv-photo{display:none}
+#roomView[data-mood="pro"] .rv-scene .ground{border-radius:0;border-top-width:1px}
+#roomView[data-mood="pro"] .rv-scene .band{display:none}
+
+/* a room is its name on a plate, and nothing else */
+#roomView[data-cast="plate"] .rv-thing .body,
+#roomView[data-cast="plate"] .rv-thing .note,
+#roomView[data-cast="plate"] .rv-thing .shade,
+#roomView[data-cast="plate"] .rv-thing .halo{display:none}
+#roomView[data-cast="plate"] .rv-thing{width:auto}
+#roomView[data-cast="plate"] .rv-thing .plate{
+  position:static;transform:none;
+  width:max-content;max-width:190px;min-width:96px;
+  white-space:normal;overflow:visible;text-overflow:clip;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;
+  font-family:var(--sans);font-size:12.5px;font-weight:500;line-height:1.35;
+  padding:9px 13px;border-radius:5px;
+  border:1px solid var(--rv-line);background:var(--rv-wall);
+  color:var(--rv-door-ink);box-shadow:0 1px 2px rgba(20,30,40,.09)}
+#roomView[data-cast="plate"] .rv-thing.door .plate{
+  border-left:3px solid var(--blueprint);font-weight:600}
+#roomView[data-cast="plate"] .rv-thing:hover .plate,
+#roomView[data-cast="plate"] .rv-thing.open .plate{
+  border-color:var(--blueprint);box-shadow:0 2px 8px rgba(30,60,100,.16)}
+#roomView[data-cast="plate"] .rv-thing .deep{
+  position:absolute;top:-7px;right:-7px;font-family:var(--mono);font-size:10px;
+  min-width:17px;height:17px;line-height:15px;text-align:center;
+  border-radius:9px;border:1px solid var(--rv-line);
+  background:var(--rv-board);color:var(--rv-dim)}
+/* Nothing of the creature is left but the two marks worth keeping: how many
+   rooms are through it, and whether it wants something. They ride the corner
+   of the plate rather than floating where the body used to be. */
+#roomView[data-cast="plate"] .rv-thing .bob{
+  position:absolute;top:-9px;right:-7px;z-index:2;
+  width:auto;height:auto;display:flex;gap:4px;align-items:center;
+  animation:none;transform:none}
+#roomView[data-cast="plate"] .rv-thing .turn{display:none}
+#roomView[data-cast="plate"] .rv-thing .mk{position:static;transform:none}
+
+/* the plate is what breathes now */
+#roomView[data-cast="plate"][data-life="quiet"] .rv-thing .plate{
+  animation:rvBreathe 4.6s ease-in-out infinite;
+  animation-delay:calc(var(--i, 0) * -0.42s)}
+
+/* the way back out is a button, not a carved archway */
+#roomView[data-mood="pro"] .rv-way{
+  writing-mode:horizontal-tb;border-radius:5px;border-width:1px;
+  padding:8px 12px;min-height:0;width:auto;max-width:210px;
+  box-shadow:none;background:var(--rv-wall);
+  flex-direction:row;gap:7px;align-items:center;transform:none}
+#roomView[data-mood="pro"] .rv-way b{
+  writing-mode:horizontal-tb;transform:none;rotate:none;font-size:12px;
+  max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#roomView[data-mood="pro"] .rv-way em{writing-mode:horizontal-tb;transform:none;font-size:13px}
+
+/* the console as a toolbar */
+#roomView[data-mood="pro"] .rv-bar{
+  border-width:1px;border-radius:7px;box-shadow:0 1px 3px rgba(20,30,40,.12);
+  background:var(--rv-board)}
+#roomView[data-mood="pro"] .rvb{
+  border-width:1px;border-radius:5px;background:var(--rv-wall);
+  font-weight:400;box-shadow:none;color:var(--rv-door-ink)}
+#roomView[data-mood="pro"] .rvb:hover{background:var(--rv-wall-2)}
+#roomView[data-mood="pro"] .rvb.on{background:var(--blueprint);color:#fff;
+  border-color:var(--blueprint)}
+#roomView[data-mood="pro"] .rv-board{
+  border-width:1px;border-radius:6px;box-shadow:0 1px 3px rgba(20,30,40,.1)}
+#roomView[data-mood="pro"] .rv-peek{
+  border-width:1px;border-radius:7px;box-shadow:0 6px 22px rgba(20,30,40,.18)}
+#roomView[data-mood="pro"] .rv-peek::after{border-width:0 1px 1px 0}
+#roomView[data-mood="pro"] .rv-list{border-width:1px;border-radius:7px;
+  box-shadow:0 6px 22px rgba(20,30,40,.18)}
+#roomView[data-mood="pro"] .rv-findmore{border-width:1px;border-radius:7px;
+  box-shadow:0 4px 16px rgba(20,30,40,.14)}
+#roomView[data-mood="pro"] .rv-way{border-width:1px;border-radius:5px}
+#roomView[data-mood="pro"] .rv-arch{filter:none}
+
+/* Quiet is not dead. Nothing wanders and nothing glows, but each plate takes
+   a slow breath on its own count, so the room is a place rather than a
+   screenshot of one. Staggered, or they all inhale together and it reads as a
+   pulse instead of a crowd. */
+@keyframes rvBreathe{
+  0%,100%{transform:translateY(0) scale(1)}
+  50%{transform:translateY(-1.5px) scale(1.014)}
+}
+html[data-motion="off"] #roomView .rv-thing .plate{animation:none}
+@media (prefers-reduced-motion:reduce){
+  #roomView[data-mood="pro"] .rv-thing .plate{animation:none}
+}
+
 /* the boardroom is a set of tiles whoever the cast is */
 #roomView[data-skin="boardroom"] .rv-thing .crest,
 #roomView[data-skin="boardroom"] .rv-thing .snout,
@@ -1471,9 +1607,14 @@ html[data-theme="dark"] #roomView[data-skin="plain"]{
 /* display:flex above beats the browser's own [hidden] rule, which is how a
    shut bubble stayed on screen as an empty bar */
 .rv-peek[hidden]{display:none}
+/* It is as big as what is in it. A bubble listing nine rooms was being
+   squeezed into a fixed height and made to scroll when there was screen going
+   spare all around it. Only when it would run off the screen does anything
+   scroll — and then the note and the list of rooms scroll separately, so a
+   long note cannot push the rooms out of reach. */
 .rv-peek h4{flex:0 0 auto}
-.rv-peek p{flex:0 1 auto;overflow:auto}
-.rv-peek .rv-kids{flex:0 1 auto}
+.rv-peek p{flex:0 1 auto;min-height:0;overflow:auto;max-height:none}
+.rv-peek .rv-kids{flex:0 1 auto;min-height:0;overflow:auto;max-height:none}
 .rv-peek .row{flex:0 0 auto}
 .rv-peek::after{content:"";position:absolute;left:var(--tail, 50%);bottom:-9px;
   width:15px;height:15px;transform:translateX(-50%) rotate(45deg);
@@ -1482,11 +1623,9 @@ html[data-theme="dark"] #roomView[data-skin="plain"]{
 .rv-peek h4{margin:0 0 4px;font-size:13.5px;font-weight:600;display:flex;gap:8px;
   align-items:baseline;flex-wrap:wrap}
 .rv-peek h4 span{font-family:var(--mono);font-size:10.5px;color:var(--graphite-60);font-weight:400}
-.rv-peek p{margin:0;font-size:12.5px;line-height:1.5;color:var(--note-ink);
-  max-height:4.6em;overflow:hidden}
+.rv-peek p{margin:0;font-size:12.5px;line-height:1.5;color:var(--note-ink)}
 /* the rooms through that one, as things you can go straight to */
-.rv-kids{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px;
-  max-height:6.4em;overflow:auto}
+.rv-kids{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px}
 .rv-kid{display:inline-flex;align-items:center;gap:5px;
   border:2px solid var(--rv-ink);border-radius:13px;
   background:var(--rv-wall-2);color:var(--rv-door-ink);
@@ -1741,9 +1880,12 @@ html[data-motion="calm"] .rv-arch.swing{animation:none}
    and no second view to get lost in. The filters stay out of the way
    until the search itself is being used.
    --------------------------------------------------------------- */
-.rv-findrow{display:flex;flex-direction:column;gap:6px;width:100%;margin-bottom:7px}
-.rv-findrow[hidden]{display:none}
-.rv-findbox{display:flex;align-items:center;gap:6px;width:100%}
+/* The search sits where the running commentary used to, so the whole console
+   is one line and the room keeps the rest of the screen. What it found is said
+   in the room's own title, which is a better place for it anyway. */
+.rv-findbox{flex:1 1 220px;min-width:120px;max-width:460px;
+  display:flex;align-items:center;gap:6px}
+@container (max-width:760px){ .rv-findbox{flex:1 1 100%;max-width:none;order:-1} }
 .rv-findbox .mqwrap{flex:1 1 auto;min-width:0;display:flex;align-items:center;position:relative}
 .rv-findbox input[type=search]{width:100%;box-sizing:border-box;
   padding:9px 12px;font-size:15px;border:2px solid var(--rv-line);border-radius:9px;
@@ -1752,16 +1894,19 @@ html[data-motion="calm"] .rv-arch.swing{animation:none}
 .rv-findbox .mhits{flex:0 0 auto;display:flex;align-items:center;gap:2px;
   font-family:var(--mono);font-size:11px;color:var(--rv-dim, var(--graphite-60))}
 .rv-findbox .iconbtn{flex:0 0 auto}
-.rv-findmore{display:flex;align-items:center;gap:6px;flex-wrap:wrap;width:100%}
-.rv-findmore[hidden]{display:none}
+/* the filters hang below the line, and only while the search is in use */
+.rv-findmore{position:absolute;left:10px;right:10px;bottom:calc(100% + 7px);
+  display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+  padding:8px 10px;border-radius:12px;
+  background:var(--rv-board);border:2.5px solid var(--rv-ink);
+  box-shadow:0 6px 0 rgba(20,24,28,.2)}
 .rv-findmore select{flex:1 1 150px;min-width:0;padding:7px 8px;font-size:12.5px;
   border:2px solid var(--rv-line);border-radius:8px;
   background:var(--rv-wall);color:var(--rv-door-ink)}
 .rv-findmore .btn{flex:0 0 auto}
 body.viewing .stage{grid-column:1 / -1}
-/* the console stacks: find on top, the doing underneath */
-#roomView[data-reader="1"] .rv-bar{flex-direction:column;align-items:stretch}
-#roomView[data-reader="1"] .rv-bar-right{justify-content:center}
+/* with the search in it there is nothing left for the commentary to say */
+#roomView[data-reader="1"] .rv-bar-mid{display:none}
 
 .rv-bar{
   container-type:inline-size;
@@ -2159,8 +2304,8 @@ html[data-theme="dark"] #roomView[data-skin="scroll"]{
     border-left:3px solid var(--rv-ink);border-top:3px solid var(--rv-ink);
     transform:translateX(-50%) rotate(225deg)}
   .rv-peek h4{font-size:13px;flex:0 0 auto}
-  .rv-peek p{max-height:4.2em;font-size:12.5px;flex:0 1 auto;overflow:auto}
-  .rv-kids{flex:0 1 auto;max-height:5.2em}
+  .rv-peek p{font-size:12.5px;flex:0 1 auto;min-height:0;overflow:auto}
+  .rv-kids{flex:0 1 auto;min-height:0}
   /* the buttons never scroll out of reach */
   .rv-peek .row{flex:0 0 auto;margin-top:9px;display:flex;gap:7px}
   .rv-peek .row .btn{flex:1;padding:9px 10px;font-size:13.5px}
@@ -3252,6 +3397,7 @@ body.viewing.panelaway #panelHide{display:none}
           </select></label>
         <label class="field"><span>Who is in the rooms</span>
           <select id="roomCast">
+            <option value="plate">Plates — just the name of the room</option>
             <option value="blob">Blobs — round, cheerful, out of the way</option>
             <option value="penguin">Penguins</option>
             <option value="tube">Specimens — capped tubes with labels</option>
@@ -3261,7 +3407,8 @@ body.viewing.panelaway #panelHide{display:none}
           </select></label>
         <label class="field"><span>How the room is dressed</span>
           <select id="roomSkin">
-            <option value="plain">Plain — drafting paper and hairlines</option>
+            <option value="pro">Plain and quiet — paper, no weather</option>
+            <option value="plain">Drafting paper and hairlines</option>
             <option value="study">A study — warm walls, a board, a wooden floor</option>
             <option value="workshop">A workshop — pegboard wall, concrete floor</option>
             <option value="street">A street — brick, sky and paving</option>
@@ -3563,13 +3710,13 @@ body.viewing.panelaway #panelHide{display:none}
           <div class="rv-list-body" id="rvListBody"></div>
         </div>
         <div class="rv-bar" id="rvBar">
-          <div class="rv-findrow" id="rvFindRow" hidden>
-            <div class="rv-findbox" id="rvFindBox"></div>
-            <div class="rv-findmore" id="rvFindMore" hidden></div>
-          </div>
           <div class="rv-bar-left" id="rvStuff"></div>
           <div class="rv-bar-mid" id="rvBarSays"></div>
+          <div class="rv-findbox" id="rvFindBox" hidden></div>
+          <div class="rv-findmore" id="rvFindMore" hidden></div>
           <div class="rv-bar-right">
+            <button class="rvb" id="rvMood" title="Plain, or the whole cast">
+              <span class="ic">&#9788;</span><span class="lb">Liven it up</span></button>
             <button class="rvb" id="rvMore" hidden title="Your name, your shelves, how it looks">
               <span class="ic">&#8943;</span><span class="lb">More</span></button>
             <button class="rvb" id="rvJump" title="Go somewhere">
@@ -4020,7 +4167,21 @@ body.viewing.panelaway #panelHide{display:none}
     <button class="btn" id="themeClose">Done</button>
   </div>
   <div class="dlg-body">
-    <h3 class="dlgsub">Colours, on the drawing and in the rooms</h3>
+    <div id="moodPick" class="moodgrid" hidden>
+      <button class="moodcard" data-mood="pro">
+        <span class="mc-art pro"><i></i><i></i><i></i></span>
+        <b>Plain</b>
+        <s>Named plates on drawing paper. Nothing wanders, nothing behind it.
+           Reads on a projector and prints. Light or dark.</s>
+      </button>
+      <button class="moodcard" data-mood="silly">
+        <span class="mc-art silly"><i></i><i></i><i></i></span>
+        <b>Lively</b>
+        <s>The whole cast, your backdrops folder and the weather.
+           Daylight only &mdash; they look ill in the dark.</s>
+      </button>
+    </div>
+    <h3 class="dlgsub" id="themeListHead">Colours, on the drawing and in the rooms</h3>
     <div id="themeList" class="themegrid"></div>
 
     <h3 class="dlgsub">The rooms</h3>
@@ -4336,6 +4497,8 @@ const S = {
   roomLife:"full",             // full | quiet | still — how much the room moves
   roomFloor:"roam",            // roam | row — wandering, or lined up to read
   roomSort:"order",            // order | name | date | changed — how a room is ordered
+  roomMood:"pro",              // pro | silly — the whole character of the place
+  sillySkin:"plain", sillyCast:"blob",   // kept, so switching back restores them
   worldAuto:true,              // a search in a room stands you in what it found
   bdMine:"",                   // a viewer's own backdrop choice, never the map's
   metGuest:"",                 // the day this browser was last shown the way in
@@ -9541,6 +9704,7 @@ function updateModeUI(){
   readerConsole(!isRoot());
   if(!isRoot() && S.vista !== "room") setVista("room", true);
   gatherLook();
+  applyMood();
   forgetSize();
   if(S.viewerBuild){
     /* say what this particular copy is, rather than one blanket sentence */
@@ -10019,9 +10183,8 @@ function subHeading(text){
 let readerShell = null;    /* where each moved piece came from */
 
 function readerConsole(on){
-  const view = el("roomView"), row = el("rvFindRow");
-  if(!view || !row) return;
-  const box = el("rvFindBox"), more = el("rvFindMore");
+  const view = el("roomView"), box = el("rvFindBox"), more = el("rvFindMore");
+  if(!view || !box) return;
 
   const parts = [
     ["mqwrap",     box,  ()=>document.querySelector(".mqwrap")],
@@ -10039,7 +10202,7 @@ function readerConsole(on){
       if(!readerShell.has(key)) readerShell.set(key, {e, was:e.parentNode, at:e.nextSibling});
       host.appendChild(e);
     });
-    row.hidden = false;
+    box.hidden = false;
     view.dataset.reader = "1";
     if(el("rvMore")) el("rvMore").hidden = false;
   } else {
@@ -10052,7 +10215,7 @@ function readerConsole(on){
       });
       readerShell = null;
     }
-    row.hidden = true;
+    box.hidden = true;
     view.dataset.reader = "0";
     if(el("rvMore")) el("rvMore").hidden = true;
     if(el("rvFindMore")) el("rvFindMore").hidden = true;
@@ -10068,6 +10231,69 @@ function findMoreShown(want){
     : !!((q && q.value.trim()) || S.tagPick.size || (S.searchScope && S.searchScope !== "all"));
   more.hidden = !busy;
   fitWall();
+}
+
+/* ---------------------------------------------------------------
+   Two ways for the place to be.
+
+   Professional is the room stripped to what it is for: the rooms are
+   named plates, the walls are drawing paper, nothing wanders, and
+   nothing is behind it. It reads in a meeting and it prints.
+
+   Silly is the whole cast, the backdrops, the weather. It is the
+   version people actually enjoy walking around in, and it only makes
+   sense in daylight, so it stays in the light.
+
+   One switch, on the console. Everything either side of it is that
+   one choice, so nobody has to assemble the look from six menus.
+   --------------------------------------------------------------- */
+function isPro(){ return (S.roomMood || "pro") === "pro"; }
+
+function applyMood(){
+  const view = el("roomView");
+  if(view) view.dataset.mood = isPro() ? "pro" : "silly";
+  if(isPro()){
+    /* the plain settings are not saved over the silly ones: they are what
+       professional means, and the silly choices wait where they were */
+    S.roomSkin = "pro";
+    S.roomCast = "plate";
+    S.roomLife = "quiet";
+  } else {
+    S.roomSkin = S.sillySkin || "plain";
+    S.roomCast = S.sillyCast || "blob";
+    if(S.roomLife === "quiet") S.roomLife = "full";
+    /* the cast is drawn for daylight, and looks ill in the dark */
+    if(S.themeMode !== "light") applyTheme("light");
+  }
+  if(el("roomSkin")) el("roomSkin").value = S.roomSkin;
+  if(el("roomCast")) el("roomCast").value = S.roomCast;
+  if(el("roomLife")) el("roomLife").value = S.roomLife;
+  markMoodButton();
+  savePrefs();
+}
+
+function setMood(how){
+  S.roomMood = how === "silly" ? "silly" : "pro";
+  applyMood();
+  renderRoom();
+  toast(isPro() ? "Plain and quiet" : "Off we go");
+}
+
+function markMoodCards(){
+  document.querySelectorAll("#moodPick .moodcard").forEach(c=>{
+    c.classList.toggle("on", c.dataset.mood === (S.roomMood || "pro"));
+  });
+}
+
+function markMoodButton(){
+  const b = el("rvMood");
+  if(!b) return;
+  b.querySelector(".lb").textContent = isPro() ? "Liven it up" : "Plain";
+  b.querySelector(".ic").innerHTML = isPro() ? "&#9788;" : "&#9744;";
+  b.title = isPro()
+    ? "Bring out the cast, the backdrops and the weather"
+    : "Back to plates and drawing paper, for a meeting or a print";
+  b.classList.toggle("on", !isPro());
 }
 
 function gatherLook(){
@@ -14803,7 +15029,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-09-28k";
+const APP_BUILD = "2026-09-28l";
 
 function isHandle(h){
   return !!h && typeof h === "object" && typeof h.queryPermission === "function";
@@ -15523,6 +15749,14 @@ function renderThemeList(){
 
 function openThemes(){
   gatherLook();
+  /* A reader is offered the one choice that matters and not a grid of
+     colour schemes for a drawing they will never open. */
+  const reader = !canEdit();
+  const pick = el("moodPick"), list = el("themeList"), head = el("themeListHead");
+  if(pick) pick.hidden = false;
+  if(list) list.hidden = reader;
+  if(head) head.hidden = reader;
+  markMoodCards();
   renderThemeList();
   el("themeEditor").hidden = true;
   /* Advanced stays shut until somebody opens it, every time: it is where the
@@ -15755,7 +15989,7 @@ async function loadPersonal(){
 const PREF_KEYS = ["notesMode","motion","showIds","avoidNodes","branchGrid",
                    "focusMode","pickZoom","followOutline","railOpen","branchShape",
                    "searchExcludes","portals","vista","roomSkin","roomCast","roomLife","roomFloor","roomSort",
-                   "bdMine","worldAuto"];
+                   "bdMine","worldAuto","roomMood","sillySkin","sillyCast"];
 async function savePrefs(){
   const out = {};
   PREF_KEYS.forEach(k=>{ out[k] = S[k]; });
@@ -17300,6 +17534,10 @@ let floorTooShort = false;
    shelf: below that the room lines everybody up rather than pretending to
    have space nobody can stand in. */
 function floorIsRow(){
+  /* Plates are labels, and labels in a scatter overlap each other and cannot
+     be read. Professional lines them up, which is also what somebody wants
+     when they are showing this to a room full of people. */
+  if(typeof isPro === "function" && isPro()) return true;
   return S.roomFloor === "row" || S.roomSkin === "boardroom" || floorTooShort;
 }
 
@@ -17691,6 +17929,9 @@ function rvSetInks(){
    be a web address or the name of a file in the synced picture folder, which
    is the same folder the node pictures already come from. */
 function backdropFor(id){
+  /* nothing behind the wall in professional: a photograph of a cartoon
+     igloo is the one thing that cannot be shown in a meeting */
+  if(typeof isPro === "function" && isPro()) return null;
   const n = id && S.nodes.get(id);
   const name = bdNameFor(id);
   if(!name) return null;
@@ -17735,6 +17976,7 @@ function renderRoom(){
   if(el("rvBoard")) el("rvBoard").dataset.bare = "0";
   view.dataset.exits = "0";
   if(el("rvBarSays")) el("rvBarSays").textContent = "";
+  view.dataset.mood = isPro() ? "pro" : "silly";
   view.dataset.skin = S.roomSkin || "plain";
   view.dataset.cast = S.roomCast || "blob";
   /* the room is drawn now and the picture catches up: waiting on a file
@@ -18466,6 +18708,7 @@ const FLOOR_TOP = 0.07, FLOOR_SPAN = 0.88;
    what makes it read as a floor rather than a stripe. Nobody should actually
    be standing back there though, half behind the note, so the first row
    starts wherever a creature of full height still clears the bottom of it. */
+let platey = false;      /* the cast is plates, so no perspective */
 let floorBackV = 0.05;
 function measureFloorBack(){
   const f = el("rvField"), b = el("rvBoard");
@@ -18584,6 +18827,7 @@ function clearTempSpots(room){
 function placeRoamers(ids){
   const field = el("rvField");
   if(!field) return;
+  platey = (S.roomCast || "blob") === "plate";
   fieldBox = fieldSize();
   /* a drawn room has furniture in it, so anything put somewhere by hand
      stays exactly there and only the rest are scattered */
@@ -18623,7 +18867,10 @@ function placeRoamers(ids){
 /* one write per creature: where it is, how big, and who is in front */
 function placeOne(r){
   const p = floorSpot(r.u, r.v);
-  const scale = 0.74 + r.v * 0.42;
+  /* A creature further back is further away, so it is drawn smaller. A plate
+     with a room's name on it is a label, not a thing standing in the room —
+     shrinking it just makes the far ones unreadable. */
+  const scale = platey ? 1 : 0.74 + r.v * 0.42;
   r.el.style.transform = "translate3d(" + p.x.toFixed(1) + "px," + p.y.toFixed(1)
     + "px,0) scale(" + scale.toFixed(3) + ")";
   /* The flip is on the body alone — turn the whole creature and it walks off
@@ -18780,8 +19027,12 @@ function placePeek(){
   p.style.setProperty("--peek-w", Math.round(w) + "px");
   const top = Math.max(v.top + 8, b.top + 10);
   p.style.setProperty("--peek-t", Math.round(top) + "px");
+  /* the only ceiling is the screen: from where it starts down to just above
+     the console, and not a pixel of arbitrary squeezing before that */
+  const bar = el("rvBar");
+  const floorLine = bar ? bar.getBoundingClientRect().top : window.innerHeight;
   p.style.setProperty("--peek-max",
-    Math.round(Math.max(170, Math.min(b.height - 16, v.height * 0.62))) + "px");
+    Math.round(Math.max(150, floorLine - top - 12)) + "px");
 }
 
 /* Walk through. The door you chose opens first, then the room you are leaving
@@ -19608,6 +19859,13 @@ function wireRoom(){
       + (world ? world.what.toLowerCase() : "this room") + ", ready to change together.";
   };
   el("rvMore").onclick = ()=>openThemes();
+  el("rvMood").onclick = ()=>setMood(isPro() ? "silly" : "pro");
+  el("moodPick").addEventListener("click", ev=>{
+    const c = ev.target.closest && ev.target.closest("[data-mood]");
+    if(!c) return;
+    setMood(c.dataset.mood);
+    markMoodCards();
+  });
   /* the filters come up with the search and go away with it */
   ["mq", "q"].forEach(k=>{
     const f = el(k);
@@ -19757,6 +20015,7 @@ function wireRoom(){
   if(el("roomSkin")) el("roomSkin").onchange = e=>{
     const was = S.roomSkin;
     S.roomSkin = e.target.value;
+    if(!isPro()) S.sillySkin = S.roomSkin;
     /* Compact and Boardroom are for reading, so they open lined up. Either
        can be set wandering again from the panel; changing dressing again
        puts the floor back the way the scenic rooms want it. */
@@ -19817,7 +20076,9 @@ function wireRoom(){
     renderRoomSoon(); toast("Backdrop cleared");
   };
   if(el("roomCast")) el("roomCast").onchange = e=>{
-    S.roomCast = e.target.value; savePrefs(); renderRoom();
+    S.roomCast = e.target.value;
+    if(!isPro()) S.sillyCast = S.roomCast;
+    savePrefs(); renderRoom();
   };
   if(el("roomLife")) el("roomLife").onchange = e=>{
     S.roomLife = e.target.value; savePrefs(); applyLife(); renderRoom();
@@ -20776,6 +21037,7 @@ async function boot(){
   layoutButton();
     organiseRail();
     gatherLook();
+    applyMood();
     /* shelves kept in this browser come back even when the workbook did not */
     try{ await recallShelves(); renderShelves(); }catch(e){}
     /* every folder named before is picked back up without asking */
