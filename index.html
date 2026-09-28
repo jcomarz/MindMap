@@ -1139,6 +1139,7 @@ html[data-theme="dark"] #roomView[data-skin="plain"]{
 .rv-trail>*{flex:0 1 auto;min-width:0}
 .rv-trail>span{flex:0 0 auto}
 .rv-trail button.more{flex:0 0 auto;font-weight:700;letter-spacing:.06em}
+.rv-trail button[data-hall]{flex:0 0 auto;font-size:14px;line-height:1;padding:1px 6px}
 .rv-trail button{border:0;background:transparent;font:inherit;color:inherit;
   padding:2px 4px;border-radius:2px;cursor:pointer;max-width:150px;overflow:hidden;
   text-overflow:ellipsis;white-space:nowrap}
@@ -3137,6 +3138,8 @@ body.viewing.panelaway #panelHide{display:none}
           Fade everything that does not match a search</label>
         <label class="check"><input type="checkbox" id="portals" checked>
           Show cross-links as hollow portals, and as a stub when the other end is away</label>
+        <label class="check" style="margin-bottom:8px"><input type="checkbox" id="worldAutoPref">
+          Searching in a room stands you in what it found</label>
         <label class="field"><span>What opens first</span>
           <select id="vistaPref">
             <option value="room">The room — stand inside the node you pick</option>
@@ -3464,9 +3467,6 @@ body.viewing.panelaway #panelHide{display:none}
           <div class="rv-bar-left" id="rvStuff"></div>
           <div class="rv-bar-mid" id="rvBarSays"></div>
           <div class="rv-bar-right">
-            <button class="rvb warn" id="rvFolder" hidden
-                    title="A folder is remembered but needs a nod before it can be read">
-              <span class="ic">&#9873;</span><span class="lb">Reconnect folder</span></button>
             <button class="rvb" id="rvJump" title="Go somewhere">
               <span class="ic">&#9776;</span><span class="lb">Go to</span></button>
             <button class="rvb" id="rvCatch" hidden
@@ -4181,6 +4181,7 @@ const S = {
   roomLife:"full",             // full | quiet | still — how much the room moves
   roomFloor:"roam",            // roam | row — wandering, or lined up to read
   roomSort:"order",            // order | name | date | changed — how a room is ordered
+  worldAuto:true,              // a search in a room stands you in what it found
   bdMine:"",                   // a viewer's own backdrop choice, never the map's
   metGuest:"",                 // the day this browser was last shown the way in
   roomWorld:"",                // standing in what a search or a tag found
@@ -11920,7 +11921,22 @@ function rankHits(ids, terms){
   });
 }
 
+/* Every way out of the search — a match, no match, one letter, an empty box —
+   has to leave the room in step with it, and there are several. So the room
+   is brought up to date around the search rather than inside it. */
 function runSearch(){
+  const was = S.roomWorld;
+  /* noted before the search runs, because the search itself jumps the
+     selection to its first match — after that, where they were standing is
+     already gone */
+  if(!worldAuto && !S.roomWorld) worldFrom = S.sel || "";
+  runSearchInner();
+  autoWorld();
+  if(S.roomWorld !== was) renderRoomSoon();
+  setTimeout(markWorldButton, 0);
+}
+
+function runSearchInner(){
   const q = el("q").value.trim().toLowerCase();
   S.hitQuery = q;
   S.hits = []; S.qHits = []; S.areaHits = []; S.bmHits = [];
@@ -12003,10 +12019,7 @@ function runSearch(){
     keepingPlace(()=>{ layout(); render(); renderContents(); });
   }
   renderResults();
-  /* the room lights the doors that matched and marks the words on the board,
-     and the console offers to stand you in the whole catch */
   renderRoomSoon();
-  setTimeout(markWorldButton, 0);
 }
 
 function goToTarget(t){
@@ -14241,7 +14254,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-09-28b";
+const APP_BUILD = "2026-09-28d";
 
 function isHandle(h){
   return !!h && typeof h === "object" && typeof h.queryPermission === "function";
@@ -14528,10 +14541,8 @@ async function offerReconnect(){
   const waiting = await foldersWaiting();
   const wants = folderWanted();
   const held = heldFolders().length;
-  const chip = el("rvFolder");
   const quiet = ()=>{
     bar.hidden = true; folderNudgeShown = false;
-    if(chip) chip.hidden = true;
     paintFolderState().catch(()=>{});
   };
 
@@ -14542,11 +14553,6 @@ async function offerReconnect(){
   if(!held){
     if(!wants || typeof window.showDirectoryPicker !== "function"){ quiet(); return; }
     paintFolderState().catch(()=>{});
-    if(chip){
-      chip.hidden = false;
-      chip.querySelector(".lb").textContent = "Link folder";
-      chip.title = "Point this at the folder holding the pictures and backdrops";
-    }
     el("folderNudgeWhat").textContent = wants === "pictures"
       ? "This map draws its pictures from a folder, and none is linked here yet."
       : "This map takes a backdrop for each room from a folder, and none is linked here yet.";
@@ -14559,11 +14565,6 @@ async function offerReconnect(){
   if(!waiting.length){ quiet(); return; }
 
   paintFolderState().catch(()=>{});
-  if(chip){
-    chip.hidden = false;
-    chip.querySelector(".lb").textContent = "Reconnect folder";
-    chip.title = "A folder is remembered but needs a nod before it can be read";
-  }
   el("folderNudgeGo").textContent = "Reconnect";
   const names = [...new Set(waiting.map(f=>f.h.name || f.what))];
   el("folderNudgeWhat").textContent = names.length === 1
@@ -14600,7 +14601,6 @@ async function reconnectFolders(){
   if(btn){ btn.disabled = false; btn.textContent = "Reconnect"; }
   el("folderNudge").hidden = true;
   folderNudgeShown = false;
-  if(el("rvFolder")) el("rvFolder").hidden = true;
   paintFolderState().catch(()=>{});
   if(!ok){ toast("Still blocked. Choosing the folder again will fix it."); return; }
   picCache.clear();
@@ -15197,7 +15197,7 @@ async function loadPersonal(){
 const PREF_KEYS = ["notesMode","motion","showIds","avoidNodes","branchGrid",
                    "focusMode","pickZoom","followOutline","railOpen","branchShape",
                    "searchExcludes","portals","vista","roomSkin","roomCast","roomLife","roomFloor","roomSort",
-                   "bdMine"];
+                   "bdMine","worldAuto"];
 async function savePrefs(){
   const out = {};
   PREF_KEYS.forEach(k=>{ out[k] = S[k]; });
@@ -16868,6 +16868,69 @@ function worldSet(){
   return {ids:roomOrder(ids), what};
 }
 
+/* ---------------------------------------------------------------
+   Searching, in a room.
+
+   On the drawing a search lights up the matches where they sit and
+   you can see the shape of the answer. A room only shows you one
+   place at a time, so the same search used to light doors you were
+   not standing at and leave you to find a button to see the rest.
+   Now the search simply puts you in among what it found, and
+   clearing it walks you back to where you were standing.
+   --------------------------------------------------------------- */
+let worldAuto = false;       /* we put them here, so we may take them back */
+let worldFrom = "";          /* the room they were in when they started typing */
+let worldMuted = "\u0000";   /* a search they said no to, left alone until it changes */
+
+/* What a search or a tag filter is currently pointing at, if anything. Only
+   those two: "flagged" and "mine" are standing sets that are always there, so
+   following them would mean never being anywhere else. They stay on the
+   button, where somebody asks for them. */
+function worldKindNow(){
+  const was = S.roomWorld;
+  let found = "";
+  for(const k of ["hits", "tags"]){
+    S.roomWorld = k;
+    if(worldSet()){ found = k; break; }
+  }
+  S.roomWorld = was;
+  return found;
+}
+
+function autoWorld(){
+  if(S.worldAuto === false) return;
+  if(!inRoom()) return;
+  const key = (S.hitQuery || "") + "\u0001" + [...S.tagPick].sort().join(",");
+  if(key !== worldMuted && worldMuted !== "\u0000") worldMuted = "\u0000";
+  const kind = worldKindNow();
+
+  if(kind && !S.roomWorld && key !== worldMuted){
+    worldAuto = true;
+    enterWorld(kind);
+    return;
+  }
+  if(!kind && S.roomWorld && worldAuto){
+    worldAuto = false;
+    S.roomWorld = "";
+    if(worldFrom && S.nodes.has(worldFrom)) select(worldFrom);
+    worldFrom = "";
+    renderRoom();
+    return;
+  }
+  /* still searching, but for something else now: follow it across */
+  if(kind && S.roomWorld && worldAuto && S.roomWorld !== kind){
+    S.roomWorld = kind;
+    renderRoom();
+  }
+}
+
+/* They pressed Leave. That is an answer about this search, not about
+   searching, so it holds until the search changes. */
+function muteWorld(){
+  worldMuted = (S.hitQuery || "") + "\u0001" + [...S.tagPick].sort().join(",");
+  worldAuto = false;
+}
+
 function enterWorld(kind){
   S.roomWorld = kind;
   roomPeek = "";
@@ -16942,6 +17005,9 @@ function renderRoom(){
   const view = el("roomView");
   if(!view || view.hidden) return;
   const id = S.sel && S.nodes.has(S.sel) ? S.sel : null;
+  /* standing in a real room again: the hall was where they were, not where
+     they want to stay */
+  if(id) hallOnPurpose = false;
   view.dataset.skin = S.roomSkin || "plain";
   view.dataset.cast = S.roomCast || "blob";
   /* the room is drawn now and the picture catches up: waiting on a file
@@ -17004,12 +17070,20 @@ function renderRoom(){
      root has no hall worth standing in, so you are simply put inside it. */
   if(!id){
     const rs = roots().filter(k=>S.nodes.has(k));
-    if(rs.length === 1){ select(rs[0]); return; }
+    /* The wish to be in the hall lasts until somebody leaves it. It used to be
+       cleared on the way in, and since selecting redraws once by itself, the
+       second draw no longer knew it had been asked for and walked straight
+       back into the only branch. */
+    if(rs.length === 1 && !hallOnPurpose){ select(rs[0]); return; }
     el("rvTitle").textContent = "The hall";
-    el("rvNote").innerHTML = '<p class="empty">Every branch of this map starts behind one of '
-      + 'these doors. Walk into one, or switch to the drawing to see the whole thing at once.</p>';
+    el("rvNote").innerHTML = '<p class="empty">'
+      + (rs.length === 1
+          ? 'This map has one branch, and it starts here.'
+          : 'Every branch of this map starts behind one of these doors.')
+      + ' Walk into one, or switch to the drawing to see the whole thing at once.</p>';
     el("rvTags").hidden = true;
-    el("rvCount").textContent = "";
+    el("rvCount").textContent = rs.length
+      + (rs.length === 1 ? " branch" : " branches") + " from here";
     el("rvTrail").innerHTML = "";
     el("rvArches").innerHTML = "";
     el("rvEdit").hidden = true; el("rvAdd").hidden = true;
@@ -17100,10 +17174,15 @@ function renderRoom(){
   const line = ancestryOf(id);
   const room = window.matchMedia("(max-width:820px)").matches ? 2 : 4;
   const crumb = k=>'<button data-room="' + esc(k) + '">' + esc(nodeName(k)) + '</button>';
+  /* the hall sits at the head of every trail, so the top of the map is one
+     tap away however deep you have gone */
+  const hall = '<button data-hall="1" title="Out to the hall, where every branch starts">'
+    + "\u2302</button>";
   let parts;
-  if(!line.length) parts = [];
-  else if(line.length <= room) parts = line.map(crumb);
-  else parts = ['<button data-room="' + esc(line[0]) + '">' + esc(nodeName(line[0]))
+  if(!line.length) parts = [hall];
+  else if(line.length <= room) parts = [hall].concat(line.map(crumb));
+  else parts = [hall,
+      '<button data-room="' + esc(line[0]) + '">' + esc(nodeName(line[0]))
       + '</button>', '<button class="more" data-crumbs="1" title="'
       + esc(line.slice(1, line.length - (room - 1)).map(nodeName).join("  \u203a  "))
       + '">\u2026</button>'].concat(line.slice(line.length - (room - 1)).map(crumb));
@@ -17354,17 +17433,45 @@ function fitWall(){
 }
 
 /* The door on the left wall, back to the room this one is inside. */
+/* The way out. From anywhere but the very top that is the room above; from
+   the top of a branch it is the hall, where every branch begins — which until
+   now was a room with no door to it, so the highest you could get was inside
+   whichever branch you happened to be in. */
 function wayOut(pid){
   const b = el("rvOut");
   if(!b) return;
   if(!pid || !S.nodes.has(pid)){
-    b.classList.add("empty"); b.dataset.room = ""; b.querySelector("b").textContent = "";
+    /* standing in the hall itself, or in a world room: nothing above it */
+    const inHall = !S.sel || S.roomWorld;
+    if(inHall){
+      b.classList.add("empty"); b.dataset.room = ""; b.dataset.hall = "";
+      b.querySelector("b").textContent = "";
+      return;
+    }
+    b.classList.remove("empty");
+    b.dataset.room = ""; b.dataset.hall = "1";
+    const many = roots().filter(k=>S.nodes.has(k)).length;
+    b.querySelector("b").textContent = "The hall";
+    b.title = many > 1
+      ? "Out to the hall, where all " + many + " branches start"
+      : "Out to the hall, where the map starts";
     return;
   }
   b.classList.remove("empty");
-  b.dataset.room = pid;
+  b.dataset.room = pid; b.dataset.hall = "";
   b.querySelector("b").textContent = nodeName(pid);
   b.title = "Back out to " + nodeName(pid);
+}
+
+/* Somebody asked for the hall, so it is shown even on a map with one branch
+   — which otherwise walks you straight back into it. */
+let hallOnPurpose = false;
+function goToHall(){
+  hallOnPurpose = true;
+  S.roomWorld = "";
+  roomPeek = "";
+  select(null);
+  renderRoom();
 }
 
 
@@ -18317,6 +18424,9 @@ function renderList(){
   } else {
     const up = id && parentOf(id);
     if(up) out.push("<h5>Back out to</h5>" + listRow(up));
+    else if(id) out.push('<h5>Back out to</h5><button data-hall="1">'
+      + '<i>&#8962;</i><u>The hall</u><s>'
+      + roots().filter(k=>S.nodes.has(k)).length + '</s></button>');
     const kids = roomOrder(roomThings(id).filter(keep));
     if(kids.length) out.push("<h5>In here</h5>" + kids.map(k=>listRow(k)).join(""));
     const cross = id ? crossOf(id).filter(c=>keep(c.id)) : [];
@@ -18676,7 +18786,12 @@ function wireRoom(){
     toast(who + ": " + mine.map(x=>x.accession).filter(Boolean).join(", "));
   });
   el("rvWorld").onclick = ()=>{
-    if(S.roomWorld){ leaveWorld(); return; }
+    if(S.roomWorld){
+      muteWorld();
+      if(worldFrom && S.nodes.has(worldFrom)){ S.roomWorld = ""; select(worldFrom);
+        worldFrom = ""; renderRoom(); return; }
+      leaveWorld(); return;
+    }
     const kinds = ["hits", "tags", "flagged", "mine"];
     for(const k of kinds){
       S.roomWorld = k;
@@ -18685,6 +18800,15 @@ function wireRoom(){
     S.roomWorld = "";
     toast("Search or pick a tag first, then step into what it found.");
   };
+  if(el("worldAutoPref")) el("worldAutoPref").onchange = e=>{
+    S.worldAuto = e.target.checked; savePrefs();
+    if(!S.worldAuto && S.roomWorld && worldAuto){ worldAuto = false; leaveWorld(); }
+    else autoWorld();
+  };
+  el("rvListBody").addEventListener("click", ev=>{
+    const h = ev.target.closest && ev.target.closest("[data-hall]");
+    if(h){ showList(false); goToHall(); }
+  }, true);
   el("rvJump").onclick = ()=>showList();
   el("rvListQ").oninput = renderList;
   el("rvListQ").onkeydown = ev=>{
@@ -18749,6 +18873,7 @@ function wireRoom(){
 
   el("rvTrail").addEventListener("click", ev=>{
     if(ev.target.closest && ev.target.closest("[data-crumbs]")){ showList(true); return; }
+    if(ev.target.closest && ev.target.closest("[data-hall]")){ goToHall(); return; }
     const b = ev.target.closest && ev.target.closest("[data-room]");
     if(!b) return;
     if(S.roomWorld){ leaveWorld(); return; }
@@ -18756,7 +18881,9 @@ function wireRoom(){
   });
 
   el("rvOut").onclick = ()=>{
-    const pid = el("rvOut").dataset.room;
+    const out = el("rvOut");
+    if(out.dataset.hall === "1"){ goToHall(); return; }
+    const pid = out.dataset.room;
     if(pid && S.nodes.has(pid)) roomGo(pid, "out");
   };
 
@@ -19375,16 +19502,12 @@ async function boot(){
     }
   }, true);
 
-  el("folderNudgeGo").onclick = ()=>{
-    if(!heldFolders().length){ el("folderNudge").hidden = true; choosePictureFolder(); return; }
-    reconnectFolders().catch(()=>{});
-  };
+  /* The bar and the welcome were two doors onto the same job. The welcome is
+     the one that does it properly — folder, pictures, catch-up — so the bar
+     simply opens it. */
+  el("folderNudgeGo").onclick = ()=>{ el("folderNudge").hidden = true; sayHello(false); };
   el("folderStateGo").onclick = ()=>{ reconnectFolders().catch(()=>{}); };
   el("folderStatePick").onclick = ()=>{ choosePictureFolder(); };
-  el("rvFolder").onclick = ()=>{
-    if(!heldFolders().length){ choosePictureFolder(); return; }
-    reconnectFolders().catch(()=>{});
-  };
   el("folderNudgeX").onclick = ()=>{ el("folderNudge").hidden = true; };
 
   el("chooseWorkbook").onclick = ()=>{
@@ -19730,6 +19853,7 @@ async function boot(){
     if(Array.isArray(custom)) S.customThemes = custom;
     await loadPrefs();
     if(el("vistaPref")) el("vistaPref").value = S.vista;
+    if(el("worldAutoPref")) el("worldAutoPref").checked = S.worldAuto !== false;
     if(el("roomSkin")) el("roomSkin").value = S.roomSkin;
   if(el("roomCast")) el("roomCast").value = S.roomCast;
   if(el("roomLife")) el("roomLife").value = S.roomLife;
