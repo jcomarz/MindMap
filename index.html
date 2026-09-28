@@ -1894,12 +1894,10 @@ html[data-motion="calm"] .rv-arch.swing{animation:none}
 .rv-findbox .mhits{flex:0 0 auto;display:flex;align-items:center;gap:2px;
   font-family:var(--mono);font-size:11px;color:var(--rv-dim, var(--graphite-60))}
 .rv-findbox .iconbtn{flex:0 0 auto}
-/* the filters hang below the line, and only while the search is in use */
-.rv-findmore{position:absolute;left:10px;right:10px;bottom:calc(100% + 7px);
-  display:flex;align-items:center;gap:6px;flex-wrap:wrap;
-  padding:8px 10px;border-radius:12px;
-  background:var(--rv-board);border:2.5px solid var(--rv-ink);
-  box-shadow:0 6px 0 rgba(20,24,28,.2)}
+/* The filters sit on the line, to the right of the box, and only while the
+   search is being used. Hung above the console they covered the very rooms
+   somebody was searching for. */
+.rv-findmore{flex:0 0 auto;display:flex;align-items:center;gap:6px}
 .rv-findmore select{flex:1 1 150px;min-width:0;padding:7px 8px;font-size:12.5px;
   border:2px solid var(--rv-line);border-radius:8px;
   background:var(--rv-wall);color:var(--rv-door-ink)}
@@ -3717,6 +3715,8 @@ body.viewing.panelaway #panelHide{display:none}
           <div class="rv-bar-right">
             <button class="rvb" id="rvMood" title="Plain, or the whole cast">
               <span class="ic">&#9788;</span><span class="lb">Liven it up</span></button>
+            <button class="rvb" id="rvDark" title="Light or dark">
+              <span class="ic">&#9681;</span><span class="lb">Dark</span></button>
             <button class="rvb" id="rvMore" hidden title="Your name, your shelves, how it looks">
               <span class="ic">&#8943;</span><span class="lb">More</span></button>
             <button class="rvb" id="rvJump" title="Go somewhere">
@@ -10223,14 +10223,30 @@ function readerConsole(on){
 }
 
 /* The filters are only in the way until somebody is actually searching. */
+let findBlur = null;
 function findMoreShown(want){
   const more = el("rvFindMore");
   if(!more) return;
   const q = el("mq");
-  const busy = want != null ? want
-    : !!((q && q.value.trim()) || S.tagPick.size || (S.searchScope && S.searchScope !== "all"));
+  const typed = !!(q && q.value.trim());
+  const narrowed = S.tagPick.size || (S.searchScope && S.searchScope !== "all");
+  const busy = want != null ? want : (typed || narrowed);
   more.hidden = !busy;
   fitWall();
+}
+
+/* Leaving the box empty-handed puts the filters away; leaving it with a
+   search still running keeps them, because that is when they are wanted. */
+function findMaybeShut(){
+  clearTimeout(findBlur);
+  findBlur = setTimeout(()=>{
+    const more = el("rvFindMore");
+    if(!more || more.hidden) return;
+    if(more.contains(document.activeElement)) return;
+    const q = el("mq");
+    if(q && document.activeElement === q) return;
+    findMoreShown();
+  }, 160);
 }
 
 /* ---------------------------------------------------------------
@@ -10264,6 +10280,23 @@ function applyMood(){
     if(S.roomLife === "quiet") S.roomLife = "full";
     /* the cast is drawn for daylight, and looks ill in the dark */
     if(S.themeMode !== "light") applyTheme("light");
+    /* Plain never asks the folder for anything, so after a spell in it the
+       list of backdrops can be empty or stale. Lively wants them, so it goes
+       and gets them rather than showing bare walls and leaving somebody to
+       wonder whether the folder took. */
+    if(!bdPool || !bdPool.length){
+      backdropPool().then(list=>{
+        if(!list || !list.length) return backdropPool(true);
+        return list;
+      }).then(list=>{
+        if(list && list.length){
+          if(!S.meta.backdrop && !S.bdMine){ S.bdMine = "random"; savePrefs(); }
+          renderRoomSoon();
+        }
+      }).catch(()=>{});
+    } else if(!S.meta.backdrop && !S.bdMine){
+      S.bdMine = "random"; savePrefs();
+    }
   }
   if(el("roomSkin")) el("roomSkin").value = S.roomSkin;
   if(el("roomCast")) el("roomCast").value = S.roomCast;
@@ -10285,7 +10318,21 @@ function markMoodCards(){
   });
 }
 
+/* Light and dark belong to Plain. The cast is drawn for daylight, so in
+   Lively the button goes away rather than offering something that looks ill. */
+function markDarkButton(){
+  const b = el("rvDark");
+  if(!b) return;
+  b.hidden = !isPro();
+  const dark = document.documentElement.getAttribute("data-theme") === "dark";
+  b.querySelector(".lb").textContent = dark ? "Light" : "Dark";
+  b.querySelector(".ic").innerHTML = dark ? "&#9680;" : "&#9681;";
+  b.title = dark ? "Back to daylight" : "Dark, for a dim room";
+  b.classList.toggle("on", dark);
+}
+
 function markMoodButton(){
+  markDarkButton();
   const b = el("rvMood");
   if(!b) return;
   b.querySelector(".lb").textContent = isPro() ? "Liven it up" : "Plain";
@@ -14207,7 +14254,7 @@ async function storageDiagnostics(){
     ${launchLine}
     ${fileName ? `<br>Live file: <code>${esc(fileName)}</code>` : ""}
     <br>This tab holds map <code>${esc(S.meta.key || "unsaved")}</code>
-    ${!isWebOrigin() ? `<br><span style="color:var(--flag)">Opened from a folder rather than a web address. Phones in particular give downloaded files a throwaway storage area.</span>` : ""}
+    ${!isWebOrigin() ? `<br><span style="color:var(--flag)">Opened from a folder. Some browsers, phones especially, treat a file opened this way as throwaway and clear what it saved.</span>` : ""}
   </div>`;
 }
 
@@ -14479,8 +14526,8 @@ async function buildStandaloneViewer(kind){
     src = await r.text();
     if(!/id="viewerSlot"/.test(src)) throw new Error("unexpected source");
   }catch(e){
-    toast("Could not read this page's own source. Build the self-contained copy from the "
-        + "tool's web address, then hand the file out."); return;
+    toast("Could not read this page's own source, so the self-contained copy "
+        + "cannot be built from here."); return;
   }
   const tables = toSheets();
   delete tables.Sync;
@@ -15029,7 +15076,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-09-28l";
+const APP_BUILD = "2026-09-28m";
 
 function isHandle(h){
   return !!h && typeof h === "object" && typeof h.queryPermission === "function";
@@ -15116,7 +15163,7 @@ async function paintFolderState(){
 
   if(typeof window.showDirectoryPicker !== "function"){
     what.innerHTML = '<span class="wait">\u25CF</span> This browser cannot open a folder. '
-      + "Chrome or Edge can; here, pictures have to be web addresses.";
+      + "Chrome or Edge can read one.";
     if(relink) relink.hidden = true;
     return;
   }
@@ -15140,10 +15187,9 @@ async function paintFolderState(){
   }
   if(!held.length){
     what.innerHTML = loose
-      ? '<span class="wait">\u25CF</span> No folder linked. This page was opened straight '
-        + "from a folder, and browsers give those a storage area they can clear at any "
-        + "time \u2014 which is why a folder picked here may not be here next time. "
-        + "Opening the copy at its web address instead makes it stick."
+      ? '<span class="wait">\u25CF</span> No folder linked. Pick the shared folder and it '
+        + "is remembered. Some browsers clear what a file opened from a folder saved, so "
+        + "if it asks again on another day, one tap puts it back."
       : "No folder linked yet. Pick one and it is remembered from then on.";
     return;
   }
@@ -15190,9 +15236,11 @@ async function shouldSayHello(){
   if(helloOpen) return false;
   if(typeof window.showDirectoryPicker !== "function") return false;
   if(!S.nodes.size) return false;
-  /* nothing for it to do: a map that reads no folder and syncs with nobody
-     has no setup to walk anybody through */
-  if(!folderWanted() && !S.fromWorkbook) return false;
+  /* A reader always has something to set up: their name, and the folder their
+     copy reads from. An editor only needs the welcome when the map itself
+     wants a folder. This was the other way round, which is why a fresh viewer
+     copy opened to nothing at all. */
+  if(canEdit() && !folderWanted() && !S.fromWorkbook) return false;
   const first = !S.metGuest;
   if(first) return true;
   /* been here before: only when something it needs is actually out of reach */
@@ -19860,6 +19908,11 @@ function wireRoom(){
   };
   el("rvMore").onclick = ()=>openThemes();
   el("rvMood").onclick = ()=>setMood(isPro() ? "silly" : "pro");
+  el("rvDark").onclick = ()=>{
+    const dark = document.documentElement.getAttribute("data-theme") === "dark";
+    applyTheme(dark ? "light" : "dark");
+    markDarkButton();
+  };
   el("moodPick").addEventListener("click", ev=>{
     const c = ev.target.closest && ev.target.closest("[data-mood]");
     if(!c) return;
@@ -19872,8 +19925,12 @@ function wireRoom(){
     if(!f) return;
     f.addEventListener("focus", ()=>findMoreShown(true));
     f.addEventListener("input", ()=>findMoreShown());
+    f.addEventListener("blur", findMaybeShut);
   });
-  if(el("searchScope")) el("searchScope").addEventListener("change", ()=>findMoreShown());
+  if(el("searchScope")){
+    el("searchScope").addEventListener("change", ()=>findMoreShown());
+    el("searchScope").addEventListener("blur", findMaybeShut);
+  }
   el("rvJump").onclick = ()=>showList();
   el("rvListQ").oninput = renderList;
   el("rvListQ").onkeydown = ev=>{
@@ -21259,22 +21316,18 @@ async function boot(){
       so nothing can be overwritten.`, "Reload", ()=>location.reload());
   } else if(Store.mode === "none"){
     showBanner(`<strong>Your work is not being saved.</strong>
-      This browser gives this page no storage. Link a file on disk, connect a Google Sheet,
-      or open the tool from a web address instead of a downloaded file.`,
+      This browser gives this page no storage of its own. Link the workbook on disk and
+      your work goes straight into it instead.`,
       canLinkFile ? "Link a file" : null, linkFile);
   } else if(!restored && !hadSessions && Store.beacon && Store.beacon.launches > 1){
     showBanner(`<strong>Previous session missing.</strong>
       This browser has opened the tool ${Store.beacon.launches} times but kept no map from last time.
-      Storage here is being discarded. Keep a live file on disk or use Google Sheets.`,
+      Storage here is being discarded, so link the workbook on disk and work from that.`,
       canLinkFile ? "Link a file" : null, linkFile);
   } else if(missingLink){
     showBanner(`<strong>That link points at a map saved in another browser.</strong>
       A plain map link is a bookmark, not a copy. To move a map between devices use
       <em>Copy a link with the map inside</em>, a Google Sheet, or a saved .xlsx file.`, null, null);
-  } else if(!isWebOrigin() && Store.beacon && Store.beacon.launches === 1){
-    showBanner(`<strong>Opened from a folder.</strong>
-      Storage for downloaded files is throwaway on some browsers, phones especially.
-      Close and reopen once to check your work sticks, or host the file at a web address.`, null, null);
   }
 
   /* flush on the way out, and whenever the tab is backgrounded, which is
