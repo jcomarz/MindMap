@@ -3475,6 +3475,9 @@ body.viewing.panelaway #panelHide{display:none}
             <button class="rvb example" id="rvExample" hidden
                     title="Bring in a real one from the floor">
               <span class="ic">&#9873;</span><span class="lb">Example</span></button>
+            <button class="rvb" id="rvBulk" hidden
+                    title="Take everything standing in this room and change it all at once">
+              <span class="ic">&#9998;</span><span class="lb">Edit all</span></button>
             <button class="rvb" id="rvWorld" title="Step into what the filter found">
               <span class="ic">&#9678;</span><span class="lb">Found</span></button>
             <button class="rvb" id="rvLayout" title="Line everything up, or let it wander">
@@ -3827,6 +3830,14 @@ body.viewing.panelaway #panelHide{display:none}
   <div class="hist-controls">
     <label class="field"><span>Pick everything carrying a tag</span>
       <select id="bulkByTag"><option value="">Choose a tag&hellip;</option></select></label>
+    <div class="row" style="margin:-2px 0 2px">
+      <input type="text" id="bulkTagLike" style="flex:2 1 auto"
+             placeholder="&hellip;or every tag starting with   Huddles/">
+      <button class="btn" id="bulkTagLikeGo" style="flex:0 0 auto">Pick them</button>
+    </div>
+    <div class="row" style="margin-bottom:2px">
+      <button class="btn wide" id="bulkUseFound">Use what the search or filter found</button>
+    </div>
     <p class="fineprint" id="bulkWho"></p>
     <label class="check"><input type="checkbox" id="bulkKids">
       Include everything underneath them</label>
@@ -9289,6 +9300,48 @@ function dateFromTagsOf(node){
   return "";
 }
 
+/* Every tag that begins with what was typed, and everything carrying any of
+   them. A year of huddles is thirty tags and one prefix, so this is how a
+   whole run gets picked up at once — and since each node keeps its own tag,
+   "take each date from its tag" then dates the lot correctly in one press. */
+function pickByTagLike(text){
+  const want = String(text || "").trim().toLowerCase();
+  if(!want){ toast("Type the start of a tag first."); return; }
+  const tags = allTagsWithCounts().map(([t])=>t)
+    .filter(t=>t.toLowerCase().startsWith(want));
+  if(!tags.length){ toast("No tag starts with that."); return; }
+  const set = new Set(tags);
+  const ids = [...S.nodes.values()]
+    .filter(n=>(n.tags || []).some(t=>set.has(t))).map(n=>n.id);
+  if(!ids.length){ toast("Those tags are not on anything."); return; }
+  setMulti(ids);
+  renderBulkTags();
+  const dated = ids.filter(id=>dateFromTagsOf(S.nodes.get(id))).length;
+  el("bulkDateNote").textContent = ids.length + " picked across "
+    + tags.length + " tag" + (tags.length === 1 ? "" : "s")
+    + (dated ? " \u2014 " + dated + " carry a date in the tag, so "
+        + "\u201cTake each date from its tag\u201d will do them all." : ".");
+}
+
+/* Whatever the search box and the tag filter are pointing at right now. The
+   filter shows you the set; this hands it to you. */
+function pickFound(){
+  const was = S.roomWorld;
+  let got = null;
+  for(const k of ["hits", "tags"]){
+    S.roomWorld = k;
+    const w = worldSet();
+    if(w){ got = w; break; }
+  }
+  S.roomWorld = was;
+  if(!got){ toast("Search or pick a tag first."); return; }
+  setMulti(got.ids);
+  renderBulkTags();
+  const dated = got.ids.filter(id=>dateFromTagsOf(S.nodes.get(id))).length;
+  el("bulkDateNote").textContent = got.ids.length + " picked \u2014 " + got.what
+    + (dated ? ". " + dated + " carry a date in the tag." : ".");
+}
+
 /* Everything carrying one tag, whatever else is selected. */
 function pickByTag(tag){
   if(!tag) return;
@@ -14254,7 +14307,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-09-28e";
+const APP_BUILD = "2026-09-28f";
 
 function isHandle(h){
   return !!h && typeof h === "object" && typeof h.queryPermission === "function";
@@ -17025,6 +17078,7 @@ function renderRoom(){
   }
   const wipeTags = el("rvTags");
   if(wipeTags){ wipeTags.hidden = true; wipeTags.innerHTML = ""; }
+  if(el("rvBulk")) el("rvBulk").hidden = true;
   const wipeRow = document.querySelector(".rv-wallrow");
   if(wipeRow) wipeRow.hidden = false;
   if(el("rvBoard")) el("rvBoard").dataset.bare = "0";
@@ -17077,6 +17131,9 @@ function renderRoom(){
       + "where it lives");
     el("rvEdit").hidden = true;
     el("rvAdd").hidden = true;
+    /* A room of everything the filter found is a parent in all but name, so
+       it can be worked on like one: take the lot and change them together. */
+    if(el("rvBulk")) el("rvBulk").hidden = !canEdit();
     paintStuff(null, [], 0);
     paintBoss(null); paintBanners(null);
     if(el("rvBarSays")) el("rvBarSays").textContent =
@@ -17256,6 +17313,8 @@ function renderRoom(){
   el("rvEdit").classList.toggle("on",
     (!canEdit() && owed > 0) || (!panelIsAway() && !window.matchMedia("(max-width:820px)").matches));
   el("rvAdd").hidden = !canEdit();
+  /* the same for a real parent: everything standing in here, together */
+  if(el("rvBulk")) el("rvBulk").hidden = !canEdit() || !roomThings(id).length;
   wayOut(parentOf(id));
   paintThings(kids);
 }
@@ -18833,6 +18892,20 @@ function wireRoom(){
     const h = ev.target.closest && ev.target.closest("[data-hall]");
     if(h){ showList(false); goToHall(); }
   }, true);
+  /* Whatever is standing on this floor — the children of a real room, or
+     everything a filter gathered — handed over as a selection to work on. */
+  el("rvBulk").onclick = ()=>{
+    if(!canEdit()){ toast("Switch to editing mode first."); return; }
+    const world = worldSet();
+    const ids = world ? world.ids : roomThings(S.sel);
+    if(!ids.length){ toast("Nothing in this room to change."); return; }
+    setMulti(ids);
+    openBulkTags();
+    if(el("bulkKids")) el("bulkKids").checked = false;
+    renderBulkTags();
+    el("bulkDateNote").textContent = ids.length + " from "
+      + (world ? world.what.toLowerCase() : "this room") + ", ready to change together.";
+  };
   el("rvJump").onclick = ()=>showList();
   el("rvListQ").oninput = renderList;
   el("rvListQ").onkeydown = ev=>{
@@ -19496,6 +19569,11 @@ async function boot(){
   el("bulkApply").onclick = applyBulkTags;
   el("bulkKids").onchange = renderBulkTags;
   el("bulkByTag").onchange = ev=>pickByTag(ev.target.value);
+  el("bulkTagLikeGo").onclick = ()=>pickByTagLike(el("bulkTagLike").value);
+  el("bulkTagLike").addEventListener("keydown", ev=>{
+    if(ev.key === "Enter"){ ev.preventDefault(); pickByTagLike(ev.target.value); }
+  });
+  el("bulkUseFound").onclick = pickFound;
   el("bulkDateApply").onclick = ()=>{
     const d = el("bulkDate").value;
     if(!d){ toast("Pick a date first."); return; }
