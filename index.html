@@ -1145,6 +1145,7 @@ html[data-theme="dark"] #roomView[data-skin="plain"]{
   display:flex;gap:16px;justify-content:center;align-items:flex-end;
   flex-wrap:wrap-reverse;pointer-events:none}
 .rv-arch{
+  touch-action:manipulation;
   position:relative;pointer-events:auto;flex:0 0 auto;width:96px;
   border:0;background:transparent;padding:0;cursor:pointer;
   font-family:var(--sans);color:var(--rv-door-ink);
@@ -1260,6 +1261,7 @@ html[data-theme="dark"] #roomView[data-skin="plain"]{
 
 /* a thing on the floor: JS puts it somewhere, CSS gives it life */
 .rv-thing{
+  touch-action:manipulation;
   position:absolute;left:0;top:0;width:96px;margin:-64px 0 0 -48px;
   border:0;background:transparent;padding:0;cursor:pointer;
   color:var(--rv-door-ink);font-family:var(--sans);text-align:center;
@@ -2032,10 +2034,26 @@ html[data-theme="dark"] #roomView[data-skin="scroll"]{
   .rv-thing.item .body{width:32px;height:29px}
   .rv-thing .face{height:12px}
   .rv-thing .plate{font-size:9.5px;max-width:74px;-webkit-line-clamp:2;padding:2px 4px}
-  /* on a phone the bubble takes the least room it can and still be read */
-  .rv-peek{max-height:min(46%, 190px);border-radius:11px;padding:8px 11px}
-  .rv-peek p{max-height:3.4em;font-size:12px}
-  .rv-peek h4{font-size:12.5px}
+  /* On a phone the bubble comes up at the top, over the sign, rather than
+     down by the floor: there it was under the thumb, and Go in was below the
+     fold. Its tail points down at whoever is talking. */
+  .rv-peek{position:fixed;left:8px;right:8px;width:auto;
+    /* below the Room / Drawing switch, which sits in a layer above this one */
+    top:calc(var(--rv-top, 0px) + 50px);bottom:auto;transform:none;
+    max-height:min(52%, 300px);border-radius:12px;padding:9px 12px;
+    /* the bubble itself never scrolls — the note and the list inside it do,
+       so Go in cannot be pushed off the bottom however much is in there */
+    overflow:hidden;display:flex;flex-direction:column}
+  .rv-peek::after{top:auto;bottom:-9px;
+    border-right:0;border-bottom:0;
+    border-left:3px solid var(--rv-ink);border-top:3px solid var(--rv-ink);
+    transform:translateX(-50%) rotate(225deg)}
+  .rv-peek h4{font-size:13px;flex:0 0 auto}
+  .rv-peek p{max-height:4.2em;font-size:12.5px;flex:0 1 auto;overflow:auto}
+  .rv-kids{flex:0 1 auto;max-height:5.2em}
+  /* the buttons never scroll out of reach */
+  .rv-peek .row{flex:0 0 auto;margin-top:9px;display:flex;gap:7px}
+  .rv-peek .row .btn{flex:1;padding:9px 10px;font-size:13.5px}
   .rv-top{padding:7px 8px 0}
   .rv-floorstrip{top:calc(100% - var(--rv-b) - 18px)}
 }
@@ -16513,6 +16531,10 @@ function fitWall(){
   const bar = el("rvBar");
   if(bar) view.style.setProperty("--rv-bar",
     Math.round(bar.getBoundingClientRect().height + 10) + "px");
+  /* where the room begins on screen, so a bubble pinned to the top of the
+     window still lands inside it rather than over the search bar */
+  view.style.setProperty("--rv-top",
+    Math.round(view.getBoundingClientRect().top) + "px");
 }
 
 /* The door on the left wall, back to the room this one is inside. */
@@ -16983,10 +17005,11 @@ function drawPeek(){
   const who = roamers.find(r=>r.id === k);
   const f = el("rvField");
   if(who && f && !floorIsRow()){
-    const fb = f.getBoundingClientRect(), pb = p.getBoundingClientRect();
-    const at = floorSpot(who.u, who.v).x;
+    const fb = f.getBoundingClientRect();
+    const pb = p.getBoundingClientRect();
+    const at = fb.left + floorSpot(who.u, who.v).x;      /* on the screen */
     p.style.setProperty("--tail",
-      Math.max(16, Math.min(fb.width - 16, at)) - (fb.width - pb.width) / 2 + "px");
+      Math.max(18, Math.min(pb.width - 18, at - pb.left)) + "px");
   } else if(f) p.style.setProperty("--tail", "50%");
   p.innerHTML = '<h4>' + esc(n.label || n.id)
     + (inside.length ? '<span>' + esc(inside.join(" · ")) + '</span>' : '<span>nothing beyond it</span>')
@@ -17093,20 +17116,41 @@ function roomGo(id, way){
   }, hold);
 }
 
+/* Opening a bubble used to redraw the whole room — every creature torn down
+   and rebuilt, everybody snapped back to their home spot, and on a phone
+   twenty milliseconds of layout landing right on top of the touch that asked
+   for it. Which is why a tap only seemed to work if you held it: the thing
+   you were touching had been replaced underneath your finger.
+
+   Nothing about the room changes when a bubble opens. So now nothing is
+   rebuilt: two classes move and the bubble is redrawn. */
+function markPeek(){
+  const field = el("rvField");
+  if(!field) return;
+  field.querySelectorAll(".rv-thing.open").forEach(x=>{
+    if(x.dataset.thing !== roomPeek) x.classList.remove("open"); });
+  const arch = el("rvArches");
+  if(arch) arch.querySelectorAll(".rv-arch.open").forEach(x=>{
+    if(x.dataset.thing !== roomPeek) x.classList.remove("open"); });
+  if(roomPeek){
+    const on = rvThingEl(roomPeek);
+    if(on) on.classList.add("open");
+  }
+  drawPeek();
+}
+
 /* One tap opens the door a crack, the next one walks through it. */
 function roomTap(id){
   if(!S.nodes.has(id)) return;
   if(roomPeek === id){ roomGo(id, "in"); return; }
   roomPeek = id;
-  renderRoom();
-  const p = el("rvPeek");
-  if(p && !p.hidden) p.scrollIntoView({block:"nearest"});
+  markPeek();
 }
 
 function shutPeek(){
   if(!roomPeek) return false;
   roomPeek = "";
-  renderRoom();
+  markPeek();
   return true;
 }
 
@@ -17629,7 +17673,7 @@ function wireRoom(){
 
   el("rvArches").addEventListener("click", ev=>{
     const a = ev.target.closest && ev.target.closest("[data-thing]");
-    if(a) roomTap(a.dataset.thing);
+    if(a){ ev.stopPropagation(); roomTap(a.dataset.thing); }
   });
 
   el("rvPeek").addEventListener("click", ev=>{
