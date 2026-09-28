@@ -4462,7 +4462,8 @@ function writeAll(ss, prefix, tables) {
     </label>
     <ul class="hello-steps" id="helloSteps">
       <li data-step="folder"><i></i><b>Open the shared folder</b><s></s></li>
-      <li data-step="pics"><i></i><b>Load the rooms and backdrops</b><s></s></li>
+      <li data-step="book" hidden><i></i><b>Read the board</b><s></s></li>
+      <li data-step="pics"><i></i><b>Load the pictures</b><s></s></li>
       <li data-step="sync"><i></i><b>Catch up with everybody</b><s></s></li>
     </ul>
     <button class="hello-go" id="helloGo">Let&rsquo;s go</button>
@@ -15116,7 +15117,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-09-28n";
+const APP_BUILD = "2026-09-28o";
 
 function isHandle(h){
   return !!h && typeof h === "object" && typeof h.queryPermission === "function";
@@ -15275,14 +15276,22 @@ function helloStep(which, how, note){
 async function shouldSayHello(){
   if(helloOpen) return false;
   if(typeof window.showDirectoryPicker !== "function") return false;
+
+  /* A copy handed out ships with no map in it and fills itself from the
+     workbook in the folder. So it opens with nothing — which is not a reason
+     to stay quiet, it is the whole reason to speak up. Suppressing the
+     welcome on an empty map was suppressing it in exactly the case it exists
+     for, and left a new copy opening to a blank room with no way forward. */
+  const awaitingBook = !!S.fromWorkbook && !S.nodes.size;
+  if(awaitingBook) return true;
+
+  /* an empty map that expects nothing has nothing to set up */
   if(!S.nodes.size) return false;
+
   /* A reader always has something to set up: their name, and the folder their
-     copy reads from. An editor only needs the welcome when the map itself
-     wants a folder. This was the other way round, which is why a fresh viewer
-     copy opened to nothing at all. */
+     copy reads from. An editor only needs it when the map wants a folder. */
   if(canEdit() && !folderWanted() && !S.fromWorkbook) return false;
-  const first = !S.metGuest;
-  if(first) return true;
+  if(!S.metGuest) return true;
   /* been here before: only when something it needs is actually out of reach */
   if(!folderWanted() && !canCatchUp()) return false;
   if(!heldFolders().length) return true;
@@ -15296,8 +15305,12 @@ function sayHello(first){
   const held = heldFolders();
   const name = S.bookName || S.meta.title || "this board";
   el("helloWhat").textContent = first
-    ? "Everything here lives in one shared folder. Point this page at it once and "
-      + "the rooms, the pictures and everybody's sign-offs come with it."
+    ? (S.fromWorkbook && !S.nodes.size
+        ? "This copy is empty until you show it where the board is kept. Point it at the "
+          + "shared folder once and the rooms, the pictures and everybody\u2019s sign-offs "
+          + "all come with it."
+        : "Everything here lives in one shared folder. Point this page at it once and "
+          + "the rooms, the pictures and everybody\u2019s sign-offs come with it.")
     : held.length
       ? "Your browser forgets its way into the folder each time it closes. "
         + "One tap puts it back and catches you up."
@@ -15309,7 +15322,10 @@ function sayHello(first){
   el("helloFine").textContent = first
     ? "Nothing leaves your computer. The folder is the one already syncing to you."
     : "";
-  ["folder","pics","sync"].forEach(k=>helloStep(k, "", ""));
+  ["folder","book","pics","sync"].forEach(k=>helloStep(k, "", ""));
+  /* only a copy that has to go and get the map shows that step */
+  const bookStep = document.querySelector('#helloSteps li[data-step="book"]');
+  if(bookStep) bookStep.hidden = !S.fromWorkbook;
   el("helloGo").disabled = false;
   el("helloGo").textContent = "Let\u2019s go";
   box.hidden = false;
@@ -15367,7 +15383,30 @@ async function helloGo(){
     return;
   }
 
-  /* 2 — the pictures and the backdrops */
+  /* 2 — the map itself, for a copy that ships empty and fills from the folder */
+  if(S.fromWorkbook){
+    helloStep("book", "doing");
+    let got = false;
+    try{
+      if(!bookHandle && bookDir){
+        const found = await findWorkbookIn(bookDir);
+        if(found){ bookHandle = found; await rememberHandle("bookHandle", found); }
+      }
+      if(bookHandle) got = await readRememberedWorkbook(true);
+    }catch(e){}
+    helloStep("book", got || S.nodes.size ? "done" : "missed",
+      got || S.nodes.size ? S.nodes.size + " rooms"
+        : "no " + (S.bookName || "workbook") + " in there");
+    if(!got && !S.nodes.size){
+      go.disabled = false; go.textContent = "Try another folder";
+      el("helloSkip").hidden = false;
+      el("helloFine").textContent = "That folder has no " + (S.bookName || "workbook")
+        + " in it. Pick the one the board is kept in.";
+      return;
+    }
+  }
+
+  /* 3 — the pictures and the backdrops */
   helloStep("pics", "doing");
   let pool = [];
   try{
