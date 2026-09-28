@@ -14365,6 +14365,10 @@ async function catchUp(quiet){
         if(seenFiles.get(name) === stamp) continue;
         seenFiles.set(name, stamp);
         read++;
+        /* one at a time, with a breath: a folder of sixty of these parsed in
+           one run locks the page up and asks the sync client for all of them
+           at once */
+        await new Promise(r=>setTimeout(r, 0));
         try{
           const wb = XLSX.read(await f.arrayBuffer(), {type:"array"});
           const t = {};
@@ -14467,6 +14471,9 @@ async function gatherFeedback(){
   for(const place of places)
   for await (const [name, h] of place.entries()){
     if(h.kind !== "file" || !/^feedback[ -].*\.xlsx?$/i.test(name)) continue;
+    /* sixty of these parsed back to back locks the page up and, in a synced
+       folder, asks the sync client for sixty files at once */
+    await new Promise(r=>setTimeout(r, 0));
     try{
       const f = await h.getFile();
       const wb = XLSX.read(await f.arrayBuffer(), {type:"array"});
@@ -15117,7 +15124,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-09-28o";
+const APP_BUILD = "2026-09-28p";
 
 function isHandle(h){
   return !!h && typeof h === "object" && typeof h.queryPermission === "function";
@@ -15613,38 +15620,95 @@ async function picturesFromMemory(){
 }
 
 /* Read every picture named by a path, once, and keep a copy of it. */
+/* ---------------------------------------------------------------
+   Reading pictures out of the folder, a few at a time.
+
+   This used to walk every picture the map mentions in one unbroken
+   run: open the file, decode it whole, draw it to a canvas and
+   re-encode it. On a map with a few hundred pictures that is a few
+   hundred full-size decodes back to back with nothing yielding
+   between them — and in a synced folder, opening a file that is only
+   a placeholder makes the sync client fetch it first. Between the two
+   it was enough to take the whole browser down, right after somebody
+   pointed it at their folder.
+
+   So: a handful up front and the rest on demand, with a breath
+   between each one and never two at once.
+   --------------------------------------------------------------- */
+const BD_POOL_MAX = 4000;     /* a folder bigger than this is a mistake, not a pool */
+const PIC_WARM = 12;          /* read this many when the folder is first opened */
+const picPending = new Map(); /* one read per picture, however many ask for it */
+let picQueue = Promise.resolve();
+
+/* Everything goes through here, so nothing can decode two images at a time. */
+function picInLine(job){
+  const next = picQueue.then(job, job);
+  picQueue = next.catch(()=>{});
+  return next;
+}
+
+async function picRead(path){
+  if(picCache.has(path)) return picCache.get(path);
+  if(picPending.has(path)) return picPending.get(path);
+  const job = picInLine(async ()=>{
+    if(picCache.has(path)) return picCache.get(path);
+    /* the copy kept here first: no file to open, no sync client to wake */
+    try{
+      if(Store.mode === "idb"){
+        const blob = await Store.getKey("pic:" + path);
+        if(blob instanceof Blob){
+          const url = URL.createObjectURL(blob);
+          picCache.set(path, url);
+          return url;
+        }
+      }
+    }catch(e){}
+    if(!picDir && !bookDir) return "";
+    let f = null;
+    try{ f = await fileFromFolder(path); }catch(e){}
+    if(!f){ folderMissed(); return ""; }
+    let keep = f;
+    try{ keep = await bdShrink(f); }catch(e){}
+    /* whatever came back has to be something the browser will make an address
+       for; anything else is dropped rather than allowed to throw and take the
+       rest of the queue with it */
+    if(!(keep instanceof Blob)) return "";
+    if(Store.mode === "idb"){ try{ await Store.putKey("pic:" + path, keep); }catch(e){} }
+    let url = "";
+    try{ url = URL.createObjectURL(keep); }catch(e){ return ""; }
+    picCache.set(path, url);
+    /* a breath, so a run of these cannot monopolise the main thread */
+    await new Promise(r=>setTimeout(r, 0));
+    return url;
+  }).finally(()=>picPending.delete(path));
+  picPending.set(path, job);
+  return job;
+}
+
 async function warmPictures(ask){
-  const want = picturesWanted().size;
+  const wanted = [...picturesWanted()];
   if(!picDir){
     const got = await picturesFromMemory();
-    if(want > got) folderMissed();
+    if(wanted.length > got) folderMissed();
     return got;
   }
   if(await folderSays(picDir, "read", ask) !== "granted"){
     const got = await picturesFromMemory();
-    if(want > got) folderMissed();
+    if(wanted.length > got) folderMissed();
     return got;
   }
-  let found = 0, missed = 0;
-  for(const path of picturesWanted()){
-    if(picCache.has(path)){ found++; continue; }
-    let f = null;
-    try{ f = await fileFromFolder(path); }catch(e){}
-    if(!f) missed++;
-    if(!f){
-      try{
-        const blob = Store.mode === "idb" && await Store.getKey("pic:" + path);
-        if(blob instanceof Blob){ picCache.set(path, URL.createObjectURL(blob)); found++; }
-      }catch(e){}
-      continue;
-    }
-    let keep = f;
-    try{ keep = await bdShrink(f); }catch(e){}
-    if(Store.mode === "idb"){ try{ await Store.putKey("pic:" + path, keep); }catch(e){} }
-    picCache.set(path, URL.createObjectURL(keep));
-    found++;
+  /* whatever is already kept here costs nothing */
+  let found = await picturesFromMemory();
+  /* and only a handful are read off the disk now; the rest arrive as the
+     rooms that need them are actually opened */
+  let read = 0;
+  for(const path of wanted){
+    if(picCache.has(path)) continue;
+    if(read >= PIC_WARM) break;
+    read++;
+    const url = await picRead(path);
+    if(url) found++;
   }
-  if(missed) folderMissed();
   return found;
 }
 
@@ -15717,9 +15781,20 @@ async function renamePictureFor(n){
   }
 }
 
+let picLater = null;
 function picURL(src){
   if(!isFolderPath(src)) return src;
-  return picCache.get(src) || src;
+  const got = picCache.get(src);
+  if(got) return got;
+  /* not read yet: ask for it, and redraw once a few have landed. The path is
+     handed back meanwhile, which resolves on its own where the page happens
+     to sit beside the folder. */
+  picRead(src).then(url=>{
+    if(!url) return;
+    clearTimeout(picLater);
+    picLater = setTimeout(()=>{ render(); renderInspector(); renderRoomSoon(); }, 220);
+  }).catch(()=>{});
+  return src;
 }
 
 function pickWorkbookFile(){
@@ -18654,10 +18729,20 @@ async function backdropPool(force){
     for(const want of ["backdrops", "backdrop", "Backdrops"]){
       try{ only = await root.getDirectoryHandle(want); break; }catch(e){}
     }
+    /* Names only, never contents — opening a file here would make a synced
+       folder fetch it. Even so, a folder with thousands of things in it is
+       walked with a breath every so often rather than in one unbroken run
+       that locks the page up. */
+    let seen = 0;
+    const breathe = async ()=>{
+      if(++seen % 150 === 0) await new Promise(r=>setTimeout(r, 0));
+      return names.length < BD_POOL_MAX;
+    };
     try{
       if(only){
         for await (const [inner, ih] of only.entries()){
           if(ih.kind === "file" && isPicName(inner)) names.push("backdrops/" + inner);
+          if(!await breathe()) break;
         }
       } else {
         for await (const [name, h] of root.entries()){
@@ -18667,9 +18752,11 @@ async function backdropPool(force){
             try{
               for await (const [inner, ih] of h.entries()){
                 if(ih.kind === "file" && isPicName(inner)) names.push(name + "/" + inner);
+                if(!await breathe()) break;
               }
             }catch(e){}
           }
+          if(!await breathe()) break;
         }
       }
     }catch(e){}
@@ -18694,6 +18781,9 @@ async function bdShrink(file){
     cv.getContext("2d").drawImage(bmp, 0, 0, w, h);
     bmp.close && bmp.close();
     const blob = await new Promise(res=>cv.toBlob(res, "image/webp", BD_QUALITY));
+    /* a 1600px canvas is several megabytes; dropped to nothing rather than
+       left in a queue of them waiting to be collected */
+    cv.width = cv.height = 0;
     return blob && blob.size < file.size ? blob : file;
   }catch(e){ return file; }
 }
