@@ -212,6 +212,10 @@ details[open]>summary .toctwist{cursor:pointer;transform:rotate(90deg)}
 @media (max-width:820px){ .railtab{padding:12px 6px;font-size:14px} .tocitem,.tocrow{padding:9px 4px} }
 .group{padding:14px 16px;border-bottom:1px solid var(--rule-soft)}
 .group h2{margin:0 0 9px;font-size:12px;font-weight:600;color:var(--graphite-60)}
+/* a second heading inside a group, for a thing that belongs with the first
+   without being the same thing */
+.group .subhead{margin:16px 0 7px;font-size:12px;font-weight:600;
+  color:var(--graphite-60);padding-top:12px;border-top:1px solid var(--rule-soft)}
 .row{display:flex;gap:6px;flex-wrap:wrap}
 .row>*{flex:1 1 auto}
 
@@ -3346,14 +3350,27 @@ body.viewing.panelaway #panelHide{display:none}
         <input type="search" id="tocQ" placeholder="Filter the outline">
       </div>
 
-      <div class="group">
+      <div class="group" id="bookmarkGroup">
         <h2>Bookmarks</h2>
+        <p class="fineprint" style="margin:-4px 0 7px">A view on the drawing you keep
+          coming back to.</p>
         <div id="tocBookmarks"></div>
         <button class="btn wide" id="btnBookmark" style="margin-top:8px">Bookmark this view</button>
         <div class="row" style="margin-top:6px">
           <button class="btn" id="btnBmExport">Export mine</button>
           <button class="btn" id="btnBmImport">Import</button>
           <input type="file" id="bmFile" accept=".json" hidden>
+        </div>
+
+        <h3 class="subhead">Shelves</h3>
+        <p class="fineprint" style="margin:-3px 0 7px">A bookmark holds a view; a shelf
+          holds rooms. Yours travel in your own file, are kept in this browser, and can
+          be carried between devices as JSON.</p>
+        <div id="tocShelves"></div>
+        <div class="row" style="margin-top:8px">
+          <button class="btn" id="shelfOpenDlg">Manage shelves</button>
+          <button class="btn" id="shelfExport">Save as JSON</button>
+          <button class="btn" id="shelfImport">Load JSON</button>
         </div>
       </div>
 
@@ -3392,19 +3409,6 @@ body.viewing.panelaway #panelHide{display:none}
         <h2>Areas</h2>
         <div id="tocAreas"></div>
         <button class="btn wide" id="btnArea" style="margin-top:8px">Draw an area</button>
-      </div>
-
-      <div class="group" id="shelfGroup">
-        <h2>Shelves</h2>
-        <div id="tocShelves"></div>
-        <div class="row" style="margin-top:8px">
-          <button class="btn" id="shelfOpenDlg">Manage shelves</button>
-          <button class="btn" id="shelfExport">Save as JSON</button>
-          <button class="btn" id="shelfImport">Load JSON</button>
-        </div>
-        <p class="fineprint" style="margin:7px 0 0">Shelves are yours. They travel in
-          your own file beside your sign-offs, are kept in this browser, and can be
-          carried between devices as a JSON file.</p>
       </div>
 
       <div class="group" id="outlineGroup">
@@ -14609,7 +14613,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-09-28h";
+const APP_BUILD = "2026-09-28i";
 
 function isHandle(h){
   return !!h && typeof h === "object" && typeof h.queryPermission === "function";
@@ -17196,19 +17200,45 @@ function roomAllowed(){
    team owns — and it behaves like any other room: the creatures wander, you
    peek at one, you walk into it and you are back in the map where it lives.
    --------------------------------------------------------------- */
+/* What is narrowing the map, in words, all of it at once. Several things can
+   be on together — words typed, tags picked, a scope chosen, retired things
+   asked for — and saying only the first of them left a room called "Everything
+   found" with no clue what had been asked for. */
+function filterWords(){
+  const bits = [];
+  const q = String(S.hitQuery || "").trim();
+  if(q) bits.push("matching \u201c" + q + "\u201d");
+  if(S.tagPick.size){
+    const tags = [...S.tagPick];
+    bits.push("tagged " + tags.join(S.tagMode === "all" ? " and " : " or "));
+  }
+  const scope = {
+    flagged:"needing attention", parents:"section heads", labels:"by name only",
+    areas:"in an area", bookmarks:"bookmarked", retired:"retired"
+  }[S.searchScope];
+  if(scope) bits.push(scope);
+  const shown = el("showScope") && el("showScope").value;
+  if(shown === "retired") bits.push("retired only");
+  else if(shown === "all" && S.searchScope !== "retired") bits.push("retired included");
+  if(!bits.length) return "";
+  /* sentence case, and joined so it reads rather than lists */
+  const said = bits.join(" \u00b7 ");
+  return said.charAt(0).toUpperCase() + said.slice(1);
+}
+
 function worldSet(){
   if(!S.roomWorld) return null;
   let ids = [], what = "";
   if(S.roomWorld === "hits" && (S.hits || []).length){
     ids = S.hits.slice(0, 120);
-    what = S.hitQuery ? "Everything matching \u201c" + S.hitQuery + "\u201d" : "Everything found";
+    what = filterWords() || "Everything found";
   } else if(S.roomWorld === "tags" && S.tagPick.size){
     const want = [...S.tagPick];
     ids = [...S.nodes.values()].filter(n=>{
       const t = (n.tags || []);
       return S.tagMode === "all" ? want.every(x=>t.includes(x)) : want.some(x=>t.includes(x));
     }).map(n=>n.id).slice(0, 120);
-    what = "Everything tagged " + want.join(S.tagMode === "all" ? " and " : " or ");
+    what = filterWords() || ("Tagged " + want.join(S.tagMode === "all" ? " and " : " or "));
   } else if(S.roomWorld === "flagged"){
     ids = [...S.nodes.values()].filter(n=>n.flag).map(n=>n.id).slice(0, 120);
     what = "Everything flagged";
