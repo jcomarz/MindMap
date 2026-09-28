@@ -15125,7 +15125,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-09-28q";
+const APP_BUILD = "2026-09-28r";
 
 function isHandle(h){
   return !!h && typeof h === "object" && typeof h.queryPermission === "function";
@@ -15615,7 +15615,7 @@ async function picturesFromMemory(){
     if(picCache.has(path)){ got++; continue; }
     try{
       const blob = await Store.getKey("pic:" + path);
-      if(blob instanceof Blob){ picCache.set(path, URL.createObjectURL(blob)); got++; }
+      if(blob instanceof Blob){ picKeep(path, URL.createObjectURL(blob)); got++; }
     }catch(e){}
   }
   return got;
@@ -15674,11 +15674,7 @@ async function picRead(path){
     try{
       if(Store.mode === "idb"){
         const blob = await Store.getKey("pic:" + path);
-        if(blob instanceof Blob){
-          const url = URL.createObjectURL(blob);
-          picCache.set(path, url);
-          return url;
-        }
+        if(blob instanceof Blob) return picKeep(path, URL.createObjectURL(blob));
       }
     }catch(e){}
     if(!picDir && !bookDir) return "";
@@ -15691,10 +15687,12 @@ async function picRead(path){
        for; anything else is dropped rather than allowed to throw and take the
        rest of the queue with it */
     if(!(keep instanceof Blob)) return "";
-    if(Store.mode === "idb"){ try{ await Store.putKey("pic:" + path, keep); }catch(e){} }
+    if(Store.mode === "idb" && await roomToStore(keep.size)){
+      try{ await Store.putKey("pic:" + path, keep); }catch(e){}
+    }
     let url = "";
     try{ url = URL.createObjectURL(keep); }catch(e){ return ""; }
-    picCache.set(path, url);
+    picKeep(path, url);
     /* a breath, so a run of these cannot monopolise the main thread */
     await breath();
     return url;
@@ -15814,8 +15812,66 @@ async function renamePictureFor(n){
    few at a time, and redraws once per batch. Nothing it does can make
    more work for itself.
    --------------------------------------------------------------- */
+/* ---------------------------------------------------------------
+   How much room there is to keep things in.
+
+   A private window does not give the page a corner of the disk — it
+   gives it a corner of memory, and a small one. Everything cached
+   there is RAM the browser is holding on the page's behalf, so the
+   caching that makes an ordinary window quick is the very thing that
+   brings a private one down. Asked before writing, rather than
+   assumed, so it is the same code either way.
+   --------------------------------------------------------------- */
+let storeRoom = {at:0, quota:0, usage:0};
+async function roomToStore(bytes){
+  const now = Date.now();
+  if(now - storeRoom.at > 15000){
+    storeRoom.at = now;
+    try{
+      const e = await navigator.storage.estimate();
+      storeRoom.quota = e.quota || 0;
+      storeRoom.usage = e.usage || 0;
+    }catch(e){ storeRoom.quota = 0; }
+  }
+  if(!storeRoom.quota) return true;        /* nothing said, so let it try */
+  const free = storeRoom.quota - storeRoom.usage;
+  /* keep a real margin: filling the last of a small in-memory quota is how a
+     private window runs out of room and takes the tab with it */
+  const need = Math.max((bytes || 0) * 3, 12 * 1024 * 1024);
+  if(free <= need) return false;
+  storeRoom.usage += bytes || 0;           /* counted as we go, between checks */
+  return true;
+}
+
+/* Keep a picture, and let an old one go.
+
+   This was unbounded: every picture ever read stayed in memory with its
+   address alive, which on a map of a few hundred is a great deal of memory
+   pinned for pictures nobody is looking at — and in a private window, where
+   there is no disk to fall back on, that is the memory the browser dies of.
+
+   A picture let go is parked rather than forgotten. Drawing asks for what it
+   cannot see, so without that a map with more pictures than the cap would
+   churn forever: read one, drop another, be asked for it again, and never
+   settle. Parked ones come back when the folder is linked again or the page
+   is opened afresh — which, on a map that large, is the right trade. */
+const PIC_LIVE = 160;
+function picKeep(path, url){
+  picCache.delete(path);
+  picCache.set(path, url);
+  while(picCache.size > PIC_LIVE){
+    const oldest = picCache.keys().next().value;
+    const gone = picCache.get(oldest);
+    picCache.delete(oldest);
+    picParked.add(oldest);
+    try{ if(gone && gone.startsWith("blob:")) URL.revokeObjectURL(gone); }catch(e){}
+  }
+  return url;
+}
+
 const picWant = new Set();    /* asked for while drawing, not yet read */
 const picGone = new Set();    /* looked for and not there: not asked for again */
+const picParked = new Set();  /* read once and let go, to keep memory in hand */
 let picPumping = false;
 let picDrawAt = 0;
 const PIC_BATCH = 14;         /* read this many before drawing again */
@@ -15825,7 +15881,8 @@ function picURL(src){
   if(!isFolderPath(src)) return src;
   const got = picCache.get(src);
   if(got) return got;
-  if(!picGone.has(src) && (picDir || bookDir || Store.mode === "idb")){
+  if(!picGone.has(src) && !picParked.has(src)
+     && (picDir || bookDir || Store.mode === "idb")){
     picWant.add(src);
     if(!picPumping) picPump();
   }
@@ -15865,6 +15922,7 @@ async function picPump(){
 /* A new folder is a fresh chance for everything that was missing. */
 function picForget(){
   picGone.clear();
+  picParked.clear();
   picWant.clear();
 }
 
@@ -18900,7 +18958,7 @@ async function backdropURL(name){
     const f = await fileFromFolder(name);
     if(!f){ folderMissed(); return ""; }
     const small = await bdShrink(f);
-    if(Store.mode === "idb"){
+    if(Store.mode === "idb" && await roomToStore(small.size)){
       try{ await Store.putKey(key, small); }catch(e){}
     }
     return bdKeep(name, URL.createObjectURL(small));
