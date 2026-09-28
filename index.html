@@ -1430,6 +1430,16 @@ html[data-theme="dark"] #roomView[data-skin="plain"]{
 .rv-kid i.sug{background:var(--blueprint)}
 .rv-kid:hover i{border-color:#fff}
 .rv-kid.more{background:transparent;border-style:dashed}
+/* a dialog somebody has typed into does not vanish on a stray click; it
+   wobbles, which says "there is something in here" without a word */
+dialog.hold{animation:rvHold .4s ease-in-out}
+@keyframes rvHold{
+  0%,100%{transform:translateX(0)}
+  20%{transform:translateX(-7px)}
+  45%{transform:translateX(6px)}
+  70%{transform:translateX(-3px)}
+}
+@media (prefers-reduced-motion:reduce){ dialog.hold{animation:none} }
 .rv-peek .row{margin-top:8px}
 .rv-peek .btn{padding:5px 11px;font-size:12.5px}
 
@@ -17395,11 +17405,86 @@ function lifeFrame(){
   }
 }
 
+/* =====================================================================
+   CLICKING AWAY
+   =====================================================================
+   Hunting for a close button is a tax on every glance. Anything that opened
+   over the top of something else shuts when you click past it: the bubble,
+   the quick list, the note on the drawing, and every dialog in the tool.
+
+   The one exception is a dialog somebody has typed into. Losing a half
+   written accession number to a stray click is worse than reaching for
+   Cancel, so those hold on and wobble instead. What counts as typed is
+   measured against what was in the boxes when the dialog opened, so a
+   settings panel full of remembered values still closes freely. */
+const dlgOpenedWith = new WeakMap();
+
+function dialogFields(d){
+  return [...d.querySelectorAll("input, textarea")].filter(x=>
+    !/^(checkbox|radio|hidden|button|submit|range|color)$/i.test(x.type || "")
+    && !x.readOnly && !x.disabled);
+}
+function dialogSignature(d){
+  return dialogFields(d).map(x=>x.value).join("\u0000");
+}
+function dialogIsDirty(d){
+  const was = dlgOpenedWith.get(d);
+  const now = dialogSignature(d);
+  if(was == null) return now.replace(/\u0000/g, "").trim() !== "";
+  return now !== was;
+}
+
+function wireClickAway(){
+  document.querySelectorAll("dialog").forEach(d=>{
+    /* remember what was in it the moment it opened */
+    new MutationObserver(()=>{
+      if(d.open) dlgOpenedWith.set(d, dialogSignature(d));
+    }).observe(d, {attributes:true, attributeFilter:["open"]});
+
+    d.addEventListener("click", ev=>{
+      /* a click that lands on the dialog element itself is a click on the
+         backdrop: anything inside it hits a child */
+      if(ev.target !== d) return;
+      if(dialogIsDirty(d)){
+        d.classList.remove("hold");
+        void d.offsetWidth;                 /* let the animation start again */
+        d.classList.add("hold");
+        setTimeout(()=>d.classList.remove("hold"), 420);
+        return;
+      }
+      d.close();
+    });
+  });
+
+  /* the room: past a creature, the bubble, the console or the sign */
+  const view = el("roomView");
+  if(view) view.addEventListener("click", ev=>{
+    const t = ev.target;
+    if(t.closest && t.closest(".rv-thing, .rv-peek, .rv-bar, .rv-list, .rv-boss,"
+      + " .rv-flag, .rv-arch, .rv-way, .rv-board, .rv-trail, .rv-bunting")) return;
+    let shut = false;
+    if(listOpen){ showList(false); shut = true; }
+    if(roomPeek){ shutPeek(); shut = true; }
+    if(shut) ev.stopPropagation();
+  });
+
+  /* the drawing: past the note that is open over it */
+  const sheet = el("sheet");
+  if(sheet) sheet.addEventListener("click", ev=>{
+    if(!noteFor) return;
+    const t = ev.target;
+    if(t.closest && t.closest("#noteOverlay, .node-g, .zoombar, .linkbar,"
+      + " .titleblock, .vistaswitch")) return;
+    closeNote();
+  });
+}
+
 function wireRoom(){
   const view = el("roomView");
   if(!view) return;
 
   applyLife();
+  wireClickAway();
   /* a finger is already touching whatever it is pointing at, so the depth and
      the reaching only answer a mouse */
   view.addEventListener("pointermove", ev=>{
