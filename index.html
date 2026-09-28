@@ -3857,6 +3857,7 @@ body.viewing.panelaway #panelHide{display:none}
 <dialog id="viewerKindDlg">
   <div class="dlg-head">
     <h2>Build a copy to hand out</h2>
+    <code class="buildstamp" id="vkStamp" style="margin-left:auto;margin-right:10px"></code>
     <button class="btn" id="vkCancel">Cancel</button>
   </div>
   <div class="dlg-body">
@@ -4523,6 +4524,7 @@ const S = {
   roomLife:"full",             // full | quiet | still — how much the room moves
   roomFloor:"roam",            // roam | row — wandering, or lined up to read
   roomSort:"order",            // order | name | date | changed — how a room is ordered
+  builtFrom:"",                // which build of the tool made this copy
   localOnly:false,             // a handed-out copy: the folder and nothing beyond it
   roomMood:"pro",              // pro | silly — the whole character of the place
   sillySkin:"plain", sillyCast:"blob",   // kept, so switching back restores them
@@ -14528,6 +14530,19 @@ function askViewerKind(){
     const guess = (fileName || ((S.meta.title || "map").replace(/[^\w. -]+/g, "") + ".xlsx"));
     el("vkBookName").value = guess;
     if(el("vkEditBook")) el("vkEditBook").value = guess;
+    /* which build a copy would carry, before anybody presses anything */
+    const stamp = el("vkStamp");
+    if(stamp){
+      stamp.textContent = "checking\u2026";
+      fetch(location.href, {cache:"no-store"}).then(r=>r.text()).then(t=>{
+        const served = buildStampIn(t);
+        stamp.textContent = served
+          ? (served === APP_BUILD ? "build " + served
+             : "\u26A0 served file is " + served + ", this tab is " + APP_BUILD)
+          : "build " + APP_BUILD;
+        stamp.style.color = served && served !== APP_BUILD ? "var(--flag)" : "";
+      }).catch(()=>{ stamp.textContent = "build " + APP_BUILD; });
+    }
     el("vkLive").onclick = ()=>{ dlg.close(); res("workbook"); };
     el("vkEditor").onclick = ()=>{ dlg.close(); res("editor"); };
     el("vkSnapshot").onclick = ()=>{ dlg.close(); res("snapshot"); };
@@ -14556,20 +14571,49 @@ async function buildStandaloneViewer(kind){
       return;
     }
   }
-  let src;
+  /* ---------------------------------------------------------------
+     What a copy is made of.
+
+     It is made from this page's own source — not from the page as it
+     stands in front of you, but from the file that was served. Which
+     means a copy carries whatever version that file is, and if the
+     place it is served from is behind, so is every copy built from
+     it, however new the tab looks.
+
+     So the version is read out of the source and checked against the
+     one running. If they differ, the served file is stale and saying
+     so here is worth more than quietly handing out old copies. And
+     where the page cannot read itself at all — a file opened from a
+     folder may not fetch itself — the file is asked for instead.
+     --------------------------------------------------------------- */
+  let src = "";
   try{
     const r = await fetch(location.href, {cache:"no-store"});
     src = await r.text();
     if(!/id="viewerSlot"/.test(src)) throw new Error("unexpected source");
-  }catch(e){
-    toast("Could not read this page's own source, so a copy cannot be built here. "
-        + "Build it from wherever you normally open this to edit."); return;
+  }catch(e){ src = ""; }
+
+  if(!src){
+    src = await askForOwnSource();
+    if(!src) return;
+  }
+
+  const theirs = buildStampIn(src);
+  if(theirs && theirs !== APP_BUILD){
+    if(!confirm("This page is running build " + APP_BUILD + ", but the file it was served "
+      + "from is build " + theirs + ".\n\nA copy is made from the served file, so it would "
+      + "carry " + theirs + " — the older one. Put the newer file in place and reload "
+      + "first.\n\nBuild it anyway?")) return;
+  }
+  if(!theirs){
+    if(!confirm("Could not tell which build the served file is. Build the copy anyway?")) return;
   }
   const tables = toSheets();
   delete tables.Sync;
   splitForCells(tables, 200000);
   const cfg = {
     v:3, standalone:true, madeAt:nowISO(), title:S.meta.title || "Map",
+    builtFrom:APP_BUILD,
     mapKey:"V-" + (await hashText((S.meta.title||"") + "|" + ((conn && conn.endpoint)||"local")
                                  + "|" + ((conn && conn.prefix)||"") + "|" + ((conn && conn.id)||""))),
     theme:{ id:S.themeId, custom:(S.customThemes||[]).find(t=>t.id === S.themeId) || null },
@@ -14633,6 +14677,32 @@ async function buildStandaloneViewer(kind){
       + "the map and write it back to the workbook in the folder."
     : "Snapshot saved, " + Math.round(out.length/1024) + " KB. It shows the map as it is now "
       + "and connects to nothing.");
+}
+
+/* A page opened from a folder cannot always fetch itself, so it asks for the
+   file instead. Picking the very file you are looking at is an odd thing to
+   be asked to do, which is why it is only ever asked after the direct way
+   has failed. */
+async function askForOwnSource(){
+  const pick = ()=>new Promise(res=>{
+    const inp = document.createElement("input");
+    inp.type = "file"; inp.accept = ".html,.htm,text/html";
+    inp.onchange = ()=>res(inp.files && inp.files[0] || null);
+    inp.click();
+  });
+  toast("Pick this page's own .html file, so the copy can be made from it.");
+  const f = await pick();
+  if(!f) return "";
+  let text = "";
+  try{ text = await f.text(); }catch(e){ return ""; }
+  if(!/id="viewerSlot"/.test(text)){
+    toast("That file is not a copy of this tool."); return "";
+  }
+  if(/id="viewerConfig"/.test(text)){
+    toast("That one is already a handed-out copy. Pick the full tool instead.");
+    return "";
+  }
+  return text;
 }
 
 async function buildViewerLauncher(){
@@ -15125,7 +15195,23 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-09-28r";
+const APP_BUILD = "2026-09-28s";
+
+/* Reading that line back out of a copy of this file.
+
+   The obvious way is to search the text for the declaration above — but the
+   search pattern would then contain the declaration too, and searching a
+   file for a string that the search itself puts there finds the search. It
+   did, and reported every build as a mismatch. The name is assembled from
+   pieces so it appears in the source exactly once: on the line it declares. */
+function buildStampIn(text){
+  const key = "APP" + "_" + "BUILD";
+  const re = new RegExp(key + "\\s*=\\s*[\"']([^\"']+)[\"']");
+  const m = re.exec(String(text || ""));
+  const got = m ? m[1] : "";
+  /* and it has to look like one of ours, not whatever else matched */
+  return /^\d{4}-\d{2}-\d{2}[a-z]?$/.test(got) ? got : "";
+}
 
 function isHandle(h){
   return !!h && typeof h === "object" && typeof h.queryPermission === "function";
@@ -15327,9 +15413,10 @@ function sayHello(first){
   wrap.hidden = !!S.who || (S.people || []).some(x=>x.active !== false);
   el("helloName").value = S.who || "";
   el("helloSkip").hidden = !!first;
-  el("helloFine").textContent = first
-    ? "Nothing leaves your computer. The folder is the one already syncing to you."
-    : "";
+  el("helloFine").textContent = (first
+    ? "Nothing leaves your computer. The folder is the one already syncing to you.  "
+    : "") + "build " + APP_BUILD
+      + (S.builtFrom && S.builtFrom !== APP_BUILD ? " (made from " + S.builtFrom + ")" : "");
   ["folder","book","pics","sync"].forEach(k=>helloStep(k, "", ""));
   /* only a copy that has to go and get the map shows that step */
   const bookStep = document.querySelector('#helloSteps li[data-step="book"]');
@@ -16029,6 +16116,7 @@ function applyViewerConfig(cfg){
      it can change the map and write it back. What it is not is a copy with
      the editor's own plumbing in it — no sheet, no address, nothing that
      reaches past the folder it was handed out in. */
+  S.builtFrom = cfg.builtFrom || "";
   S.localOnly = !!(cfg.localOnly || cfg.editor);
   document.body.classList.toggle("localonly", S.localOnly);
   if(cfg.editor){
