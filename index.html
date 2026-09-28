@@ -2342,6 +2342,8 @@ body.viewing.panelaway #panelHide{display:none}
 .folderstate b{font-weight:600;color:var(--graphite)}
 .folderstate .ok{color:var(--blueprint)}
 .folderstate .wait{color:var(--flag)}
+.buildstamp{flex:0 0 auto;font-family:var(--mono);font-size:10px;
+  color:var(--graphite-60);opacity:.7;letter-spacing:.02em}
 .fnudge{
   position:fixed;left:50%;top:14px;transform:translateX(-50%);
   display:flex;align-items:center;gap:10px;max-width:min(92vw,620px);
@@ -3067,6 +3069,7 @@ body.viewing.panelaway #panelHide{display:none}
           <span id="folderStateWhat"></span>
           <button class="btn small primary" id="folderStateGo" hidden>Reconnect</button>
           <button class="btn small" id="folderStatePick" hidden>Pick the folder</button>
+          <code class="buildstamp" id="buildStamp"></code>
         </div>
         <p class="fineprint" style="margin:-2px 0 10px">A web address, or the name of a file in
           your synced picture folder. One room can override it with its own.</p>
@@ -14012,6 +14015,10 @@ async function choosePictureFolder(){
 /* A real folder handle, or nothing. localStorage cannot hold one — it turns
    it into an empty object on the way in, which then looks like a folder and
    behaves like nothing, so it is thrown away rather than believed. */
+/* Which copy of this file is running. When something behaves differently on
+   two machines this is the first thing worth checking. */
+const APP_BUILD = "2026-09-28a";
+
 function isHandle(h){
   return !!h && typeof h === "object" && typeof h.queryPermission === "function";
 }
@@ -14072,6 +14079,18 @@ async function foldersWaiting(){
 }
 
 let folderNudgeShown = false;
+let folderMissAt = 0;
+
+/* Something that should have come out of the folder did not. Whatever state
+   the handles are in — never linked, linked but asleep, cleared by the
+   browser — this is the moment the prompt is certainly wanted, so it is
+   driven from the failure itself rather than from a guess made on startup. */
+function folderMissed(){
+  const now = Date.now();
+  if(now - folderMissAt < 4000) return;      /* one prompt, not one per picture */
+  folderMissAt = now;
+  setTimeout(()=>{ offerReconnect().catch(()=>{}); }, 120);
+}
 
 /* The same question, in the place somebody goes looking for it. The bar at
    the top is easy to miss or to wave away; this is always here. */
@@ -14324,13 +14343,23 @@ async function picturesFromMemory(){
 
 /* Read every picture named by a path, once, and keep a copy of it. */
 async function warmPictures(ask){
-  if(!picDir) return await picturesFromMemory();
-  if(await folderSays(picDir, "read", ask) !== "granted") return await picturesFromMemory();
-  let found = 0;
+  const want = picturesWanted().size;
+  if(!picDir){
+    const got = await picturesFromMemory();
+    if(want > got) folderMissed();
+    return got;
+  }
+  if(await folderSays(picDir, "read", ask) !== "granted"){
+    const got = await picturesFromMemory();
+    if(want > got) folderMissed();
+    return got;
+  }
+  let found = 0, missed = 0;
   for(const path of picturesWanted()){
     if(picCache.has(path)){ found++; continue; }
     let f = null;
     try{ f = await fileFromFolder(path); }catch(e){}
+    if(!f) missed++;
     if(!f){
       try{
         const blob = Store.mode === "idb" && await Store.getKey("pic:" + path);
@@ -14344,6 +14373,7 @@ async function warmPictures(ask){
     picCache.set(path, URL.createObjectURL(keep));
     found++;
   }
+  if(missed) folderMissed();
   return found;
 }
 
@@ -16535,7 +16565,7 @@ function backdropFor(id){
     ? Number(n.backdropFloor)
     : (S.meta.backdropFloor === "" || S.meta.backdropFloor == null
         ? 62 : Number(S.meta.backdropFloor));
-  return {name, floor:Math.max(15, Math.min(88, floor || 62))};
+  return {name, floor:Math.max(15, Math.min(88, floor || 48))};
 }
 
 function renderRoom(){
@@ -16926,10 +16956,14 @@ function fitWall(){
      creature. */
   const maxFloor = Math.max(minFloor, vh - boardTop - (narrow ? 76 : 88));
   let floor = vh - boardTop - boardH - exitH - (narrow ? 10 : 8);
-  /* a backdrop of your own decides where the ground is; the drawn rooms
-     work it out from how much the wall needed */
+  /* A backdrop of your own says where the ground begins in the picture. It
+     used to REPLACE the floor outright, which quietly undid everything above
+     it: a backdrop set to 62% left the floor at 38% of the room whatever the
+     note was doing, and every creature was penned into the bottom third with
+     a wall of dead picture between them and the note. It raises the floor
+     now, and never lowers it below what the room itself affords. */
   const photo = backdropFor(S.sel);
-  if(photo) floor = vh * (100 - photo.floor) / 100;
+  if(photo) floor = Math.max(floor, vh * (100 - photo.floor) / 100);
   floor = Math.max(minFloor, Math.min(maxFloor, floor));
   /* Measured on the room's own height rather than on what the note left over,
      because the row layout changes the note's height and the two would then
@@ -17031,6 +17065,7 @@ async function backdropPool(force){
     if(names.length) break;
   }
   bdPool = [...new Set(names)].sort();
+  if(!bdPool.length && folderWanted() === "backdrops") folderMissed();
   try{ await Store.putKey("bdPool", {names:bdPool, at:nowISO()}); }catch(e){}
   return bdPool;
 }
@@ -17081,7 +17116,7 @@ async function backdropURL(name){
       }catch(e){}
     }
     const f = await fileFromFolder(name);
-    if(!f) return "";
+    if(!f){ folderMissed(); return ""; }
     const small = await bdShrink(f);
     if(Store.mode === "idb"){
       try{ await Store.putKey(key, small); }catch(e){}
@@ -18433,6 +18468,7 @@ function wireRoom(){
            markDirty(); renderRoomSoon(); toast("Backdrop set for every room"); },
       ()=>{ S.meta.backdrop = ""; markDirty(); renderRoomSoon(); });
   };
+  if(el("buildStamp")) el("buildStamp").textContent = "build " + APP_BUILD;
   paintFolderState().catch(()=>{});
   if(el("bdPoolNote")) backdropPool().then(list=>{
     const note = el("bdPoolNote");
