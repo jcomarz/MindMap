@@ -165,6 +165,17 @@ button{cursor:pointer}
 .tocitem[draggable]{cursor:grab}
 .tocitem.dragging{opacity:.45}
 .bulk-rule{border:0;border-top:1px solid var(--rule);margin:14px 0 12px}
+.shelfpick{display:flex;align-items:center;gap:8px;width:100%;text-align:left;
+  border:1px solid var(--rule);background:var(--paper);border-radius:3px;
+  padding:9px 11px;margin:0 0 6px;font:inherit;font-size:13px;cursor:pointer}
+.shelfpick:hover{border-color:var(--blueprint);color:var(--blueprint)}
+.shelfpick b{flex:1;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.shelfpick s{text-decoration:none;font-family:var(--mono);font-size:11px;color:var(--graphite-60)}
+.shelfrow{display:flex;align-items:center;gap:8px;padding:8px 4px;
+  border-top:1px solid var(--rule-soft);font-size:13px}
+.shelfrow:first-child{border-top:0}
+.shelfrow b{flex:1;font-weight:500}
+.shelfrow s{text-decoration:none;font-family:var(--mono);font-size:11px;color:var(--graphite-60)}
 .tocitem.over-a{box-shadow:inset 0 2px 0 var(--blueprint)}
 .tocitem.over-b{box-shadow:inset 0 -2px 0 var(--blueprint)}
 .tocitem.retired .toclabel{text-decoration:line-through;text-decoration-color:var(--rule)}
@@ -1883,6 +1894,8 @@ html[data-theme="dark"] .rv-bar-mid b{color:#F09A7E}
   font-family:var(--mono);opacity:.6}
 .rv-list button u{text-decoration:none;flex:1;overflow:hidden;text-overflow:ellipsis;
   white-space:nowrap}
+.rv-list button.lead{color:var(--blueprint);font-weight:600}
+.rv-list button.lead u{text-decoration:none}
 .rv-list button s{text-decoration:none;flex:0 0 auto;font-family:var(--mono);
   font-size:10.5px;color:var(--rv-dim, var(--graphite-60))}
 .rv-list .mkdot{width:9px;height:9px;border-radius:50%;flex:0 0 auto;
@@ -3381,6 +3394,19 @@ body.viewing.panelaway #panelHide{display:none}
         <button class="btn wide" id="btnArea" style="margin-top:8px">Draw an area</button>
       </div>
 
+      <div class="group" id="shelfGroup">
+        <h2>Shelves</h2>
+        <div id="tocShelves"></div>
+        <div class="row" style="margin-top:8px">
+          <button class="btn" id="shelfOpenDlg">Manage shelves</button>
+          <button class="btn" id="shelfExport">Save as JSON</button>
+          <button class="btn" id="shelfImport">Load JSON</button>
+        </div>
+        <p class="fineprint" style="margin:7px 0 0">Shelves are yours. They travel in
+          your own file beside your sign-offs, are kept in this browser, and can be
+          carried between devices as a JSON file.</p>
+      </div>
+
       <div class="group" id="outlineGroup">
         <h2>Outline</h2>
         <div class="row" style="margin:0 0 8px">
@@ -3630,6 +3656,7 @@ body.viewing.panelaway #panelHide{display:none}
   </div>
   <div class="rp-body" id="tocResults"></div>
   <div class="rp-foot">
+    <button class="btn" id="resPrint">Print these notes</button>
     <button class="btn wide" id="resClear">Clear the filter</button>
   </div>
 </div>
@@ -3822,6 +3849,23 @@ body.viewing.panelaway #panelHide{display:none}
   </div>
 </dialog>
 
+<dialog id="shelfDlg">
+  <div class="dlg-head">
+    <h2 id="shelfTitle">Put it on a shelf</h2>
+    <button class="btn" id="shelfClose">Done</button>
+  </div>
+  <div class="hist-controls">
+    <p class="fineprint" id="shelfWhat"></p>
+    <div id="shelfPicks"></div>
+    <label class="field" style="margin-top:10px"><span>Or start a new one</span>
+      <input type="text" id="shelfNew" placeholder="Xome questions, Monday huddle, things I keep forgetting"></label>
+    <div class="row">
+      <button class="btn wide primary" id="shelfMake">Make the shelf and put them on it</button>
+    </div>
+  </div>
+  <div class="dlg-body" id="shelfMine"></div>
+</dialog>
+
 <dialog id="bulkDlg">
   <div class="dlg-head">
     <h2>Tags and dates for the selection</h2>
@@ -3853,6 +3897,12 @@ body.viewing.panelaway #panelHide{display:none}
       <input type="date" id="bulkDate"></label>
     <div class="row">
       <button class="btn wide primary" id="bulkDateApply">Set that date on them</button>
+    </div>
+    <div class="row" style="margin-top:6px">
+      <button class="btn wide" id="bulkPrint">Print these notes</button>
+    </div>
+    <div class="row" style="margin-top:6px">
+      <button class="btn wide" id="bulkShelf">Put them on a shelf</button>
     </div>
     <div class="row" style="margin-top:6px">
       <button class="btn" id="bulkDateFromTag"
@@ -3998,7 +4048,7 @@ body.viewing.panelaway #panelHide{display:none}
 var TOKEN        = 'change-me';                // full access: reads and rewrites the map
 var VIEWER_TOKEN = '';                         // hand this one out: read, and add suggestions only
 var BUILD = 'b7';                              // lets the app confirm which version is deployed
-var TABS  = ['Nodes','Links','Areas','Bookmarks','Questions','QuestionPins','Suggestions','CheckItems','Checkoffs','Examples','Revisions','TagStyles','Settings','People','Inbox','Overflow'];
+var TABS  = ['Nodes','Links','Areas','Bookmarks','Questions','QuestionPins','Suggestions','CheckItems','Checkoffs','Examples','Shelves','Revisions','TagStyles','Settings','People','Inbox','Overflow'];
 
 function doGet(e)  { return handle(e, null); }
 function doPost(e) { return handle(e, JSON.parse((e.postData && e.postData.contents) || '{}')); }
@@ -4180,6 +4230,7 @@ const S = {
   checkItems:[],               // things the host asks people to confirm
   checkoffs:[],                // who confirmed what
   examples:[],                 // real ones people brought back from the floor
+  shelves:[],                  // gatherings of rooms somebody made for themselves
   personal:{bookmarks:[], searches:[], recent:[], ackNew:{}, recentBadge:"", newBadge:"", art:{}, useHostArt:true},
   railOpen:["Mode", "Outline", "Results"],
   followOutline:true,          // the outline keeps up with the selection
@@ -4280,6 +4331,215 @@ function newCheckoff(o={}){
    read something; an example asks them to bring one back from the floor — a
    real accession number, ideally a picture — so the node stops being theory.
    They are counted by the week, because a week is the unit a shift works in. */
+/* ---------------------------------------------------------------
+   Shelves.
+
+   A room you fill yourself. The map's shape is somebody else's — it
+   is the order the work actually happens in — and that is rarely the
+   handful of rooms one person keeps going back to. A shelf is that
+   handful, gathered up and given a name, and it stands as a room of
+   its own like any other.
+
+   It belongs to whoever made it. It travels in their own file beside
+   their sign-offs, so a shelf turns up for everybody without anybody
+   editing the map, and yours are yours.
+   --------------------------------------------------------------- */
+function newShelf(o={}){
+  return Object.assign({ id:uid("SH-"), name:"My shelf", person:S.who || "anonymous",
+    nodes:[], note:"", at:nowISO(), status:"ok" }, o);
+}
+
+function shelvesLive(){ return (S.shelves || []).filter(sh=>sh.status !== "gone"); }
+function myShelves(){
+  const who = S.who || "anonymous";
+  return shelvesLive().filter(sh=>(sh.person || "anonymous") === who);
+}
+function otherShelves(){
+  const who = S.who || "anonymous";
+  return shelvesLive().filter(sh=>(sh.person || "anonymous") !== who);
+}
+function shelfOf(id){ return shelvesLive().find(sh=>sh.id === id) || null; }
+function shelfNodes(sh){
+  return (sh && sh.nodes || []).filter(k=>S.nodes.has(k));
+}
+
+/* Making one is not editing the map, so anybody may. */
+function makeShelf(name, nodes){
+  const sh = newShelf({name:String(name || "My shelf").trim() || "My shelf",
+    nodes:[...new Set((nodes || []).filter(k=>S.nodes.has(k)))]});
+  S.shelves.push(sh);
+  saveShelves();
+  return sh;
+}
+function shelfPut(id, ids){
+  const sh = shelfOf(id);
+  if(!sh) return 0;
+  const have = new Set(sh.nodes || []);
+  let added = 0;
+  (ids || []).forEach(k=>{ if(S.nodes.has(k) && !have.has(k)){ have.add(k); added++; } });
+  sh.nodes = [...have];
+  sh.at = nowISO();
+  saveShelves();
+  return added;
+}
+function shelfDrop(id, node){
+  const sh = shelfOf(id);
+  if(!sh) return;
+  sh.nodes = (sh.nodes || []).filter(k=>k !== node);
+  sh.at = nowISO();
+  saveShelves();
+}
+/* Removing one leaves a marker rather than a hole, or everybody else's copy
+   would quietly hand it back on the next catch-up. */
+function shelfForget(id){
+  const sh = shelfOf(id);
+  if(!sh) return;
+  sh.status = "gone";
+  sh.at = nowISO();
+  saveShelves();
+}
+function shelfRename(id, name){
+  const sh = shelfOf(id);
+  if(!sh) return;
+  sh.name = String(name || "").trim() || sh.name;
+  sh.at = nowISO();
+  saveShelves();
+}
+
+/* The shelves, in the side panel. */
+function renderShelves(){
+  const box = el("tocShelves");
+  if(!box) return;
+  const mine = myShelves(), theirs = otherShelves();
+  const row = (sh, own)=>`<div class="tocrow" data-standon="${esc(sh.id)}">
+      <span class="tocdot${own ? " filled" : ""}"></span>
+      <span class="toclabel">${esc(sh.name)}</span>
+      <span class="fold">${shelfNodes(sh).length}${own ? "" : " · " + esc(sh.person || "")}</span>
+      ${own ? `<button class="kill" data-forgetshelf="${esc(sh.id)}" title="Put it away">&times;</button>` : ""}
+    </div>`;
+  box.innerHTML = (mine.length ? mine.map(sh=>row(sh, true)).join("") : "")
+    + (theirs.length
+        ? `<p class="tocempty" style="margin:9px 0 4px">Other people&rsquo;s</p>`
+          + theirs.slice(0, 12).map(sh=>row(sh, false)).join("")
+        : "")
+    || `<p class="tocempty">None yet. Gather a few rooms you keep coming back to
+        \u2014 from Go to in any room, or Edit all on a set of results.</p>`;
+}
+
+/* Carrying them between devices, or keeping a copy. */
+function shelvesToJSON(){
+  return JSON.stringify({
+    kind:"mindmap-shelves", version:1, map:S.meta.key || "",
+    mapName:S.meta.title || S.bookName || "", person:S.who || "anonymous",
+    at:nowISO(),
+    shelves:myShelves().map(sh=>({
+      id:sh.id, name:sh.name, nodes:shelfNodes(sh),
+      names:shelfNodes(sh).map(k=>nodeName(k)), note:sh.note || "", at:sh.at
+    }))
+  }, null, 2);
+}
+
+/* Reading one back. Shelves already here are left alone rather than doubled,
+   and a shelf whose rooms are not in this map is kept with whatever of it
+   does match, so a file from a neighbouring map is not simply refused. */
+function shelvesFromJSON(text){
+  let data;
+  try{ data = JSON.parse(text); }catch(e){ return {ok:false, why:"That is not a JSON file."}; }
+  const list = data && Array.isArray(data.shelves) ? data.shelves
+             : Array.isArray(data) ? data : null;
+  if(!list) return {ok:false, why:"No shelves in that file."};
+  const have = new Set((S.shelves || []).map(x=>x.id));
+  let made = 0, joined = 0, missing = 0;
+  for(const raw of list){
+    const nodes = (raw.nodes || []).filter(k=>S.nodes.has(k));
+    missing += (raw.nodes || []).length - nodes.length;
+    if(have.has(raw.id)){
+      const added = shelfPut(raw.id, nodes);
+      if(added) joined += added;
+      continue;
+    }
+    S.shelves.push(newShelf({
+      id:raw.id || uid("SH-"), name:String(raw.name || "Shelf"),
+      person:S.who || "anonymous", nodes, note:String(raw.note || ""),
+      at:String(raw.at || nowISO())
+    }));
+    have.add(raw.id);
+    made++;
+  }
+  saveShelves();
+  return {ok:true, made, joined, missing};
+}
+
+/* Ask which shelf, with the ones already made offered first. */
+let shelfFor = [];
+function askShelf(ids){
+  shelfFor = (ids || []).filter(k=>S.nodes.has(k));
+  if(!shelfFor.length){ toast("Nothing to put on a shelf."); return; }
+  if(!S.who) whoAmI(true);
+  el("shelfWhat").textContent = shelfFor.length === 1
+    ? "\u201c" + nodeName(shelfFor[0]) + "\u201d"
+    : shelfFor.length + " rooms";
+  el("shelfNew").value = "";
+  paintShelfPicks();
+  el("shelfDlg").showModal();
+  setTimeout(()=>{
+    const first = el("shelfPicks").querySelector("button");
+    (first || el("shelfNew")).focus();
+  }, 60);
+}
+
+function paintShelfPicks(){
+  const box = el("shelfPicks");
+  if(!box) return;
+  const mine = myShelves();
+  box.innerHTML = mine.length
+    ? mine.map(sh=>{
+        const on = shelfFor.filter(k=>(sh.nodes || []).includes(k)).length;
+        return '<button class="shelfpick" data-put="' + esc(sh.id) + '">'
+          + '<b>' + esc(sh.name) + '</b>'
+          + '<s>' + shelfNodes(sh).length
+          + (on ? " \u00b7 " + on + " already on it" : "") + '</s></button>';
+      }).join("")
+    : '<p class="fineprint" style="margin:0 0 4px">No shelves yet. Name one below.</p>';
+  /* what is already on each, with a way to take things off again */
+  const list = el("shelfMine");
+  if(list){
+    list.innerHTML = mine.length
+      ? '<p class="fineprint" style="margin:2px 0 8px">Your shelves</p>'
+        + mine.map(sh=>'<div class="shelfrow"><b>' + esc(sh.name) + '</b>'
+          + '<s>' + shelfNodes(sh).length + '</s>'
+          + '<button class="btn small" data-standon="' + esc(sh.id) + '">Open</button>'
+          + '<button class="btn small" data-rename="' + esc(sh.id) + '">Rename</button>'
+          + '<button class="kill" data-forgetshelf="' + esc(sh.id) + '" title="Remove">&times;</button>'
+          + '</div>').join("")
+      : "";
+  }
+}
+
+/* Kept in this browser straight away, and sent on with everything else. */
+function saveShelves(){
+  try{ Store.putKey("shelves:" + (S.meta.key || "map"), S.shelves); }catch(e){}
+  try{ Store.putKey("shelves:last", S.shelves); }catch(e){}
+  if(canEdit()) markDirty(); else queueContributions();
+  renderShelves();
+  renderRoomSoon();
+}
+
+/* A browser that has been cleared of the workbook still has these. */
+async function recallShelves(){
+  if(S.shelves && S.shelves.length) return;
+  for(const k of ["shelves:" + (S.meta.key || "map"), "shelves:last"]){
+    try{
+      const got = await Store.getKey(k);
+      if(Array.isArray(got) && got.length){
+        const seen = new Set((S.shelves || []).map(x=>x.id));
+        got.forEach(x=>{ if(!seen.has(x.id)){ S.shelves.push(newShelf(x)); seen.add(x.id); } });
+        return;
+      }
+    }catch(e){}
+  }
+}
+
 function newExample(o={}){
   return Object.assign({
     id:uid("E-"), node:"", person:S.who || "anonymous",
@@ -4969,6 +5229,7 @@ const HDR = {
   CheckItems:["item_id","node_id","label","created","author","requires","prompt"],
   Checkoffs:["check_id","item_id","node_id","person","checked","timestamp","note","evidence","proof"],
   Examples:["example_id","node_id","person","accession","note","proof","at","status"],
+  Shelves:["shelf_id","name","person","nodes","note","at","status"],
   Settings:["key","value"],
   Overflow:["ref_id","table","column","seq","text"],
   Questions:["question_id","text","person","timestamp","status","note"],
@@ -5058,6 +5319,13 @@ function toSheets(){
     session:it.session || "", node_id:it.node || "", planted_at:it.plantedAt || "",
     how:it.how || "", wrote:it.wrote || ""
   }));
+  /* A shelf is somebody's own gathering of rooms — theirs, in their own file,
+     and merged in like anything else they contribute. */
+  const shelves = (S.shelves || []).map(sh=>({
+    shelf_id:sh.id, name:sh.name || "", person:sh.person || "",
+    nodes:(sh.nodes || []).join(", "), note:sh.note || "",
+    at:sh.at || "", status:sh.status || "ok"
+  }));
   const settings = [
     {key:"locked", value:S.meta.locked ? "yes" : ""},
     {key:"root_hash", value:S.meta.rootHash || ""},
@@ -5075,7 +5343,8 @@ function toSheets(){
   }));
   return { Nodes:nodes, Links:links, Revisions:S.revisions.slice(), TagStyles:styles,
            Areas:areas, Bookmarks:bookmarks, Suggestions:suggestions,
-           CheckItems:checkItems, Checkoffs:checkoffs, Examples:examples, Questions:questions,
+           CheckItems:checkItems, Checkoffs:checkoffs, Examples:examples,
+           Shelves:shelves, Questions:questions,
            QuestionPins:pins, Settings:settings, Inbox:inbox,
            People:(S.people || []).map(x=>({person_id:x.id, name:x.name,
              first:x.first || "", login:x.login || "", initials:x.initials || "",
@@ -5112,7 +5381,7 @@ function tablesToModel(t){
         revs = t.Revisions || [], styles = t.TagStyles || [];
   const M = { nodes:new Map(), edges:new Map(), revisions:[], tagStyles:new Map(),
               connections:[], areas:new Map(), bookmarks:[],
-              suggestions:[], checkItems:[], checkoffs:[], examples:[], settings:{},
+              suggestions:[], checkItems:[], checkoffs:[], examples:[], shelves:[], settings:{},
               questions:[], pins:[], inbox:[], people:[] };
 
   (t.People || []).forEach(r=>{
@@ -5267,6 +5536,16 @@ function tablesToModel(t){
       evidence:String(r.evidence||""), proof:String(r.proof||"")
     }));
   }
+  for(const r of (t.Shelves||[])){
+    if(!r.shelf_id && !r.name) continue;
+    M.shelves.push(newShelf({
+      id:String(r.shelf_id||uid("SH-")), name:String(r.name||"Shelf"),
+      person:String(r.person||"anonymous"),
+      nodes:String(r.nodes||"").split(",").map(x=>x.trim()).filter(Boolean),
+      note:String(r.note||""), at:String(r.at||nowISO()),
+      status:String(r.status||"ok")
+    }));
+  }
   for(const r of (t.Examples||[])){
     if(!r.example_id && !r.node_id) continue;
     M.examples.push(newExample({
@@ -5297,6 +5576,7 @@ function adoptModel(M, keepConnections){
   S.areas = M.areas; S.bookmarks = M.bookmarks;
   S.suggestions = M.suggestions; S.checkItems = M.checkItems; S.checkoffs = M.checkoffs;
   S.examples = M.examples || [];
+  S.shelves = M.shelves || [];
   S.questions = M.questions; S.pins = M.pins; S.selQuestion = null;
   S.meta.locked = M.settings.locked === "yes";
   S.meta.rootHash = M.settings.root_hash || "";
@@ -5433,7 +5713,7 @@ function importXlsx(file){
 function copyTsv(){
   const d = toSheets();
   let out = "";
-  for(const name of ["Nodes","Links","Areas","Bookmarks","Questions","QuestionPins","Suggestions","CheckItems","Checkoffs","Examples","Revisions","TagStyles","Settings","People","Inbox","Overflow","Sync"]){
+  for(const name of ["Nodes","Links","Areas","Bookmarks","Questions","QuestionPins","Suggestions","CheckItems","Checkoffs","Examples","Shelves","Revisions","TagStyles","Settings","People","Inbox","Overflow","Sync"]){
     if(!(d[name]||[]).length && name!=="Nodes" && name!=="Links") continue;
     out += "### " + name + "\n" + HDR[name].join("\t") + "\n";
     for(const row of d[name]) out += HDR[name].map(h=>String(row[h]??"").replace(/[\t\n]/g," ")).join("\t") + "\n";
@@ -8747,6 +9027,7 @@ function unplant(itemId){
 }
 
 function renderContents(){
+  renderShelves();
   /* Hundreds of rows cost real time to build and lay out. When the panel is
      on Tools nobody can see them, so the work is put off until it can. */
   if(!outlineVisible()){ outlineStale = true; renderResults(); return; }
@@ -10453,6 +10734,11 @@ function updateLinkBar(){
   const bar = el("linkBar");
   if(!bar) return;
   const many = S.multi.size > 1;
+  /* It is a bar about joining nodes up by dragging them around, which is a
+     thing you do on the drawing. In a room it sat across the middle of the
+     floor with nothing to drag, and Edit All left it there with no way to
+     shift it. The room has its own way of working on a selection. */
+  if(inRoom()){ bar.hidden = true; return; }
   if(!canEdit() || !many){ bar.hidden = true; return; }
   const a = S.sel && S.nodes.get(S.sel), b = S.sel2 && S.nodes.get(S.sel2);
   el("multiActs").hidden = false;
@@ -13048,7 +13334,7 @@ const SHEET_CELL = 45000, XLSX_CELL = 32000;
 /* Which column identifies a row, so a continuation can be matched back to it */
 const ID_COL = {Nodes:"node_id", Links:"edge_id", Areas:"area_id", Bookmarks:"bookmark_id",
   Questions:"question_id", QuestionPins:"pin_id", Suggestions:"suggestion_id",
-  CheckItems:"item_id", Checkoffs:"check_id", Examples:"example_id",
+  CheckItems:"item_id", Checkoffs:"check_id", Examples:"example_id", Shelves:"shelf_id",
   Revisions:"rev_id", Settings:"key",
   Sync:"name", TagStyles:"tag"};
 
@@ -13152,12 +13438,13 @@ function buildWorkbookFrom(data){
     CheckItems:[14,14,34,19,14,12,30],
     Checkoffs:[14,14,14,16,9,19,30,22,40],
     Examples:[14,14,16,18,40,40,19,8],
+    Shelves:[14,24,16,60,30,19,8],
     Settings:[14,44],
     Inbox:[14,60,19,16,22,14,19,8,40],
     People:[14,30,12,20,8,30,7],
     Overflow:[16,14,14,6,70]
   };
-  for(const name of ["Nodes","Links","Areas","Bookmarks","Questions","QuestionPins","Suggestions","CheckItems","Checkoffs","Examples","Revisions","TagStyles","Settings","People","Inbox","Overflow","Sync"]){
+  for(const name of ["Nodes","Links","Areas","Bookmarks","Questions","QuestionPins","Suggestions","CheckItems","Checkoffs","Examples","Shelves","Revisions","TagStyles","Settings","People","Inbox","Overflow","Sync"]){
     if(name === "Sync" && !data.Sync.length) continue;
     if(name === "Overflow" && !(data.Overflow||[]).length) continue;
     const ws = XLSX.utils.json_to_sheet(data[name], {header:HDR[name]});
@@ -13561,7 +13848,8 @@ async function catchUp(quiet){
       QuestionPins:new Set(S.pins.map(x=>x.id)),
       CheckItems:new Set(S.checkItems.map(x=>x.id)),
       Checkoffs:new Set(S.checkoffs.map(x=>x.id)),
-      Examples:new Set((S.examples || []).map(x=>x.id))
+      Examples:new Set((S.examples || []).map(x=>x.id)),
+      Shelves:new Set((S.shelves || []).map(x=>x.id))
     };
     const mine = feedbackName().toLowerCase();
     const places = [bookDir];
@@ -13601,6 +13889,7 @@ async function catchUp(quiet){
           take(M.checkItems,  S.checkItems,  "CheckItems");
           take(M.checkoffs,   S.checkoffs,   "Checkoffs");
           take(M.examples,    S.examples,    "Examples");
+          take(M.shelves,     S.shelves,     "Shelves");
         }catch(e){ /* a file half-written by somebody else: try again next time */ }
       }
     }
@@ -13667,8 +13956,10 @@ async function gatherFeedback(){
   catch(e){ return; }
 
   const seen = {Suggestions:new Set(), Questions:new Set(), QuestionPins:new Set(),
-                CheckItems:new Set(), Checkoffs:new Set(), Examples:new Set()};
+                CheckItems:new Set(), Checkoffs:new Set(), Examples:new Set(),
+                Shelves:new Set()};
   (S.examples || []).forEach(x=>seen.Examples.add(x.id));
+  (S.shelves || []).forEach(x=>seen.Shelves.add(x.id));
   S.suggestions.forEach(x=>seen.Suggestions.add(x.id));
   S.questions.forEach(x=>seen.Questions.add(x.id));
   S.pins.forEach(x=>seen.QuestionPins.add(x.id));
@@ -13702,6 +13993,8 @@ async function gatherFeedback(){
         S.checkoffs.push(x); seen.Checkoffs.add(x.id); added++; } });
       (M.examples || []).forEach(x=>{ if(!seen.Examples.has(x.id)){
         S.examples.push(x); seen.Examples.add(x.id); added++; } });
+      (M.shelves || []).forEach(x=>{ if(!seen.Shelves.has(x.id)){
+        S.shelves.push(x); seen.Shelves.add(x.id); added++; } });
     }catch(e){ /* skip anything that will not open */ }
   }
   if(!files){ toast("No feedback files in that folder yet."); return; }
@@ -14110,7 +14403,7 @@ async function readRememberedWorkbook(ask){
    result is written back.
    --------------------------------------------------------------- */
 const SHARED_TABLES = ["Suggestions", "Questions", "QuestionPins", "CheckItems",
-                       "Checkoffs", "Examples"];
+                       "Checkoffs", "Examples", "Shelves"];
 let sendTimer = null, sendingNow = false, sendAgain = false;
 
 function keyOf(table, row){
@@ -14130,6 +14423,15 @@ function countMine(){
 
 /* The way out for a browser that cannot write: hand the person the same file
    as a download, for them to drop in the shared folder. */
+/* A file into the downloads folder, whatever it holds. */
+function downloadText(name, text, type){
+  const url = URL.createObjectURL(new Blob([text], {type:type || "text/plain"}));
+  const a = document.createElement("a");
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 4000);
+}
+
 function downloadFeedback(){
   const mine = toSheets();
   const only = {};
@@ -14307,7 +14609,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-09-28f";
+const APP_BUILD = "2026-09-28h";
 
 function isHandle(h){
   return !!h && typeof h === "object" && typeof h.queryPermission === "function";
@@ -16910,6 +17212,13 @@ function worldSet(){
   } else if(S.roomWorld === "flagged"){
     ids = [...S.nodes.values()].filter(n=>n.flag).map(n=>n.id).slice(0, 120);
     what = "Everything flagged";
+  } else if(S.roomWorld.startsWith("shelf:")){
+    const sh = shelfOf(S.roomWorld.slice(6));
+    if(sh){
+      ids = shelfNodes(sh);
+      what = sh.name + ((sh.person || "") && (sh.person !== (S.who || "anonymous"))
+        ? " \u00b7 " + sh.person + "\u2019s" : "");
+    }
   } else if(S.roomWorld === "mine"){
     const me = S.who || "";
     const owed = new Set(S.checkItems.filter(it=>!S.checkoffs.some(x=>
@@ -16917,8 +17226,22 @@ function worldSet(){
     ids = [...owed].filter(k=>S.nodes.has(k)).slice(0, 120);
     what = "Everything still waiting on you";
   }
-  if(!ids.length) return null;
+  if(!ids.length){
+    /* an empty shelf is still somewhere you meant to be */
+    if(S.roomWorld.startsWith("shelf:") && shelfOf(S.roomWorld.slice(6)))
+      return {ids:[], what:shelfOf(S.roomWorld.slice(6)).name, empty:true};
+    return null;
+  }
   return {ids:roomOrder(ids), what};
+}
+
+function standOnShelf(id){
+  if(!shelfOf(id)) return;
+  S.roomWorld = "shelf:" + id;
+  roomPeek = "";
+  worldAuto = false;
+  if(!inRoom()) setVista("room", true);
+  else renderRoom();
 }
 
 /* ---------------------------------------------------------------
@@ -16934,6 +17257,99 @@ function worldSet(){
 let worldAuto = false;       /* we put them here, so we may take them back */
 let worldFrom = "";          /* the room they were in when they started typing */
 let worldMuted = "\u0000";   /* a search they said no to, left alone until it changes */
+
+/* ---------------------------------------------------------------
+   A sheet of notes, for paper.
+
+   The map prints as a picture, which is the right thing for a wall and
+   the wrong thing for a stack of notes somebody wants to read through
+   at a huddle. This is the other one: the words, in order, with enough
+   of the trail above each to know where it came from.
+   --------------------------------------------------------------- */
+function printNotes(ids, what){
+  const list = (ids || []).filter(id=>S.nodes.has(id));
+  if(!list.length){ toast("Nothing to print."); return; }
+  const trailOf = id=>{
+    const up = [];
+    let at = parentOf(id), guard = 0;
+    while(at && guard++ < 8){ up.unshift(nodeName(at)); at = parentOf(at); }
+    return up.join("  \u203a  ");
+  };
+  const body = list.map(id=>{
+    const n = S.nodes.get(id);
+    const trail = trailOf(id);
+    const tags = (n.tags || []).filter(Boolean);
+    const items = itemsFor(id);
+    const words = String(n.body || "").trim();
+    return '<article>'
+      + (trail ? '<p class="trail">' + esc(trail) + '</p>' : "")
+      + '<h2>' + esc(n.label || n.id) + '</h2>'
+      + '<p class="meta">'
+      +   (n.date ? '<span>' + esc(prettyDay(n.date)) + '</span>' : "")
+      +   tags.map(t=>'<span class="tag">' + esc(t) + '</span>').join("")
+      +   (n.status === "retired" ? '<span class="gone">retired</span>' : "")
+      + '</p>'
+      + (words ? '<div class="note">' + noteToHtml(n.body, n) + '</div>'
+               : '<p class="empty">No note written on this one.</p>')
+      + (items.length
+          ? '<ul class="items">' + items.map(it=>'<li>' + esc(it.label || "") + '</li>').join("") + '</ul>'
+          : "")
+      + '</article>';
+  }).join("");
+
+  const title = (S.meta.title || S.bookName || "MindMap")
+    + " \u2014 " + (what || list.length + " notes");
+  const html = '<!doctype html><html><head><meta charset="utf-8">'
+    + '<title>' + esc(title) + '</title><style>'
+    + 'body{font:13px/1.55 "Segoe UI",system-ui,sans-serif;color:#1c2024;margin:0;padding:26px 30px}'
+    + 'h1{font-size:19px;margin:0 0 3px} .sub{color:#667;font-size:12px;margin:0 0 20px}'
+    + 'article{break-inside:avoid;page-break-inside:avoid;'
+    +   'border-top:1px solid #d7dbe0;padding:13px 0 4px}'
+    + 'article:first-of-type{border-top:0}'
+    + '.trail{margin:0 0 2px;font:10.5px/1.4 ui-monospace,Menlo,Consolas,monospace;color:#8a9199}'
+    + 'h2{font-size:14.5px;margin:0 0 4px}'
+    + '.meta{margin:0 0 7px;font-size:10.5px;color:#667}'
+    + '.meta span{display:inline-block;margin-right:7px}'
+    + '.tag{background:#eef1f4;border-radius:2px;padding:1px 6px;'
+    +   'font-family:ui-monospace,Menlo,Consolas,monospace}'
+    + '.gone{color:#a33;font-weight:600}'
+    + '.note{font-size:12.5px} .note p{margin:0 0 7px} .note ul,.note ol{margin:0 0 7px 18px}'
+    + '.note img{max-width:60%;height:auto}'
+    + '.empty{margin:0;color:#8a9199;font-style:italic;font-size:12px}'
+    + '.items{margin:7px 0 0 17px;padding:0;font-size:12px;color:#334}'
+    + '.items li{margin:0 0 2px}'
+    + '@page{margin:14mm}'
+    + '@media print{.noprint{display:none}}'
+    + '</style></head><body>'
+    + '<h1>' + esc(what || "Notes") + '</h1>'
+    + '<p class="sub">' + esc((S.meta.title || S.bookName || "MindMap"))
+    +   " \u00b7 " + list.length + (list.length === 1 ? " note" : " notes")
+    +   " \u00b7 " + new Date().toISOString().slice(0, 10) + '</p>'
+    + body
+    + '</body></html>';
+
+  const w = window.open("", "_blank");
+  if(!w){ toast("The browser blocked the print window."); return; }
+  w.document.write(html);
+  w.document.close();
+  /* pictures first, or half of them print as gaps */
+  const go = ()=>{ try{ w.focus(); w.print(); }catch(e){} };
+  if(w.document.readyState === "complete") setTimeout(go, 260);
+  else w.addEventListener("load", ()=>setTimeout(go, 260));
+}
+
+/* The same set, named, for anywhere that wants to list or print it. */
+function foundSet(){
+  const was = S.roomWorld;
+  let got = null;
+  for(const k of ["hits", "tags"]){
+    S.roomWorld = k;
+    const w = worldSet();
+    if(w){ got = w; break; }
+  }
+  S.roomWorld = was;
+  return got;
+}
 
 /* What a search or a tag filter is currently pointing at, if anything. Only
    those two: "flagged" and "mine" are standing sets that are always there, so
@@ -17127,8 +17543,11 @@ function renderRoom(){
       + '">Back to the map</button>';
     el("rvArches").innerHTML = "";
     view.dataset.exits = "0";
-    el("rvCount").innerHTML = esc(world.ids.length + " of them \u2014 walk into one to go "
-      + "where it lives");
+    const onShelf = String(S.roomWorld || "").startsWith("shelf:");
+    el("rvCount").innerHTML = esc(world.empty
+      ? "Nothing on this shelf yet \u2014 put a room on it from Go to, or from Edit all in any room"
+      : world.ids.length + " of them \u2014 walk into one to go "
+        + (onShelf ? "where it lives" : "where it lives"));
     el("rvEdit").hidden = true;
     el("rvAdd").hidden = true;
     /* A room of everything the filter found is a parent in all but name, so
@@ -18279,6 +18698,7 @@ function setVista(v, quiet){
     applyView();
     if(S.sel && S.nodes.has(S.sel)) centerOn(S.sel);
   }
+  updateLinkBar();     /* it belongs to the drawing, so it comes and goes with it */
   savePrefs();
   if(!quiet) toast(inRoom() ? "In the room" : "The whole drawing");
 }
@@ -18505,6 +18925,33 @@ function renderList(){
     out.push("<h5>" + all.length + (all.length === 60 ? "+ matches" : " matches") + "</h5>");
     out.push(all.map(k=>listRow(k)).join("") || '<p class="none">Nothing by that name.</p>');
   } else {
+    /* Whatever the search or the tag filter is pointing at goes first: when a
+       filter is on, that set is what somebody is working through, and having
+       to close this to go and look at it elsewhere is one hop too many. */
+    const found = foundSet();
+    if(found){
+      out.push("<h5>" + esc(found.what) + "</h5>"
+        + '<button class="lead" data-world="1">'
+        + '<i>&#9678;</i><u>Stand in all ' + found.ids.length + '</u></button>'
+        + found.ids.slice(0, 40).map(k=>listRow(k)).join("")
+        + (found.ids.length > 40
+            ? '<p class="none">and ' + (found.ids.length - 40) + ' more</p>' : "")
+        + '<button class="lead" data-printfound="1">'
+        + '<i>&#9113;</i><u>Print these notes</u></button>');
+    }
+    /* shelves: yours first, then anybody else's who left one in the folder */
+    const mine = myShelves(), theirs = otherShelves();
+    if(mine.length || theirs.length || id){
+      const shelfRow = sh=>'<button data-shelf="' + esc(sh.id) + '">'
+        + '<i>&#9635;</i><u>' + esc(sh.name) + '</u>'
+        + '<s>' + shelfNodes(sh).length + '</s></button>';
+      let h = "";
+      if(mine.length) h += mine.map(shelfRow).join("");
+      if(id) h += '<button class="lead" data-shelfadd="' + esc(id) + '">'
+        + '<i>+</i><u>Put this room on a shelf</u></button>';
+      if(theirs.length) h += theirs.slice(0, 8).map(shelfRow).join("");
+      if(h) out.push("<h5>Shelves</h5>" + h);
+    }
     const up = id && parentOf(id);
     if(up) out.push("<h5>Back out to</h5>" + listRow(up));
     else if(id) out.push('<h5>Back out to</h5><button data-hall="1">'
@@ -18890,7 +19337,24 @@ function wireRoom(){
   };
   el("rvListBody").addEventListener("click", ev=>{
     const h = ev.target.closest && ev.target.closest("[data-hall]");
-    if(h){ showList(false); goToHall(); }
+    if(h){ showList(false); goToHall(); return; }
+    if(ev.target.closest && ev.target.closest("[data-world]")){
+      const f = foundSet();
+      showList(false);
+      if(f){ for(const k of ["hits","tags"]){ S.roomWorld = k;
+        if(worldSet()){ enterWorld(k); return; } } S.roomWorld = ""; }
+      return;
+    }
+    if(ev.target.closest && ev.target.closest("[data-printfound]")){
+      const f = foundSet();
+      showList(false);
+      if(f) printNotes(f.ids, f.what);
+      return;
+    }
+    const sh = ev.target.closest && ev.target.closest("[data-shelf]");
+    if(sh){ showList(false); standOnShelf(sh.dataset.shelf); return; }
+    const put = ev.target.closest && ev.target.closest("[data-shelfadd]");
+    if(put){ showList(false); askShelf([put.dataset.shelfadd]); return; }
   }, true);
   /* Whatever is standing on this floor — the children of a real room, or
      everything a filter gathered — handed over as a selection to work on. */
@@ -19574,6 +20038,105 @@ async function boot(){
     if(ev.key === "Enter"){ ev.preventDefault(); pickByTagLike(ev.target.value); }
   });
   el("bulkUseFound").onclick = pickFound;
+  el("bulkShelf").onclick = ()=>{
+    const ids = bulkTargets();
+    if(!ids.length){ toast("Nothing selected."); return; }
+    askShelf(ids);
+  };
+
+  /* the shelf picker */
+  el("shelfClose").onclick = ()=>el("shelfDlg").close();
+  el("shelfOpenDlg").onclick = ()=>{
+    shelfFor = [];
+    el("shelfWhat").textContent = "Nothing picked \u2014 this is just the list.";
+    el("shelfNew").value = "";
+    paintShelfPicks();
+    el("shelfDlg").showModal();
+  };
+  el("shelfExport").onclick = ()=>{
+    const mine = myShelves();
+    if(!mine.length){ toast("No shelves to save yet."); return; }
+    const name = ((S.meta.title || S.bookName || "mindmap") + "-shelves")
+      .toLowerCase().replace(/[^\w-]+/g, "-").replace(/-+/g, "-") + ".json";
+    downloadText(name, shelvesToJSON(), "application/json");
+    toast(mine.length + (mine.length === 1 ? " shelf saved" : " shelves saved"));
+  };
+  el("shelfImport").onclick = ()=>{
+    const inp = document.createElement("input");
+    inp.type = "file"; inp.accept = ".json,application/json";
+    inp.onchange = async ()=>{
+      const f = inp.files && inp.files[0];
+      if(!f) return;
+      const res = shelvesFromJSON(await f.text());
+      if(!res.ok){ toast(res.why); return; }
+      renderShelves(); renderContents();
+      toast(res.made + (res.made === 1 ? " shelf" : " shelves") + " loaded"
+        + (res.joined ? ", " + res.joined + " added to ones you had" : "")
+        + (res.missing ? ", " + res.missing + " not in this map" : ""));
+    };
+    inp.click();
+  };
+  el("tocShelves").addEventListener("click", ev=>{
+    const gone = ev.target.closest && ev.target.closest("[data-forgetshelf]");
+    if(gone){
+      ev.stopPropagation();
+      const sh = shelfOf(gone.dataset.forgetshelf);
+      if(sh && confirm("Put away \u201c" + sh.name + "\u201d? The rooms on it stay where they are.")){
+        shelfForget(gone.dataset.forgetshelf);
+        if(S.roomWorld === "shelf:" + gone.dataset.forgetshelf){ S.roomWorld = ""; renderRoom(); }
+      }
+      return;
+    }
+    const open = ev.target.closest && ev.target.closest("[data-standon]");
+    if(open) standOnShelf(open.dataset.standon);
+  });
+  el("shelfPicks").addEventListener("click", ev=>{
+    const b = ev.target.closest && ev.target.closest("[data-put]");
+    if(!b) return;
+    const added = shelfPut(b.dataset.put, shelfFor);
+    const sh = shelfOf(b.dataset.put);
+    paintShelfPicks();
+    toast(added
+      ? added + (added === 1 ? " room" : " rooms") + " on \u201c" + (sh ? sh.name : "the shelf") + "\u201d"
+      : "Already on that one.");
+  });
+  el("shelfMake").onclick = ()=>{
+    const name = (el("shelfNew").value || "").trim();
+    if(!name){ toast("Give the shelf a name first."); return; }
+    const sh = makeShelf(name, shelfFor);
+    el("shelfNew").value = "";
+    paintShelfPicks();
+    toast("\u201c" + sh.name + "\u201d made, with " + shelfNodes(sh).length
+      + (shelfNodes(sh).length === 1 ? " room on it" : " rooms on it"));
+  };
+  el("shelfNew").addEventListener("keydown", ev=>{
+    if(ev.key === "Enter"){ ev.preventDefault(); el("shelfMake").click(); }
+  });
+  el("shelfMine").addEventListener("click", ev=>{
+    const open = ev.target.closest && ev.target.closest("[data-standon]");
+    if(open){ el("shelfDlg").close(); standOnShelf(open.dataset.standon); return; }
+    const ren = ev.target.closest && ev.target.closest("[data-rename]");
+    if(ren){
+      const sh = shelfOf(ren.dataset.rename);
+      const name = prompt("Call it what?", sh ? sh.name : "");
+      if(name != null){ shelfRename(ren.dataset.rename, name); paintShelfPicks(); }
+      return;
+    }
+    const gone = ev.target.closest && ev.target.closest("[data-forgetshelf]");
+    if(gone){
+      const sh = shelfOf(gone.dataset.forgetshelf);
+      if(sh && confirm("Put away \u201c" + sh.name + "\u201d? The rooms on it stay where they are.")){
+        shelfForget(gone.dataset.forgetshelf);
+        if(S.roomWorld === "shelf:" + gone.dataset.forgetshelf){ S.roomWorld = ""; renderRoom(); }
+        paintShelfPicks();
+      }
+    }
+  });
+  el("bulkPrint").onclick = ()=>{
+    const ids = bulkTargets();
+    if(!ids.length){ toast("Nothing selected."); return; }
+    printNotes(ids, ids.length + (ids.length === 1 ? " note" : " notes") + " from this map");
+  };
   el("bulkDateApply").onclick = ()=>{
     const d = el("bulkDate").value;
     if(!d){ toast("Pick a date first."); return; }
@@ -19631,6 +20194,11 @@ async function boot(){
       if(ev.key === "Escape"){ ev.preventDefault(); ev.stopPropagation(); clearTheSearch(); }
     });
   });
+  el("resPrint").onclick = ()=>{
+    const f = foundSet();
+    if(f) printNotes(f.ids, f.what);
+    else toast("Search or pick a tag first.");
+  };
   el("resClear").onclick = ()=>{
     el("q").value = ""; if(el("mq")) el("mq").value = "";
     S.tagPick.clear(); S.tagOnly = false;
@@ -19961,6 +20529,8 @@ async function boot(){
   if(el("roomLife")) el("roomLife").value = S.roomLife;
   layoutButton();
     organiseRail();
+    /* shelves kept in this browser come back even when the workbook did not */
+    try{ await recallShelves(); renderShelves(); }catch(e){}
     /* every folder named before is picked back up without asking */
     await recallFolders();
     /* pictures read on an earlier visit are drawn immediately, whether or
