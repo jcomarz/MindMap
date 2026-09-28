@@ -14370,6 +14370,7 @@ async function catchUp(quiet){
         /* one at a time, with a breath: a folder of sixty of these parsed in
            one run locks the page up and asks the sync client for all of them
            at once */
+        crumb("catchup", name + " (" + Math.round((f.size || 0) / 1024) + " KB), " + read + " so far");
         await breath();
         try{
           const wb = XLSX.read(await f.arrayBuffer(), {type:"array"});
@@ -14396,6 +14397,7 @@ async function catchUp(quiet){
     S._syncAt = nowISO();
     S._syncPeople = people.size;
     lastCatch = Date.now();
+    if(read) crumbIdle("caught up with " + read);
     if(added){
       /* what came in is other people's, not ours to push back out */
       rebuild(); renderInspector(); updateReviewBadge(); renderRoomSoon();
@@ -14409,6 +14411,7 @@ async function catchUp(quiet){
     }
     return added;
   }catch(e){
+    crumbIdle("could not catch up");
     if(!quiet) toast("Could not read the folder: " + (e.message || e));
     return 0;
   }finally{ catchingNow = false; }
@@ -14971,10 +14974,13 @@ async function readRememberedWorkbook(ask){
     } else S.bookReadOnly = false;
     const f = await bookHandle.getFile();
     lastSeenStamp = f.lastModified;
+    crumb("book", f.name + " (" + Math.round((f.size || 0) / 1024) + " KB)");
     adoptWorkbookBytes(await f.arrayBuffer(), f.name);
+    crumbIdle("read " + f.name);
     watchWorkbook();
     return true;
   }catch(e){
+    crumbIdle("could not read the workbook");
     sayWorkbookState("Could not read " + (bookHandle.name || "the workbook")
       + " — it may have been moved.");
     return false;
@@ -15158,6 +15164,9 @@ async function choosePictureFolder(){
   try{
     picDir = await window.showDirectoryPicker({id:"mindmap-folder", mode:"read"});
     const kept = await rememberHandle("picDir", picDir);
+    for(const u of picCache.values()){
+      try{ if(u && String(u).startsWith("blob:")) URL.revokeObjectURL(u); }catch(e){}
+    }
     picCache.clear();
     picForget();
     const n = await warmPictures();
@@ -15195,7 +15204,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-09-28s";
+const APP_BUILD = "2026-09-28t";
 
 /* Reading that line back out of a copy of this file.
 
@@ -15504,9 +15513,15 @@ async function helloGo(){
 
   /* 3 — the pictures and the backdrops */
   helloStep("pics", "doing");
+  crumb("hello", "pictures and backdrops");
   let pool = [];
   try{
-    picCache.clear(); bdLive.clear(); bdPool = null;
+    /* let go of the addresses as well as the list, or the pictures behind
+       them stay held for as long as the page is open */
+    for(const u of [...picCache.values(), ...bdLive.values()]){
+      try{ if(u && String(u).startsWith("blob:")) URL.revokeObjectURL(u); }catch(e){}
+    }
+    picCache.clear(); bdLive.clear(); bdPool = null; bdWarmed.clear();
     await warmPictures(true);
     pool = await backdropPool(true);
   }catch(e){}
@@ -15524,6 +15539,7 @@ async function helloGo(){
     ? (added ? added + " new" : "up to date") : "nothing to read");
 
   rebuild(); renderInspector(); render(); renderRoomSoon();
+  crumbIdle("set up");
   go.textContent = "In you go";
   setTimeout(()=>shutHello(true), 620);
 }
@@ -15729,6 +15745,103 @@ async function picturesFromMemory(){
    chain of nested timers to four milliseconds each, which turns a hundred
    breaths into half a second of sitting still. A message to ourselves is not
    clamped, so the pause is only as long as the work the page had waiting. */
+/* ---------------------------------------------------------------
+   Breadcrumbs: where it had got to, for when the tab does not survive.
+
+   A tab that runs out of memory takes its developer tools with it, so
+   there is nothing left to look at afterwards. These notes are written
+   before each heavy step rather than after it, into session storage,
+   which belongs to the tab and outlives the page crashing — press
+   Reload on the broken tab and the last thing it was doing is still
+   there. Closing the tab clears them, so a closed tab is never
+   mistaken for a crashed one.
+
+   Nothing here is sent anywhere. It is read back only on this machine,
+   by the note that appears after a reload, or from the console with
+   mmCrumbs().
+   --------------------------------------------------------------- */
+const CRUMB_KEY = "mm:crumbs";
+const CRUMB_KEEP = 40;
+const crumbNow = {phase:"", files:0, bytes:0, decoding:0, decoded:0, mpx:0, scanned:0};
+let crumbTrail = [];
+let crumbEst = "";
+let crumbEstAt = 0;
+function crumbHeap(){
+  try{
+    const m = performance && performance.memory;
+    return m ? Math.round(m.usedJSHeapSize / 1048576) + "/" + Math.round(m.jsHeapSizeLimit / 1048576) + " MB" : "";
+  }catch(e){ return ""; }
+}
+function crumbEstimate(){
+  /* asynchronous, so it is refreshed in the background and the last answer
+     written with each note; asking and waiting would delay the note itself */
+  if(Date.now() - crumbEstAt < 3000) return;
+  crumbEstAt = Date.now();
+  try{
+    navigator.storage.estimate().then(e=>{
+      crumbEst = Math.round((e.usage || 0) / 1048576) + " of " + Math.round((e.quota || 0) / 1048576) + " MB";
+    }).catch(()=>{});
+  }catch(e){}
+}
+function crumb(phase, step, patch){
+  if(patch) Object.assign(crumbNow, patch);
+  crumbNow.phase = phase;
+  crumbEstimate();
+  crumbTrail.push({
+    t:new Date().toISOString().slice(11, 23), phase, step:String(step || "").slice(0, 160),
+    files:crumbNow.files, mb:Math.round(crumbNow.bytes / 1048576), decoding:crumbNow.decoding,
+    decoded:crumbNow.decoded, mpx:Math.round(crumbNow.mpx), scanned:crumbNow.scanned,
+    heap:crumbHeap(), store:crumbEst, build:APP_BUILD
+  });
+  if(crumbTrail.length > CRUMB_KEEP) crumbTrail = crumbTrail.slice(-CRUMB_KEEP);
+  try{ sessionStorage.setItem(CRUMB_KEY, JSON.stringify(crumbTrail)); }catch(e){}
+}
+/* the work finished: nothing to report if the tab goes later */
+function crumbIdle(what){ crumb("idle", what || "finished"); }
+window.mmCrumbs = ()=>{
+  try{ return JSON.parse(sessionStorage.getItem(CRUMB_KEY) || "[]"); }catch(e){ return []; }
+};
+
+/* Shown once, after a reload, only when the last page in this tab stopped in
+   the middle of something. */
+function crumbNotice(){
+  let trail = [];
+  try{ trail = JSON.parse(sessionStorage.getItem(CRUMB_KEY) || "[]"); }catch(e){}
+  crumbTrail = [];
+  try{ sessionStorage.removeItem(CRUMB_KEY); }catch(e){}
+  const last = trail[trail.length - 1];
+  if(!last || last.phase === "idle") return;
+  const say = {
+    scan:"listing the folder", read:"reading pictures", decode:"shrinking a picture",
+    book:"reading the workbook", catchup:"reading everyone's files", hello:"setting up"
+  }[last.phase] || last.phase;
+  const text = trail.map(c=>[c.t, c.phase, c.step, "files " + c.files + " (" + c.mb + " MB)",
+    "decoding " + c.decoding, "decoded " + c.decoded + " (" + c.mpx + " Mpx)",
+    "listed " + c.scanned, c.heap && "heap " + c.heap, c.store && "stored " + c.store,
+    c.build].filter(Boolean).join(" | ")).join("\n");
+  const box = document.createElement("div");
+  box.id = "crumbBox";
+  box.setAttribute("role", "status");
+  box.style.cssText = "position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:9999;"
+    + "max-width:min(560px,calc(100vw - 32px));padding:12px 14px;border-radius:10px;"
+    + "background:var(--paper,#fff);color:var(--ink,#222);border:1px solid var(--flag,#c33);"
+    + "box-shadow:0 6px 24px rgba(0,0,0,.18);font:13px/1.4 system-ui,sans-serif";
+  box.innerHTML = "<div><b>The last visit stopped while " + esc(say) + ".</b> "
+    + esc(last.step || "") + " — " + esc(String(last.files)) + " file" + (last.files === 1 ? "" : "s")
+    + " read, " + esc(String(last.decoding)) + " being shrunk at the time"
+    + (last.heap ? ", script memory " + esc(last.heap) : "") + ".</div>"
+    + '<div style="margin-top:8px;display:flex;gap:8px;justify-content:flex-end">'
+    + '<button class="btn" id="crumbCopy">Copy the details</button>'
+    + '<button class="btn" id="crumbShut">Dismiss</button></div>';
+  document.body.appendChild(box);
+  el("crumbShut").onclick = ()=>box.remove();
+  el("crumbCopy").onclick = async ()=>{
+    try{ await navigator.clipboard.writeText(text); toast("Copied"); }
+    catch(e){ console.log(text); toast("Could not copy; the details are in the console"); }
+  };
+  console.log("Where the last visit stopped:\n" + text);
+}
+
 const breathChan = typeof MessageChannel === "function" ? new MessageChannel() : null;
 const breathQueue = [];
 if(breathChan) breathChan.port1.onmessage = ()=>{ const f = breathQueue.shift(); if(f) f(); };
@@ -15766,20 +15879,24 @@ async function picRead(path){
     }catch(e){}
     if(!picDir && !bookDir) return "";
     let f = null;
+    crumbNow.files++;
+    crumb("read", path);
     try{ f = await fileFromFolder(path); }catch(e){}
-    if(!f){ folderMissed(); return ""; }
+    if(!f){ folderMissed(); crumbIdle("missing " + path); return ""; }
+    crumbNow.bytes += f.size || 0;
     let keep = f;
     try{ keep = await bdShrink(f); }catch(e){}
     /* whatever came back has to be something the browser will make an address
        for; anything else is dropped rather than allowed to throw and take the
        rest of the queue with it */
     if(!(keep instanceof Blob)) return "";
-    if(Store.mode === "idb" && await roomToStore(keep.size)){
+    if(Store.mode === "idb" && worthStoring(keep, f) && await roomToStore(keep.size)){
       try{ await Store.putKey("pic:" + path, keep); }catch(e){}
     }
     let url = "";
     try{ url = URL.createObjectURL(keep); }catch(e){ return ""; }
     picKeep(path, url);
+    crumbIdle("read " + path);
     /* a breath, so a run of these cannot monopolise the main thread */
     await breath();
     return url;
@@ -18961,8 +19078,13 @@ async function backdropPool(force){
        walked with a breath every so often rather than in one unbroken run
        that locks the page up. */
     let seen = 0;
+    crumb("scan", "listing " + (root.name || "the folder"), {scanned:0});
     const breathe = async ()=>{
-      if(++seen % 150 === 0) await breath();
+      if(++seen % 150 === 0){
+        crumb("scan", "listing " + (root.name || "the folder") + ", " + names.length + " pictures so far",
+          {scanned:seen});
+        await breath();
+      }
       return names.length < BD_POOL_MAX;
     };
     try{
@@ -18990,6 +19112,7 @@ async function backdropPool(force){
     if(names.length) break;
   }
   bdPool = [...new Set(names)].sort();
+  crumbIdle("listed " + bdPool.length + " backdrops");
   if(!bdPool.length && folderWanted() === "backdrops") folderMissed();
   try{ await Store.putKey("bdPool", {names:bdPool, at:nowISO()}); }catch(e){}
   return bdPool;
@@ -18998,8 +19121,13 @@ async function backdropPool(force){
 /* Shrink once, keep it shrunk. A 3 MB drawing becomes about 200 KB, and the
    shrunk copy lives in this browser so the big file is never read again. */
 async function bdShrink(file){
+  const label = (file && file.name || "picture") + " (" + Math.round((file && file.size || 0) / 1024) + " KB)";
+  crumbNow.decoding++;
+  crumb("decode", label);
   try{
     const bmp = await createImageBitmap(file);
+    crumbNow.decoded++;
+    crumbNow.mpx += bmp.width * bmp.height / 1e6;
     const scale = Math.min(1, BD_MAX_W / bmp.width);
     const w = Math.max(1, Math.round(bmp.width * scale));
     const h = Math.max(1, Math.round(bmp.height * scale));
@@ -19013,6 +19141,16 @@ async function bdShrink(file){
     cv.width = cv.height = 0;
     return blob && blob.size < file.size ? blob : file;
   }catch(e){ return file; }
+  finally{ crumbNow.decoding--; }
+}
+
+/* Worth keeping a copy of in this browser? A shrunk one always is. The
+   original, when it would not shrink, only if it is small: in a private
+   window the stored copy lives in memory, and a stack of full-size
+   originals there is exactly what a private window runs out of. */
+const KEEP_ORIGINAL_MAX = 1.5 * 1024 * 1024;
+function worthStoring(kept, original){
+  return kept !== original || (kept && kept.size <= KEEP_ORIGINAL_MAX);
 }
 
 function bdKeep(name, url){
@@ -19043,13 +19181,29 @@ async function backdropURL(name){
         if(cached instanceof Blob) return bdKeep(name, URL.createObjectURL(cached));
       }catch(e){}
     }
-    const f = await fileFromFolder(name);
-    if(!f){ folderMissed(); return ""; }
-    const small = await bdShrink(f);
-    if(Store.mode === "idb" && await roomToStore(small.size)){
-      try{ await Store.putKey(key, small); }catch(e){}
-    }
-    return bdKeep(name, URL.createObjectURL(small));
+    /* Opening and shrinking the file waits its turn in the same line as the
+       node pictures. It used not to: every room entered started its own read
+       and each one warmed five or more neighbours, so a fresh window — which
+       has nothing kept and must shrink everything — was decoding several
+       full-size photographs at the same moment, roughly fifty megabytes each
+       for an ordinary phone picture. A normal window only ever did that on its
+       first visit, which is why only a private window kept dying of it. */
+    return picInLine(async ()=>{
+      if(bdLive.has(name)) return bdLive.get(name);
+      crumbNow.files++;
+      crumb("read", name);
+      const f = await fileFromFolder(name);
+      if(!f){ folderMissed(); crumbIdle("missing " + name); return ""; }
+      crumbNow.bytes += f.size || 0;
+      const small = await bdShrink(f);
+      if(Store.mode === "idb" && worthStoring(small, f) && await roomToStore(small.size)){
+        try{ await Store.putKey(key, small); }catch(e){}
+      }
+      const url = bdKeep(name, URL.createObjectURL(small));
+      crumbIdle("read " + name);
+      await breath();
+      return url;
+    });
   })().finally(()=>bdPending.delete(name));
 
   bdPending.set(name, job);
@@ -19073,19 +19227,46 @@ function bdNameFor(id){
 }
 
 /* Once you are in a room, the rooms next door are read quietly, so walking
-   through the map does not wait on a file each time. */
+   through the map does not wait on a file each time.
+
+   Quietly means one at a time, and only while nothing else is being read:
+   the room you are standing in always goes first. And only for where you
+   are now — walk on and the old neighbours are dropped from the list rather
+   than read for a room you have already left. */
+const bdWarmWant = [];
+let bdWarming = false;
 function bdWarmNeighbours(id){
   if(!id || !S.nodes.has(id)) return;
   const near = [parentOf(id), ...childrenOf(id).slice(0, 5),
     ...crossOf(id).slice(0, 2).map(c=>c.id)].filter(Boolean);
-  whenIdle(()=>{
-    near.forEach(k=>{
-      const nm = bdNameFor(k);
-      if(!nm || !isFolderPath(nm) || bdLive.has(nm) || bdWarmed.has(nm)) return;
-      bdWarmed.add(nm);
-      backdropURL(nm);
-    });
+  bdWarmWant.length = 0;
+  near.forEach(k=>{
+    /* the same question the wall asks, so a mood that draws no backdrop —
+       professional, the default — reads none in advance either */
+    const bd = backdropFor(k);
+    const nm = bd && bd.name;
+    if(!nm || !isFolderPath(nm) || bdLive.has(nm) || bdWarmed.has(nm)) return;
+    if(!bdWarmWant.includes(nm)) bdWarmWant.push(nm);
   });
+  if(bdWarmWant.length && !bdWarming) whenIdle(bdWarmPump);
+}
+async function bdWarmPump(){
+  if(bdWarming) return;
+  bdWarming = true;
+  try{
+    while(bdWarmWant.length){
+      /* something you asked for is being read: let it finish first */
+      if(bdPending.size || picPending.size){
+        await new Promise(r=>setTimeout(r, 250));
+        continue;
+      }
+      const nm = bdWarmWant.shift();
+      if(bdLive.has(nm) || bdWarmed.has(nm)) continue;
+      bdWarmed.add(nm);
+      try{ await backdropURL(nm); }catch(e){}
+      await new Promise(r=>setTimeout(r, 120));
+    }
+  }finally{ bdWarming = false; }
 }
 
 /* ---- where the critters stand on a drawn room ----
@@ -20569,6 +20750,7 @@ function wireRoom(){
 
 
 async function boot(){
+  try{ crumbNotice(); }catch(e){}
   wireRoom();
   el("modeRoot").onclick = ()=>setMode("root");
   el("modeViewer").onclick = ()=>setMode("viewer");
