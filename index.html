@@ -79,6 +79,18 @@ html[data-theme="dark"]{
   }
 }
 *{box-sizing:border-box}
+/* ---------------------------------------------------------------
+   The browser's own rule for the hidden attribute is the weakest
+   thing in the cascade, so any author rule that sets display — and
+   there are dozens here — quietly beats it. That is why a shut
+   speech bubble stayed on screen as a blank bar, why the reconnect
+   banner never showed itself properly, and why a reader kept being
+   offered Add and Example: every one of those was set hidden in
+   JavaScript and painted anyway. Said once, with weight, so no rule
+   added later can reopen it.
+   --------------------------------------------------------------- */
+[hidden]{display:none !important}
+
 html,body{height:100%;margin:0}
 /* A phone reads a downward drag as "reload the page", which lands on exactly
    the gesture somebody uses to push a sheet back down. The page is a single
@@ -214,6 +226,17 @@ details[open]>summary .toctwist{cursor:pointer;transform:rotate(90deg)}
 .group h2{margin:0 0 9px;font-size:12px;font-weight:600;color:var(--graphite-60)}
 /* a second heading inside a group, for a thing that belongs with the first
    without being the same thing */
+/* a heading inside a dialog, the same weight as a group's in the panel */
+.dlgsub{margin:18px 0 9px;font-size:12px;font-weight:600;color:var(--graphite-60);
+  padding-top:14px;border-top:1px solid var(--rule-soft)}
+.dlgsub:first-child{margin-top:0;padding-top:0;border-top:0}
+.advbox{margin-top:18px;border-top:1px solid var(--rule);padding-top:12px}
+.advbox>summary{cursor:pointer;font-size:12px;font-weight:600;color:var(--graphite-60);
+  list-style:none;padding:4px 0}
+.advbox>summary::-webkit-details-marker{display:none}
+.advbox>summary::before{content:"\25B8  ";display:inline-block;transition:transform .12s}
+.advbox[open]>summary::before{transform:rotate(90deg)}
+#themeRoomHome .group,#themeMoreHome .group{padding:0;border:0}
 .group .subhead{margin:16px 0 7px;font-size:12px;font-weight:600;
   color:var(--graphite-60);padding-top:12px;border-top:1px solid var(--rule-soft)}
 .row{display:flex;gap:6px;flex-wrap:wrap}
@@ -1709,6 +1732,37 @@ html[data-motion="calm"] .rv-arch.swing{animation:none}
    drawn like everything else here — a rounded panel with a heavy outline —
    so it reads as part of the room rather than browser furniture.
    --------------------------------------------------------------- */
+/* ---------------------------------------------------------------
+   The reader's console.
+
+   Somebody who is only here to read has one surface: the room, and
+   this. Searching, going somewhere, answering what is asked of them
+   and their own shelves all live on it, so there is no panel to open
+   and no second view to get lost in. The filters stay out of the way
+   until the search itself is being used.
+   --------------------------------------------------------------- */
+.rv-findrow{display:flex;flex-direction:column;gap:6px;width:100%;margin-bottom:7px}
+.rv-findrow[hidden]{display:none}
+.rv-findbox{display:flex;align-items:center;gap:6px;width:100%}
+.rv-findbox .mqwrap{flex:1 1 auto;min-width:0;display:flex;align-items:center;position:relative}
+.rv-findbox input[type=search]{width:100%;box-sizing:border-box;
+  padding:9px 12px;font-size:15px;border:2px solid var(--rv-line);border-radius:9px;
+  background:var(--rv-wall);color:var(--rv-door-ink)}
+.rv-findbox input[type=search]:focus{border-color:var(--blueprint);outline:0}
+.rv-findbox .mhits{flex:0 0 auto;display:flex;align-items:center;gap:2px;
+  font-family:var(--mono);font-size:11px;color:var(--rv-dim, var(--graphite-60))}
+.rv-findbox .iconbtn{flex:0 0 auto}
+.rv-findmore{display:flex;align-items:center;gap:6px;flex-wrap:wrap;width:100%}
+.rv-findmore[hidden]{display:none}
+.rv-findmore select{flex:1 1 150px;min-width:0;padding:7px 8px;font-size:12.5px;
+  border:2px solid var(--rv-line);border-radius:8px;
+  background:var(--rv-wall);color:var(--rv-door-ink)}
+.rv-findmore .btn{flex:0 0 auto}
+body.viewing .stage{grid-column:1 / -1}
+/* the console stacks: find on top, the doing underneath */
+#roomView[data-reader="1"] .rv-bar{flex-direction:column;align-items:stretch}
+#roomView[data-reader="1"] .rv-bar-right{justify-content:center}
+
 .rv-bar{
   container-type:inline-size;
   position:absolute;left:10px;right:10px;bottom:9px;z-index:30;
@@ -2535,6 +2589,18 @@ html[data-motion="off"] .h-crit{animation:none !important}
 .modebtn.on{opacity:1;border-color:var(--blueprint);color:var(--blueprint);font-weight:600}
 body.viewing .brand h1::after{content:" · viewing";font-size:12px;font-weight:400;color:var(--graphite-60)}
 body.viewing #buildGroup{display:none}
+/* A reader is given a table of contents, not a workshop. Everything on the
+   Tools side is either an editor's business or has been moved into How it
+   looks, which is reachable from the header without any of this. */
+/* No top bar, no side panel, no second view. What a reader needs is on the
+   console; everything else was scaffolding for somebody building the map. */
+body.viewing .mobile-tabs{display:none}
+body.viewing .rail{display:none}
+body.viewing #vistaSwitch{display:none}
+body.viewing .zoombar{display:none}
+body.viewing .railtab[data-pane="Tools"]{display:none}
+body.viewing #paneTools{display:none !important}
+body.viewing .railtabs{border-bottom:0}
 body.viewing .fab,
 body.viewing #topAdd,
 body.viewing #btnArea,
@@ -3017,7 +3083,8 @@ body.viewing.panelaway #panelHide{display:none}
   <button class="btn iconbtn" id="topUpdates" title="New and recently opened" aria-label="Updates">
     ★<span id="newBadgeCount"></span></button>
   <button class="btn iconbtn" id="topToc" title="Contents, questions and bookmarks" aria-label="Contents">☰</button>
-  <button class="btn iconbtn" id="themePick" title="Themes" aria-label="Themes">◈</button>
+  <button class="btn iconbtn" id="themePick" title="How it looks, and your settings"
+          aria-label="How it looks">◈</button>
   <button class="btn iconbtn" id="themeBtn" title="Light or dark" aria-label="Light or dark">◐</button>
   <button class="btn" id="mInsp">Node</button>
 </div>
@@ -3155,6 +3222,7 @@ body.viewing.panelaway #panelHide{display:none}
           Fade everything that does not match a search</label>
         <label class="check"><input type="checkbox" id="portals" checked>
           Show cross-links as hollow portals, and as a stub when the other end is away</label>
+        <div id="roomLook">
         <label class="check" style="margin-bottom:8px"><input type="checkbox" id="worldAutoPref">
           Searching in a room stands you in what it found</label>
         <label class="field"><span>What opens first</span>
@@ -3201,6 +3269,7 @@ body.viewing.panelaway #panelHide{display:none}
             <option value="compact">Compact — small and quick, for a phone</option>
             <option value="boardroom">Boardroom — plain and legible, for a projector</option>
           </select></label>
+        </div><!-- /roomLook -->
         <label class="field"><span>How branches are arranged</span>
           <select id="branchShape">
             <option value="tidy">Tidy columns</option>
@@ -3291,7 +3360,7 @@ body.viewing.panelaway #panelHide{display:none}
           Not connected yet. Manage sheets walks you through it.</p>
       </div>
 
-      <div class="group">
+      <div class="group" id="printGroup">
         <h2>Print</h2>
         <label class="field"><span>Paper</span>
           <select id="paper">
@@ -3494,9 +3563,15 @@ body.viewing.panelaway #panelHide{display:none}
           <div class="rv-list-body" id="rvListBody"></div>
         </div>
         <div class="rv-bar" id="rvBar">
+          <div class="rv-findrow" id="rvFindRow" hidden>
+            <div class="rv-findbox" id="rvFindBox"></div>
+            <div class="rv-findmore" id="rvFindMore" hidden></div>
+          </div>
           <div class="rv-bar-left" id="rvStuff"></div>
           <div class="rv-bar-mid" id="rvBarSays"></div>
           <div class="rv-bar-right">
+            <button class="rvb" id="rvMore" hidden title="Your name, your shelves, how it looks">
+              <span class="ic">&#8943;</span><span class="lb">More</span></button>
             <button class="rvb" id="rvJump" title="Go somewhere">
               <span class="ic">&#9776;</span><span class="lb">Go to</span></button>
             <button class="rvb" id="rvCatch" hidden
@@ -3941,19 +4016,33 @@ body.viewing.panelaway #panelHide{display:none}
 
 <dialog id="themeDlg">
   <div class="dlg-head">
-    <h2>Themes</h2>
+    <h2>How it looks</h2>
     <button class="btn" id="themeClose">Done</button>
   </div>
   <div class="dlg-body">
+    <h3 class="dlgsub">Colours, on the drawing and in the rooms</h3>
     <div id="themeList" class="themegrid"></div>
-    <div class="row" style="margin-top:14px">
-      <button class="btn" id="themeEdit">Edit this one</button>
-      <button class="btn" id="themeDup">Make a copy to edit</button>
-      <button class="btn" id="themeExport">Export</button>
-      <button class="btn" id="themeImport">Import</button>
-      <input type="file" id="themeFile" accept=".json" hidden>
-    </div>
-    <div id="themeEditor" hidden></div>
+
+    <h3 class="dlgsub">The rooms</h3>
+    <div id="themeRoomHome"></div>
+
+    <h3 class="dlgsub">You</h3>
+    <div id="themeYouHome" class="row"></div>
+
+    <details id="themeAdvanced" class="advbox">
+      <summary>Advanced</summary>
+      <p class="fineprint" style="margin:6px 0 10px">Making and editing themes of your
+        own, and the settings behind the rest of it.</p>
+      <div class="row">
+        <button class="btn" id="themeEdit">Edit this one</button>
+        <button class="btn" id="themeDup">Make a copy to edit</button>
+        <button class="btn" id="themeExport">Export</button>
+        <button class="btn" id="themeImport">Import</button>
+        <input type="file" id="themeFile" accept=".json" hidden>
+      </div>
+      <div id="themeEditor" hidden></div>
+      <div id="themeMoreHome"></div>
+    </details>
   </div>
 </dialog>
 
@@ -9448,6 +9537,10 @@ function updateModeUI(){
   /* reading a map wants the map: the details panel folds away in viewing and
      comes back when a pill sends you to it */
   document.body.classList.toggle("panelaway", !isRoot());
+  /* a reader gets the room and the console, and the console gets the rest */
+  readerConsole(!isRoot());
+  if(!isRoot() && S.vista !== "room") setVista("room", true);
+  gatherLook();
   forgetSize();
   if(S.viewerBuild){
     /* say what this particular copy is, rather than one blanket sentence */
@@ -9904,6 +9997,103 @@ function subHeading(text){
   p.className = "subhead";
   p.textContent = text;
   return p;
+}
+
+/* ---------------------------------------------------------------
+   Gathering the look of the thing into one place.
+
+   How the drawing looks and how a room looks were two sets of
+   controls in two places, which is one place too many for what is
+   plainly one question. The real controls are moved — not copied —
+   into the Themes dialog, so everything already wired to them keeps
+   working and there is only ever one of each.
+   --------------------------------------------------------------- */
+/* ---------------------------------------------------------------
+   Handing the console to a reader.
+
+   The real controls are moved out of the top bar rather than copied,
+   so every wire already attached to them still pulls. A reader gets
+   one surface; an editor is untouched, and if the mode is switched
+   back the pieces go home.
+   --------------------------------------------------------------- */
+let readerShell = null;    /* where each moved piece came from */
+
+function readerConsole(on){
+  const view = el("roomView"), row = el("rvFindRow");
+  if(!view || !row) return;
+  const box = el("rvFindBox"), more = el("rvFindMore");
+
+  const parts = [
+    ["mqwrap",     box,  ()=>document.querySelector(".mqwrap")],
+    ["mHits",      box,  ()=>el("mHits")],
+    ["topUpdates", box,  ()=>el("topUpdates")],
+    ["searchScope", more, ()=>el("searchScope")],
+    ["tagPickBtn",  more, ()=>el("tagPickBtn")]
+  ];
+
+  if(on){
+    if(!readerShell) readerShell = new Map();
+    parts.forEach(([key, host, find])=>{
+      const e = find();
+      if(!e || !host || e.parentNode === host) return;
+      if(!readerShell.has(key)) readerShell.set(key, {e, was:e.parentNode, at:e.nextSibling});
+      host.appendChild(e);
+    });
+    row.hidden = false;
+    view.dataset.reader = "1";
+    if(el("rvMore")) el("rvMore").hidden = false;
+  } else {
+    if(readerShell){
+      readerShell.forEach(({e, was, at})=>{
+        if(was && e.parentNode !== was){
+          try{ was.insertBefore(e, at && at.parentNode === was ? at : null); }
+          catch(err){ was.appendChild(e); }
+        }
+      });
+      readerShell = null;
+    }
+    row.hidden = true;
+    view.dataset.reader = "0";
+    if(el("rvMore")) el("rvMore").hidden = true;
+    if(el("rvFindMore")) el("rvFindMore").hidden = true;
+  }
+}
+
+/* The filters are only in the way until somebody is actually searching. */
+function findMoreShown(want){
+  const more = el("rvFindMore");
+  if(!more) return;
+  const q = el("mq");
+  const busy = want != null ? want
+    : !!((q && q.value.trim()) || S.tagPick.size || (S.searchScope && S.searchScope !== "all"));
+  more.hidden = !busy;
+  fitWall();
+}
+
+function gatherLook(){
+  const home = el("themeRoomHome");
+  const room = el("roomLook");
+  if(home && room && room.parentNode !== home) home.appendChild(room);
+
+  /* the two things a reader needs and would otherwise go hunting for */
+  const you = el("themeYouHome");
+  if(you && !you.children.length){
+    ["btnWho", "btnCatchUp"].forEach(k=>{
+      const b = el(k);
+      if(b) you.appendChild(b);
+    });
+  }
+
+  /* and, behind Advanced, printing — which a reader wants now and then and
+     would otherwise have no way to reach at all. The rail turns its groups
+     into folding sections on the way up, so it is found by id rather than by
+     the heading it no longer has. */
+  const more = el("themeMoreHome");
+  const printing = el("printGroup");
+  if(more && printing && !canEdit() && printing.parentNode !== more){
+    more.appendChild(printing);
+    if(printing.open === false) printing.open = true;
+  }
 }
 
 function organiseRail(){
@@ -14613,7 +14803,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-09-28i";
+const APP_BUILD = "2026-09-28k";
 
 function isHandle(h){
   return !!h && typeof h === "object" && typeof h.queryPermission === "function";
@@ -15331,7 +15521,16 @@ function renderThemeList(){
   });
 }
 
-function openThemes(){ renderThemeList(); el("themeEditor").hidden = true; el("themeDlg").showModal(); }
+function openThemes(){
+  gatherLook();
+  renderThemeList();
+  el("themeEditor").hidden = true;
+  /* Advanced stays shut until somebody opens it, every time: it is where the
+     fiddly things live and a reader should not meet them by accident. */
+  const adv = el("themeAdvanced");
+  if(adv) adv.open = false;
+  el("themeDlg").showModal();
+}
 
 function openThemeEditor(){
   const t = activeTheme();
@@ -17217,9 +17416,11 @@ function filterWords(){
     areas:"in an area", bookmarks:"bookmarked", retired:"retired"
   }[S.searchScope];
   if(scope) bits.push(scope);
+  /* "Everything, retired included" is the setting as it ships, so saying so
+     in the title of every search is noise rather than news. */
   const shown = el("showScope") && el("showScope").value;
   if(shown === "retired") bits.push("retired only");
-  else if(shown === "all" && S.searchScope !== "retired") bits.push("retired included");
+  else if(shown === "active") bits.push("current logic only");
   if(!bits.length) return "";
   /* sentence case, and joined so it reads rather than lists */
   const said = bits.join(" \u00b7 ");
@@ -17525,6 +17726,10 @@ function renderRoom(){
   const wipeTags = el("rvTags");
   if(wipeTags){ wipeTags.hidden = true; wipeTags.innerHTML = ""; }
   if(el("rvBulk")) el("rvBulk").hidden = true;
+  /* Only a room that asks for examples offers the button, and the hall and a
+     room of search results ask for nothing — they were keeping whichever one
+     the last room happened to put there. */
+  if(el("rvExample")) el("rvExample").hidden = true;
   const wipeRow = document.querySelector(".rv-wallrow");
   if(wipeRow) wipeRow.hidden = false;
   if(el("rvBoard")) el("rvBoard").dataset.bare = "0";
@@ -18709,6 +18914,8 @@ function shutPeek(){
 /* Switching between the room and the drawing. The map keeps its position
    underneath, so coming back lands where you left it. */
 function setVista(v, quiet){
+  /* a reader has one view, so there is nothing to switch to */
+  if(!canEdit() && v === "map") v = "room";
   S.vista = v === "map" ? "map" : "room";
   const view = el("roomView");
   if(!view) return;
@@ -19400,6 +19607,15 @@ function wireRoom(){
     el("bulkDateNote").textContent = ids.length + " from "
       + (world ? world.what.toLowerCase() : "this room") + ", ready to change together.";
   };
+  el("rvMore").onclick = ()=>openThemes();
+  /* the filters come up with the search and go away with it */
+  ["mq", "q"].forEach(k=>{
+    const f = el(k);
+    if(!f) return;
+    f.addEventListener("focus", ()=>findMoreShown(true));
+    f.addEventListener("input", ()=>findMoreShown());
+  });
+  if(el("searchScope")) el("searchScope").addEventListener("change", ()=>findMoreShown());
   el("rvJump").onclick = ()=>showList();
   el("rvListQ").oninput = renderList;
   el("rvListQ").onkeydown = ev=>{
@@ -20559,6 +20775,7 @@ async function boot(){
   if(el("roomLife")) el("roomLife").value = S.roomLife;
   layoutButton();
     organiseRail();
+    gatherLook();
     /* shelves kept in this browser come back even when the workbook did not */
     try{ await recallShelves(); renderShelves(); }catch(e){}
     /* every folder named before is picked back up without asking */
