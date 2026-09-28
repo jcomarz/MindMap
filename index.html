@@ -2731,6 +2731,17 @@ html[data-motion="off"] .h-crit{animation:none !important}
 .modebtn{opacity:.5}
 .modebtn.on{opacity:1;border-color:var(--blueprint);color:var(--blueprint);font-weight:600}
 body.viewing .brand h1::after{content:" · viewing";font-size:12px;font-weight:400;color:var(--graphite-60)}
+/* A copy handed out is local and nothing else. The sheet, the address, and
+   the machinery for making more copies are the original's business and are
+   taken out of it entirely rather than left greyed out for somebody to
+   wonder about. */
+body.localonly .sheetbits,
+body.localonly #syncGroup,
+body.localonly #btnViewer,
+body.localonly #btnViewerLauncher,
+body.localonly #workbookUrlRow,
+body.localonly #btnLinkShare,
+body.localonly [data-needsweb]{display:none !important}
 body.viewing #buildGroup{display:none}
 /* A reader is given a table of contents, not a workshop. Everything on the
    Tools side is either an editor's business or has been moved into How it
@@ -3494,7 +3505,7 @@ body.viewing.panelaway #panelHide{display:none}
           <button class="btn wide" id="btnConns">Manage sheets</button>
         </div>
         <div class="row" style="margin-top:6px">
-          <button class="btn wide" id="btnViewerCopy">Build a viewer copy</button>
+          <button class="btn wide" id="btnViewerCopy">Build a copy to hand out</button>
         <button class="btn wide" id="btnGather">Gather feedback from the folder</button>
         <button class="btn wide" id="btnPicFolder">Link the folder holding the pictures</button>
         <p class="fineprint">Pick the folder your paths are relative to — for
@@ -3845,7 +3856,7 @@ body.viewing.panelaway #panelHide{display:none}
 
 <dialog id="viewerKindDlg">
   <div class="dlg-head">
-    <h2>Build a viewer copy</h2>
+    <h2>Build a copy to hand out</h2>
     <button class="btn" id="vkCancel">Cancel</button>
   </div>
   <div class="dlg-body">
@@ -3861,6 +3872,20 @@ body.viewing.panelaway #panelHide{display:none}
       <label class="field"><span>The workbook it should look for</span>
         <input type="text" id="vkBookName" placeholder="AccessionsMindMap.xlsx"></label>
       <button class="btn primary wide" id="vkLive">Build the working copy</button>
+    </div>
+    <div class="conn">
+      <div class="hdr"><strong>An editing copy</strong><span class="status-pill">shares the work</span></div>
+      <p class="fineprint" style="margin:0 0 10px">The same as the working copy, but the person
+        who opens it can change the map. They point it at the workbook in the synced folder once
+        and write straight back to it, exactly as you do here. Nothing in it reaches past that
+        folder &mdash; no sheet to connect, no address to fetch from, nothing to set up.
+        Hand it to whoever is helping you keep the map, and keep the rest for readers.</p>
+      <p class="fineprint" style="margin:0 0 10px;color:var(--flag)">Two people writing the
+        workbook at the same moment will overwrite one another, so agree who has it, the way
+        you would with any shared file.</p>
+      <label class="field"><span>The workbook it should look for</span>
+        <input type="text" id="vkEditBook" placeholder="AccessionsMindMap.xlsx"></label>
+      <button class="btn wide" id="vkEditor">Build the editing copy</button>
     </div>
     <div class="conn">
       <div class="hdr"><strong>A snapshot to show people</strong><span class="status-pill">~550 KB</span></div>
@@ -4497,6 +4522,7 @@ const S = {
   roomLife:"full",             // full | quiet | still — how much the room moves
   roomFloor:"roam",            // roam | row — wandering, or lined up to read
   roomSort:"order",            // order | name | date | changed — how a room is ordered
+  localOnly:false,             // a handed-out copy: the folder and nothing beyond it
   roomMood:"pro",              // pro | silly — the whole character of the place
   sillySkin:"plain", sillyCast:"blob",   // kept, so switching back restores them
   worldAuto:true,              // a search in a room stands you in what it found
@@ -14493,7 +14519,9 @@ function askViewerKind(){
        copy knows what to ask its reader for */
     const guess = (fileName || ((S.meta.title || "map").replace(/[^\w. -]+/g, "") + ".xlsx"));
     el("vkBookName").value = guess;
+    if(el("vkEditBook")) el("vkEditBook").value = guess;
     el("vkLive").onclick = ()=>{ dlg.close(); res("workbook"); };
+    el("vkEditor").onclick = ()=>{ dlg.close(); res("editor"); };
     el("vkSnapshot").onclick = ()=>{ dlg.close(); res("snapshot"); };
     el("vkCancel").onclick = ()=>{ dlg.close(); res(null); };
     dlg.showModal();
@@ -14526,8 +14554,8 @@ async function buildStandaloneViewer(kind){
     src = await r.text();
     if(!/id="viewerSlot"/.test(src)) throw new Error("unexpected source");
   }catch(e){
-    toast("Could not read this page's own source, so the self-contained copy "
-        + "cannot be built from here."); return;
+    toast("Could not read this page's own source, so a copy cannot be built here. "
+        + "Build it from wherever you normally open this to edit."); return;
   }
   const tables = toSheets();
   delete tables.Sync;
@@ -14538,23 +14566,30 @@ async function buildStandaloneViewer(kind){
                                  + "|" + ((conn && conn.prefix)||"") + "|" + ((conn && conn.id)||""))),
     theme:{ id:S.themeId, custom:(S.customThemes||[]).find(t=>t.id === S.themeId) || null },
     kind,
-    fromWorkbook:kind === "workbook",
+    fromWorkbook:kind === "workbook" || kind === "editor",
+    /* An editing copy is trusted with the map. Everything that reaches past
+       the synced folder is left out of it rather than merely hidden: there is
+       no sheet, no address, and nothing in it that could mention either. */
+    editor:kind === "editor",
+    localOnly:kind === "editor" || kind === "workbook",
     snapshot,
     /* the file this copy belongs to, so the reader is asked for the right one */
     bookName:kind === "workbook"
-      ? ((el("vkBookName") && el("vkBookName").value || "").trim()) : "",
+      ? ((el("vkBookName") && el("vkBookName").value || "").trim())
+      : kind === "editor"
+      ? ((el("vkEditBook") && el("vkEditBook").value || "").trim()) : "",
     connection:true ? null
       : { name:(conn.name || "Sheet") + " (viewing)", endpoint:conn.endpoint.trim(),
           id:conn.id||"", prefix:conn.prefix||"", token:conn.viewerToken.trim(),
           mode:"merge", auto:true },
     /* a working copy ships empty and fills itself from the workbook */
-    map:kind === "workbook" ? "" : await gzipB64(JSON.stringify(tables))
+    map:(kind === "workbook" || kind === "editor") ? "" : await gzipB64(JSON.stringify(tables))
   };
   const tag = '<script id="viewerConfig" type="application/json">'
             + JSON.stringify(cfg).replace(/<\//g, "<\\/") + '<\/script>';
   /* A copy meant for a folder has to carry the spreadsheet library with it, or
      it cannot read a workbook without an internet connection. */
-  if(kind === "workbook"){
+  if(kind === "workbook" || kind === "editor"){
     const libTag = /<script src="(https:\/\/cdn\.sheetjs\.com[^"]+)"><\/script>/.exec(src);
     if(libTag){
       try{
@@ -14572,17 +14607,22 @@ async function buildStandaloneViewer(kind){
     }
   }
   const out = src.replace('<div id="viewerSlot"></div>', ()=>'<div id="viewerSlot"></div>' + tag)
-                 .replace(/<title>[^<]*<\/title>/, "<title>" + esc(S.meta.title || "MindMap") + " — viewing<\/title>");
+                 .replace(/<title>[^<]*<\/title>/, "<title>" + esc(S.meta.title || "MindMap")
+       + (kind === "editor" ? "" : " — viewing") + "<\/title>");
   const safe = (S.meta.title || "mindmap").replace(/[^\w\- ]+/g,"").trim().replace(/\s+/g,"-") || "mindmap";
   const blob = new Blob([out], {type:"text/html"});
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = safe + (kind === "snapshot" ? "-snapshot.html" : "-viewer.html");
+  a.download = safe + (kind === "snapshot" ? "-snapshot.html"
+                     : kind === "editor" ? "-editing.html" : "-viewer.html");
   a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href), 6000);
   toast(kind === "workbook"
     ? "Working copy saved, " + Math.round(out.length/1024) + " KB. Put it beside the workbook; "
       + "the first time someone opens it they point it at that file."
+    : kind === "editor"
+    ? "Editing copy saved, " + Math.round(out.length/1024) + " KB. Whoever opens it can change "
+      + "the map and write it back to the workbook in the folder."
     : "Snapshot saved, " + Math.round(out.length/1024) + " KB. It shows the map as it is now "
       + "and connects to nothing.");
 }
@@ -15076,7 +15116,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-09-28m";
+const APP_BUILD = "2026-09-28n";
 
 function isHandle(h){
   return !!h && typeof h === "object" && typeof h.queryPermission === "function";
@@ -15742,6 +15782,34 @@ async function refreshFromWorkbook(quiet){
 
 function applyViewerConfig(cfg){
   if(!cfg) return null;
+  /* An editing copy is a copy of the tool, not a reader's copy: whoever opens
+     it can change the map and write it back. What it is not is a copy with
+     the editor's own plumbing in it — no sheet, no address, nothing that
+     reaches past the folder it was handed out in. */
+  S.localOnly = !!(cfg.localOnly || cfg.editor);
+  document.body.classList.toggle("localonly", S.localOnly);
+  if(cfg.editor){
+    S.viewerBuild = false;
+    S.mode = "root";
+    document.body.classList.add("editorbuild");
+    S.fromWorkbook = true;
+    S.workbookUrl = "";
+    S.bookName = cfg.bookName || "";
+    S.snapshot = false;
+    S.connections = [];
+    document.body.classList.add("workbookviewer");
+    document.body.classList.toggle("cannotwrite", !canWriteFolder());
+    if(cfg.theme){
+      if(cfg.theme.custom){
+        S.customThemes = (S.customThemes || []).filter(t=>t.id !== cfg.theme.custom.id);
+        S.customThemes.push(cfg.theme.custom);
+      }
+      if(cfg.theme.id) S.themeId = cfg.theme.id;
+    }
+    if(cfg.title) S.meta.title = cfg.title;
+    if(cfg.mapKey) S.meta.key = cfg.mapKey;
+    return cfg;
+  }
   S.viewerBuild = true;
   S.mode = "viewer";
   document.body.classList.add("viewing", "viewerbuild");
@@ -20868,6 +20936,7 @@ async function boot(){
   el("btnMerge").onclick = ()=>runSync("merge");
   el("btnPush").onclick  = ()=>runSync("push");
   el("btnViewerCopy").onclick = buildViewerFile;
+  if(el("btnViewerCopy")) el("btnViewerCopy").dataset.needsweb = "1";
   el("btnGather").onclick = gatherFeedback;
   el("btnPicFolder").onclick = choosePictureFolder;
   el("btnConns").onclick = ()=>{
