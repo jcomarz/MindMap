@@ -80,6 +80,12 @@ html[data-theme="dark"]{
 }
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
+/* A phone reads a downward drag as "reload the page", which lands on exactly
+   the gesture somebody uses to push a sheet back down. The page is a single
+   screen that never scrolls as a whole, so there is nothing lost in telling
+   the browser that a drag which reaches the top of something stops there. */
+html,body{overscroll-behavior:none}
+.pane-scroll,dialog,.dlgbody,.rv-note,.rv-list-body{overscroll-behavior:contain}
 /* Chrome on Android reports a layout viewport taller than the visible area
    when the address bar is showing, so 100% pushes the bottom controls under
    it. dvh measures what is actually on screen. */
@@ -2325,6 +2331,8 @@ body.viewing.panelaway #panelHide{display:none}
 .status-pill{font-family:var(--mono);font-size:10px;border:1px solid var(--rule);border-radius:2px;padding:1px 5px}
 .status-pill.retired{color:var(--retired);border-style:dashed}
 
+.rvb.warn{border-color:var(--flag);color:var(--flag)}
+.rvb.warn:hover{background:var(--flag);color:#fff}
 .folderstate{display:flex;align-items:center;gap:9px;flex-wrap:wrap;
   margin:-2px 0 10px;font-size:12px;color:var(--graphite-60);
   font-family:var(--sans);line-height:1.4}
@@ -2814,8 +2822,18 @@ dialog#histDlg .dlg-body{flex:1;max-height:none;padding:6px 18px 22px}
     border-radius:8px 8px 0 0;transform:translateY(102%);transition:transform .22s ease;
     box-shadow:0 -6px 26px rgba(35,40,45,.18);padding-bottom:env(safe-area-inset-bottom)}
   .inspector.open{transform:none}
+  /* dragged by hand: no easing, or it lags behind the finger */
+  .inspector.swiping{transition:none}
   .inspector::before{content:"";position:absolute;top:7px;left:50%;transform:translateX(-50%);
-    width:38px;height:4px;border-radius:2px;background:var(--rule)}
+    width:38px;height:4px;border-radius:2px;background:var(--rule);
+    transition:background .15s, width .15s}
+  .inspector.swiping::before{background:var(--graphite-60);width:52px}
+  /* the same handle, and the same gesture, on a full-screen dialog */
+  dialog.sheet-drag{touch-action:pan-y}
+  dialog.swiping{transition:none}
+  dialog.sheet-drag::before{content:"";position:absolute;top:6px;left:50%;
+    transform:translateX(-50%);width:38px;height:4px;border-radius:2px;
+    background:var(--rule);z-index:5;pointer-events:none}
   #panelHide{margin:10px 14px 0;display:none}
 body.viewing #panelHide{display:block}
 body.viewing.panelaway #panelHide{display:none}
@@ -3044,7 +3062,8 @@ body.viewing.panelaway #panelHide{display:none}
         <p class="fineprint" id="bdPoolNote" style="margin:-2px 0 8px"></p>
         <div class="folderstate" id="folderState">
           <span id="folderStateWhat"></span>
-          <button class="btn small" id="folderStateGo" hidden>Reconnect</button>
+          <button class="btn small primary" id="folderStateGo" hidden>Reconnect</button>
+          <button class="btn small" id="folderStatePick" hidden>Pick the folder</button>
         </div>
         <p class="fineprint" style="margin:-2px 0 10px">A web address, or the name of a file in
           your synced picture folder. One room can override it with its own.</p>
@@ -3356,6 +3375,9 @@ body.viewing.panelaway #panelHide{display:none}
           <div class="rv-bar-left" id="rvStuff"></div>
           <div class="rv-bar-mid" id="rvBarSays"></div>
           <div class="rv-bar-right">
+            <button class="rvb warn" id="rvFolder" hidden
+                    title="A folder is remembered but needs a nod before it can be read">
+              <span class="ic">&#9873;</span><span class="lb">Reconnect folder</span></button>
             <button class="rvb" id="rvJump" title="Go somewhere">
               <span class="ic">&#9776;</span><span class="lb">Go to</span></button>
             <button class="rvb" id="rvCatch" hidden
@@ -13952,12 +13974,14 @@ async function choosePictureFolder(){
   }
   try{
     picDir = await window.showDirectoryPicker({id:"mindmap-folder", mode:"read"});
-    await rememberHandle("picDir", picDir);
+    const kept = await rememberHandle("picDir", picDir);
     picCache.clear();
     const n = await warmPictures();
     rebuild(); renderInspector();
     if(n){
-      toast(n + " picture" + (n===1?"":"s") + " found in " + picDir.name);
+      toast(n + " picture" + (n===1?"":"s") + " found in " + picDir.name
+        + (kept ? " \u2014 remembered for next time"
+                : " \u2014 this browser will not keep it, sorry"));
     } else {
       const want = [...new Set([...S.nodes.values()]
         .map(x=>x.image).filter(isFolderPath))].slice(0, 3);
@@ -13982,19 +14006,38 @@ async function choosePictureFolder(){
    when that happened the folder was still sitting in this browser under the
    old key and could not be found — which is the real reason it kept having to
    be picked again. The plain name survives that. */
-async function rememberHandle(kind, h){
-  if(!h) return;
-  try{ await Store.putKey(kind + ":" + (S.meta.key || "map"), h); }catch(e){}
-  try{ await Store.putKey(kind + ":last", h); }catch(e){}
+/* A real folder handle, or nothing. localStorage cannot hold one — it turns
+   it into an empty object on the way in, which then looks like a folder and
+   behaves like nothing, so it is thrown away rather than believed. */
+function isHandle(h){
+  return !!h && typeof h === "object" && typeof h.queryPermission === "function";
 }
+let handleStoreOK = true;      /* false once we know this browser cannot keep one */
+
+async function rememberHandle(kind, h){
+  if(!isHandle(h)) return false;
+  if(Store.mode !== "idb"){ handleStoreOK = false; paintFolderState().catch(()=>{}); return false; }
+  let kept = false;
+  try{ await Store.putKey(kind + ":" + (S.meta.key || "map"), h); kept = true; }catch(e){}
+  try{ await Store.putKey(kind + ":last", h); }catch(e){}
+  /* read it straight back: a folder that did not survive being written down
+     is worth knowing about now rather than on the next refresh */
+  if(kept){
+    try{ kept = isHandle(await Store.getKey(kind + ":" + (S.meta.key || "map"))); }catch(e){ kept = false; }
+  }
+  handleStoreOK = kept;
+  paintFolderState().catch(()=>{});
+  return kept;
+}
+
 async function recallHandle(kind){
   const mine = kind + ":" + (S.meta.key || "map");
-  try{ const h = await Store.getKey(mine); if(h) return h; }catch(e){}
+  try{ const h = await Store.getKey(mine); if(isHandle(h)) return h; }catch(e){}
   try{
     const h = await Store.getKey(kind + ":last");
     /* found under the plain name: file it under this map's too, so the next
        load finds it first time */
-    if(h){ try{ await Store.putKey(mine, h); }catch(e){} return h; }
+    if(isHandle(h)){ try{ await Store.putKey(mine, h); }catch(e){} return h; }
   }catch(e){}
   return null;
 }
@@ -14013,7 +14056,7 @@ function heldFolders(){
     {h:bookDir,    mode:"readwrite", what:"the shared folder"},
     {h:picDir,     mode:"read",      what:"the pictures folder"},
     {h:bookHandle, mode:"readwrite", what:S.bookName || "the workbook"}
-  ].filter(x=>x.h && x.h.queryPermission);
+  ].filter(x=>isHandle(x.h));
 }
 
 /* Anything remembered but waiting to be asked about? */
@@ -14032,22 +14075,47 @@ let folderNudgeShown = false;
 async function paintFolderState(){
   const box = el("folderState"), what = el("folderStateWhat"), go = el("folderStateGo");
   if(!box || !what) return;
+  const relink = el("folderStatePick");
+  if(relink) relink.hidden = false;
+  if(go) go.hidden = true;
+
+  if(typeof window.showDirectoryPicker !== "function"){
+    what.innerHTML = '<span class="wait">\u25CF</span> This browser cannot open a folder. '
+      + "Chrome or Edge can; here, pictures have to be web addresses.";
+    if(relink) relink.hidden = true;
+    return;
+  }
+  if(!handleStoreOK){
+    what.innerHTML = '<span class="wait">\u25CF</span> This browser will not keep a folder '
+      + "between visits (" + esc(Store.mode === "ls" ? "limited storage"
+        : Store.mode === "blocked" ? "storage held by another tab" : "no storage")
+      + "), so it has to be picked each time. Closing other tabs of this page usually fixes it.";
+    return;
+  }
+  /* A file opened straight from a folder gets a storage area the browser is
+     free to throw away, and when it does the folder goes with it. That is the
+     usual reason a folder has to be picked again and again, and no amount of
+     remembering on this side can fix it. */
+  const loose = !isWebOrigin();
   const held = heldFolders();
   if(!held.length){
-    what.innerHTML = "No folder linked yet \u2014 pick one under Badges and pictures "
-      + "and it is remembered from then on.";
-    if(go) go.hidden = true;
+    what.innerHTML = loose
+      ? '<span class="wait">\u25CF</span> No folder linked. This page was opened straight '
+        + "from a folder, and browsers give those a storage area they can clear at any "
+        + "time \u2014 which is why a folder picked here may not be here next time. "
+        + "Opening the copy at its web address instead makes it stick."
+      : "No folder linked yet. Pick one and it is remembered from then on.";
     return;
   }
   const waiting = await foldersWaiting();
-  const names = held.map(f=>f.h.name || f.what);
+  const name = f=>esc(f.h.name || f.what);
   if(!waiting.length){
     what.innerHTML = '<span class="ok">\u25CF</span> Reading <b>'
-      + esc(names.join("</b>, <b>")) + "</b>.";
-    if(go) go.hidden = true;
+      + held.map(name).join("</b>, <b>") + "</b>.";
+    if(relink) relink.hidden = true;
   } else {
     what.innerHTML = '<span class="wait">\u25CF</span> <b>'
-      + esc(waiting.map(f=>f.h.name || f.what).join("</b>, <b>"))
+      + waiting.map(name).join("</b>, <b>")
       + "</b> remembered, but this browser wants a nod before reading "
       + (waiting.length === 1 ? "it" : "them") + " again.";
     if(go) go.hidden = false;
@@ -14057,13 +14125,19 @@ async function paintFolderState(){
 async function offerReconnect(){
   const bar = el("folderNudge");
   if(!bar) return;
+  /* clear of the storage banner, which lives at the very top */
+  const sb = el("storeBanner");
+  bar.style.top = (sb && !sb.hidden
+    ? Math.round(sb.getBoundingClientRect().bottom) + 10 : 14) + "px";
   const waiting = await foldersWaiting();
   if(!waiting.length){
     bar.hidden = true; folderNudgeShown = false;
+    if(el("rvFolder")) el("rvFolder").hidden = true;
     paintFolderState().catch(()=>{});
     return;
   }
   paintFolderState().catch(()=>{});
+  if(el("rvFolder")) el("rvFolder").hidden = false;
   const names = [...new Set(waiting.map(f=>f.h.name || f.what))];
   el("folderNudgeWhat").textContent = names.length === 1
     ? "“" + names[0] + "” is remembered — this browser just needs a nod to read it again."
@@ -14087,6 +14161,7 @@ async function reconnectFolders(){
   if(btn){ btn.disabled = false; btn.textContent = "Reconnect"; }
   el("folderNudge").hidden = true;
   folderNudgeShown = false;
+  if(el("rvFolder")) el("rvFolder").hidden = true;
   paintFolderState().catch(()=>{});
   if(!ok){ toast("Still blocked. Choosing the folder again will fix it."); return; }
   picCache.clear();
@@ -16211,7 +16286,13 @@ let roomWalking = false;
 
 function inRoom(){ return S.vista === "room"; }
 /* A boardroom is read from the back of the room, so nothing in it wanders. */
-function floorIsRow(){ return S.roomFloor === "row" || S.roomSkin === "boardroom"; }
+let floorTooShort = false;
+/* A floor under about a creature and a half deep is not a floor, it is a
+   shelf: below that the room lines everybody up rather than pretending to
+   have space nobody can stand in. */
+function floorIsRow(){
+  return S.roomFloor === "row" || S.roomSkin === "boardroom" || floorTooShort;
+}
 
 /* Both ends of every cross-link this node has, with the label if one was
    written on the link and which way it was drawn. */
@@ -16751,7 +16832,8 @@ function fitWall(){
   board.style.height = "auto";
   const natural = board.offsetHeight;
 
-  const boardH = Math.min(natural, vh * (narrow ? 0.52 : 0.56));
+  const boardH = Math.min(natural,
+    vh * (vh < 460 ? 0.40 : narrow ? 0.52 : 0.56));
   board.style.height = Math.round(boardH) + "px";
 
   /* the side exits stand against the foot of the wall, so that strip of wall
@@ -16762,14 +16844,24 @@ function fitWall(){
   /* the floor takes what is left, within reason at both ends. The control
      panel sits on the bottom of it, so its height comes off too. */
 
-  const minFloor = narrow ? 190 : 208;
-  const maxFloor = vh * (narrow ? 0.60 : 0.55);
-  let floor = vh - wallTop - boardH - exitH - (narrow ? 20 : 14);
+  const minFloor = Math.min(narrow ? 190 : 208, Math.max(118, vh * 0.42));
+  /* The only reason to cap the floor is to keep some wall on screen. It used
+     to be capped at just over half the height whatever the note was doing,
+     which is what left all that empty wall between the note and the first
+     creature. */
+  const maxFloor = Math.max(minFloor, vh - wallTop - (narrow ? 84 : 96));
+  let floor = vh - wallTop - boardH - exitH - (narrow ? 12 : 10);
   /* a backdrop of your own decides where the ground is; the drawn rooms
      work it out from how much the wall needed */
   const photo = backdropFor(S.sel);
   if(photo) floor = vh * (100 - photo.floor) / 100;
   floor = Math.max(minFloor, Math.min(maxFloor, floor));
+  /* Measured on the room's own height rather than on what the note left over,
+     because the row layout changes the note's height and the two would then
+     take turns undoing each other forever. */
+  const wasShort = floorTooShort;
+  floorTooShort = vh < 300;
+  if(floorTooShort !== wasShort) renderRoomSoon();
   view.style.setProperty("--rv-b", Math.round(floor) + "px");
   /* the console's real height, so the floor above it stops clear of it */
   const bar = el("rvBar");
@@ -17039,11 +17131,35 @@ function fieldSize(){
 
 /* The floor narrows towards the back, so a creature's room to move narrows
    with it. Without this they walk out through the side walls. */
+/* How much of the floor strip is actually standable. It used to be the
+   middle 70%, starting a fifth of the way down, which left a wide dead band
+   under the wall and crowded everybody into the bottom half. The floor now
+   runs almost the whole strip, and the strip itself reaches up to the bottom
+   of the note. */
+const FLOOR_TOP = 0.07, FLOOR_SPAN = 0.88;
+
+/* The back of the floor tucks under the wall on purpose — that overlap is
+   what makes it read as a floor rather than a stripe. Nobody should actually
+   be standing back there though, half behind the note, so the first row
+   starts wherever a creature of full height still clears the bottom of it. */
+let floorBackV = 0.05;
+function measureFloorBack(){
+  const f = el("rvField"), b = el("rvBoard");
+  if(!f || !b){ floorBackV = 0.05; return floorBackV; }
+  const fb = f.getBoundingClientRect(), bb = b.getBoundingClientRect();
+  if(!fb.height){ floorBackV = 0.05; return floorBackV; }
+  const rise = 58;                    /* a creature stands about this far above its feet */
+  const need = (bb.bottom - fb.top) + rise;
+  floorBackV = need <= 0 ? 0.03
+    : Math.max(0.03, Math.min(0.55, (need / fb.height - FLOOR_TOP) / FLOOR_SPAN));
+  return floorBackV;
+}
+
 function floorSpot(u, v){
   const inset = 0.10 + (1 - v) * 0.20;
   return {
     x: (inset + u * (1 - inset * 2)) * fieldBox.w,
-    y: (0.2 + v * 0.7) * fieldBox.h
+    y: (FLOOR_TOP + v * FLOOR_SPAN) * fieldBox.h
   };
 }
 
@@ -17140,6 +17256,7 @@ function placeRoamers(ids){
   /* a drawn room has furniture in it, so anything put somewhere by hand
      stays exactly there and only the rest are scattered */
   const placed = spotsOf(S.nodes.get(S.sel));
+  const back = measureFloorBack();
   /* They wander. An order imposed on the floor only ever read as a grid of
      things standing still, and the list is where order belongs anyway. */
   const cols0 = Math.max(3, Math.ceil(Math.sqrt(ids.length * 1.9)));
@@ -17154,8 +17271,13 @@ function placeRoamers(ids){
     const rows = Math.max(2, Math.ceil(ids.length / cols));
     const cx = i % cols, cy = Math.floor(i / cols);
     const u = (cx + 0.5 + (rvRand(sd, 2) - 0.5) * 0.7) / cols;
-    const v = rows < 2 ? 0.62
-      : (cy + 0.5 + (rvRand(sd, 3) - 0.5) * 0.55) / rows;
+    /* rows spread across the whole depth of the floor rather than sitting in
+       the middle of it: the back row stands at the back, the front row at the
+       front, which is what makes the space read as a room you could walk into */
+    const v = rows < 2 ? Math.max(back, 0.58)
+      : Math.max(back, Math.min(.97,
+          back + (cy / (rows - 1)) * (0.96 - back)
+               + (rvRand(sd, 3) - 0.5) * (0.5 / rows)));
     const home = fixed
       ? {u:fixed.u, v:fixed.v}
       : {u:Math.min(.97, Math.max(.03, u)), v:Math.min(.98, Math.max(.05, v))};
@@ -17223,7 +17345,7 @@ function roamStep(now){
     if(far < 0.004){
       /* somewhere new, near enough to home that you can still find it */
       r.tu = Math.min(.97, Math.max(.03, r.home.u + (Math.random() - .5) * 0.2));
-      r.tv = Math.min(.96, Math.max(.08, r.home.v + (Math.random() - .5) * 0.16));
+      r.tv = Math.min(.96, Math.max(floorBackV, r.home.v + (Math.random() - .5) * 0.16));
       r.wait = 0.3 + Math.random() * 1.9;
       continue;
     }
@@ -17252,6 +17374,12 @@ function refloor(){
 function drawPeek(){
   const p = el("rvPeek");
   if(!p) return;
+  /* You can only be told about something you are standing next to. Walking
+     into a room ends the conversation you were having on the way in — its
+     note is the wall in front of you now, so a bubble repeating it is just
+     something in the way. Checked here rather than at each door, so no way
+     in can leave one behind. */
+  if(roomPeek && (roomPeek === S.sel || !roomInHere(roomPeek))) roomPeek = "";
   if(!roomPeek || !S.nodes.has(roomPeek)){ p.hidden = true; p.innerHTML = ""; return; }
   const k = roomPeek, n = S.nodes.get(k);
   const kids = roomOrder(childrenOf(k).filter(x=>S.nodes.has(x)));   /* the list in the bubble, so it is ordered */
@@ -17411,6 +17539,16 @@ function roomGo(id, way){
 
    Nothing about the room changes when a bubble opens. So now nothing is
    rebuilt: two classes move and the bubble is redrawn. */
+/* Is this one of the things in the room we are standing in? */
+function roomInHere(id){
+  if(!id || !S.nodes.has(id)) return false;
+  if(S.roomWorld) return true;            /* a world room gathers from everywhere */
+  if(!S.sel) return true;
+  if(parentOf(id) === S.sel) return true;
+  if(crossOf(S.sel).some(c=>c.id === id)) return true;
+  return parentOf(S.sel) === id;          /* the way back out */
+}
+
 function markPeek(){
   const field = el("rvField");
   if(!field) return;
@@ -17511,7 +17649,8 @@ function floorUV(cx, cy){
   if(!f) return null;
   const fb = f.getBoundingClientRect();
   if(!fb.width || !fb.height) return null;
-  const v = Math.max(.04, Math.min(.97, (((cy - fb.top) / fb.height) - 0.2) / 0.7));
+  const v = Math.max(floorBackV, Math.min(.98,
+    (((cy - fb.top) / fb.height) - FLOOR_TOP) / FLOOR_SPAN));
   const ins = 0.10 + (1 - v) * 0.20;
   const u = Math.max(.02, Math.min(.98,
     (((cx - fb.left) / fb.width) - ins) / (1 - ins * 2)));
@@ -17811,6 +17950,91 @@ function dialogIsDirty(d){
   return now !== was;
 }
 
+/* ---------------------------------------------------------------
+   Pushing a sheet back down.
+
+   On a phone the big panels rise from the bottom and have a grab handle
+   drawn on them, so the obvious way to dismiss one is to shove it back
+   down — and until now that did nothing except hand the gesture to the
+   browser, which reloaded the page and lost what you were typing.
+
+   The drag starts either on the handle at the top of the sheet or on a
+   scroller that is already at its top, so scrolling through a long panel
+   still scrolls. Past a third of the way down, or on a quick flick, it
+   closes; short of that it springs back.
+   --------------------------------------------------------------- */
+function wireSheetSwipe(sheet, shut, opts){
+  const o = opts || {};
+  let on = false, y0 = 0, x0 = 0, dy = 0, t0 = 0, live = false, from = null;
+
+  /* Touch events rather than pointer ones. A phone decides within the first
+     move whether a gesture belongs to the page and, once it has, it stops
+     sending pointermove entirely — so a sheet wired to pointers gets one
+     event and then silence. Touch keeps coming, and can be claimed. */
+  const scrollerUnder = target=>{
+    let e = target;
+    while(e && e !== sheet){
+      if(e.scrollHeight - e.clientHeight > 4){
+        const oy = getComputedStyle(e).overflowY;
+        if(oy === "auto" || oy === "scroll") return e;
+      }
+      e = e.parentElement;
+    }
+    return null;
+  };
+  const undo = ()=>{
+    sheet.classList.remove("swiping");
+    sheet.style.transform = "";
+    on = false; live = false; from = null; dy = 0;
+  };
+
+  sheet.addEventListener("touchstart", ev=>{
+    if(ev.touches.length !== 1) { if(live) undo(); on = false; return; }
+    if(!window.matchMedia("(max-width:820px)").matches) return;
+    if(o.when && !o.when()) return;
+    const tag = (ev.target.tagName || "").toLowerCase();
+    if(tag === "input" || tag === "textarea" || tag === "select") return;
+    const t = ev.touches[0];
+    const box = sheet.getBoundingClientRect();
+    from = scrollerUnder(ev.target);
+    /* the handle at the top is always a grab; anywhere else counts only when
+       there is nothing left to scroll up through */
+    if(t.clientY - box.top >= 44 && from && from.scrollTop > 2) return;
+    on = true; live = false;
+    y0 = t.clientY; x0 = t.clientX; t0 = performance.now(); dy = 0;
+  }, {passive:true});
+
+  sheet.addEventListener("touchmove", ev=>{
+    if(!on || ev.touches.length !== 1) return;
+    const t = ev.touches[0];
+    const d = t.clientY - y0;
+    if(!live){
+      if(Math.abs(t.clientX - x0) > Math.abs(d) && Math.abs(t.clientX - x0) > 12){ on = false; return; }
+      if(d < -6){ on = false; return; }        /* they are scrolling up */
+      if(d < 10) return;
+      if(from && from.scrollTop > 2){ on = false; return; }
+      live = true;
+      sheet.classList.add("swiping");
+    }
+    /* the last stretch gets heavier, so it never feels like it came loose */
+    dy = d < 240 ? d : 240 + (d - 240) * 0.3;
+    sheet.style.transform = "translateY(" + dy.toFixed(1) + "px)";
+    if(ev.cancelable) ev.preventDefault();
+  }, {passive:false});
+
+  const done = ()=>{
+    if(!on) return;
+    if(!live){ on = false; from = null; return; }
+    const h = sheet.getBoundingClientRect().height || 400;
+    const fast = dy / Math.max(1, performance.now() - t0) > 0.5;
+    const far = dy > Math.min(190, h * 0.33);
+    undo();
+    if(far || fast) shut();
+  };
+  sheet.addEventListener("touchend", done);
+  sheet.addEventListener("touchcancel", ()=>{ if(live) undo(); else { on = false; from = null; } });
+}
+
 function wireClickAway(){
   document.querySelectorAll("dialog").forEach(d=>{
     /* remember what was in it the moment it opened */
@@ -17862,6 +18086,24 @@ function wireRoom(){
 
   applyLife();
   wireClickAway();
+  wireSheetSwipe(el("inspector"), ()=>{
+    el("inspector").classList.remove("open");
+    el("scrim").classList.remove("on");
+    if(el("rvEdit")) el("rvEdit").classList.remove("on");
+  }, {when:()=>el("inspector").classList.contains("open")});
+  /* every dialog that fills the screen on a phone gets the same handle */
+  document.querySelectorAll("dialog").forEach(d=>{
+    d.classList.add("sheet-drag");
+    wireSheetSwipe(d, ()=>{
+      /* half-written work is not thrown away by a stray shove */
+      if(dialogIsDirty(d)){
+        d.classList.remove("hold"); void d.offsetWidth;
+        d.classList.add("hold"); setTimeout(()=>d.classList.remove("hold"), 420);
+        return;
+      }
+      d.close();
+    }, {when:()=>d.open});
+  });
   /* a finger is already touching whatever it is pointing at, so the depth and
      the reaching only answer a mouse */
   view.addEventListener("pointermove", ev=>{
@@ -18603,6 +18845,8 @@ async function boot(){
   el("openFromDisk").onclick = ()=>refreshFromWorkbook();
   el("folderNudgeGo").onclick = ()=>{ reconnectFolders().catch(()=>{}); };
   el("folderStateGo").onclick = ()=>{ reconnectFolders().catch(()=>{}); };
+  el("folderStatePick").onclick = ()=>{ choosePictureFolder(); };
+  el("rvFolder").onclick = ()=>{ reconnectFolders().catch(()=>{}); };
   el("folderNudgeX").onclick = ()=>{ el("folderNudge").hidden = true; };
 
   el("chooseWorkbook").onclick = ()=>{
