@@ -343,6 +343,26 @@ input[type=range],input[type=color],input[type=checkbox],input[type=file]{cursor
 .titleblock div{padding:5px 9px;border-right:1px solid var(--rule)}
 .titleblock div:last-child{border-right:0}
 .titleblock b{display:block;font-weight:500;font-size:9px;color:var(--graphite-60)}
+/* what a #word stands for, at the top of the search results */
+.rp-tags{padding:6px 0 8px;margin-bottom:4px;border-bottom:1px solid var(--rule)}
+.rp-tagline{display:flex;flex-wrap:wrap;align-items:center;gap:5px;padding:2px 0;font-size:12px}
+.rp-tagline>b{font-family:var(--mono);font-weight:600}
+.rp-said{color:var(--graphite-60)}
+.rp-tag{border:1px solid var(--rule);background:var(--paper-2);color:var(--graphite);
+  border-radius:12px;padding:3px 9px;font:inherit;font-size:12px;cursor:pointer}
+.rp-tag:hover{border-color:var(--blueprint)}
+.rp-tag .cnt{color:var(--graphite-60);font-family:var(--mono);font-size:10.5px}
+.restrail.exhit{color:var(--blueprint, #2D6CDF);font-family:var(--mono)}
+/* a row being held fills from the left; ready when it is full */
+.resrow{position:relative;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.resrow.holding::before{content:"";position:absolute;left:0;top:0;bottom:0;width:0;
+  background:color-mix(in srgb, var(--blueprint, #2D6CDF) 16%, transparent);
+  animation:rvRowFill .37s linear .08s forwards;pointer-events:none}
+@keyframes rvRowFill{to{width:100%}}
+.resrow.armed{box-shadow:inset 3px 0 0 var(--blueprint, #2D6CDF)}
+.resrow.armed::before{width:100%;animation:none}
+.resrow.copied{background:var(--blueprint, #2D6CDF);color:#fff}
+.resrow.copied .restrail{color:#fff}
 
 #resultsPop{
   position:fixed;z-index:60;background:var(--paper);border:1px solid var(--graphite);
@@ -4638,7 +4658,7 @@ function newNode(o={}){
     status:"active", flag:"", image:"", imageH:120, edit:0,
     badge:"", badgeAt:"", badgeImage:"", supersededBy:"", tableSort:"", order:"",
     backdrop:"", backdropFloor:"", backdropSalt:"", spots:"", date:"",
-    collect:"", collectGoal:"",
+    collect:"", collectGoal:"", noSearch:"",
     created:nowISO(), modified:nowISO(),
     rev:1, author:S.meta.author, x:null, y:null, pinned:false, collapsed:false
   }, o);
@@ -5568,7 +5588,7 @@ function seed(){
    Kept human-readable so the workbook stands on its own.
    ===================================================================== */
 const HDR = {
-  Nodes:["node_id","label","body","type","tags","status","flag","image","image_h","created","modified","rev","edit","author","badge","badge_at","badge_image","superseded_by","table_sort","order","date","collect","collect_goal","backdrop","backdrop_floor","backdrop_salt","spots","x","y","pinned","parent_id","depth","path"],
+  Nodes:["node_id","label","body","type","tags","status","flag","image","image_h","created","modified","rev","edit","author","badge","badge_at","badge_image","superseded_by","table_sort","order","date","collect","collect_goal","backdrop","backdrop_floor","backdrop_salt","spots","x","y","pinned","parent_id","depth","path","no_search"],
   Links:["edge_id","from_id","to_id","link_type","tag","label","condition","route","from_side","to_side","bow","color","line_style","width","arrow"],
   Revisions:["rev_id","node_id","timestamp","author","field","class","note","folded","old_value","new_value"],
   TagStyles:["tag","color","line_style","width","arrow","applies_to"],
@@ -5610,6 +5630,7 @@ function toSheets(){
     spots:n.spots || "", date:n.date || "",
     collect:n.collect || "", collect_goal:n.collectGoal === "" || n.collectGoal == null
       ? "" : Number(n.collectGoal),
+    no_search:n.noSearch === "yes" ? "yes" : "",
     created:n.created, modified:n.modified, rev:n.rev, edit:n.edit|0, author:n.author,
     badge:n.badge||"", badge_at:n.badgeAt||"", badge_image:n.badgeImage||"",
     superseded_by:n.supersededBy || "",
@@ -5769,6 +5790,7 @@ function tablesToModel(t){
       collect:/^(yes|true|1|y)$/i.test(String(r.collect || "")) ? "yes" : "",
       collectGoal:(r.collect_goal === "" || r.collect_goal == null)
         ? "" : Number(r.collect_goal),
+      noSearch:/^(yes|true|1|y)$/i.test(String(r.no_search || "")) ? "yes" : "",
       created:String(r.created||nowISO()), modified:String(r.modified||nowISO()),
       rev:Number(r.rev)||1, edit:Number(r.edit)||0, author:String(r.author||S.meta.author),
       badge:String(r.badge||""), badgeAt:String(r.badge_at||""), badgeImage:String(r.badge_image||""),
@@ -8791,6 +8813,9 @@ function renderResults(){
         : S.tagPick.size
           ? `${n} node${n===1?"":"s"} tagged ` + esc([...S.tagPick].map(tagLeaf).join(", "))
           : `${n} ${scopeName || ("node" + (n===1?"":"s"))}`;
+      const qTerms = String(S.hitQuery || "").replace(/(^|\s)#[^\s#]*/g, " ").trim()
+        .split(/\s+/).filter(Boolean);
+      const exHit = id=>exampleMatch(id, qTerms);
       const row = t=>{
         if(t.kind === "area"){
           const a = S.areas.get(t.id);
@@ -8818,17 +8843,44 @@ function renderResults(){
               display:inline-block;margin-right:6px;vertical-align:middle"></span>` : ""}
             ${gone ? `<span class="retchip">retired</span>` : ""}
             ${esc(n.label || n.id)}</span>
+          ${exHit(t.id) ? `<span class="restrail exhit">example ${esc(exHit(t.id).accession)}${
+               exHit(t.id).person ? " \u00b7 " + esc(exHit(t.id).person) : ""}</span>` : ""}
           ${newer ? `<span class="restrail">replaced by ${esc(nodeName(newer))}</span>`
                : trail.length ? `<span class="restrail">${esc(trail.slice(-2).join(" › "))}</span>` : ""}
         </div>`;
       };
       el("resultsLabel").textContent = label.replace(/<[^>]+>/g, "");
-      el("tocResults").innerHTML =
+      const hashes = hashResolved(S.hitQuery);
+      const tagStrip = hashes.length ? '<div class="rp-tags">' + hashes.map(({h, tags})=>
+          '<div class="rp-tagline"><b>#' + esc(h) + '</b>'
+          + (tags.length
+              ? (tags.length > 1 ? '<span class="rp-said">is ' + tags.length + ' tags:</span>'
+                                 : '<span class="rp-said">is</span>')
+                + tags.map(([t, c])=>'<button class="rp-tag" data-hash="' + esc(h) + '" data-tag="'
+                  + esc(t) + '" title="Only this tag">' + esc(t)
+                  + ' <span class="cnt">' + c + '</span></button>').join("")
+              : '<span class="rp-said">matches no tag</span>')
+          + '</div>').join("") + '</div>' : "";
+      el("tocResults").innerHTML = tagStrip +
         (targets.length ? targets.slice(0, 300).map(row).join("")
                         : `<p class="tocempty">Nothing matched.</p>`)
         + (targets.length > 300 ? `<p class="tocempty">Showing the first 300.</p>` : "");
       placeResults();
       bindResultRows();
+      /* one of those tags on its own: the #word becomes that tag, spelled out */
+      el("tocResults").querySelectorAll("[data-tag]").forEach(b=>{
+        b.onclick = ev=>{
+          ev.stopPropagation();
+          const token = "#" + String(b.dataset.tag).replace(/\s+/g, "_");
+          const box = el("mq");
+          const was = box.value;
+          const re = new RegExp("(^|\\s)#" + b.dataset.hash.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+            + "(?=\\s|$)", "i");
+          const now = re.test(was) ? was.replace(re, (m, sp)=>sp + token) : (token + " " + was).trim();
+          box.value = now; el("q").value = now;
+          runSearch();
+        };
+      });
     }
   }
 
@@ -8864,10 +8916,43 @@ function placeResults(){
   pop.classList.toggle("up", up);
 }
 
+/* A row in the list is a result as much as the creature in the room is, and
+   in a room the list opens upward over the floor — on top of the very things
+   it found. So holding a row copies it too, the same as holding a creature,
+   and a quick tap still goes to it. Scrolling the list is a move, and moving
+   cancels the hold. */
+function wireRowHold(row, id){
+  let timer = null, armed = false, start = null, fired = false;
+  const reset = ()=>{ clearTimeout(timer); timer = null; row.classList.remove("holding", "armed"); };
+  row.addEventListener("contextmenu", ev=>ev.preventDefault());
+  row.addEventListener("pointerdown", ev=>{
+    if(ev.button != null && ev.button !== 0) return;
+    armed = false; fired = false; start = {x:ev.clientX, y:ev.clientY};
+    row.classList.add("holding");
+    timer = setTimeout(()=>{ timer = null; armed = true; row.classList.add("armed");
+      try{ if(navigator.vibrate) navigator.vibrate(15); }catch(e){} }, HOLD_MS);
+  });
+  row.addEventListener("pointermove", ev=>{
+    if(!start) return;
+    if(Math.abs(ev.clientX - start.x) + Math.abs(ev.clientY - start.y) > 8){ armed = false; start = null; reset(); }
+  });
+  row.addEventListener("pointerup", ev=>{
+    const was = armed; armed = false; start = null; reset();
+    if(was){ fired = true; copyThing(id);
+      row.classList.add("copied"); setTimeout(()=>row.classList.remove("copied"), 900); }
+  });
+  row.addEventListener("pointercancel", ()=>{ armed = false; start = null; reset(); });
+  row.addEventListener("pointerleave", ()=>{ if(!armed){ start = null; reset(); } });
+  /* the click that follows a hold is the hold, not a tap */
+  row.addEventListener("click", ev=>{ if(fired){ fired = false; ev.stopImmediatePropagation(); ev.preventDefault(); } }, true);
+}
+
 function bindResultRows(){
   const root = el("resultsPop");
   if(!root) return;
   root.querySelectorAll("[data-res]").forEach(e=>{
+    const [k0, id0] = e.dataset.res.split(/:(.+)/);
+    if(k0 === "node" && !e._held){ e._held = true; wireRowHold(e, id0); }
     e.onclick = ()=>{
       const [kind, id] = e.dataset.res.split(/:(.+)/);
       if(kind === "node" && S.nodes.has(id)) pickNode(id);
@@ -12304,6 +12389,12 @@ function renderInspector(){
         </select></label>
       <label class="check"><input type="checkbox" id="fCollect"${n.collect === "yes" ? " checked" : ""}>
         Ask people to bring in real examples here</label>
+      ${(()=>{ const by = searchOutBy(n.id);
+        return by && by !== n.id
+          ? `<p class="fineprint" style="margin:2px 0 8px">Left out of search, because it sits
+              under ${esc(nodeName(by))}.</p>`
+          : `<label class="check"><input type="checkbox" id="fNoSearch"${n.noSearch === "yes" ? " checked" : ""}>
+              Leave this and everything under it out of search</label>`; })()}
       ${n.collect === "yes" ? `<label class="field"><span>A good week is</span>
         <input type="number" id="fCollectGoal" min="0" max="99" step="1"
                value="${esc(String(n.collectGoal || ""))}" placeholder="no target"></label>
@@ -12509,6 +12600,15 @@ function renderInspector(){
     const lab = e.target.parentElement.querySelector("span");
     if(lab) lab.textContent = "Where the floor starts in it \u2014 "
       + Math.round(n.backdropFloor) + "% down";
+  };
+  if(el("fNoSearch")) el("fNoSearch").onchange = e=>{
+    setField(n, "noSearch", e.target.checked ? "yes" : "");
+    markDirty(); renderInspector();
+    /* a search already showing picks up the change straight away */
+    if((el("q").value || "").trim() || S.tagPick.size) runSearch();
+    const kids = searchOutSet().size;
+    toast(e.target.checked ? "Left out of search \u2014 " + kids + " room" + (kids === 1 ? "" : "s")
+      : "Back in search");
   };
   if(el("fCollect")) el("fCollect").onchange = e=>{
     setField(n, "collect", e.target.checked ? "yes" : "");
@@ -12883,10 +12983,66 @@ function hashTagsIn(text){
   return (String(text || "").match(/(^|\s)#[^\s#]+/g) || [])
     .map(x=>x.trim().slice(1).toLowerCase()).filter(Boolean);
 }
+/* a tag with a space in it is written with _ after the #, so it stays one word */
+function hashNorm(h){ return String(h || "").toLowerCase().replace(/_/g, " "); }
+function hashHit(tag, h){
+  const full = String(tag).toLowerCase(), leaf = String(tagLeaf(tag)).toLowerCase();
+  h = hashNorm(h);
+  return full.startsWith(h) || leaf.startsWith(h);
+}
 function hashPass(n, want){
   if(!want.length) return true;
-  const tags = (n.tags || []).map(t=>[String(t).toLowerCase(), String(tagLeaf(t)).toLowerCase()]);
-  return want.every(h=>tags.some(([full, leaf])=>full.startsWith(h) || leaf.startsWith(h)));
+  return want.every(h=>(n.tags || []).some(t=>hashHit(t, h)));
+}
+/* What each #word in the box actually stands for, so the short form is never
+   a guess: #sen is shown as every tag it picked up. */
+function hashResolved(text){
+  const all = allTagsWithCounts();
+  return hashTagsIn(text).map(h=>({h, tags:all.filter(([t])=>hashHit(t, h))}));
+}
+/* ---------------------------------------------------------------
+   Left out of search. A room can be marked to keep itself and every
+   room under it out of search — a scratch branch for things not ready
+   to plant, say — so a search only turns up the map people should be
+   using. Worked out once per search: a room is out if it, or anything
+   above it, says so.
+   --------------------------------------------------------------- */
+function searchOutSet(){
+  const out = new Set(), memo = new Map();
+  const isOut = id=>{
+    if(memo.has(id)) return memo.get(id);
+    memo.set(id, false);                      /* a loop in the links is not out */
+    const n = S.nodes.get(id);
+    let v = !!(n && n.noSearch === "yes");
+    if(!v){ const up = parentOf(id); if(up) v = isOut(up); }
+    memo.set(id, v);
+    return v;
+  };
+  S.nodes.forEach((n, id)=>{ if(isOut(id)) out.add(id); });
+  return out;
+}
+/* which ancestor put a room out of search, if one did */
+function searchOutBy(id){
+  let at = id, guard = 0;
+  while(at && guard++ < 200){
+    const n = S.nodes.get(at);
+    if(n && n.noSearch === "yes") return at;
+    at = parentOf(at);
+  }
+  return "";
+}
+/* The accession numbers of a room's examples, and what was said about them.
+   Search skips long numbers in ordinary text on purpose, so that 961 does not
+   turn up 3562961 — but an example is only its accession number, so typing
+   or pasting one should find the room it is an example of. */
+function exampleText(id){
+  return (S.examples || []).filter(x=>x.node === id && x.status !== "out")
+    .map(x=>[x.accession, x.note].filter(Boolean).join(" ")).join(" ");
+}
+function exampleMatch(id, terms){
+  if(!terms || !terms.length) return null;
+  return (S.examples || []).find(x=>x.node === id && x.status !== "out" && x.accession
+    && terms.some(t=>String(x.accession).toLowerCase().includes(t))) || null;
 }
 function runSearchInner(){
   const typed = el("q").value.trim().toLowerCase();
@@ -12943,7 +13099,9 @@ function runSearchInner(){
        finding every note that mentions the word. */
     const titleOnly = (scope === "labels" || scope === "parents"
                     || scope === "flagged" || scope === "retired");
+    const leftOut = searchOutSet();
     S.hits = [...S.nodes.values()].filter(n=>{
+      if(leftOut.has(n.id)) return false;
       if(scope === "parents" && !childrenOf(n.id).length) return false;
       if(scope === "flagged" && !severityOf(n)) return false;
       if(scope === "retired" && n.status !== "retired") return false;
@@ -12953,7 +13111,10 @@ function runSearchInner(){
       if(titleOnly) return matches([n.label, (n.tags||[]).join(" ")].join(" "));
       const hay = [n.label, n.body, n.id, n.type, n.status, (n.tags||[]).join(" "),
         (n.image||"").startsWith("data:") ? "photo image" : (n.image||"")].join(" ");
-      return viaQuestions.has(n.id) || matches(hay);
+      if(viaQuestions.has(n.id) || matches(hay)) return true;
+      /* an example's accession number is looked at as it is, noise or not */
+      const ex = exampleText(n.id);
+      return !!ex && terms.every(t=>termMatches(ex.toLowerCase(), t) || String(hay).toLowerCase().includes(t));
     }).map(n=>n.id);
     if(terms.length) S.hits = rankHits(S.hits, terms);
   }
@@ -15324,7 +15485,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-09-29b";
+const APP_BUILD = "2026-09-29e";
 
 /* Reading that line back out of a copy of this file.
 
@@ -16712,6 +16873,12 @@ async function loadPersonal(){
       S.mode = rec.mode === "root" && !S.meta.locked ? "root" : S.mode;
     }
   }catch(e){}
+  if(!S.who || S.who === "anonymous"){
+    try{
+      const me = await Store.getKey("me");
+      if(me && me.who){ S.who = me.who; S.whoKey = S.whoKey || me.whoKey || ""; }
+    }catch(e){}
+  }
 }
 /* How you like the tool to behave belongs to you, not to one map: keeping
    these in the per-map record meant they reset every time you opened a
@@ -16735,7 +16902,17 @@ async function loadPrefs(){
   }catch(e){}
 }
 
+/* Your name belongs to you on this computer, not to one map. It used to live
+   only in the map's own record, keyed by the map — and a map loaded fresh from
+   its workbook, or opened in a second tab, comes up under a new key, so the
+   name was gone and asked for again on every refresh. It is kept here too,
+   and used whenever the map's record has none. */
+function saveMe(){
+  if(!S.who || S.who === "anonymous") return;
+  try{ Store.putKey("me", {who:S.who, whoKey:S.whoKey || "", at:nowISO()}); }catch(e){}
+}
 async function savePersonal(){
+  saveMe();
   try{
     await Store.putKey(personalKey(), {
       bookmarks:S.personal.bookmarks, searches:S.personal.searches,
@@ -18373,8 +18550,15 @@ function roomAllowed(){
    found" with no clue what had been asked for. */
 function filterWords(){
   const bits = [];
-  const q = String(S.hitQuery || "").trim();
+  const typed = String(S.hitQuery || "").trim();
+  const q = typed.replace(/(^|\s)#[^\s#]*/g, " ").replace(/\s+/g, " ").trim();
   if(q) bits.push("matching \u201c" + q + "\u201d");
+  hashResolved(typed).forEach(({h, tags})=>{
+    const names = tags.map(([t])=>tagLeaf(t));
+    bits.push(!names.length ? "tagged #" + h + " (no such tag)"
+      : "tagged " + (names.length <= 3 ? names.join(" or ")
+                     : names.slice(0, 2).join(", ") + " or " + (names.length - 2) + " more"));
+  });
   if(S.tagPick.size){
     const tags = [...S.tagPick];
     bits.push("tagged " + tags.join(S.tagMode === "all" ? " and " : " or "));
@@ -18403,7 +18587,9 @@ function worldSet(){
     what = filterWords() || "Everything found";
   } else if(S.roomWorld === "tags" && S.tagPick.size){
     const want = [...S.tagPick];
+    const leftOut = searchOutSet();
     ids = [...S.nodes.values()].filter(n=>{
+      if(leftOut.has(n.id)) return false;
       const t = (n.tags || []);
       return S.tagMode === "all" ? want.every(x=>t.includes(x)) : want.some(x=>t.includes(x));
     }).map(n=>n.id).slice(0, 120);
@@ -18919,7 +19105,10 @@ function renderRoom(){
   updateCatchNote(0, 0);
   const ex = el("rvExample");
   if(ex){
-    const wants = n.collect === "yes";
+    /* A room that asks for examples offers the button to everyone. An editor
+       can put one on any room, so an accession number that belongs somewhere
+       is never left with nowhere to go. */
+    const wants = n.collect === "yes" || canEdit();
     ex.hidden = !wants;
     if(wants){
       const mine = examplesThisWeek(id).filter(x=>x.person === (S.who || "")).length;
@@ -21513,6 +21702,12 @@ async function boot(){
   };
   el("q").addEventListener("input", ()=>{ el("mq").value = el("q").value; searchNow(); });
   el("mq").addEventListener("input", ()=>{ el("q").value = el("mq").value; searchNow(); });
+  /* the list closes when you tap into the room; tapping back into the box
+     brings it back, rather than having to type something to see it again */
+  el("mq").addEventListener("focus", ()=>{
+    const pop = el("resultsPop");
+    if(pop && pop.hidden && (el("mq").value || "").trim()) renderResults();
+  });
   el("mq").addEventListener("keydown", ev=>{
     if(ev.key === "Enter"){ ev.preventDefault(); searchAtOnce(); el("mq").blur(); } });
   el("q").addEventListener("keydown", ev=>{
