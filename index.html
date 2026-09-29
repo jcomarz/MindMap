@@ -1687,6 +1687,15 @@ html[data-theme="dark"] #roomView[data-skin="plain"]{
 .rv-peek h4{flex:0 0 auto}
 .rv-peek p{flex:0 1 auto;min-height:0;overflow:auto;max-height:none}
 .rv-peek .rv-kids{flex:0 1 auto;min-height:0;overflow:auto;max-height:none}
+.rv-peek .peek-note{flex:0 1 auto;min-height:60px;overflow:auto;font-size:12.5px;line-height:1.5;
+  color:var(--note-ink);overscroll-behavior:contain}
+.rv-peek .peek-note .notepara{margin:0 0 6px}
+/* the rooms through there keep a band of their own below a long note */
+.rv-peek .peek-note ~ .rv-kids{flex:0 0 auto;max-height:78px;overflow:auto}
+.rv-peek .peek-note table{font-size:12px}
+mark.hit{background:var(--hit-line, #FFE07A);color:inherit;border-radius:2px;padding:0 1px;
+  box-shadow:0 0 0 2px var(--hit-line, #FFE07A)}
+tr.hitrow>td{background:color-mix(in srgb, var(--hit-line, #FFE07A) 38%, transparent)}
 .rv-peek .row{flex:0 0 auto}
 .rv-peek::after{content:"";position:absolute;left:var(--tail, 50%);bottom:-9px;
   width:15px;height:15px;transform:translateX(-50%) rotate(45deg);
@@ -11804,6 +11813,71 @@ function closeNote(){
   const o = el("noteOverlay");
   if(o) o.hidden = true;
 }
+/* ---------------------------------------------------------------
+   Marking what a search found, the way the search found it.
+
+   The words typed, not the whole box: "#retired 961" marks 961, and
+   the tag part is left alone. A code is held to a whole word the same
+   way the search holds it, so 961 marks the 961 row and not the middle
+   of 3562961. A match in a table lights its whole row as well, so the
+   eye lands on the line rather than hunting for four yellow digits.
+   --------------------------------------------------------------- */
+function searchTermsNow(){
+  return String(S.hitQuery || "").replace(/(^|\s)#[^\s#]*/g, " ").toLowerCase()
+    .split(/\s+/).filter(t=>t && t.length >= 2);
+}
+function termPattern(term){
+  const safe = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const isCode = term.length <= 8 && /\d/.test(term) && /^[a-z0-9][a-z0-9./-]*$/i.test(term);
+  return (S.searchExcludes && isCode) ? "(?<![a-z0-9])" + safe + "(?![a-z0-9])" : safe;
+}
+function markTerms(root, terms){
+  if(!root || !terms || !terms.length) return 0;
+  const re = new RegExp("(" + terms.map(termPattern).join("|") + ")", "ig");
+  const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+  const hits = [];
+  while(walk.nextNode()){
+    const t = walk.currentNode;
+    re.lastIndex = 0;
+    if(re.test(t.nodeValue)) hits.push(t);
+  }
+  let count = 0;
+  hits.forEach(t=>{
+    const frag = document.createDocumentFragment();
+    let last = 0;
+    t.nodeValue.replace(re, (m, _g, at)=>{
+      if(at > last) frag.appendChild(document.createTextNode(t.nodeValue.slice(last, at)));
+      const mk = document.createElement("mark");
+      mk.className = "hit";
+      mk.textContent = m;
+      frag.appendChild(mk);
+      last = at + m.length; count++;
+      return m;
+    });
+    if(last < t.nodeValue.length) frag.appendChild(document.createTextNode(t.nodeValue.slice(last)));
+    const row = t.parentNode && t.parentNode.closest && t.parentNode.closest("tr");
+    if(row) row.classList.add("hitrow");
+    t.parentNode.replaceChild(frag, t);
+  });
+  return count;
+}
+/* bring the first mark into the middle of whatever scrolls around it */
+function scrollToFirstMark(box){
+  if(!box) return;
+  const m = box.querySelector("mark.hit");
+  if(!m) return;
+  const want = m.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop
+    - box.clientHeight / 2 + m.offsetHeight / 2;
+  box.scrollTop = Math.max(0, Math.min(box.scrollHeight - box.clientHeight, want));
+  /* a wide table scrolls sideways inside its own wrapper */
+  const wrap = m.closest(".tablewrap");
+  if(wrap){
+    const x = m.getBoundingClientRect().left - wrap.getBoundingClientRect().left + wrap.scrollLeft
+      - wrap.clientWidth / 2;
+    wrap.scrollLeft = Math.max(0, x);
+  }
+}
+
 /* wrap every occurrence in the rendered text, without touching the markup */
 function markMatches(root, q){
   const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
@@ -15833,7 +15907,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-09-29k";
+const APP_BUILD = "2026-09-29l";
 
 /* Reading that line back out of a copy of this file.
 
@@ -19355,8 +19429,7 @@ function renderRoom(){
   if(words){
     note.innerHTML = noteToHtml(n.body, n);
     wireTableSort(note);
-    const q = (S.hitQuery || "").toLowerCase();
-    if(q) markMatches(note, q);
+    if(markTerms(note, searchTermsNow())) requestAnimationFrame(()=>scrollToFirstMark(note));
   } else {
     note.innerHTML = "";
   }
@@ -20523,6 +20596,12 @@ function drawPeek(){
   const items = itemsFor(k).length;
   if(items) inside.push(items + " to confirm");
   const words = peekText(k);
+  /* Searching, and this note has what was searched for: show the note itself,
+     tables and all, rather than the first few lines of it squashed flat —
+     the match is rarely in the first few lines. */
+  const terms = searchTermsNow();
+  const showFound = !!(terms.length && n.body
+    && terms.some(t=>new RegExp(termPattern(t), "i").test(String(n.body))));
   if(p.hidden) peekShownAt = performance.now();
   p.hidden = false;
   placePeek();
@@ -20539,7 +20618,8 @@ function drawPeek(){
   p.innerHTML = '<h4>' + esc(n.label || n.id)
     + (inside.length ? '<span>' + esc(inside.join(" · ")) + '</span>' : '<span>nothing beyond it</span>')
     + '</h4>'
-    + (words ? '<p>' + esc(words) + '</p>' : '<p class="empty">Nothing written on it.</p>')
+    + (showFound ? '<div class="peek-note">' + noteToHtml(n.body, n) + '</div>'
+       : words ? '<p>' + esc(words) + '</p>' : '<p class="empty">Nothing written on it.</p>')
     /* What is through there, by name. Looking inside and then having to walk
        in to find out what is in it is one hop too many when you already know
        which of the eight you wanted. */
@@ -20560,6 +20640,12 @@ function drawPeek(){
         + '</div>' : "")
     + '<div class="row"><button class="btn primary" data-walk="' + esc(k) + '">Go in</button>'
     + '<button class="btn" data-shut="1">Shut it</button></div>';
+  if(showFound){
+    const box = p.querySelector(".peek-note");
+    markTerms(box, terms);
+    placePeek();
+    requestAnimationFrame(()=>scrollToFirstMark(box));
+  }
 }
 
 /* Where the bubble goes: over the board, as wide as the board, and never
