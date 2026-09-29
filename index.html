@@ -1329,6 +1329,33 @@ html[data-theme="dark"] #roomView[data-skin="plain"]{
   bottom:calc(var(--rv-b) - 6px);
   display:flex;gap:16px;justify-content:center;align-items:flex-end;
   flex-wrap:wrap-reverse;pointer-events:none}
+/* ---------------------------------------------------------------
+   A cross-link is a creature now, not a doorway. The doorway stood at
+   the foot of the wall, which is where the note ends, so on any room
+   with a real note it stood on top of the words. It roams the strip of
+   wall beside the note instead — to the right, and the left too when
+   there is room there — and never over it. JS places each one; the
+   layer itself covers the room and catches nothing.
+   --------------------------------------------------------------- */
+#roomView .rv-exits{inset:0;left:0;right:0;bottom:0;display:block;overflow:hidden}
+.rv-exits .rv-thing.cross{pointer-events:auto;z-index:5}
+.rv-exits .rv-thing.cross .shade{display:none}
+/* they roam by themselves, so they do not also slide into place — the slide
+   put them somewhere else for a fifth of a second every time they were
+   measured — and the width of their label answers to the strip they are in,
+   whatever the cast would otherwise make it */
+#roomView .rv-exits .rv-thing.cross{transition:filter .15s}
+#roomView .rv-exits .rv-thing.cross .plate{max-width:var(--cross-cap, 96px) !important;
+  min-width:0 !important;white-space:normal;overflow-wrap:anywhere}
+/* the arrow says which way it goes, where a door's count would be */
+.rv-thing.cross .deep.way{font-family:var(--mono);font-size:12px;line-height:1}
+/* room beside the note for them to stand in */
+#roomView[data-exits="1"] .rv-board{right:max(calc(var(--rv-r) + 14px), 118px)}
+@media (max-width:820px){
+  #roomView[data-exits="1"] .rv-board{right:calc(var(--rv-r) + 78px)}
+  .rv-exits .rv-thing.cross{width:84px;margin:-58px 0 0 -42px}
+  .rv-exits .rv-thing.cross .plate{font-size:10px;max-width:84px}
+}
 .rv-arch{
   touch-action:manipulation;
   position:relative;pointer-events:auto;flex:0 0 auto;width:96px;
@@ -1567,6 +1594,22 @@ html[data-theme="dark"] #roomView[data-skin="plain"]{
 .rv-thing.lifted .shade{opacity:.22;transform:translateX(-50%) scale(1.5,.7)}
 .rv-thing.lifted .plate{opacity:1}
 .rv-thing{touch-action:none}
+/* held still: a ring fills round the body, and it is ready when it closes */
+.rv-thing{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.rv-thing .body{position:relative}
+.rv-thing.holding .body::after{content:"";position:absolute;inset:-7px;border-radius:50%;
+  pointer-events:none;border:3px solid transparent;
+  background:conic-gradient(var(--blueprint, #2D6CDF) var(--hold, 0%), transparent 0) border-box;
+  -webkit-mask:linear-gradient(#000 0 0) padding-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude;
+  animation:rvHoldFill .37s linear forwards;animation-delay:.08s;opacity:0}
+.rv-thing.armed .body::after{--hold:100%;opacity:1;animation:none}
+/* a plate has no body to ring, so the plate itself says it is ready */
+.rv-thing.armed .plate{outline:3px solid var(--blueprint, #2D6CDF);outline-offset:1px}
+@property --hold{syntax:"<percentage>";inherits:false;initial-value:0%}
+@keyframes rvHoldFill{from{--hold:0%;opacity:1}to{--hold:100%;opacity:1}}
+.rv-thing.copied .plate{background:var(--blueprint, #2D6CDF);color:#fff;
+  border-color:var(--blueprint, #2D6CDF);transition:background .1s}
 .rv-thing.walking .bob{animation:rvWaddle .38s ease-in-out infinite}
 @keyframes rvWaddle{0%,100%{transform:translateY(0) rotate(-3.5deg)}
   50%{transform:translateY(-3px) rotate(3.5deg)}}
@@ -12811,12 +12854,28 @@ function runSearch(){
   setTimeout(markWorldButton, 0);
 }
 
+/* A word starting with # in the search box is a tag, not text: "#issue
+   unlabeled" is everything tagged issue that mentions unlabeled. A tag is
+   matched by the start of its name, so #iss is enough. It is the tag filter
+   without opening anything, which is the difference between one line typed
+   and four taps through a dialog. */
+function hashTagsIn(text){
+  return (String(text || "").match(/(^|\s)#[^\s#]+/g) || [])
+    .map(x=>x.trim().slice(1).toLowerCase()).filter(Boolean);
+}
+function hashPass(n, want){
+  if(!want.length) return true;
+  const tags = (n.tags || []).map(t=>[String(t).toLowerCase(), String(tagLeaf(t)).toLowerCase()]);
+  return want.every(h=>tags.some(([full, leaf])=>full.startsWith(h) || leaf.startsWith(h)));
+}
 function runSearchInner(){
-  const q = el("q").value.trim().toLowerCase();
-  S.hitQuery = q;
+  const typed = el("q").value.trim().toLowerCase();
+  const hashTags = hashTagsIn(typed);
+  const q = typed.replace(/(^|\s)#[^\s#]*/g, " ").trim();
+  S.hitQuery = typed;
   S.hits = []; S.qHits = []; S.areaHits = []; S.bmHits = [];
   const scope = S.searchScope;
-  const filtering = S.tagPick.size > 0 || scope !== "all";
+  const filtering = S.tagPick.size > 0 || scope !== "all" || hashTags.length > 0;
 
   /* One letter matches almost everything and costs the most to draw, so it is
      treated as nothing typed yet — the search starts on the second letter. */
@@ -12869,6 +12928,7 @@ function runSearchInner(){
       if(scope === "flagged" && !severityOf(n)) return false;
       if(scope === "retired" && n.status !== "retired") return false;
       if(!tagsPass(n)) return false;
+      if(!hashPass(n, hashTags)) return false;
       if(!terms.length) return true;
       if(titleOnly) return matches([n.label, (n.tags||[]).join(" ")].join(" "));
       const hay = [n.label, n.body, n.id, n.type, n.status, (n.tags||[]).join(" "),
@@ -12882,7 +12942,7 @@ function runSearchInner(){
   S.hitIx = all.length ? 0 : -1;
   el("hitCount").textContent = all.length ? "1 / " + all.length : "no matches";
   syncClearButton();
-  if(all.length && q) rememberSearch(q);
+  if(all.length && typed) rememberSearch(typed);
   syncHitChrome();
   if(all.length){
     layout(); render(); renderContents();
@@ -15244,7 +15304,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-09-28x";
+const APP_BUILD = "2026-09-29a";
 
 /* Reading that line back out of a copy of this file.
 
@@ -18831,13 +18891,7 @@ function renderRoom(){
 
   /* the side exits, cut into the foot of the back wall */
   view.dataset.exits = cross.length ? "1" : "0";
-  el("rvArches").innerHTML = cross.map(c=>
-    '<button class="rv-arch' + (roomPeek === c.id ? " open" : "")
-    + (roomSwing === c.id ? " swing" : "") + '" data-thing="' + esc(c.id) + '"'
-    + ' title="' + esc((c.way === "out" ? "Leads to " : "Comes in from ") + nodeName(c.id))
-    + (c.label ? " — " + esc(c.label) : "") + '">'
-    + '<b>' + esc(nodeName(c.id)) + '</b>'
-    + '<u><i>' + (c.way === "out" ? "&#8594;" : "&#8592;") + '</i></u></button>').join("");
+  el("rvArches").innerHTML = cross.map((c, i)=>crossHTML(c, i)).join("");
 
   paintStuff(id, items, owed);
   paintBoss(id);
@@ -19033,7 +19087,8 @@ function fitWall(){
   /* the side exits stand against the foot of the wall, so that strip of wall
      is spoken for before the floor takes the rest */
   const exits = el("rvArches");
-  const exitH = exits && exits.children.length ? (narrow ? 72 : 80) : 0;
+  /* the cross-links used to stand here; they walk beside the note now */
+  const exitH = 0 && exits;
 
   /* the floor takes what is left, within reason at both ends. The control
      panel sits on the bottom of it, so its height comes off too. */
@@ -19065,6 +19120,8 @@ function fitWall(){
   const bar = el("rvBar");
   if(bar) view.style.setProperty("--rv-bar",
     Math.round(bar.getBoundingClientRect().height + 10) + "px");
+  /* the cross-links walk beside the note, so they follow it when it moves */
+  requestAnimationFrame(placeCross);
   /* where the room begins on screen, so a bubble pinned to the top of the
      window still lands inside it rather than over the search bar */
   view.style.setProperty("--rv-top",
@@ -19478,6 +19535,140 @@ function floorSpot(u, v){
   };
 }
 
+/* A cross-link as one of the cast: the same body as the things on the floor,
+   with an arrow where a door would show how many rooms are behind it. */
+function crossHTML(c, i){
+  const dark = document.documentElement.getAttribute("data-theme") === "dark";
+  const sd = rvSeed(c.id);
+  const hue = (dark ? RV_DARK : RV_HUES)[Math.floor(rvRand(sd, 1) * 6) % 6];
+  const tilt = (rvRand(sd, 5) > .5 ? 1 : -1) * (1 + rvRand(sd, 6) * 1.6);
+  const out = c.way === "out";
+  return '<button class="rv-thing door cross' + (roomPeek === c.id ? " open" : "")
+    + (roomSwing === c.id ? " swing" : "") + '" data-thing="' + esc(c.id) + '"'
+    + ' title="' + esc((out ? "Leads to " : "Comes in from ") + nodeName(c.id))
+    + (c.label ? " \u2014 " + esc(c.label) : "") + '"'
+    + ' style="--i:' + (i % 11) + ';--rv-hue:' + hue + ';--tilt:' + tilt.toFixed(2) + 'deg">'
+    + '<span class="bob"><span class="turn"><span class="halo"></span>'
+    +   '<span class="body"><span class="face"><i class="eye l"></i><i class="eye r"></i>'
+    +   '<i class="mouth"></i></span><span class="crest"></span><span class="snout"></span>'
+    +   '<span class="feet"></span><span class="wing"></span></span></span>'
+    +   '<span class="deep way">' + (out ? "&#8594;" : "&#8592;") + '</span>'
+    +   '<span class="shade"></span></span>'
+    + '<span class="plate">' + esc(nodeName(c.id)) + '</span></button>';
+}
+
+/* Where the cross-links may walk: the wall either side of the note, from just
+   under the trail down to where the floor begins. Each gets its own stretch
+   of it, so two never stand in the same place. */
+let crossers = [];
+let crossRaf = null, crossLast = 0;
+function placeCross(){
+  const view = el("roomView"), box = el("rvArches"), board = el("rvBoard");
+  if(!view || !box || !board || view.hidden){ stopCross(); return; }
+  const els = [...box.querySelectorAll(".rv-thing.cross")];
+  if(!els.length){ crossers = []; stopCross(); return; }
+  const vb = view.getBoundingClientRect(), bb = board.getBoundingClientRect();
+  if(!vb.width || !bb.width) return;
+  const gap = 8;
+  const way = el("rvOut");
+  const wayR = way && !way.classList.contains("empty") && way.offsetParent
+    ? way.getBoundingClientRect().right - vb.left : 0;
+  const strip = view.querySelector(".rv-floorstrip");
+  const floorLine = strip ? strip.getBoundingClientRect().top - vb.top + 26 : vb.height * 0.6;
+  const trail = el("rvTrail");
+  const wallTop = Math.max(bb.top - vb.top,
+    trail ? trail.getBoundingClientRect().bottom - vb.top : 0) + 4;
+  /* the strips of wall either side of the note, in the room's own terms */
+  const sides = [{l:bb.right - vb.left + gap, r:vb.width - 4, n:0}];
+  const left = {l:Math.max(wayR, 0) + gap, r:bb.left - vb.left - gap, n:0};
+  /* A label never runs wider than its strip: a long name wraps rather than
+     reaching over the note or off the edge of the room. */
+  box.style.setProperty("--cross-w", Math.max(64, Math.round(sides[0].r - sides[0].l)) + "px");
+  const probe = els[0];
+  const wideness = e=>{
+    e.style.transform = "translate3d(0px,0px,0)";
+    const a = e.getBoundingClientRect(), p = e.querySelector(".plate");
+    const b = p ? p.getBoundingClientRect() : a;
+    return {w:Math.max(a.right, b.right) - Math.min(a.left, b.left)};
+  };
+  /* the left only when there is honestly room beside the way out */
+  if(left.r - left.l >= Math.min(120, wideness(probe).w)) sides.push(left);
+  const pick = els.map((e, i)=>sides[i % sides.length]);
+  pick.forEach(sd=>sd.n++);
+  const seen = new Map(crossers.map(r=>[r.id, r]));
+  const lane = new Map(sides.map(sd=>[sd, 0]));
+  crossers = els.map((e, i)=>{
+    const sd = pick[i], j = lane.get(sd); lane.set(sd, j + 1);
+    /* Measured as it is actually drawn — a creature, a plate, whatever the
+       skin makes of it — by standing it at a known spot and seeing where its
+       edges fall. Nothing about its size is assumed. */
+    e.style.setProperty("--cross-cap", Math.max(64, Math.round(sd.r - sd.l)) + "px");
+    e.style.transform = "translate3d(0px,0px,0)";
+    const base = view.getBoundingClientRect();
+    const a = e.getBoundingClientRect(), p = e.querySelector(".plate");
+    const b = p ? p.getBoundingClientRect() : a;
+    const L = Math.min(a.left, b.left) - base.left, R = Math.max(a.right, b.right) - base.left;
+    const T = Math.min(a.top, b.top) - base.top, B = Math.max(a.bottom, b.bottom) - base.top;
+    /* with the thing standing at 0,0, its edges are these far from its feet */
+    let x0 = sd.l - L, x1 = sd.r - R;
+    if(x1 < x0) x0 = x1 = (x0 + x1) / 2;       /* too narrow to wander: centred */
+    const h = (floorLine - wallTop) / sd.n;
+    let y0 = wallTop + h * j - T, y1 = wallTop + h * (j + 1) - B;
+    if(y1 < y0) y0 = y1 = (y0 + y1) / 2;
+    const area = {x0, x1, y0, y1};
+    const id = e.dataset.thing, was = seen.get(id);
+    const seed = rvSeed(id);
+    const r = was && was.el === e ? was : {id, el:e, face:-1, wait:rvRand(seed, 3) * 1.5,
+      x:x0 + rvRand(seed, 7) * (x1 - x0), y:y0 + rvRand(seed, 8) * (y1 - y0)};
+    r.area = area;
+    r.x = Math.min(x1, Math.max(x0, r.x));
+    r.y = Math.min(y1, Math.max(y0, r.y));
+    r.tx = r.x; r.ty = r.y;
+    drawCross(r);
+    return r;
+  });
+  startCross();
+}
+function drawCross(r){
+  r.el.style.transform = "translate3d(" + r.x.toFixed(1) + "px," + r.y.toFixed(1) + "px,0)";
+  r.el.style.setProperty("--face", r.face < 0 ? -1 : 1);
+}
+function stopCross(){ if(crossRaf){ cancelAnimationFrame(crossRaf); crossRaf = null; } }
+function startCross(){
+  stopCross();
+  crossers.forEach(r=>r.el.classList.remove("walking"));
+  if(!crossers.length || lifeLevel() !== "full") return;
+  crossLast = performance.now();
+  crossRaf = requestAnimationFrame(crossStep);
+}
+function crossStep(now){
+  crossRaf = null;
+  const view = el("roomView");
+  if(!view || view.hidden || !crossers.length) return;
+  const dt = Math.min(0.05, (now - crossLast) / 1000);
+  crossLast = now;
+  for(const r of crossers){
+    if(!r.el.isConnected) continue;
+    const still = r.id === roomPeek || r.wait > 0;
+    if(r.wait > 0) r.wait -= dt;
+    if(still){ if(r.moving){ r.moving = false; r.el.classList.remove("walking"); } continue; }
+    const dx = r.tx - r.x, dy = r.ty - r.y, far = Math.hypot(dx, dy);
+    if(far < 1.5){
+      const a = r.area;
+      r.tx = a.x0 + Math.random() * (a.x1 - a.x0);
+      r.ty = a.y0 + Math.random() * (a.y1 - a.y0);
+      r.wait = 0.6 + Math.random() * 2.2;
+      continue;
+    }
+    const go = Math.min(1, (24 * dt) / far);        /* a slow amble, in pixels */
+    r.x += dx * go; r.y += dy * go;
+    if(Math.abs(dx) > 1) r.face = dx > 0 ? 1 : -1;
+    if(!r.moving){ r.moving = true; r.el.classList.add("walking"); }
+    drawCross(r);
+  }
+  crossRaf = requestAnimationFrame(crossStep);
+}
+
 function paintThings(ids){
   const field = el("rvField");
   if(!field) return;
@@ -19686,10 +19877,16 @@ function refloor(){
   if(!inRoom()) return;
   fieldBox = fieldSize();
   roamers.forEach(placeOne);
+  placeCross();
 }
 
 /* The crack in the door: the name, what is written in there, and how much is
    behind it. A second tap on the door walks through. */
+/* When the bubble opened. On a phone the tap that opens it is followed by the
+   browser's own click a moment later, and the bubble — a panel along the
+   bottom — has by then appeared under that finger. The click landed on its
+   Go in button, so a single tap on a creature sometimes walked straight in. */
+let peekShownAt = 0;
 function drawPeek(){
   const p = el("rvPeek");
   if(!p) return;
@@ -19698,7 +19895,11 @@ function drawPeek(){
      note is the wall in front of you now, so a bubble repeating it is just
      something in the way. Checked here rather than at each door, so no way
      in can leave one behind. */
-  if(roomPeek && (roomPeek === S.sel || !roomInHere(roomPeek))) roomPeek = "";
+  /* In a room of search results you are standing among them, not in any of
+     them — the search quietly selects its first match, and treating that as
+     "you are in it" made the first result the one creature that would not
+     answer a tap. */
+  if(roomPeek && ((roomPeek === S.sel && !S.roomWorld) || !roomInHere(roomPeek))) roomPeek = "";
   if(!roomPeek || !S.nodes.has(roomPeek)){ p.hidden = true; p.innerHTML = ""; return; }
   const k = roomPeek, n = S.nodes.get(k);
   const kids = roomOrder(childrenOf(k).filter(x=>S.nodes.has(x)));   /* the list in the bubble, so it is ordered */
@@ -19709,6 +19910,7 @@ function drawPeek(){
   const items = itemsFor(k).length;
   if(items) inside.push(items + " to confirm");
   const words = peekText(k);
+  if(p.hidden) peekShownAt = performance.now();
   p.hidden = false;
   placePeek();
   /* the tail points at whoever is speaking */
@@ -19878,7 +20080,7 @@ function markPeek(){
   field.querySelectorAll(".rv-thing.open").forEach(x=>{
     if(x.dataset.thing !== roomPeek) x.classList.remove("open"); });
   const arch = el("rvArches");
-  if(arch) arch.querySelectorAll(".rv-arch.open").forEach(x=>{
+  if(arch) arch.querySelectorAll(".rv-arch.open, .rv-thing.open").forEach(x=>{
     if(x.dataset.thing !== roomPeek) x.classList.remove("open"); });
   if(roomPeek){
     const on = rvThingEl(roomPeek);
@@ -19997,12 +20199,73 @@ function floorUV(cx, cy){
    the whole point is seeing where it will stand. For an editor the outline
    rail still lights up on the way past, so dragging one onto another to link
    them works exactly as before. */
+/* ---------------------------------------------------------------
+   Holding one still copies it.
+
+   A press that stays put for a moment is neither a tap (which peeks)
+   nor a drag (which moves it): it puts what that room says on the
+   clipboard, ready to paste straight into LIMS. The creature fills as
+   you hold so you can see it coming, and the copy is made when you let
+   go — letting go is a gesture every browser trusts with the clipboard,
+   where a timer firing in the middle of a press is not. Moving before
+   letting go makes it a drag instead and copies nothing.
+   --------------------------------------------------------------- */
+const HOLD_MS = 450;
+function thingText(id){
+  const n = S.nodes.get(id);
+  if(!n) return "";
+  const body = String(n.body || "").trim();
+  return body || String(n.label || "").trim();
+}
+async function copyPlain(text){
+  try{ await navigator.clipboard.writeText(text); return true; }catch(e){}
+  /* a page opened from a folder can be refused the clipboard; the old way
+     still works there */
+  try{
+    const ta = document.createElement("textarea");
+    ta.value = text; ta.setAttribute("readonly", "");
+    ta.style.cssText = "position:fixed;left:-9999px;top:0;opacity:0";
+    document.body.appendChild(ta); ta.select();
+    const ok = document.execCommand("copy");
+    ta.remove();
+    return ok;
+  }catch(e){ return false; }
+}
+async function copyThing(id){
+  const text = thingText(id);
+  if(!text){ toast("Nothing written there to copy."); return; }
+  const ok = await copyPlain(text);
+  const t = rvThingEl(id);
+  if(t){ t.classList.add("copied"); setTimeout(()=>t.classList.remove("copied"), 900); }
+  toast(ok ? "Copied \u201c" + shorten(text.replace(/\s+/g, " "), 60) + "\u201d"
+           : "This browser would not let it be copied.");
+}
+
 function wireThingDrag(strip){
   let from = null, start = null, live = false, hold = null, wasFixed = false;
+  let holdTimer = null, armed = false;
+  const unhold = ()=>{
+    clearTimeout(holdTimer); holdTimer = null;
+    strip.querySelectorAll(".rv-thing.holding, .rv-thing.armed").forEach(x=>
+      x.classList.remove("holding", "armed"));
+  };
+  /* a long press on a phone would otherwise bring up the browser's own menu */
+  strip.addEventListener("contextmenu", ev=>{
+    if(ev.target.closest && ev.target.closest(".rv-thing")) ev.preventDefault();
+  });
   strip.addEventListener("pointerdown", ev=>{
     const t = ev.target.closest && ev.target.closest(".rv-thing");
     if(!t) return;
     if(ev.button != null && ev.button !== 0) return;
+    unhold(); armed = false;
+    t.classList.add("holding");
+    holdTimer = setTimeout(()=>{
+      holdTimer = null;
+      if(from !== t || live) return;
+      armed = true;
+      t.classList.add("armed");
+      try{ if(navigator.vibrate) navigator.vibrate(15); }catch(e){}
+    }, HOLD_MS);
     from = t; start = {x:ev.clientX, y:ev.clientY}; live = false;
     hold = roamers.find(r=>r.id === t.dataset.thing) || null;
     wasFixed = !!(hold && hold.fixed);
@@ -20014,6 +20277,7 @@ function wireThingDrag(strip){
     if(!live && far < 8) return;
     if(!live){
       live = true;
+      armed = false; unhold();          /* moving makes it a drag, not a copy */
       from.classList.add("lifted");
       /* the finger is moving a creature, not scrolling the page */
       try{ from.setPointerCapture(ev.pointerId); }catch(e){}
@@ -20036,11 +20300,15 @@ function wireThingDrag(strip){
   const up = ev=>{
     if(!from) return;
     const what = from.dataset.thing;
+    const wasArmed = armed && ev.type !== "pointercancel";
+    armed = false; unhold();
     from.classList.remove("lifted");
     const row = rvOverRow;
     if(rvOverRow){ rvOverRow.classList.remove("onto"); rvOverRow = null; }
     const was = live, held = hold;
     from = null; start = null; live = false; hold = null;
+    if(!was && wasArmed){ copyThing(what); return; }
+    if(!was && ev.type === "pointercancel") return;
     if(!was){ roomTap(what); return; }
     /* dropped on the outline: that is somebody saying these two belong
        together, which is the editor's business */
@@ -20678,6 +20946,8 @@ function wireRoom(){
   });
 
   el("rvPeek").addEventListener("click", ev=>{
+    /* the tail end of the tap that opened it, not a choice made in it */
+    if(performance.now() - peekShownAt < 400){ ev.preventDefault(); ev.stopPropagation(); return; }
     const dive = ev.target.closest && ev.target.closest("[data-dive]");
     if(dive){
       /* past the one you are looking at, straight into the one you named */
@@ -21211,7 +21481,11 @@ async function boot(){
   let searchPending = null;
   const searchNow = ()=>{
     clearTimeout(searchPending);
-    searchPending = setTimeout(()=>{ searchPending = null; runSearch(); }, 650);
+    /* In the room a search is cheap — nothing but the room is redrawn — and
+       somebody there is usually after one thing, fast. The drawing, where a
+       search reflows the whole map, keeps the longer wait. */
+    searchPending = setTimeout(()=>{ searchPending = null; runSearch(); },
+      typeof inRoom === "function" && inRoom() ? 150 : 650);
     if(el("hitCount")) el("hitCount").textContent = "…";
   };
   const searchAtOnce = ()=>{
