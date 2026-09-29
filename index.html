@@ -1415,6 +1415,11 @@ html[data-theme="dark"] #roomView[data-skin="plain"]{
 .rv-note table{border-collapse:collapse;font-size:13px;margin:10px 0;max-width:100%}
 /* a table wider than the board scrolls rather than losing its last column */
 .rv-note{overflow:auto;overscroll-behavior:contain}
+/* The row the note sits in lines things up at the top, so a picture beside it
+   keeps its own height — and that same rule let the note grow as tall as its
+   words and pour out of the bottom of the board. The note alone is stretched
+   to the row, so a long one scrolls inside the board instead. */
+.rv-note{align-self:stretch;max-height:100%}
 .rv-note th,.rv-note td{border:1px solid var(--rule-soft);padding:4px 8px;text-align:left}
 .rv-count{padding:0 14px 10px;font-family:var(--mono);font-size:11px;
   color:var(--rv-dim, var(--graphite-60));
@@ -1904,12 +1909,24 @@ html[data-motion="calm"] .rv-arch.swing{animation:none}
 .rv-findmore .btn{flex:0 0 auto}
 body.viewing .stage{grid-column:1 / -1}
 /* with the search in it there is nothing left for the commentary to say */
-#roomView[data-reader="1"] .rv-bar-mid{display:none}
+/* The running commentary is gone for everyone: the search has its place on
+   the console in every mode, and a line of status in its stead was only ever
+   the search box missing. */
+.rv-bar .rv-bar-mid{display:none !important}
+#rvJump{flex:0 0 auto}
+/* the buttons share Go to's line and wrap among themselves, rather than the
+   whole group dropping to a line of its own and leaving Go to stranded */
+.rv-bar .rv-bar-right{flex:1 1 0;min-width:0;flex-wrap:wrap;row-gap:7px}
+.rv-findbox[hidden]{display:none}
+.rvb .ic .ic-row{display:block;width:1.25em;height:.62em;fill:currentColor}
 
 .rv-bar{
   container-type:inline-size;
   position:absolute;left:10px;right:10px;bottom:9px;z-index:30;
-  display:flex;align-items:center;gap:10px;
+  /* Allowed to wrap. On a phone the search is meant to have a line of its own
+     with the buttons under it, and without this it was squeezed to a sliver
+     instead. A wide screen still fits it all on one line. */
+  display:flex;flex-wrap:wrap;align-items:center;gap:10px;row-gap:7px;
   padding:7px 10px;min-height:48px;
   background:linear-gradient(180deg,#5AA8DE 0%,#3B85BE 100%);
   border:3px solid var(--rv-ink);border-radius:26px;
@@ -2863,7 +2880,7 @@ dialog#viewerKindDlg::backdrop{background:rgba(35,40,45,.42)}
 .tray-inner{padding:10px 12px 12px;overflow:auto;flex:1}
 #trayPanel.folded .tray-inner{display:none}
 #trayAdd{width:100%;min-height:52px}
-.trayrow{display:flex;align-items:flex-start;gap:8px}
+.trayrow{display:flex;align-items:flex-start;gap:8px;cursor:default}
 .traymain{flex:1;min-width:0}
 .trayat{display:block;font-family:var(--mono);font-size:10px;color:var(--graphite-60);
   margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -3722,6 +3739,9 @@ body.viewing.panelaway #panelHide{display:none}
           <div class="rv-bar-left" id="rvStuff"></div>
           <div class="rv-bar-mid" id="rvBarSays"></div>
           <div class="rv-findbox" id="rvFindBox" hidden></div>
+          <!-- right beside the search, ahead of the filters that open while searching -->
+          <button class="rvb" id="rvJump" title="Go somewhere">
+            <span class="ic">&#9776;</span><span class="lb">Go to</span></button>
           <div class="rv-findmore" id="rvFindMore" hidden></div>
           <div class="rv-bar-right">
             <button class="rvb" id="rvMood" title="Plain, or the whole cast">
@@ -3730,8 +3750,6 @@ body.viewing.panelaway #panelHide{display:none}
               <span class="ic">&#9681;</span><span class="lb">Dark</span></button>
             <button class="rvb" id="rvMore" hidden title="Your name, your shelves, how it looks">
               <span class="ic">&#8943;</span><span class="lb">More</span></button>
-            <button class="rvb" id="rvJump" title="Go somewhere">
-              <span class="ic">&#9776;</span><span class="lb">Go to</span></button>
             <button class="rvb" id="rvCatch" hidden
                     title="Pull in everyone else's sign-offs and examples">
               <span class="ic">&#8635;</span><span class="lb">Catch up</span></button>
@@ -3744,7 +3762,7 @@ body.viewing.panelaway #panelHide{display:none}
             <button class="rvb" id="rvWorld" title="Step into what the filter found">
               <span class="ic">&#9678;</span><span class="lb">Found</span></button>
             <button class="rvb" id="rvLayout" title="Line everything up, or let it wander">
-              <span class="ic">&#9776;</span><span class="lb">Line up</span></button>
+              <span class="ic"><svg class="ic-row" viewBox="0 0 20 8" aria-hidden="true"><rect x="0.5" y="1" width="5.5" height="6" rx="1.2"/><rect x="7.25" y="1" width="5.5" height="6" rx="1.2"/><rect x="14" y="1" width="5.5" height="6" rx="1.2"/></svg></span><span class="lb">Line up</span></button>
             <button class="rvb" id="rvEdit" hidden><span class="ic">&#9998;</span><span class="lb">Edit</span></button>
             <button class="rvb" id="rvAdd" hidden><span class="ic">+</span><span class="lb">Add</span></button>
           </div>
@@ -9091,8 +9109,7 @@ function renderTray(){
   const waiting = mine.filter(x=>!x.node);
   const planted = mine.filter(x=>x.node);
 
-  const row = (it, done)=>`<div class="trayrow${S.inboxArmed === it.id ? " armed" : ""}${
-      done ? " planted" : ""}" data-tray="${esc(it.id)}"${done ? "" : ' draggable="true"'}>
+  const row = (it, done)=>`<div class="trayrow${done ? " planted" : ""}" data-tray="${esc(it.id)}">
       <div class="traymain">
         <span class="traytext" contenteditable="${done ? "false" : "true"}"
           data-edit="${esc(it.id)}">${esc(it.text)}</span>
@@ -9134,8 +9151,16 @@ function renderTray(){
         sp.blur(); }
     };
   });
+  /* Throwing one away asks first. The × sits right beside Plant, and on a
+     phone the one is hit for the other far too easily; there is no undo. */
   box.querySelectorAll("[data-traydrop]").forEach(b=>{
-    b.onclick = ev=>{ ev.stopPropagation(); dropFromTray(b.dataset.traydrop); };
+    b.onclick = ev=>{
+      ev.stopPropagation();
+      const it = S.inbox.find(x=>x.id === b.dataset.traydrop);
+      if(!it) return;
+      if(!confirm("Throw away \u201c" + shorten(it.text, 60) + "\u201d?\n\nThis cannot be undone.")) return;
+      dropFromTray(it.id);
+    };
   });
   box.querySelectorAll("[data-trayplant]").forEach(b=>{
     b.onclick = ev=>{ ev.stopPropagation(); openPlant(b.dataset.trayplant); };
@@ -9151,18 +9176,10 @@ function renderTray(){
   box.querySelectorAll("[data-trayback]").forEach(b=>{
     b.onclick = ev=>{ ev.stopPropagation(); unplant(b.dataset.trayback); };
   });
-  box.querySelectorAll("[data-tray]").forEach(r=>{
-    const it = S.inbox.find(x=>x.id === r.dataset.tray);
-    if(it && it.node) return;                 // planted rows are not for dragging
-    r.onclick = ev=>{ if(ev.target.closest(".btn,.kill")) return;
-      armTrayItem(r.dataset.tray); };
-    r.addEventListener("dragstart", ev=>{
-      S.inboxArmed = r.dataset.tray;
-      renderTray(); updateTrayFlag();
-      try{ ev.dataTransfer.setData("text/plain", r.dataset.tray); }catch(e){}
-      ev.dataTransfer.effectAllowed = "copy";
-    });
-  });
+  /* Tapping or dragging a row used to pick it up and carry it out onto the
+     map to be dropped somewhere, with no way to put it back down again. That
+     is gone: an item is planted from its Plant button and nowhere else, which
+     asks where in a list you can search and back out of. */
   renderTraySessions();
   updateTrayCount();
 }
@@ -10211,7 +10228,34 @@ function subHeading(text){
    --------------------------------------------------------------- */
 let readerShell = null;    /* where each moved piece came from */
 
+/* Whether the reader's extras are on. Where the search sits is a separate
+   question, answered by dockSearch. */
+let readerOn = false;
 function readerConsole(on){
+  const view = el("roomView");
+  if(!view) return;
+  readerOn = !!on;
+  view.dataset.reader = on ? "1" : "0";
+  if(el("rvMore")) el("rvMore").hidden = !on;
+  dockSearch();
+}
+
+/* ---------------------------------------------------------------
+   The search lives on the console whenever the room is showing — for
+   a reader and an editor alike. It used to move there only for a
+   reader, so an editor's console showed a line of status and an empty
+   slot instead, and the two could be seen trading places. It goes back
+   to the top bar only when an editor turns to the drawing, where the
+   console is not showing at all.
+
+   Asked again every time the room is drawn, so however it came to be
+   out of place, it is back on the next redraw.
+   --------------------------------------------------------------- */
+function dockSearch(){
+  const want = typeof inRoom === "function" ? inRoom() : true;
+  searchConsole(want);
+}
+function searchConsole(on){
   const view = el("roomView"), box = el("rvFindBox"), more = el("rvFindMore");
   if(!view || !box) return;
 
@@ -10232,8 +10276,6 @@ function readerConsole(on){
       host.appendChild(e);
     });
     box.hidden = false;
-    view.dataset.reader = "1";
-    if(el("rvMore")) el("rvMore").hidden = false;
   } else {
     if(readerShell){
       readerShell.forEach(({e, was, at})=>{
@@ -10245,8 +10287,6 @@ function readerConsole(on){
       readerShell = null;
     }
     box.hidden = true;
-    view.dataset.reader = "0";
-    if(el("rvMore")) el("rvMore").hidden = true;
     if(el("rvFindMore")) el("rvFindMore").hidden = true;
   }
 }
@@ -15204,7 +15244,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-09-28u";
+const APP_BUILD = "2026-09-28x";
 
 /* Reading that line back out of a copy of this file.
 
@@ -18555,6 +18595,7 @@ function backdropFor(id){
 function renderRoom(){
   const view = el("roomView");
   if(!view || view.hidden) return;
+  dockSearch();
   const id = S.sel && S.nodes.has(S.sel) ? S.sel : null;
   /* standing in a real room again: the hall was where they were, not where
      they want to stay */
@@ -19871,6 +19912,7 @@ function setVista(v, quiet){
   if(!view) return;
   document.body.classList.toggle("roomon", inRoom());
   view.hidden = !inRoom();
+  dockSearch();
   if(el("vistaRoom")) el("vistaRoom").setAttribute("aria-pressed", inRoom() ? "true" : "false");
   if(el("vistaMap")) el("vistaMap").setAttribute("aria-pressed", inRoom() ? "false" : "true");
 
@@ -19916,6 +19958,8 @@ function rvMarkRow(x, y){
    room was saying. */
 let barSaidTimer = null;
 function sayBar(msg){
+  /* the console no longer has a line to say it on */
+  toast(msg); return;
   const box = el("rvBarSays");
   if(!box) return;
   if(barSaidTimer){ clearTimeout(barSaidTimer); barSaidTimer = null; }
@@ -20192,12 +20236,15 @@ function markWorldButton(){
     : "Step into what the search or the tag filter found";
 }
 
+const LINE_UP_ICON = '<svg class="ic-row" viewBox="0 0 20 8" aria-hidden="true"><rect x="0.5" y="1" width="5.5" height="6" rx="1.2"/><rect x="7.25" y="1" width="5.5" height="6" rx="1.2"/><rect x="14" y="1" width="5.5" height="6" rx="1.2"/></svg>';
 function layoutButton(){
   const b = el("rvLayout");
   if(!b) return;
   const row = S.roomFloor === "row";
   b.querySelector(".lb").textContent = row ? "Let them wander" : "Line up";
-  b.querySelector(".ic").innerHTML = row ? "&#10022;" : "&#9776;";
+  /* three in a row for lining up — not the lines Go to uses, which made the
+     two look like the same button */
+  b.querySelector(".ic").innerHTML = row ? "&#10022;" : LINE_UP_ICON;
   b.classList.toggle("on", row);
 }
 
