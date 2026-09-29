@@ -2947,6 +2947,7 @@ dialog#connDlg::backdrop{background:rgba(35,40,45,.42)}
 .rs-item .rs-what{flex:1;min-width:0}
 .rs-item .rs-what b{display:block;font-size:14px;font-weight:600}
 .rs-item .rs-what small{display:block;color:var(--graphite-60);font-size:12px;margin-top:2px}
+.rs-item .rs-what small.rs-note{color:var(--graphite);font-size:13px;white-space:pre-wrap;margin:3px 0 2px}
 .rs-done{font-family:var(--mono);font-size:11.5px;color:var(--blueprint);margin-top:4px}
 .rs-item .btn{flex:0 0 auto}
 .rs-mine{margin-top:8px}
@@ -4123,21 +4124,29 @@ body.viewing.panelaway #panelHide{display:none}
 
 <dialog id="newCheckDlg">
   <div class="dlg-head">
-    <h2>Something to confirm</h2>
+    <h2 id="ncTitle">Something to confirm</h2>
     <button class="btn" id="ncCancel">Cancel</button>
   </div>
   <div class="hist-controls">
     <label class="field"><span>What should people confirm?</span>
-      <input type="text" id="ncLabel" placeholder="Read and understood"></label>
+      <input type="text" id="ncLabel" placeholder="Read and understood"
+             autocomplete="off"></label>
+    <label class="field"><span>Instructions <i class="fineprint">optional — shown with it</i></span>
+      <textarea id="ncNote" rows="3"
+        placeholder="Anything they should know or do first. e.g. Check the TRF against LIMS before you confirm."></textarea></label>
     <label class="field"><span>What do they have to give when they confirm it?</span>
       <select id="ncNeeds">
         <option value="">Just their name</option>
-        <option value="ref">A reference, such as an accession number</option>
+        <option value="ref">A typed answer</option>
         <option value="proof">A screenshot</option>
-        <option value="both">Both</option>
+        <option value="both">A typed answer and a screenshot</option>
       </select></label>
-    <label class="field" id="ncAskWrap" hidden><span>What should the field ask for?</span>
-      <input type="text" id="ncAsk" placeholder="Accession number"></label>
+    <label class="field" id="ncAskWrap" hidden><span>What should the answer box ask?</span>
+      <input type="text" id="ncAsk" placeholder="Accession number — or a question, e.g. What is the TAT for a STAT?"
+             autocomplete="off"></label>
+    <label class="field" id="ncShotWrap" hidden><span>What should the screenshot show?</span>
+      <input type="text" id="ncShot" placeholder="e.g. The issue added in LIMS, with the date visible"
+             autocomplete="off"></label>
     <div class="row" style="margin-top:8px">
       <button class="btn wide primary" id="ncAdd">Add it</button>
     </div>
@@ -4228,9 +4237,11 @@ body.viewing.panelaway #panelHide{display:none}
   </div>
   <div class="hist-controls">
     <p class="fineprint" id="signAsk"></p>
+    <p id="signNote" hidden style="margin:0 0 10px;font-size:13.5px;white-space:pre-wrap"></p>
     <label class="field" id="signRefWrap"><span id="signRefLabel">Accession number</span>
       <input type="text" id="signRef" placeholder="e.g. 3792769"></label>
     <div id="signProofWrap">
+      <p class="fineprint" id="signShotAsk" hidden style="margin:6px 0 0"></p>
       <div class="row" style="margin-top:6px">
         <button class="btn wide" id="signProofPick">Attach a screenshot</button>
       </div>
@@ -4743,7 +4754,9 @@ function newCheckItem(o={}){
   return Object.assign({
     id:uid("C-"), node:"", label:"Read and understood", created:nowISO(), author:S.meta.author,
     /* what a person has to supply when they sign it off: "" | ref | proof | both */
-    requires:"", prompt:""
+    requires:"", prompt:"",
+    /* what to tell people about it, and what the screenshot should show */
+    note:"", shot:""
   }, o);
 }
 function newCheckoff(o={}){
@@ -5390,14 +5403,28 @@ function assignTeam(adding){
 }
 
 let newCheckFor = null;
-function openNewCheck(nodeId){
+let editCheckId = null;
+function ncShowFields(){
+  const v = el("ncNeeds").value;
+  el("ncAskWrap").hidden = !(v === "ref" || v === "both");
+  el("ncShotWrap").hidden = !(v === "proof" || v === "both");
+}
+/* A new item starts blank, so each one says what it is actually for rather
+   than every room asking to have been "read and understood". */
+function openNewCheck(nodeId, itemId){
+  const it = itemId ? S.checkItems.find(x=>x.id === itemId) : null;
   newCheckFor = nodeId;
-  el("ncLabel").value = "Read and understood";
-  el("ncNeeds").value = "";
-  el("ncAsk").value = "";
-  el("ncAskWrap").hidden = true;
+  editCheckId = it ? it.id : null;
+  el("ncTitle").textContent = it ? "Change what is asked" : "Something to confirm";
+  el("ncAdd").textContent = it ? "Save" : "Add it";
+  el("ncLabel").value = it ? it.label : "";
+  el("ncNote").value = it ? (it.note || "") : "";
+  el("ncNeeds").value = it ? (it.requires || "") : "";
+  el("ncAsk").value = it ? (it.prompt || "") : "";
+  el("ncShot").value = it ? (it.shot || "") : "";
+  ncShowFields();
   el("newCheckDlg").showModal();
-  setTimeout(()=>el("ncLabel").select(), 60);
+  setTimeout(()=>el("ncLabel").focus(), 60);
 }
 
 function openPeople(){
@@ -5653,7 +5680,7 @@ const HDR = {
   Areas:["area_id","label","x","y","w","h","color","move_contents","holds","note"],
   Bookmarks:["bookmark_id","label","node_id","x","y","zoom","icon"],
   Suggestions:["suggestion_id","node_id","person","timestamp","kind","text","status","resolved_by","resolved_at"],
-  CheckItems:["item_id","node_id","label","created","author","requires","prompt"],
+  CheckItems:["item_id","node_id","label","created","author","requires","prompt","note","shot"],
   Checkoffs:["check_id","item_id","node_id","person","checked","timestamp","note","evidence","proof"],
   Examples:["example_id","node_id","person","accession","note","proof","at","status"],
   Shelves:["shelf_id","name","person","nodes","note","at","status"],
@@ -5723,7 +5750,7 @@ function toSheets(){
   }));
   const checkItems = S.checkItems.map(x=>({
     item_id:x.id, node_id:x.node, label:x.label, created:x.created, author:x.author,
-    requires:x.requires || "", prompt:x.prompt || ""
+    requires:x.requires || "", prompt:x.prompt || "", note:x.note || "", shot:x.shot || ""
   }));
   const checkoffs = S.checkoffs.map(x=>({
     check_id:x.id, item_id:x.item, node_id:x.node, person:x.person,
@@ -5952,7 +5979,8 @@ function tablesToModel(t){
       id:String(r.item_id||uid("C-")), node:String(r.node_id||""),
       label:String(r.label||"Read and understood"),
       created:String(r.created||nowISO()), author:String(r.author||""),
-      requires:String(r.requires||""), prompt:String(r.prompt||"")
+      requires:String(r.requires||""), prompt:String(r.prompt||""),
+      note:String(r.note||""), shot:String(r.shot||"")
     }));
   }
   for(const r of (t.Checkoffs||[])){
@@ -11923,9 +11951,15 @@ function renderRespond(){
   el("rsTitle").textContent = n.label || "This room";
   const when = t=>esc(String(t || "").slice(0, 16));
   const items = itemsFor(n.id);
-  const needs = it=>it.requires === "ref" ? "Asks for an accession number"
-    : it.requires === "proof" ? "Asks for a screenshot"
-    : it.requires === "both" ? "Asks for an accession number and a screenshot" : "";
+  const answerName = it=>(it.prompt || "an accession number");
+  /* "a screenshot of The STAT flag" reads wrong; lower the first letter when it
+     runs on in a sentence, unless the word is an acronym */
+  const inline = t=>{ t = String(t || ""); return /^[A-Z][a-z]/.test(t) ? t[0].toLowerCase() + t.slice(1) : t; };
+  const needs = it=>it.requires === "ref" ? "Asks for " + (it.prompt ? "an answer: " + it.prompt : "an accession number")
+    : it.requires === "proof" ? "Asks for a screenshot" + (it.shot ? " of " + inline(it.shot) : "")
+    : it.requires === "both" ? "Asks for " + (it.prompt ? "an answer (" + it.prompt + ")" : "an accession number")
+        + " and a screenshot" + (it.shot ? " of " + inline(it.shot) : "") : "";
+  void answerName;
   const myQs = questionsForNode(n.id).filter(q=>q.person === me);
   const mySugs = suggestionsFor(n.id).filter(x=>x.person === me).slice().reverse();
 
@@ -11941,7 +11975,8 @@ function renderRespond(){
         const done = !!(mine && mine.checked === "yes");
         return `<div class="rs-item">
           <div class="rs-what"><b>${esc(it.label)}</b>
-            ${it.prompt ? `<small>${esc(it.prompt)}</small>` : needs(it) ? `<small>${needs(it)}</small>` : ""}
+            ${it.note ? `<small class="rs-note">${esc(it.note)}</small>` : ""}
+            ${needs(it) ? `<small>${esc(needs(it))}</small>` : ""}
             ${it.created ? `<small>Added ${esc(String(it.created).slice(0, 10))}</small>` : ""}
             ${done ? `<div class="rs-done">\u2713 Confirmed ${when(mine.timestamp)}${
               mine.evidence ? " \u00b7 " + esc(mine.evidence) : ""}${mine.proof ? " \u00b7 screenshot" : ""}</div>` : ""}
@@ -12356,14 +12391,19 @@ function askForEvidence(item, nodeId){
   const needRef = item.requires === "ref" || item.requires === "both";
   const needShot = item.requires === "proof" || item.requires === "both";
   el("signTitle").textContent = item.label;
-  el("signAsk").textContent = item.prompt
-    || (needRef && needShot ? "Give an accession number and a screenshot."
-      : needRef ? "Give an accession number as evidence."
-      : "Attach a screenshot as evidence.");
+  el("signAsk").textContent = needRef && needShot ? "Give " + (item.prompt ? "your answer" : "an accession number") + " and a screenshot."
+      : needRef ? (item.prompt ? "Give your answer." : "Give an accession number as evidence.")
+      : "Attach a screenshot as evidence.";
+  el("signNote").hidden = !item.note;
+  el("signNote").textContent = item.note || "";
+  el("signShotAsk").hidden = !(needShot && item.shot);
+  el("signShotAsk").textContent = item.shot ? "The screenshot should show: " + item.shot : "";
   el("signRefWrap").hidden = !needRef;
   el("signProofWrap").hidden = !needShot;
   el("signRef").value = "";
-  el("signRefLabel").textContent = item.prompt && needRef ? "Your answer" : "Accession number";
+  /* the question itself is the label; an accession number is only the default */
+  el("signRefLabel").textContent = needRef && item.prompt ? item.prompt : "Accession number";
+  el("signRef").placeholder = item.prompt ? "Your answer" : "e.g. 3792769";
   el("signProofPrev").innerHTML = "";
   el("signWarn").textContent = "";
   el("signDlg").showModal();
@@ -12430,8 +12470,9 @@ function contributionBlock(n){
           <input type="checkbox" data-check="${esc(it.id)}"${done?" checked":""}>
           <span>${esc(it.label)}
             <span class="fold" style="margin-left:6px">${checkCount(it.id)} confirmed</span>
-            ${it.requires ? `<span class="fold">needs ${it.requires === "ref" ? "a reference"
-              : it.requires === "proof" ? "a screenshot" : "both"}</span>` : ""}
+            ${it.requires ? `<span class="fold">needs ${it.requires === "ref" ? "an answer"
+              : it.requires === "proof" ? "a screenshot" : "an answer and a screenshot"}</span>` : ""}
+            ${it.note ? `<br><span style="font-size:12px;color:var(--graphite-60)">${esc(it.note)}</span>` : ""}
             ${done && mine.timestamp?`<br><span style="font-family:var(--mono);font-size:10px;color:var(--graphite-60)">you, ${esc(String(mine.timestamp).slice(0,16))}</span>`:""}
             ${done && (mine.evidence || mine.proof) ? `<span class="evid">
               ${mine.evidence ? `<b>${esc(mine.evidence)}</b>` : ""}
@@ -12460,7 +12501,9 @@ function contributionBlock(n){
                 <summary>${others.length} people signed this — show them</summary>
                 ${others.map(row).join("")}</details>`;
             })()}
-          ${isRoot() ? `<button class="kill" data-killitem="${esc(it.id)}"
+          ${isRoot() ? `<button class="btn" data-edititem="${esc(it.id)}"
+            style="padding:2px 8px;font-size:11px;margin:0 0 6px 24px">Change wording</button>
+            <button class="kill" data-killitem="${esc(it.id)}"
             title="Remove this from everyone">&times;</button>` : ""}`;
       }).join("") : `<p class="tocempty">Nothing to confirm on this node.</p>`}
       ${isRoot() ? `<div class="row" style="margin-top:8px">
@@ -12550,6 +12593,9 @@ function wireContributions(n){
   };
   const add = el("addCheckItem");
   if(add) add.onclick = ()=>openNewCheck(n.id);
+  body.querySelectorAll("[data-edititem]").forEach(b=>{
+    b.onclick = ev=>{ ev.preventDefault(); ev.stopPropagation(); openNewCheck(n.id, b.dataset.edititem); };
+  });
   body.querySelectorAll("[data-killitem]").forEach(b=>{
     b.onclick = ev=>{
       ev.preventDefault(); ev.stopPropagation();
@@ -14446,7 +14492,7 @@ function buildWorkbookFrom(data){
     Questions:[14,56,16,19,10,34],
     QuestionPins:[14,14,14,16,19,30],
     Suggestions:[14,14,16,19,11,52,10,14,19],
-    CheckItems:[14,14,34,19,14,12,30],
+    CheckItems:[14,14,34,19,14,12,30,44,34],
     Checkoffs:[14,14,14,16,9,19,30,22,40],
     Examples:[14,14,16,18,40,40,19,8],
     Shelves:[14,24,16,60,30,19,8],
@@ -15787,7 +15833,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-09-29j";
+const APP_BUILD = "2026-09-29k";
 
 /* Reading that line back out of a copy of this file.
 
@@ -22102,22 +22148,26 @@ async function boot(){
     toast("New notes go into " + S.traySession);
   };
   el("ncCancel").onclick = ()=>{ el("newCheckDlg").close(); newCheckFor = null; };
-  el("ncNeeds").onchange = ()=>{
-    const v = el("ncNeeds").value;
-    el("ncAskWrap").hidden = !(v === "ref" || v === "both");
-  };
+  el("ncNeeds").onchange = ncShowFields;
   el("ncAdd").onclick = ()=>{
     const id = newCheckFor;
     if(!id) return;
     const label = (el("ncLabel").value || "").trim() || "Read and understood";
     const requires = el("ncNeeds").value;
-    let ask = (el("ncAsk").value || "").trim();
-    if(ask.toLowerCase() === "accession number") ask = "";
-    S.checkItems.push(newCheckItem({node:id, label, requires, prompt:ask}));
+    const ask = (requires === "ref" || requires === "both") ? (el("ncAsk").value || "").trim() : "";
+    const shot = (requires === "proof" || requires === "both") ? (el("ncShot").value || "").trim() : "";
+    const note = (el("ncNote").value || "").trim();
+    const was = editCheckId && S.checkItems.find(x=>x.id === editCheckId);
+    if(was){
+      Object.assign(was, {label, requires, prompt:ask, shot, note});
+    } else {
+      S.checkItems.push(newCheckItem({node:id, label, requires, prompt:ask, shot, note}));
+    }
     el("newCheckDlg").close();
-    newCheckFor = null;
-    markDirty(); renderInspector(); updateReviewBadge();
-    toast("Added — everyone on the roster is asked for it");
+    newCheckFor = null; editCheckId = null;
+    markDirty(); renderInspector(); updateReviewBadge(); renderRoomSoon();
+    toast(was ? "Changed \u2014 people see the new wording from now on"
+              : "Added \u2014 everyone on the roster is asked for it");
   };
   el("placeCancel").onclick = ()=>{
     el("placeDlg").close(); placeTarget = null; movingWhat = null; };
