@@ -11942,6 +11942,7 @@ function renderRespond(){
         return `<div class="rs-item">
           <div class="rs-what"><b>${esc(it.label)}</b>
             ${it.prompt ? `<small>${esc(it.prompt)}</small>` : needs(it) ? `<small>${needs(it)}</small>` : ""}
+            ${it.created ? `<small>Added ${esc(String(it.created).slice(0, 10))}</small>` : ""}
             ${done ? `<div class="rs-done">\u2713 Confirmed ${when(mine.timestamp)}${
               mine.evidence ? " \u00b7 " + esc(mine.evidence) : ""}${mine.proof ? " \u00b7 screenshot" : ""}</div>` : ""}
           </div>
@@ -14873,7 +14874,9 @@ async function catchUp(quiet){
         if(h.kind !== "file" || !/^feedback[ -].*\.xlsx?$/i.test(name)) continue;
         looked++;
         people.add(name.replace(/^feedback[ -]+/i, "").replace(/\.xlsx?$/i, ""));
-        if(name.toLowerCase() === mine) continue;     /* our own, already here */
+        /* Our own file too. After the workbook is read afresh, what this person
+           did is only in their own file — skipping it meant their own
+           suggestions and sign-offs vanished on the next open. */
         let f;
         try{ f = await h.getFile(); }catch(e){ continue; }
         /* untouched since we last looked, so there is nothing new in it */
@@ -14891,7 +14894,7 @@ async function catchUp(quiet){
           const t = {};
           wb.SheetNames.forEach(sn=>{
             t[sn] = XLSX.utils.sheet_to_json(wb.Sheets[sn], {defval:""}); });
-          const M = tablesToModel(t);
+          const M = fromOwner(tablesToModel(t), name);
           const take = (from, into, key)=>{
             (from || []).forEach(x=>{
               if(seen[key].has(x.id)) return;
@@ -14998,7 +15001,7 @@ async function gatherFeedback(){
       const wb = XLSX.read(await f.arrayBuffer(), {type:"array"});
       const t = {};
       wb.SheetNames.forEach(n=>{ t[n] = XLSX.utils.sheet_to_json(wb.Sheets[n], {defval:""}); });
-      const M = tablesToModel(t);
+      const M = fromOwner(tablesToModel(t), name);
       files++;
       people.push(name.replace(/^feedback[ -]+/i, "").replace(/\.xlsx?$/i, ""));
       M.suggestions.forEach(x=>{ if(!seen.Suggestions.has(x.id)){
@@ -15521,7 +15524,7 @@ function keyOf(table, row){
 /* One file per person, so two people signing off at the same moment never
    touch the same file and nothing has to be locked or queued. */
 function countMine(){
-  const t = toSheets();
+  const t = onlyMine(toSheets(), S.who);
   const n = SHARED_TABLES.reduce((a, name)=>a + (t[name] || []).length, 0);
   return n + " item" + (n === 1 ? "" : "s");
 }
@@ -15538,9 +15541,7 @@ function downloadText(name, text, type){
 }
 
 function downloadFeedback(){
-  const mine = toSheets();
-  const only = {};
-  SHARED_TABLES.forEach(name=>{ only[name] = mine[name] || []; });
+  const only = onlyMine(toSheets(), S.who);
   const rows = SHARED_TABLES.reduce((a, n)=>a + only[n].length, 0);
   if(!rows){ toast("Nothing to send yet."); return; }
   const out = XLSX.write(buildWorkbookFrom(only), {bookType:"xlsx", type:"array"});
@@ -15552,6 +15553,49 @@ function downloadFeedback(){
   setTimeout(()=>URL.revokeObjectURL(url), 4000);
   sayWorkbookState("Saved " + feedbackName() + " to your downloads — put it in the shared "
     + "folder beside the workbook.");
+}
+
+/* ---------------------------------------------------------------
+   Whose rows go in whose file.
+
+   Each person's feedback file is meant to hold what they did and
+   nothing else. It held everything instead — everyone's suggestions,
+   everyone's sign-offs, and the confirm items themselves — so every
+   file was a copy of every other, and anything the editor removed was
+   still sitting in forty files and came back on the next catch-up.
+   That is how a room ended up asking for the same thing three times.
+
+   Now a file carries only its owner's rows, and never the confirm
+   items, which only the editor makes. And when files are read, rows
+   that are not the owner's are passed over, so the old files already
+   in the folder cannot bring anything back either.
+   --------------------------------------------------------------- */
+function personOf(name){ return String(name || "").replace(/[^\w -]+/g, "").trim().toLowerCase(); }
+function ownerOfFeedback(fileName){
+  return personOf(String(fileName || "").replace(/^feedback[ -]+/i, "").replace(/\.xlsx?$/i, ""));
+}
+function onlyMine(tables, who){
+  const me = personOf(who);
+  const out = {};
+  SHARED_TABLES.forEach(name=>{
+    if(name === "CheckItems"){ out[name] = []; return; }
+    out[name] = (tables[name] || []).filter(r=>personOf(r.person) === me);
+  });
+  return out;
+}
+/* what can be taken from somebody's feedback file */
+function fromOwner(M, fileName){
+  const owner = ownerOfFeedback(fileName);
+  const theirs = x=>personOf(x.person) === owner;
+  return {
+    suggestions:(M.suggestions || []).filter(theirs),
+    questions:(M.questions || []).filter(theirs),
+    pins:(M.pins || []).filter(theirs),
+    checkItems:[],
+    checkoffs:(M.checkoffs || []).filter(theirs),
+    examples:(M.examples || []).filter(theirs),
+    shelves:(M.shelves || []).filter(theirs)
+  };
 }
 
 function feedbackName(){
@@ -15598,11 +15642,26 @@ async function sendContributions(){
         sayWorkbookState("Waiting for permission to write in that folder — press Refresh once.");
         return false;
       }
-      const mine = toSheets();
-      const only = {};
-      SHARED_TABLES.forEach(name=>{ only[name] = mine[name] || []; });
-      const rows = SHARED_TABLES.reduce((a, n)=>a + only[n].length, 0);
+      const only = onlyMine(toSheets(), S.who);
       const target = await feedbackTarget();
+      /* Merged with what the file already holds, never written over it: if this
+         copy has not read the file back yet, what is in there must not be lost
+         by writing out a shorter list. The same row is kept once, the one in
+         hand winning. */
+      try{
+        const old = await (await target.dir.getFileHandle(target.name)).getFile();
+        const wb = XLSX.read(await old.arrayBuffer(), {type:"array"});
+        const had = {};
+        wb.SheetNames.forEach(n=>{ had[n] = XLSX.utils.sheet_to_json(wb.Sheets[n], {defval:""}); });
+        const kept = onlyMine(had, S.who);
+        SHARED_TABLES.forEach(name=>{
+          const byKey = new Map();
+          (kept[name] || []).forEach(r=>{ const k = keyOf(name, r); if(k) byKey.set(k, r); });
+          (only[name] || []).forEach(r=>{ const k = keyOf(name, r); if(k) byKey.set(k, r); });
+          only[name] = [...byKey.values()];
+        });
+      }catch(e){ /* no file yet, or unreadable: this is the first of it */ }
+      const rows = SHARED_TABLES.reduce((a, n)=>a + only[n].length, 0);
       const h = await target.dir.getFileHandle(target.name, {create:true});
       const w = await h.createWritable();
       await w.write(new Blob([XLSX.write(buildWorkbookFrom(only), {bookType:"xlsx", type:"array"})]));
@@ -15624,7 +15683,10 @@ async function sendContributions(){
     const t = {};
     wb.SheetNames.forEach(n=>{ t[n] = XLSX.utils.sheet_to_json(wb.Sheets[n], {defval:""}); });
 
-    const mine = toSheets();
+    /* only this person's own rows go into the shared workbook, never the
+       confirm items: those belong to the editor, and writing them back from a
+       reader's copy is how a removed one returned */
+    const mine = onlyMine(toSheets(), S.who);
     let added = 0;
     SHARED_TABLES.forEach(name=>{
       const theirs = t[name] || [];
@@ -15718,7 +15780,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-09-29h";
+const APP_BUILD = "2026-09-29i";
 
 /* Reading that line back out of a copy of this file.
 
