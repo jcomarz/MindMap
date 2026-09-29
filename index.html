@@ -1362,7 +1362,7 @@ html[data-theme="dark"] #roomView[data-skin="plain"]{
    layer itself covers the room and catches nothing.
    --------------------------------------------------------------- */
 #roomView .rv-exits{inset:0;left:0;right:0;bottom:0;display:block;overflow:hidden}
-.rv-exits .rv-thing.cross{pointer-events:auto;z-index:5}
+.rv-exits .rv-thing.cross{pointer-events:auto;z-index:5;transform-origin:0 0}
 .rv-exits .rv-thing.cross .shade{display:none}
 /* they roam by themselves, so they do not also slide into place — the slide
    put them somewhere else for a fifth of a second every time they were
@@ -2025,6 +2025,22 @@ html[data-theme="dark"] .rv-bar-mid b{color:#F09A7E}
   gap:5px;cursor:pointer;border:0;background:transparent;padding:0;
   font-family:var(--sans);color:var(--rv-door-ink)}
 .rv-boss[hidden]{display:none}
+/* standing beside the note rather than in front of it: placed by the same
+   code as the cross-links, so it starts from the corner and is moved there */
+.rv-boss.side{left:0;top:0;bottom:auto;z-index:5}
+.rv-boss.side .hp{min-width:0;max-width:var(--cross-cap, 150px);box-sizing:border-box}
+.rv-boss.side .hp b{white-space:normal;text-align:center}
+.rv-boss.side .hp s{white-space:normal;text-align:center;overflow-wrap:anywhere}
+.rv-boss.side .bar{min-width:56px}
+.rv-boss.side .beast{width:64px;height:58px}
+.rv-boss.side.tight .hp s{display:none}
+.rv-boss.side.tight .beast{width:46px;height:40px}
+.rv-boss.side.tight .horn{top:-9px}
+@media (max-width:820px){
+  .rv-boss.side{bottom:auto}
+  .rv-boss.side .beast{width:50px;height:46px}
+  .rv-boss.side .hp s{display:none}
+}
 .rv-boss .hp{display:flex;flex-direction:column;align-items:center;gap:3px;
   background:var(--rv-board);border:2.5px solid var(--rv-ink);border-radius:9px;
   padding:4px 9px 5px;min-width:148px;box-shadow:0 3px 0 rgba(20,24,28,.26)}
@@ -15702,7 +15718,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-09-29g";
+const APP_BUILD = "2026-09-29h";
 
 /* Reading that line back out of a copy of this file.
 
@@ -19384,6 +19400,8 @@ function paintBoss(id){
   const st = id && bossOf(id);
   if(!st){ b.hidden = true; return; }
   b.hidden = false;
+  const vw = el("roomView");
+  if(vw) vw.dataset.exits = "1";
   const pct = st.full ? st.left / st.full : 0;
   b.querySelector(".bar i").style.width = Math.round(pct * 100) + "%";
   b.classList.toggle("done", st.left === 0);
@@ -19992,7 +20010,12 @@ function placeCross(){
   const view = el("roomView"), box = el("rvArches"), board = el("rvBoard");
   if(!view || !box || !board || view.hidden){ stopCross(); return; }
   const els = [...box.querySelectorAll(".rv-thing.cross")];
-  if(!els.length){ crossers = []; stopCross(); return; }
+  /* The sign-off monster stands in the same strip. Where it used to stand, at
+     the foot of the wall in the middle, it sat on top of the note. */
+  const boss = el("rvBoss");
+  const bossHere = !!(boss && !boss.hidden);
+  if(boss) boss.classList.toggle("side", bossHere);
+  if(!els.length && !bossHere){ crossers = []; stopCross(); return; }
   const vb = view.getBoundingClientRect(), bb = board.getBoundingClientRect();
   if(!vb.width || !bb.width) return;
   const gap = 8;
@@ -20010,7 +20033,7 @@ function placeCross(){
   /* A label never runs wider than its strip: a long name wraps rather than
      reaching over the note or off the edge of the room. */
   box.style.setProperty("--cross-w", Math.max(64, Math.round(sides[0].r - sides[0].l)) + "px");
-  const probe = els[0];
+  const probe = els[0] || boss;
   const wideness = e=>{
     e.style.transform = "translate3d(0px,0px,0)";
     const a = e.getBoundingClientRect(), p = e.querySelector(".plate");
@@ -20018,18 +20041,64 @@ function placeCross(){
     return {w:Math.max(a.right, b.right) - Math.min(a.left, b.left)};
   };
   /* the left only when there is honestly room beside the way out */
-  if(left.r - left.l >= Math.min(120, wideness(probe).w)) sides.push(left);
+  if(els.length && left.r - left.l >= Math.min(120, wideness(probe).w)) sides.push(left);
+  /* the monster takes the top of the right-hand strip and stays there; the
+     cross-links share whatever is left, the right strip's lanes below it */
   const pick = els.map((e, i)=>sides[i % sides.length]);
   pick.forEach(sd=>sd.n++);
-  const seen = new Map(crossers.map(r=>[r.id, r]));
+  sides.forEach(sd=>{ sd.top = wallTop; });
   const lane = new Map(sides.map(sd=>[sd, 0]));
+  if(bossHere){
+    const sd = sides[0];
+    boss.style.setProperty("--cross-cap", Math.max(64, Math.round(sd.r - sd.l)) + "px");
+    const measure = ()=>{
+      boss.style.transform = "translate3d(0px,0px,0)";
+      const base = view.getBoundingClientRect(), a = boss.getBoundingClientRect();
+      return {L:a.left - base.left, R:a.right - base.left, T:a.top - base.top, B:a.bottom - base.top};
+    };
+    /* how tall a cross-link stands, so the monster knows how much to leave */
+    let each = 0;
+    const one = els.find((e, i)=>pick[i] === sd);
+    if(one){
+      one.style.transform = "translate3d(0px,0px,0)";
+      const a = one.getBoundingClientRect(), p = one.querySelector(".plate");
+      const b = p ? p.getBoundingClientRect() : a;
+      each = Math.max(a.bottom, b.bottom) - Math.min(a.top, b.top) + 4;
+    }
+    boss.classList.remove("tight");
+    let m = measure();
+    /* too tall to leave the cross-links their room: the small print goes and
+       it stands a little smaller, the count and the bar stay */
+    if(sd.n && (floorLine - wallTop - (m.B - m.T) - 6) < sd.n * each){
+      boss.classList.add("tight");
+      m = measure();
+    }
+    const x = ((sd.l + sd.r) / 2) - ((m.L + m.R) / 2);
+    boss.style.transform = "translate3d(" + x.toFixed(1) + "px," + (wallTop - m.T).toFixed(1) + "px,0)";
+    /* the cross-links on this side start under it */
+    sd.top = wallTop + (m.B - m.T) + 12;
+  }
+  const seen = new Map(crossers.map(r=>[r.id, r]));
+  /* A strip with more in it than it has height for: everyone in it stands a
+     little smaller, just enough to fit, rather than on top of each other. */
+  const tall = e=>{
+    e.style.transform = "translate3d(0px,0px,0)";
+    const a = e.getBoundingClientRect(), p = e.querySelector(".plate");
+    const b = p ? p.getBoundingClientRect() : a;
+    return Math.max(a.bottom, b.bottom) - Math.min(a.top, b.top) + 6;
+  };
+  sides.forEach(sd=>{
+    const mine = els.filter((e, i)=>pick[i] === sd);
+    const each = mine.length ? Math.max(...mine.map(tall)) : 0;
+    sd.scale = each ? Math.max(0.55, Math.min(1, (floorLine - sd.top) / (mine.length * each))) : 1;
+  });
   crossers = els.map((e, i)=>{
     const sd = pick[i], j = lane.get(sd); lane.set(sd, j + 1);
     /* Measured as it is actually drawn — a creature, a plate, whatever the
        skin makes of it — by standing it at a known spot and seeing where its
        edges fall. Nothing about its size is assumed. */
-    e.style.setProperty("--cross-cap", Math.max(64, Math.round(sd.r - sd.l)) + "px");
-    e.style.transform = "translate3d(0px,0px,0)";
+    e.style.setProperty("--cross-cap", Math.max(64, Math.round((sd.r - sd.l) / sd.scale)) + "px");
+    e.style.transform = "translate3d(0px,0px,0) scale(" + sd.scale.toFixed(3) + ")";
     const base = view.getBoundingClientRect();
     const a = e.getBoundingClientRect(), p = e.querySelector(".plate");
     const b = p ? p.getBoundingClientRect() : a;
@@ -20038,15 +20107,17 @@ function placeCross(){
     /* with the thing standing at 0,0, its edges are these far from its feet */
     let x0 = sd.l - L, x1 = sd.r - R;
     if(x1 < x0) x0 = x1 = (x0 + x1) / 2;       /* too narrow to wander: centred */
-    const h = (floorLine - wallTop) / sd.n;
-    let y0 = wallTop + h * j - T, y1 = wallTop + h * (j + 1) - B;
+    const h = (floorLine - sd.top) / sd.n;
+    let y0 = sd.top + h * j - T, y1 = sd.top + h * (j + 1) - B;
     if(y1 < y0) y0 = y1 = (y0 + y1) / 2;
     const area = {x0, x1, y0, y1};
     const id = e.dataset.thing, was = seen.get(id);
     const seed = rvSeed(id);
-    const r = was && was.el === e ? was : {id, el:e, face:-1, wait:rvRand(seed, 3) * 1.5,
+    /* facing the way it is drawn, so it does not spin round as the room appears */
+    const r = was && was.el === e ? was : {id, el:e, face:1, wait:rvRand(seed, 3) * 1.5,
       x:x0 + rvRand(seed, 7) * (x1 - x0), y:y0 + rvRand(seed, 8) * (y1 - y0)};
     r.area = area;
+    r.s = sd.scale;
     r.x = Math.min(x1, Math.max(x0, r.x));
     r.y = Math.min(y1, Math.max(y0, r.y));
     r.tx = r.x; r.ty = r.y;
@@ -20056,7 +20127,8 @@ function placeCross(){
   startCross();
 }
 function drawCross(r){
-  r.el.style.transform = "translate3d(" + r.x.toFixed(1) + "px," + r.y.toFixed(1) + "px,0)";
+  r.el.style.transform = "translate3d(" + r.x.toFixed(1) + "px," + r.y.toFixed(1) + "px,0)"
+    + (r.s && r.s < 1 ? " scale(" + r.s.toFixed(3) + ")" : "");
   r.el.style.setProperty("--face", r.face < 0 ? -1 : 1);
 }
 function stopCross(){ if(crossRaf){ cancelAnimationFrame(crossRaf); crossRaf = null; } }
