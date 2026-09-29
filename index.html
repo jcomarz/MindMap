@@ -15204,7 +15204,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-09-28t";
+const APP_BUILD = "2026-09-28u";
 
 /* Reading that line back out of a copy of this file.
 
@@ -15227,23 +15227,64 @@ function isHandle(h){
 }
 let handleStoreOK = true;      /* false once we know this browser cannot keep one */
 
+/* ---------------------------------------------------------------
+   Private windows and remembered folders.
+
+   Chrome 153 takes the whole browser down — every window, not just
+   this tab — when a page in a private window reads a folder back out
+   of its own storage. Saving one is fine; reading it back is not.
+   Pictures and settings read back safely; only folders do this.
+
+   A private window forgets everything when it closes anyway, so
+   there a folder is simply never written down, and it is picked each
+   visit, which is what a private window was doing already.
+
+   Chrome will not say whether a window is private, so it is judged
+   from how much room it offers: a private window gets a share of
+   memory, a normal one a share of the disk. The line is set high on
+   purpose. Taking a normal window for a private one costs one extra
+   click; the other mistake costs every open window. And if the room
+   cannot be read at all, the window is taken to be private.
+   --------------------------------------------------------------- */
+const PRIVATE_BELOW = 9e9;     /* bytes of room offered; less than this is taken as private */
+let privateGuess = null;
+function isPrivateWindow(){
+  if(!privateGuess){
+    privateGuess = (async ()=>{
+      try{
+        const e = await navigator.storage.estimate();
+        return !(e && e.quota >= PRIVATE_BELOW);
+      }catch(e){ return true; }
+    })();
+  }
+  return privateGuess;
+}
+let privateWindow = false;     /* the answer once known, for anything that cannot wait */
+
 async function rememberHandle(kind, h){
   if(!isHandle(h)) return false;
   if(Store.mode !== "idb"){ handleStoreOK = false; paintFolderState().catch(()=>{}); return false; }
+  if(await isPrivateWindow()){
+    privateWindow = true;
+    handleStoreOK = false;
+    paintFolderState().catch(()=>{});
+    return false;
+  }
   let kept = false;
   try{ await Store.putKey(kind + ":" + (S.meta.key || "map"), h); kept = true; }catch(e){}
   try{ await Store.putKey(kind + ":last", h); }catch(e){}
-  /* read it straight back: a folder that did not survive being written down
-     is worth knowing about now rather than on the next refresh */
-  if(kept){
-    try{ kept = isHandle(await Store.getKey(kind + ":" + (S.meta.key || "map"))); }catch(e){ kept = false; }
-  }
+  /* No reading it straight back to check. That check was the very read that
+     brought a private window down, the instant a folder was picked; a write
+     that did not throw is taken at its word. */
   handleStoreOK = kept;
   paintFolderState().catch(()=>{});
   return kept;
 }
 
 async function recallHandle(kind){
+  /* a private window never wrote one down, and reading one back there is the
+     crash — so it does not even look */
+  if(await isPrivateWindow()){ privateWindow = true; handleStoreOK = false; return null; }
   const mine = kind + ":" + (S.meta.key || "map");
   try{ const h = await Store.getKey(mine); if(isHandle(h)) return h; }catch(e){}
   try{
@@ -15309,6 +15350,11 @@ async function paintFolderState(){
     what.innerHTML = '<span class="wait">\u25CF</span> This browser cannot open a folder. '
       + "Chrome or Edge can read one.";
     if(relink) relink.hidden = true;
+    return;
+  }
+  if(!handleStoreOK && privateWindow){
+    what.innerHTML = '<span class="wait">●</span> A private window forgets folders when '
+      + "it closes, so the folder is picked each visit here.";
     return;
   }
   if(!handleStoreOK){
