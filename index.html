@@ -350,6 +350,7 @@ input[type=range],input[type=color],input[type=checkbox],input[type=file]{cursor
   max-height:min(60vh,520px);overflow:hidden
 }
 #resultsPop[hidden]{display:none}
+#resultsPop.up{box-shadow:0 -10px 30px rgba(0,0,0,.24)}
 .rp-head{display:flex;align-items:center;gap:10px;padding:8px 9px 8px 13px;
   border-bottom:1px solid var(--rule);background:var(--paper-2);flex:0 0 auto}
 .rp-head b{flex:1;font-size:12px;font-weight:600;color:var(--graphite-60)}
@@ -387,6 +388,7 @@ input[type=range],input[type=color],input[type=checkbox],input[type=file]{cursor
   max-height:min(60vh,520px);overflow:hidden
 }
 #resultsPop[hidden]{display:none}
+#resultsPop.up{box-shadow:0 -10px 30px rgba(0,0,0,.24)}
 .rp-head{display:flex;align-items:center;gap:10px;padding:8px 9px 8px 13px;
   border-bottom:1px solid var(--rule);background:var(--paper-2);flex:0 0 auto}
 .rp-head b{flex:1;font-size:12px;font-weight:600;color:var(--graphite-60)}
@@ -509,6 +511,7 @@ body.focusing .node-g:not(.focusdim) .node-box{stroke-width:calc(var(--node-bord
   max-height:min(60vh,520px);overflow:hidden
 }
 #resultsPop[hidden]{display:none}
+#resultsPop.up{box-shadow:0 -10px 30px rgba(0,0,0,.24)}
 .rp-head{display:flex;align-items:center;gap:10px;padding:8px 9px 8px 13px;
   border-bottom:1px solid var(--rule);background:var(--paper-2);flex:0 0 auto}
 .rp-head b{flex:1;font-size:12px;font-weight:600;color:var(--graphite-60)}
@@ -546,6 +549,7 @@ body.focusing .node-g:not(.focusdim) .node-box{stroke-width:calc(var(--node-bord
   max-height:min(60vh,520px);overflow:hidden
 }
 #resultsPop[hidden]{display:none}
+#resultsPop.up{box-shadow:0 -10px 30px rgba(0,0,0,.24)}
 .rp-head{display:flex;align-items:center;gap:10px;padding:8px 9px 8px 13px;
   border-bottom:1px solid var(--rule);background:var(--paper-2);flex:0 0 auto}
 .rp-head b{flex:1;font-size:12px;font-weight:600;color:var(--graphite-60)}
@@ -8841,7 +8845,23 @@ function placeResults(){
   const w = Math.max(300, Math.min(560, r.width));
   pop.style.width = w + "px";
   pop.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.left)) + "px";
-  pop.style.top = (r.bottom + 6) + "px";
+  /* Open toward the room there is. The search sits on the console at the
+     foot of the screen in a room, and a list hung below it went straight off
+     the bottom; it opens upward there, like Go to, and downward from the top
+     bar on the drawing. Either way it is only as tall as the space it has. */
+  const vh = window.visualViewport ? visualViewport.height : innerHeight;
+  const below = vh - r.bottom - 14, above = r.top - 14;
+  const up = above > below;
+  const cap = Math.min(520, Math.round(vh * (window.matchMedia("(max-width:820px)").matches ? .52 : .6)));
+  pop.style.maxHeight = Math.max(140, Math.min(cap, up ? above : below)) + "px";
+  if(up){
+    pop.style.top = "auto";
+    pop.style.bottom = Math.round(innerHeight - r.top + 6) + "px";
+  } else {
+    pop.style.bottom = "auto";
+    pop.style.top = Math.round(r.bottom + 6) + "px";
+  }
+  pop.classList.toggle("up", up);
 }
 
 function bindResultRows(){
@@ -15304,7 +15324,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-09-29a";
+const APP_BUILD = "2026-09-29b";
 
 /* Reading that line back out of a copy of this file.
 
