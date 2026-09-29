@@ -4042,13 +4042,13 @@ body.viewing.panelaway #panelHide{display:none}
       <select id="traySession" style="flex:1"></select>
       <button class="btn" id="trayNewSession" title="Start one for today">+ Huddle</button>
     </div>
+    <p class="fineprint" id="trayElse" hidden style="margin:-2px 0 8px"></p>
     <textarea id="trayAdd" rows="2"
       placeholder="Jot or paste — the whole thing is kept"></textarea>
     <div class="row" style="margin-top:6px">
       <button class="btn wide primary" id="trayAddBtn">Put it in the tray</button>
     </div>
-    <p class="fineprint">Drag one onto the map or onto a row in the outline. Or tap it,
-      then tap where it goes.</p>
+    <p class="fineprint">Plant one with its Plant button, which asks where it goes.</p>
     <div id="trayList"></div>
   </div>
 </div>
@@ -6004,6 +6004,7 @@ function adoptModel(M, keepConnections){
   /* the severity artwork was written to the sheet but never read back, so it
      survived a save and vanished on the next open */
   S.inbox = (M.inbox || []).slice();
+  trayToLatest();
   S.people = (M.people || []).slice();
   refreshWhoFromRoster();
   S.meta.sevArt = {};
@@ -9468,9 +9469,31 @@ function renderTraySessions(){
   const list = traySessions();
   const here = S.traySession || "";
   if(here && list.indexOf(here) < 0) list.unshift(here);
-  sel.innerHTML = `<option value="">Loose notes</option>`
-    + list.map(x=>`<option value="${esc(x)}"${x === here ? " selected" : ""}>${esc(x)}</option>`).join("");
+  /* how many are still waiting in each, so a huddle full of notes is never
+     hiding behind a choice that shows two */
+  const waiting = k=>(S.inbox || []).filter(x=>(x.session || "") === k && !x.node).length;
+  const say = (name, k)=>{ const w = waiting(k); return name + (w ? " \u00b7 " + w + " waiting" : ""); };
+  sel.innerHTML = `<option value="">${esc(say("Loose notes", ""))}</option>`
+    + list.map(x=>`<option value="${esc(x)}"${x === here ? " selected" : ""}>${esc(say(x, x))}</option>`).join("");
   sel.value = here;
+  /* and said in words under it, when the one showing is not where most are */
+  const note = el("trayElse");
+  if(note){
+    const others = [""].concat(list).filter(k=>k !== here && waiting(k));
+    note.hidden = !others.length;
+    note.innerHTML = others.length ? "Also waiting: " + others.map(k=>
+      `<a href="#" data-traygoto="${esc(k)}">${esc(k || "Loose notes")} (${waiting(k)})</a>`).join(", ") : "";
+    note.querySelectorAll("[data-traygoto]").forEach(a=>{
+      a.onclick = ev=>{ ev.preventDefault(); S.traySession = a.dataset.traygoto; renderTray(); };
+    });
+  }
+}
+/* A workbook just opened: show the huddle the latest notes went into, rather
+   than loose notes, which is where the tray always used to open. */
+function trayToLatest(){
+  const latest = (S.inbox || []).filter(x=>!x.node)
+    .sort((a, b)=>String(b.at || "").localeCompare(String(a.at || "")))[0];
+  if(latest) S.traySession = latest.session || "";
 }
 
 /* Taking it back: only while nothing has attached itself to the node, or
@@ -15679,7 +15702,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-09-29f";
+const APP_BUILD = "2026-09-29g";
 
 /* Reading that line back out of a copy of this file.
 
