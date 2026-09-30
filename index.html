@@ -13389,11 +13389,20 @@ function askForEvidence(item, nodeId){
 /* The folder every uploaded picture goes into, inside the shared folder.
    Pictures saved earlier under feedbackimages/ keep working: each link says
    which folder its picture is in. */
-const FEEDBACK_PICS = "userimages";
+const FEEDBACK_PICS = "userimages";   /* people's screenshots and evidence */
+const NODE_PICS = "images";            /* the pictures the map itself shows */
+/* A folder somebody might link by mistake: one that lives inside the shared
+   folder rather than the shared folder itself. */
+const INNER_FOLDERS = /^(userimages|images|backdrops|backdrop|users|feedbackimages|nodeimages)$/i;
+function linkedInner(){
+  const d = picDir || bookDir;
+  return d && INNER_FOLDERS.test(d.name || "") ? d.name : "";
+}
 function picFolder(){ return bookDir || picDir || null; }
 let picWriteWarned = false;
-async function saveFeedbackImage(dataUrl, what){
+async function saveFeedbackImage(dataUrl, what, folder, fileBase){
   if(!dataUrl || !dataUrl.startsWith("data:")) return dataUrl || "";
+  const into = folder || FEEDBACK_PICS;
   const root = picFolder();
   if(!root){
     if(!picWriteWarned){ picWriteWarned = true;
@@ -13409,18 +13418,31 @@ async function saveFeedbackImage(dataUrl, what){
       toast("The folder was not opened for writing, so the picture is kept in the sheet instead.");
       return dataUrl;
     }
-    const dir = await root.getDirectoryHandle(FEEDBACK_PICS, {create:true});
-    const who = (S.who || "someone").replace(/[^\w -]+/g, "").trim() || "someone";
-    const stamp = nowISO().replace(/[^\d]/g, "").slice(0, 14);
-    const kind = String(what || "picture").replace(/[^\w -]+/g, "").trim().slice(0, 40) || "picture";
+    /* the folder linked may already be that folder: write straight into it */
+    const same = String(root.name || "").toLowerCase() === into.toLowerCase();
+    const dir = same ? root : await root.getDirectoryHandle(into, {create:true});
     const ext = /^data:image\/(png|gif|webp)/.exec(dataUrl);
-    const name = kind + " - " + who + " - " + stamp + "." + (ext ? ext[1] : "jpg");
+    const dot = "." + (ext ? ext[1] : "jpg");
+    let name;
+    if(fileBase){
+      /* a map picture is named after what it shows, and never overwrites one */
+      const base = pictureSlug(fileBase);
+      name = base + dot;
+      for(let k = 2; k < 200; k++){
+        try{ await dir.getFileHandle(name); name = base + "-" + k + dot; }catch(e){ break; }
+      }
+    } else {
+      const who = (S.who || "someone").replace(/[^\w -]+/g, "").trim() || "someone";
+      const stamp = nowISO().replace(/[^\d]/g, "").slice(0, 14);
+      const kind = String(what || "picture").replace(/[^\w -]+/g, "").trim().slice(0, 40) || "picture";
+      name = kind + " - " + who + " - " + stamp + dot;
+    }
     const bytes = await (await fetch(dataUrl)).arrayBuffer();
     const h = await dir.getFileHandle(name, {create:true});
     const w = await h.createWritable();
     await w.write(new Blob([bytes]));
     await w.close();
-    return FEEDBACK_PICS + "/" + name;
+    return into + "/" + name;
   }catch(e){
     toast("Could not write the picture into the folder (" + (e.message || e)
       + "), so it is kept in the sheet instead.");
@@ -13737,11 +13759,14 @@ function renderInspector(){
             : n.image.startsWith("data:") ? "Photo stored in the cell"
             : isFolderPath(n.image) ? (picCache.has(n.image)
               ? "From " + (picDir && picDir.name || "the pictures folder")
-              : picDir ? "Not in “" + picDir.name + "” — link the folder that holds it"
-                       : "Link the pictures folder to see it")
+              : linkedInner() ? "The linked folder is “" + linkedInner() + "”, which sits inside the shared folder. Link the shared folder itself."
+              : picDir ? "Not found in “" + picDir.name + "”"
+                       : "Link the shared folder to see it")
             : "Linked image"}</strong>
             <span>${n.image.startsWith("data:") ? Math.round(n.image.length/1024)+" KB" : esc(n.image.slice(0,44))+(n.image.length>44?"…":"")}</span></div>
         </div>
+        ${isFolderPath(n.image) && !picCache.has(n.image) && !n.image.startsWith("data:") ? `<div class="row" style="margin-top:6px">
+          <button class="btn wide" id="fPicRelink">Link the shared folder</button></div>` : ""}
         ${isFolderPath(n.image) && picCache.has(n.image) ? `<div class="row" style="margin-top:6px">
           <button class="btn wide" id="fRenamePic">Rename the file to
             ${esc(pictureSlug(n.label))}.${esc((/\.([a-z0-9]+)$/i.exec(n.image)||[,"jpg"])[1])}</button>
@@ -13895,6 +13920,10 @@ function renderInspector(){
     commit("tags", tags);
   };
   if(el("fImage")) el("fImage").onchange = e=>commit("image", e.target.value.trim());
+  if(el("fPicRelink")) el("fPicRelink").onclick = async ()=>{
+    await choosePictureFolder();
+    picForget(); render(); renderInspector(); renderRoomSoon();
+  };
   el("fPickImg").onclick = ()=>pickImage("Picture on this node", n.image,
     v=>{ setField(n, "image", v); rebuild(); },
     ()=>{ setField(n, "image", ""); rebuild(); });
@@ -14696,7 +14725,12 @@ function showPicIn(box, v){
   picRead(v).then(url=>{ if(url) box.innerHTML = `<img src="${esc(url)}" alt="">`; }).catch(()=>{});
 }
 function pickImage(title, current, onPick, onRemove){
-  imgPick = {value:current || "", onPick, onRemove};
+  /* Evidence and anything a reader adds goes with people's feedback; the
+     map's own pictures — on nodes, badges, backdrops — go in images/. */
+  const people = !canEdit() || /evidence|a picture of it|^my /i.test(String(title || ""));
+  const n = S.sel && S.nodes.get(S.sel);
+  imgPick = {value:current || "", onPick, onRemove, folder:people ? FEEDBACK_PICS : NODE_PICS,
+    base:people ? "" : (/node|room|badge/i.test(title) && n ? (n.label || title) : title)};
   el("imgTitle").textContent = title;
   el("imgUrl").value = (current && !current.startsWith("data:")) ? current : "";
   imgPreviewUpdate();
@@ -16927,6 +16961,9 @@ async function choosePictureFolder(){
   }
   try{
     picDir = await window.showDirectoryPicker({id:"mindmap-folder", mode:"read"});
+    if(INNER_FOLDERS.test(picDir.name || "")){
+      toast("\u201c" + picDir.name + "\u201d is a folder inside the shared folder. Pick the shared folder itself, the one that holds it.");
+    }
     const kept = await rememberHandle("picDir", picDir);
     for(const u of picCache.values()){
       try{ if(u && String(u).startsWith("blob:")) URL.revokeObjectURL(u); }catch(e){}
@@ -16968,7 +17005,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-09-30c";
+const APP_BUILD = "2026-09-30d";
 
 /* Reading that line back out of a copy of this file.
 
@@ -23633,7 +23670,7 @@ async function boot(){
     let v = pick.value;
     if(v.startsWith("data:") && picFolder()){
       el("imgUse").disabled = true; el("imgUse").textContent = "Saving\u2026";
-      v = await saveFeedbackImage(v, el("imgTitle").textContent || "picture");
+      v = await saveFeedbackImage(v, el("imgTitle").textContent || "picture", pick.folder, pick.base);
       el("imgUse").disabled = false;
       if(!v.startsWith("data:")) toast("Saved to " + v);
     }
@@ -23649,7 +23686,8 @@ async function boot(){
       if(!bookDir){ bookDir = d; await rememberHandle("bookDir", d); }
       if(!picDir){ picDir = d; await rememberHandle("picDir", d); }
       imgPreviewUpdate();
-      toast("Pictures will be saved in " + (d.name || "that folder") + "/" + FEEDBACK_PICS);
+      toast("Pictures will be saved in " + (d.name || "that folder") + "/"
+        + ((imgPick && imgPick.folder) || FEEDBACK_PICS));
     }catch(e){ /* changed their mind */ }
   };
   el("imgRemove").onclick = ()=>{
