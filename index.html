@@ -6216,7 +6216,46 @@ function refreshWhoFromRoster(){
 }
 
 /* ---- the name box on the welcome card: suggestions from the list ---- */
-let helloPick = null, helloHi = 0;
+let helloPick = null, helloHi = 0, helloNameWait = null;
+/* Stop partway through setting up and ask who this is. With a list, only a
+   name on it will do; with no list at all, anything they type. */
+function helloAskName(){
+  return new Promise(res=>{
+    const wrap = el("helloNameWrap"), inp = el("helloName"), go = el("helloGo");
+    const roster = helloRoster();
+    wrap.hidden = false;
+    helloPick = null;
+    inp.value = ""; inp.classList.remove("picked");
+    el("helloNameWarn").hidden = true;
+    el("helloNameAsk").textContent = roster.length
+      ? "Who are you? Start typing and pick your name from the list"
+      : "Your name, so your sign-offs are yours";
+    inp.placeholder = roster.length ? "Start typing your name" : "First name is plenty";
+    go.disabled = false; go.textContent = "That\u2019s me";
+    helloNameWait = ()=>{
+      const typed = (inp.value || "").trim();
+      const warn = el("helloNameWarn");
+      if(roster.length){
+        const p = helloPick || helloExact(typed);
+        if(!p){
+          warn.textContent = typed ? "Pick your name from the list. If it is not there, ask whoever looks after the map."
+            : "Pick your name first.";
+          warn.hidden = false; inp.focus(); helloSuggest();
+          return;
+        }
+        helloTake(p);
+      } else {
+        if(!typed){ warn.textContent = "Type your name first."; warn.hidden = false; inp.focus(); return; }
+        S.who = typed; S.whoKey = ""; savePersonal();
+      }
+      helloNameWait = null;
+      wrap.hidden = true;
+      go.disabled = true; go.textContent = "One moment\u2026";
+      res();
+    };
+    setTimeout(()=>{ inp.focus(); helloSuggest(); }, 60);
+  });
+}
 function helloRoster(){ return (S.people || []).filter(x=>x.active !== false && x.name); }
 function helloExact(t){
   const q = String(t || "").trim().toLowerCase();
@@ -17014,7 +17053,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-09-30f";
+const APP_BUILD = "2026-09-30g";
 
 /* Reading that line back out of a copy of this file.
 
@@ -17278,7 +17317,12 @@ function sayHello(first){
   const known = helloRoster();
   const whoOk = !!S.who && S.who !== "anonymous"
     && (!known.length || known.some(x=>x.name === S.who));
-  wrap.hidden = whoOk;
+  /* A copy that reads its board from the folder may not know the list of
+     names yet. Then the name is asked once the board is read, from the list,
+     rather than typed freely here and matched afterwards. */
+  const later = !whoOk && !known.length && !!S.fromWorkbook;
+  wrap.hidden = whoOk || later;
+  helloNameWait = null;
   el("helloName").value = whoOk ? S.who : "";
   helloPick = null;
   el("helloName").classList.remove("picked");
@@ -17399,6 +17443,18 @@ async function helloGo(){
     }
   }
 
+  /* 2b — who this is, now that the list of names has been read */
+  {
+    const roster = helloRoster();
+    const onList = !!S.who && S.who !== "anonymous" && roster.some(x=>x.name === S.who);
+    if(!onList && (roster.length || !S.who || S.who === "anonymous")){
+      /* one they typed before the list was known, and it is somebody on it */
+      const p = S.who && roster.length ? helloExact(S.who) : null;
+      if(p) helloTake(p);
+      else await helloAskName();
+    }
+  }
+
   /* 3 — the pictures and the backdrops */
   helloStep("pics", "doing");
   crumb("hello", "pictures and backdrops");
@@ -17431,9 +17487,6 @@ async function helloGo(){
   go.textContent = "In you go";
   setTimeout(()=>{
     shutHello(true);
-    /* still not somebody on the list: the list is known now, so ask once */
-    const roster = helloRoster();
-    if(roster.length && !roster.some(x=>x.name === S.who)) openWhoPicker();
   }, 620);
 }
 
@@ -24054,7 +24107,10 @@ async function boot(){
     if(ev.key === "Enter"){ ev.preventDefault(); applyBulkTags(); }
   });
   el("openFromDisk").onclick = ()=>refreshFromWorkbook();
-  el("helloGo").onclick = ()=>{ helloGo().catch(()=>{ shutHello(false); }); };
+  el("helloGo").onclick = ()=>{
+    if(helloNameWait){ helloNameWait(); return; }
+    helloGo().catch(()=>{ shutHello(false); });
+  };
   el("helloSkip").onclick = ()=>{ shutHello(false); };
   el("helloName").addEventListener("keydown", ev=>{
     const box = el("helloSuggest");
