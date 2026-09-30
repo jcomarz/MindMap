@@ -2739,6 +2739,22 @@ html[data-motion="off"] .h-crit{animation:none !important}
 .hello-what{margin:0 0 14px;font-size:13.5px;line-height:1.5;color:var(--graphite-60)}
 .hello-name{display:block;text-align:left;margin:0 0 14px}
 .hello-name[hidden]{display:none}
+.hello-name{position:relative}
+.hello-suggest{position:absolute;left:0;right:0;top:100%;margin-top:3px;z-index:5;background:var(--paper);
+  border:1px solid var(--rule);border-radius:4px;box-shadow:0 8px 22px -12px rgba(20,24,28,.55);
+  max-height:230px;overflow:auto;text-align:left}
+.hello-suggest[hidden]{display:none}
+.hello-suggest button{display:flex;width:100%;gap:8px;align-items:baseline;border:0;background:transparent;
+  font:inherit;font-size:14.5px;padding:8px 11px;cursor:pointer;color:var(--graphite);text-align:left}
+.hello-suggest button+button{border-top:1px solid var(--rule-soft)}
+.hello-suggest button.on,.hello-suggest button:hover{background:var(--blueprint-soft)}
+.hello-suggest button span{display:inline;font-size:inherit;color:inherit;margin:0}
+.hello-suggest button mark{background:transparent;color:var(--blueprint);font-weight:700}
+.hello-suggest button small{margin-left:auto;font-size:11px;color:var(--graphite-60);white-space:nowrap}
+.hello-suggest .none{padding:8px 11px;font-size:12.5px;color:var(--graphite-60)}
+.hello-namewarn{display:block;font-style:normal;font-size:12px;color:#c0392b;margin-top:5px}
+.hello-namewarn[hidden]{display:none}
+.hello-name input.picked{border-color:var(--blueprint);background:var(--blueprint-soft)}
 .hello-name span{display:block;font-size:11.5px;color:var(--graphite-60);margin-bottom:4px}
 .hello-name input{width:100%;box-sizing:border-box;padding:9px 11px;font-size:16px;
   border:2px solid var(--rule);border-radius:8px;background:var(--paper)}
@@ -4747,8 +4763,11 @@ function writeAll(ss, prefix, tables) {
     <h2 id="helloTitle">Welcome to the board</h2>
     <p class="hello-what" id="helloWhat"></p>
     <label class="hello-name" id="helloNameWrap">
-      <span>Your name, so your sign-offs are yours</span>
-      <input id="helloName" autocomplete="name" placeholder="First name is plenty">
+      <span id="helloNameAsk">Your name, so your sign-offs are yours</span>
+      <input id="helloName" autocomplete="off" placeholder="First name is plenty"
+        role="combobox" aria-autocomplete="list" aria-controls="helloSuggest" aria-expanded="false">
+      <div class="hello-suggest" id="helloSuggest" role="listbox" hidden></div>
+      <em class="hello-namewarn" id="helloNameWarn" hidden></em>
     </label>
     <ul class="hello-steps" id="helloSteps">
       <li data-step="folder"><i></i><b>Open the shared folder</b><s></s></li>
@@ -5780,6 +5799,80 @@ function refreshWhoFromRoster(){
   }
 }
 
+/* ---- the name box on the welcome card: suggestions from the list ---- */
+let helloPick = null, helloHi = 0;
+function helloRoster(){ return (S.people || []).filter(x=>x.active !== false && x.name); }
+function helloExact(t){
+  const q = String(t || "").trim().toLowerCase();
+  if(!q) return null;
+  const roster = helloRoster();
+  const hit = roster.filter(x=>[x.name, x.login, x.initials].some(v=>v && String(v).toLowerCase() === q));
+  if(hit.length === 1) return hit[0];
+  const first = roster.filter(x=>x.first && String(x.first).toLowerCase() === q);
+  return first.length === 1 ? first[0] : null;
+}
+function helloMatches(t){
+  const q = String(t || "").trim().toLowerCase();
+  const roster = helloRoster();
+  if(!q) return roster.slice().sort((a, b)=>a.name.localeCompare(b.name, undefined, {sensitivity:"base"}));
+  const score = x=>{
+    const n = x.name.toLowerCase(), f = String(x.first || "").toLowerCase();
+    const l = String(x.login || "").toLowerCase(), i = String(x.initials || "").toLowerCase();
+    if(n.startsWith(q) || f.startsWith(q)) return 0;
+    if(i === q || l.startsWith(q)) return 1;
+    if(n.split(/[\s\-_.]+/).some(w=>w.startsWith(q))) return 2;
+    if(n.includes(q) || l.includes(q)) return 3;
+    return 9;
+  };
+  return roster.map(x=>({x, s:score(x)})).filter(o=>o.s < 9)
+    .sort((a, b)=>a.s - b.s || a.x.name.localeCompare(b.x.name, undefined, {sensitivity:"base"}))
+    .map(o=>o.x);
+}
+function helloTake(p){
+  helloPick = p;
+  S.who = p.name;
+  S.whoKey = personKey(p);
+  savePersonal();
+}
+function helloSuggest(){
+  const box = el("helloSuggest"), inp = el("helloName");
+  const roster = helloRoster();
+  if(!roster.length || el("helloNameWrap").hidden){ box.hidden = true; inp.setAttribute("aria-expanded", "false"); return; }
+  const typed = inp.value;
+  const list = helloMatches(typed).slice(0, 40);
+  helloHi = Math.min(helloHi, Math.max(0, list.length - 1));
+  const q = typed.trim();
+  const mark = n=>{
+    if(!q) return esc(n);
+    const at = n.toLowerCase().indexOf(q.toLowerCase());
+    return at < 0 ? esc(n) : esc(n.slice(0, at)) + "<mark>" + esc(n.slice(at, at + q.length)) + "</mark>" + esc(n.slice(at + q.length));
+  };
+  box.innerHTML = list.length ? list.map((x, i)=>`<button type="button" role="option" data-hello-who="${esc(x.name)}"
+      class="${i === helloHi ? "on" : ""}" aria-selected="${i === helloHi}">
+      <span>${mark(x.name)}</span>${(x.teams || []).length ? `<small>${esc(x.teams.join(", "))}</small>` : ""}</button>`).join("")
+    : `<div class="none">Nobody by that name on the list.</div>`;
+  box.hidden = false;
+  inp.setAttribute("aria-expanded", "true");
+  box.querySelectorAll("[data-hello-who]").forEach(b=>{
+    /* mousedown, not click: the box must not lose focus first and close the list */
+    b.onmousedown = ev=>{ ev.preventDefault(); helloChoose(b.dataset.helloWho); };
+  });
+  const on = box.querySelector("button.on");
+  if(on) on.scrollIntoView({block:"nearest"});
+}
+function helloChoose(name){
+  const p = helloRoster().find(x=>x.name === name);
+  if(!p) return;
+  const inp = el("helloName");
+  inp.value = p.name;
+  inp.classList.add("picked");
+  helloPick = p;
+  el("helloSuggest").hidden = true;
+  inp.setAttribute("aria-expanded", "false");
+  el("helloNameWarn").hidden = true;
+  el("helloGo").focus();
+}
+
 function openWhoPicker(){
   const dlg = el("whoDlg");
   const people = (S.people || []).filter(x=>x.active !== false);
@@ -5809,7 +5902,7 @@ function openWhoPicker(){
     };
   });
   el("whoNote").textContent = canEdit()
-    ? "This list is yours to manage, under Build → People."
+    ? "This list is yours to manage, under People and teams."
     : "Pick your name. If it is not here, ask whoever looks after the map.";
   dlg.showModal();
 }
@@ -15738,6 +15831,11 @@ async function buildStandaloneViewer(kind){
       : { name:(conn.name || "Sheet") + " (viewing)", endpoint:conn.endpoint.trim(),
           id:conn.id||"", prefix:conn.prefix||"", token:conn.viewerToken.trim(),
           mode:"merge", auto:true },
+    /* the list of names, so the welcome card can offer them before the
+       workbook has been read; the workbook's own list replaces it on load */
+    people:(S.people || []).filter(x=>x.active !== false && x.name)
+      .map(x=>({id:x.id, name:x.name, first:x.first || "", login:x.login || "",
+                initials:x.initials || "", teams:x.teams || [], active:true})),
     /* a working copy ships empty and fills itself from the workbook */
     map:(kind === "workbook" || kind === "editor") ? "" : await gzipB64(JSON.stringify(tables))
   };
@@ -16371,7 +16469,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-09-29r";
+const APP_BUILD = "2026-09-29s";
 
 /* Reading that line back out of a copy of this file.
 
@@ -16632,8 +16730,19 @@ function sayHello(first){
         + "One tap puts it back and catches you up."
       : "The folder this board reads from is not linked in this browser yet.";
   const wrap = el("helloNameWrap");
-  wrap.hidden = !!S.who || (S.people || []).some(x=>x.active !== false);
-  el("helloName").value = S.who || "";
+  const known = helloRoster();
+  const whoOk = !!S.who && S.who !== "anonymous"
+    && (!known.length || known.some(x=>x.name === S.who));
+  wrap.hidden = whoOk;
+  el("helloName").value = whoOk ? S.who : "";
+  helloPick = null;
+  el("helloName").classList.remove("picked");
+  el("helloSuggest").hidden = true;
+  el("helloNameWarn").hidden = true;
+  el("helloNameAsk").textContent = known.length
+    ? "Your name \u2014 start typing and pick it from the list"
+    : "Your name, so your sign-offs are yours";
+  el("helloName").placeholder = known.length ? "Start typing your name" : "First name is plenty";
   el("helloSkip").hidden = !!first;
   el("helloFine").textContent = (first
     ? "Nothing leaves your computer. The folder is the one already syncing to you.  "
@@ -16665,7 +16774,23 @@ async function helloGo(){
   go.disabled = true; go.textContent = "One moment\u2026";
 
   const typed = (el("helloName").value || "").trim();
-  if(typed && !el("helloNameWrap").hidden){ S.who = typed; savePersonal(); }
+  if(!el("helloNameWrap").hidden){
+    const roster = helloRoster();
+    if(roster.length){
+      /* the list decides: a typed name only counts if it is somebody on it */
+      const p = helloPick || helloExact(typed);
+      if(!p){
+        go.disabled = false; go.textContent = "Let\u2019s go";
+        const warn = el("helloNameWarn");
+        warn.textContent = typed ? "Pick your name from the list. If it is not there, ask whoever looks after the map."
+          : "Pick your name first.";
+        warn.hidden = false;
+        el("helloName").focus(); helloSuggest();
+        return;
+      }
+      helloTake(p);
+    } else if(typed){ S.who = typed; S.whoKey = ""; savePersonal(); }
+  }
 
   /* 1 — the folder */
   helloStep("folder", "doing");
@@ -16712,6 +16837,11 @@ async function helloGo(){
       }
       if(bookHandle) got = await readRememberedWorkbook(true);
     }catch(e){}
+    /* the name was typed before the list was known: match it to somebody now */
+    if(S.who && !S.whoKey && helloRoster().length){
+      const p = helloExact(S.who);
+      if(p) helloTake(p);
+    }
     helloStep("book", got || S.nodes.size ? "done" : "missed",
       got || S.nodes.size ? S.nodes.size + " rooms"
         : "no " + (S.bookName || "workbook") + " in there");
@@ -16754,7 +16884,12 @@ async function helloGo(){
   rebuild(); renderInspector(); render(); renderRoomSoon();
   crumbIdle("set up");
   go.textContent = "In you go";
-  setTimeout(()=>shutHello(true), 620);
+  setTimeout(()=>{
+    shutHello(true);
+    /* still not somebody on the list: the list is known now, so ask once */
+    const roster = helloRoster();
+    if(roster.length && !roster.some(x=>x.name === S.who)) openWhoPicker();
+  }, 620);
 }
 
 async function offerReconnect(){
@@ -17447,6 +17582,8 @@ function applyViewerConfig(cfg){
      the editor's own plumbing in it — no sheet, no address, nothing that
      reaches past the folder it was handed out in. */
   S.builtFrom = cfg.builtFrom || "";
+  if(Array.isArray(cfg.people) && cfg.people.length && !(S.people || []).length)
+    S.people = cfg.people.map(x=>Object.assign({}, x));
   S.localOnly = !!(cfg.localOnly || cfg.editor);
   document.body.classList.toggle("localonly", S.localOnly);
   if(cfg.editor){
@@ -23026,8 +23163,32 @@ async function boot(){
   el("helloGo").onclick = ()=>{ helloGo().catch(()=>{ shutHello(false); }); };
   el("helloSkip").onclick = ()=>{ shutHello(false); };
   el("helloName").addEventListener("keydown", ev=>{
-    if(ev.key === "Enter"){ ev.preventDefault(); el("helloGo").click(); }
+    const box = el("helloSuggest");
+    const open = !box.hidden && box.querySelector("[data-hello-who]");
+    if(ev.key === "ArrowDown" || ev.key === "ArrowUp"){
+      if(box.hidden) helloSuggest();
+      const n = box.querySelectorAll("[data-hello-who]").length;
+      if(n){ helloHi = (helloHi + (ev.key === "ArrowDown" ? 1 : n - 1)) % n; helloSuggest(); }
+      ev.preventDefault(); return;
+    }
+    if(ev.key === "Escape" && !box.hidden){ box.hidden = true; ev.preventDefault(); ev.stopPropagation(); return; }
+    if(ev.key === "Enter"){
+      ev.preventDefault();
+      if(open && !helloPick){
+        const b = box.querySelectorAll("[data-hello-who]")[helloHi];
+        if(b){ helloChoose(b.dataset.helloWho); return; }
+      }
+      el("helloGo").click();
+    }
   });
+  el("helloName").addEventListener("input", ()=>{
+    helloPick = null; helloHi = 0;
+    el("helloName").classList.remove("picked");
+    el("helloNameWarn").hidden = true;
+    helloSuggest();
+  });
+  el("helloName").addEventListener("focus", ()=>{ if(!helloPick) helloSuggest(); });
+  el("helloName").addEventListener("blur", ()=>{ setTimeout(()=>{ el("helloSuggest").hidden = true; }, 120); });
   /* On a return visit it can be waved away like anything else. On a first
      visit it cannot: there is one thing to do and no other way to find it. */
   el("hello").addEventListener("click", ev=>{
