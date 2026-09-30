@@ -352,6 +352,14 @@ input[type=range],input[type=color],input[type=checkbox],input[type=file]{cursor
   border-radius:12px;padding:3px 9px;font:inherit;font-size:12px;cursor:pointer}
 .rp-tag:hover{border-color:var(--blueprint)}
 .rp-tag .cnt{color:var(--graphite-60);font-family:var(--mono);font-size:10.5px}
+.rp-tgroup{flex:1 1 100%;border:1px solid var(--rule);border-radius:8px;background:var(--paper-2)}
+.rp-tgroup>summary{cursor:pointer;padding:4px 9px;font-size:12px;font-weight:600;list-style:none;
+  display:flex;align-items:center;gap:6px}
+.rp-tgroup>summary::-webkit-details-marker{display:none}
+.rp-tgroup>summary::before{content:"\25B8";font-size:10px;color:var(--graphite-60);transition:transform .12s}
+.rp-tgroup[open]>summary::before{transform:rotate(90deg)}
+.rp-tgroup>summary .cnt{font-weight:400;color:var(--graphite-60);font-family:var(--mono);font-size:10.5px}
+.rp-tkids{display:flex;flex-wrap:wrap;gap:5px;padding:2px 9px 8px}
 .restrail.exhit{color:var(--blueprint, #2D6CDF);font-family:var(--mono)}
 /* a row being held fills from the left; ready when it is full */
 .resrow{position:relative;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
@@ -1690,6 +1698,8 @@ html[data-theme="dark"] #roomView[data-skin="plain"]{
 .rv-peek .peek-note{flex:0 1 auto;min-height:60px;overflow:auto;font-size:12.5px;line-height:1.5;
   color:var(--note-ink);overscroll-behavior:contain}
 .rv-peek .peek-note .notepara{margin:0 0 6px}
+.rv-peek .peek-tags{flex:0 0 auto;display:flex;flex-wrap:wrap;gap:4px;margin:0 0 7px}
+.rv-peek .peek-tags .tagchip{font-size:11px;padding:1px 6px}
 /* the rooms through there keep a band of their own below a long note */
 .rv-peek .peek-note ~ .rv-kids{flex:0 0 auto;max-height:78px;overflow:auto}
 .rv-peek .peek-note table{font-size:12px}
@@ -2681,6 +2691,11 @@ body.viewing.panelaway #panelHide{display:none}
 @media (prefers-reduced-motion:reduce){ .hello-card{animation:none} }
 
 /* three of them waiting by the door */
+/* Professional is plain everywhere: no creature on the welcome card, and the
+   sign-off count stands as a plain card with its bar, without the monster. */
+html[data-mood="pro"] .hello-art{display:none}
+#roomView[data-mood="pro"] .rv-boss .beast{display:none}
+#roomView[data-mood="pro"] .rv-boss .hp{border-width:1px;border-radius:5px;box-shadow:none}
 .hello-art{position:relative;height:116px;margin:0 -22px 4px;overflow:hidden;
   background:linear-gradient(#cfe3f2, #eaf3fa);border-radius:13px 13px 0 0}
 .hello-art .h-floor{position:absolute;left:-8%;right:-8%;bottom:0;height:46px;
@@ -8946,14 +8961,42 @@ function renderResults(){
       };
       el("resultsLabel").textContent = label.replace(/<[^>]+>/g, "");
       const hashes = hashResolved(S.hitQuery);
+      const chip = (h, t, c, label)=>'<button class="rp-tag" data-hash="' + esc(h) + '" data-tag="'
+        + esc(t) + '" title="Only ' + esc(t) + '">' + esc(label)
+        + ' <span class="cnt">' + c + '</span></button>';
+      /* Tags under one umbrella — Sentences/Issues-LabHold, Sentences/SampleNote —
+         fold up under it, closed until opened, so a short #word that catches
+         thirty tags is still one line to read. */
+      const tagLines = (h, tags)=>{
+        const loose = [], groups = new Map();
+        tags.forEach(([t, c])=>{
+          const at = String(t).indexOf("/");
+          if(at > 0){
+            const g = t.slice(0, at);
+            if(!groups.has(g)) groups.set(g, []);
+            groups.get(g).push([t, c, t.slice(at + 1)]);
+          } else loose.push([t, c]);
+        });
+        loose.sort((a, b)=>tagOrder(a[0], b[0]));
+        return loose.map(([t, c])=>chip(h, t, c, t)).join("")
+          + [...groups.keys()].sort((a, b)=>a.localeCompare(b, undefined, {numeric:true, sensitivity:"base"}))
+            .map(g=>{
+              const kids = groups.get(g).sort((a, b)=>tagOrder(a[2], b[2]));
+              const total = kids.reduce((n, k)=>n + k[1], 0);
+              const key = h + "\u0001" + g;
+              return '<details class="rp-tgroup" data-tgroup="' + esc(key) + '"'
+                + (rpOpenGroups.has(key) ? " open" : "") + '><summary>' + esc(g) + '/'
+                + '<span class="cnt">' + kids.length + (kids.length === 1 ? " tag" : " tags")
+                + ' \u00b7 ' + total + '</span></summary><div class="rp-tkids">'
+                + kids.map(([t, c, leaf])=>chip(h, t, c, leaf)).join("") + '</div></details>';
+            }).join("");
+      };
       const tagStrip = hashes.length ? '<div class="rp-tags">' + hashes.map(({h, tags})=>
           '<div class="rp-tagline"><b>#' + esc(h) + '</b>'
           + (tags.length
               ? (tags.length > 1 ? '<span class="rp-said">is ' + tags.length + ' tags:</span>'
                                  : '<span class="rp-said">is</span>')
-                + tags.map(([t, c])=>'<button class="rp-tag" data-hash="' + esc(h) + '" data-tag="'
-                  + esc(t) + '" title="Only this tag">' + esc(t)
-                  + ' <span class="cnt">' + c + '</span></button>').join("")
+                + tagLines(h, tags)
               : '<span class="rp-said">matches no tag</span>')
           + '</div>').join("") + '</div>' : "";
       el("tocResults").innerHTML = tagStrip +
@@ -8962,6 +9005,13 @@ function renderResults(){
         + (targets.length > 300 ? `<p class="tocempty">Showing the first 300.</p>` : "");
       placeResults();
       bindResultRows();
+      /* an umbrella stays open or shut as you left it while you keep typing */
+      el("tocResults").querySelectorAll("[data-tgroup]").forEach(d=>{
+        d.addEventListener("toggle", ()=>{
+          if(d.open) rpOpenGroups.add(d.dataset.tgroup); else rpOpenGroups.delete(d.dataset.tgroup);
+          placeResults();
+        });
+      });
       /* one of those tags on its own: the #word becomes that tag, spelled out */
       el("tocResults").querySelectorAll("[data-tag]").forEach(b=>{
         b.onclick = ev=>{
@@ -10602,6 +10652,9 @@ function isPro(){ return (S.roomMood || "pro") === "pro"; }
 function applyMood(){
   const view = el("roomView");
   if(view) view.dataset.mood = isPro() ? "pro" : "silly";
+  /* said on the page as well, so things outside the room — the welcome card —
+     can dress for it too */
+  document.documentElement.dataset.mood = isPro() ? "pro" : "silly";
   if(isPro()){
     /* the plain settings are not saved over the silly ones: they are what
        professional means, and the silly choices wait where they were */
@@ -11964,7 +12017,13 @@ function showPanel(on){
 function panelIsAway(){ return document.body.classList.contains("panelaway"); }
 
 function openPanelFor(nodeId, which){
-  if(!canEdit()){ openRespond(nodeId, which); return; }
+  if(!canEdit()){
+    /* For you is what is asked of you here; Question is questions. Each opens
+       only that, where both used to open the same everything-sheet. */
+    const only = which === "confirm" ? "confirm" : (which === "ask" || which === "question") ? "ask" : "";
+    openRespond(nodeId, which, only);
+    return;
+  }
   if(S.sel !== nodeId) select(nodeId);
   if(window.matchMedia("(max-width:820px)").matches){
     el("inspector").classList.add("open");
@@ -11998,10 +12057,12 @@ function openPanelFor(nodeId, which){
    there is no way to confirm them all at once, on purpose.
    --------------------------------------------------------------- */
 let respondFor = "";
-function openRespond(nodeId, which){
+let respondOnly = "";       /* "confirm" or "ask": just that part, from its own button */
+function openRespond(nodeId, which, only){
   if(!nodeId || !S.nodes.has(nodeId)) return;
   if(S.sel !== nodeId) select(nodeId);
   respondFor = nodeId;
+  respondOnly = only || "";
   renderRespond();
   const dlg = el("respondDlg");
   if(!dlg.open) dlg.showModal();
@@ -12022,7 +12083,10 @@ function renderRespond(){
   const n = S.nodes.get(respondFor), body = el("rsBody");
   if(!n || !body) return;
   const me = S.who || "";
-  el("rsTitle").textContent = n.label || "This room";
+  el("rsTitle").textContent = respondOnly === "confirm" ? "For you \u00b7 " + (n.label || "this room")
+    : respondOnly === "ask" ? "Questions \u00b7 " + (n.label || "this room")
+    : (n.label || "This room");
+  const part = k=>!respondOnly || respondOnly === k;
   const when = t=>esc(String(t || "").slice(0, 16));
   const items = itemsFor(n.id);
   const answerName = it=>(it.prompt || "an accession number");
@@ -12042,7 +12106,7 @@ function renderRespond(){
       <p><b>This room changed since you last signed it.</b> Read it over, then say so.</p>
       <button class="btn primary" id="rsSignNew">I have read this update</button></div></div>` : ""}
 
-    <div class="rs-sec" id="rsConfirm">
+    ${part("confirm") ? `<div class="rs-sec" id="rsConfirm">
       <h3>Confirm</h3>
       ${items.length ? items.map(it=>{
         const mine = checkoffFor(it.id, me);
@@ -12059,9 +12123,9 @@ function renderRespond(){
                  : `<button class="btn primary" data-rs-check="${esc(it.id)}">Confirm${it.requires ? "\u2026" : ""}</button>`}
         </div>`;
       }).join("") : `<p class="tocempty">Nothing to confirm here.</p>`}
-    </div>
+    </div>` : ""}
 
-    <div class="rs-sec" id="rsAsk">
+    ${part("ask") ? `<div class="rs-sec" id="rsAsk">
       <h3>Ask a question</h3>
       <textarea id="rsQText" placeholder="What is unclear here?"></textarea>
       <div class="rs-send"><span style="flex:1"></span>
@@ -12069,9 +12133,9 @@ function renderRespond(){
       ${myQs.length ? `<div class="rs-mine">${myQs.map(q=>`<div class="rs-row">
         <time>${when(q.timestamp)}</time>${esc(q.text)}<span class="fold">${esc(q.status)}</span>
         ${q.note ? `<div style="margin-top:3px;color:var(--graphite-60)">${esc(q.note)}</div>` : ""}</div>`).join("")}</div>` : ""}
-    </div>
+    </div>` : ""}
 
-    <div class="rs-sec" id="rsSuggest">
+    ${!respondOnly ? `<div class="rs-sec" id="rsSuggest">
       <h3>Suggest a change</h3>
       <textarea id="rsSText" placeholder="What should change, and why? The room itself is not altered."></textarea>
       <div class="rs-send">
@@ -12091,7 +12155,8 @@ function renderRespond(){
     <div class="rs-sec rs-foot">
       <button class="btn" id="rsMark">${isNodeBookmarked(n.id) ? "Remove bookmark" : "Bookmark this room"}</button>
       <button class="btn" id="rsArt">${hasOwnArt(n.id) ? "Change my picture" : "Put my own picture here"}</button>
-    </div>`;
+    </div>` : `<div class="rs-sec"><button class="btn" id="rsAll">Everything else here \u2014 suggest a change, bookmark\u2026</button></div>`}`;
+  if(el("rsAll")) el("rsAll").onclick = ()=>{ respondOnly = ""; renderRespond(); };
 
   const again = ()=>{ renderRespond(); if(inRoom()) renderRoomSoon(); updateReviewBadge && updateReviewBadge(); };
   if(el("rsSignNew")) el("rsSignNew").onclick = ()=>{ signOffNew(n.id); again(); };
@@ -12115,7 +12180,7 @@ function renderRespond(){
       again();
     };
   });
-  el("rsQSend").onclick = ()=>{
+  if(el("rsQSend")) el("rsQSend").onclick = ()=>{
     const text = el("rsQText").value.trim();
     if(!text){ toast("Write the question first"); return; }
     if(!whoAmI()) return;
@@ -12126,7 +12191,7 @@ function renderRespond(){
     toast("Question sent");
     again();
   };
-  el("rsSSend").onclick = ()=>{
+  if(el("rsSSend")) el("rsSSend").onclick = ()=>{
     const text = el("rsSText").value.trim();
     if(!text){ toast("Write the suggestion first"); return; }
     if(!whoAmI()) return;
@@ -12135,8 +12200,8 @@ function renderRespond(){
     toast("Suggestion sent");
     again();
   };
-  el("rsMark").onclick = ()=>{ toggleNodeBookmark(n.id); renderRespond(); };
-  el("rsArt").onclick = ()=>{
+  if(el("rsMark")) el("rsMark").onclick = ()=>{ toggleNodeBookmark(n.id); renderRespond(); };
+  if(el("rsArt")) el("rsArt").onclick = ()=>{
     const cur = ((S.personal.art || {})[n.id] || {});
     pickImage("My own picture for this room", cur.image || n.image || "",
       v=>{ setOwnArt(n.id, "image", v); renderRespond(); renderRoomSoon(); },
@@ -12486,27 +12551,60 @@ function askForEvidence(item, nodeId){
 /* Put a screenshot in proof/ beside the workbook and hand back the path.
    Without a folder to write to there is nowhere to put it, so it stays in the
    sheet as before rather than being lost. */
-async function stashProof(dataUrl, itemId){
+/* ---------------------------------------------------------------
+   Pictures people send in are files, not cells.
+
+   A screenshot given as evidence, a picture brought in with an example:
+   each is written as its own file into feedbackimages/ in the shared
+   folder, and only its name goes in the spreadsheet. Everybody writes
+   into the same folder, each file named for what it is, who sent it and
+   when, so no two can collide and the workbook stays small however many
+   pictures there are.
+
+   The folder has to be writable for that, so it is asked for here if it
+   is not already — this runs from the Confirm press, which a browser
+   accepts as the reason. If it still cannot be written, the picture is
+   kept in the sheet as before and the person is told why.
+   --------------------------------------------------------------- */
+const FEEDBACK_PICS = "feedbackimages";
+let picWriteWarned = false;
+async function saveFeedbackImage(dataUrl, what){
   if(!dataUrl || !dataUrl.startsWith("data:")) return dataUrl || "";
-  if(!bookDir) return dataUrl;
+  const root = bookDir || picDir;
+  if(!root){
+    if(!picWriteWarned){ picWriteWarned = true;
+      toast("No shared folder linked, so the picture is kept in the sheet itself."); }
+    return dataUrl;
+  }
   try{
-    const perm = await bookDir.queryPermission({mode:"readwrite"});
-    if(perm !== "granted") return dataUrl;
-    const dir = await bookDir.getDirectoryHandle("proof", {create:true});
+    let perm = await root.queryPermission({mode:"readwrite"});
+    if(perm !== "granted"){
+      try{ perm = await root.requestPermission({mode:"readwrite"}); }catch(e){}
+    }
+    if(perm !== "granted"){
+      toast("The folder was not opened for writing, so the picture is kept in the sheet instead.");
+      return dataUrl;
+    }
+    const dir = await root.getDirectoryHandle(FEEDBACK_PICS, {create:true});
     const who = (S.who || "someone").replace(/[^\w -]+/g, "").trim() || "someone";
     const stamp = nowISO().replace(/[^\d]/g, "").slice(0, 14);
+    const kind = String(what || "picture").replace(/[^\w -]+/g, "").trim().slice(0, 40) || "picture";
     const ext = /^data:image\/(png|gif|webp)/.exec(dataUrl);
-    const name = itemId + " - " + who + " - " + stamp + "." + (ext ? ext[1] : "jpg");
+    const name = kind + " - " + who + " - " + stamp + "." + (ext ? ext[1] : "jpg");
     const bytes = await (await fetch(dataUrl)).arrayBuffer();
     const h = await dir.getFileHandle(name, {create:true});
     const w = await h.createWritable();
     await w.write(new Blob([bytes]));
     await w.close();
-    return "proof/" + name;
+    return FEEDBACK_PICS + "/" + name;
   }catch(e){
-    return dataUrl;         // could not write it: keep it in the sheet
+    toast("Could not write the picture into the folder (" + (e.message || e)
+      + "), so it is kept in the sheet instead.");
+    return dataUrl;
   }
 }
+/* the older name, kept for the two places that call it */
+function stashProof(dataUrl, itemId){ return saveFeedbackImage(dataUrl, itemId); }
 
 function completeSignOff(){
   if(!signFor) return;
@@ -12522,7 +12620,7 @@ function completeSignOff(){
   /* A screenshot goes in a file beside the workbook, and only its name is
      kept in the sheet. Thirty of them baked into cells would swell the
      workbook by megabytes and slow every open for everyone. */
-  stashProof(shot, item.id).then(kept=>{
+  saveFeedbackImage(shot, "evidence " + (item.label || item.id)).then(kept=>{
     writeCheckoff(item.id, nodeId, true, ref, kept);
     renderInspector();
     if(respondOpen()){ renderRespond(); renderRoomSoon(); }
@@ -13337,6 +13435,26 @@ function hashTagsIn(text){
   return (String(text || "").match(/(^|\s)#[^\s#]+/g) || [])
     .map(x=>x.trim().slice(1).toLowerCase()).filter(Boolean);
 }
+/* Which comes first among tags shown together: dates newest first, then the
+   rest in alphabetical order, with numbers read as numbers (Room 2 before
+   Room 10). A date is anything that reads as one — 2026-09-28, 09/28/2026,
+   or a name with a date in it like "Huddle 2026-09-28". */
+function tagDate(t){
+  const s = String(t);
+  let m = /(\d{4})-(\d{1,2})-(\d{1,2})/.exec(s);
+  if(m) return Date.UTC(+m[1], +m[2] - 1, +m[3]);
+  m = /(\d{1,2})\/(\d{1,2})\/(\d{2,4})/.exec(s);
+  if(m){ const y = +m[3] < 100 ? 2000 + +m[3] : +m[3]; return Date.UTC(y, +m[1] - 1, +m[2]); }
+  return null;
+}
+function tagOrder(a, b){
+  const da = tagDate(a), db = tagDate(b);
+  if(da != null && db != null && da !== db) return db - da;
+  if(da != null && db == null) return -1;
+  if(db != null && da == null) return 1;
+  return String(a).localeCompare(String(b), undefined, {numeric:true, sensitivity:"base"});
+}
+const rpOpenGroups = new Set();
 /* a tag with a space in it is written with _ after the #, so it stays one word */
 function hashNorm(h){ return String(h || "").toLowerCase().replace(/_/g, " "); }
 function hashHit(tag, h){
@@ -15907,7 +16025,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-09-29l";
+const APP_BUILD = "2026-09-29n";
 
 /* Reading that line back out of a copy of this file.
 
@@ -19652,7 +19770,10 @@ function paintStuff(id, items, owed){
   if(!box) return;
   if(!id){ box.innerHTML = ""; if(says) says.textContent = ""; return; }
   const out = [];
-  const asks = questionsForNode(id).filter(q=>q.status === "open").length;
+  /* a reader is counted only their own questions, the same ones the sheet
+     shows them; everybody else's are the editor's to see */
+  const asks = questionsForNode(id).filter(q=>q.status === "open"
+    && (canEdit() || q.person === (S.who || ""))).length;
   const sug = canEdit() ? suggestionsFor(id).filter(x=>x.status === "open").length : 0;
   if(canEdit()){
     if(items.length) out.push(["confirm", items.length, "&#9745;", "To confirm",
@@ -20615,9 +20736,16 @@ function drawPeek(){
     p.style.setProperty("--tail",
       Math.max(18, Math.min(pb.width - 18, at - pb.left)) + "px");
   } else if(f) p.style.setProperty("--tail", "50%");
+  const tagsHere = (n.tags || []).filter(Boolean);
   p.innerHTML = '<h4>' + esc(n.label || n.id)
     + (inside.length ? '<span>' + esc(inside.join(" · ")) + '</span>' : '<span>nothing beyond it</span>')
     + '</h4>'
+    /* its tags, as they are drawn on the map */
+    + (tagsHere.length ? '<div class="peek-tags">' + tagsHere.map(t=>{
+        const st = styleFor(t);
+        return '<span class="tagchip"><i style="border-top-color:' + esc(st.color) + '"></i>'
+          + esc(t) + '</span>';
+      }).join("") + '</div>' : "")
     + (showFound ? '<div class="peek-note">' + noteToHtml(n.body, n) + '</div>'
        : words ? '<p>' + esc(words) + '</p>' : '<p class="empty">Nothing written on it.</p>')
     /* What is through there, by name. Looking inside and then having to walk
@@ -21496,7 +21624,7 @@ function wireRoom(){
     if(!acc){ toast("An accession number is what makes it an example."); return; }
     const row = newExample({node:exFor, person:S.who || "anonymous",
       accession:acc, note:el("exNote").value.trim(),
-      proof:await stashProof(exProof, "EX-" + Date.now())});
+      proof:await saveFeedbackImage(exProof, "example " + nodeName(exFor))});
     S.examples.push(row);
     markDirty();
     el("exampleDlg").close();
@@ -21687,7 +21815,7 @@ function wireRoom(){
 
   el("rvEdit").onclick = ()=>{
     if(!S.sel) return;
-    if(!canEdit()){ openRespond(S.sel); return; }
+    if(!canEdit()){ openRespond(S.sel, "", ""); return; }
     if(window.matchMedia("(max-width:820px)").matches){
       const ins = el("inspector");
       const open = ins.classList.contains("open");
@@ -22163,6 +22291,52 @@ async function boot(){
   });
   el("imgClose").onclick = ()=>{ el("imgDlg").close(); imgPick = null; };
   el("imgBrowse").onclick = ()=>el("imgFile").click();
+  /* Everything inside the picture box. None of this was connected: the file
+     chosen was never read, and Use this and Remove did nothing, so a picture
+     could not be added anywhere, by anyone. */
+  el("imgFile").onchange = ()=>{
+    const f = el("imgFile").files && el("imgFile").files[0];
+    if(f) readImageFile(f);
+    el("imgFile").value = "";
+  };
+  el("imgUse").onclick = ()=>{
+    if(!imgPick || !imgPick.value) return;
+    const pick = imgPick;
+    el("imgDlg").close(); imgPick = null;
+    try{ pick.onPick && pick.onPick(pick.value); }catch(e){ toast("Could not use that picture."); }
+  };
+  el("imgRemove").onclick = ()=>{
+    const pick = imgPick;
+    el("imgDlg").close(); imgPick = null;
+    try{ pick && pick.onRemove && pick.onRemove(); }catch(e){}
+  };
+  el("imgUrl").addEventListener("input", ()=>{
+    const v = el("imgUrl").value.trim();
+    if(v) imgTake(v);
+  });
+  const dz = el("imgDrop");
+  ["dragenter","dragover"].forEach(t=>dz.addEventListener(t, ev=>{
+    ev.preventDefault(); dz.classList.add("over"); }));
+  ["dragleave","drop"].forEach(t=>dz.addEventListener(t, ()=>dz.classList.remove("over")));
+  dz.addEventListener("drop", ev=>{
+    ev.preventDefault();
+    const f = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
+    if(f) readImageFile(f);
+  });
+  /* a screenshot pasted while the box is open goes into the box */
+  el("imgDlg").addEventListener("paste", ev=>{
+    const items = [...((ev.clipboardData && ev.clipboardData.items) || [])];
+    const img = items.find(i=>i.type && i.type.indexOf("image/") === 0);
+    if(!img) return;
+    ev.preventDefault();
+    const f = img.getAsFile();
+    if(f) readImageFile(f);
+  });
+  dz.addEventListener("click", ev=>{ if(ev.target === dz || ev.target.closest(".dz-preview")) el("imgFile").click(); });
+  if(el("imgAsPath")) el("imgAsPath").onclick = ()=>{
+    const name = el("imgAsPath").dataset.name;
+    if(name) imgTake("images/" + name);
+  };
   el("imgShrink").onclick = ()=>{
     const before = imgPick && imgPick.value;
     if(!before) return;
