@@ -1468,6 +1468,11 @@ html[data-theme="dark"] #roomView[data-skin="plain"]{
 .rv-head h3{margin:0;font-size:18px;font-weight:600;line-height:1.25;flex:1;min-width:0;
   font-family:var(--sans);word-break:break-word;color:var(--rv-ink, var(--graphite))}
 .rv-head .rv-acts{display:flex;gap:5px;flex:0 0 auto}
+.rv-star{flex:0 0 auto;border:0;background:transparent;font-size:22px;line-height:1;cursor:pointer;
+  color:var(--graphite-60);padding:0 2px;margin-top:-2px}
+.rv-star:hover{color:#C9971C}
+.rv-star.on{color:#E0A81E}
+.rv-star[hidden]{display:none}
 .rv-head .btn{padding:4px 9px;font-size:12px}
 .rv-tags{display:flex;gap:4px;flex-wrap:wrap;padding:0 14px 8px;flex:0 0 auto}
 .rv-tags[hidden]{display:none}
@@ -2256,6 +2261,7 @@ html[data-theme="dark"] .rv-bar-mid b{color:#F09A7E}
 .rv-list button u{text-decoration:none;flex:1;overflow:hidden;text-overflow:ellipsis;
   white-space:nowrap}
 .rv-list button.lead{color:var(--blueprint);font-weight:600}
+.rv-list .bmic{width:18px;height:18px;object-fit:cover;border-radius:3px;flex:0 0 auto}
 .rv-list button.lead u{text-decoration:none}
 .rv-list button s{text-decoration:none;flex:0 0 auto;font-family:var(--mono);
   font-size:10.5px;color:var(--rv-dim, var(--graphite-60))}
@@ -3046,6 +3052,31 @@ dialog#connDlg::backdrop{background:rgba(35,40,45,.42)}
 .rs-item .rs-what small{display:block;color:var(--graphite-60);font-size:12px;margin-top:2px}
 .rs-item .rs-what small.rs-note{color:var(--graphite);font-size:13px;white-space:pre-wrap;margin:3px 0 2px}
 .peopledlg{width:min(640px, calc(100vw - 20px))}
+dialog#placesDlg{border:1px solid var(--graphite);border-radius:3px;padding:0;background:var(--paper);
+  color:var(--graphite);width:min(600px, calc(100vw - 20px));max-height:90vh;display:flex;flex-direction:column}
+dialog#placesDlg::backdrop{background:rgba(35,40,45,.42)}
+@media (max-width:820px){ dialog#placesDlg{width:100vw;height:100dvh;max-height:none;border:0;border-radius:0} }
+.pl-bar{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+.pl-bar select{flex:0 1 190px}
+.pl-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--rule-soft)}
+.pl-ic{width:34px;height:34px;flex:none;border:1px dashed var(--rule);border-radius:6px;background:var(--paper-2);
+  display:grid;place-items:center;cursor:pointer;padding:0;overflow:hidden;font-size:16px;color:#E0A81E}
+.pl-ic img{width:100%;height:100%;object-fit:cover}
+.pl-main{flex:1;min-width:0}
+.pl-main .pd-name{font-weight:600}
+.pl-where{font-size:11.5px;color:var(--graphite-60);padding-left:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pl-acts{display:flex;gap:3px;flex:none}
+.pl-acts .btn{padding:3px 8px;font-size:12px}
+.pl-mv{border:1px solid var(--rule);background:var(--paper);border-radius:3px;width:26px;height:26px;cursor:pointer;
+  font-size:12px;color:var(--graphite-60);padding:0}
+.pl-mv:disabled{opacity:.3;cursor:default}
+.pl-shelf{border-top:1px solid var(--rule-soft);padding:4px 0}
+.pl-shelf .pl-row{border-top:0}
+.pl-rooms{padding:0 0 8px 42px}
+.pl-rooms .pl-row{padding:3px 0;border-top:1px dotted var(--rule-soft)}
+.pl-rooms .pl-row u{flex:1;text-decoration:none;font-size:13px;cursor:pointer;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pl-new{display:flex;gap:8px;margin:4px 0 12px}
+.pl-new input{flex:1;min-width:0}
 .pd-tabs{display:flex;gap:4px;padding:8px 14px 0;border-bottom:1px solid var(--rule)}
 .pd-tab{border:1px solid transparent;border-bottom:0;background:transparent;padding:7px 12px;
   border-radius:6px 6px 0 0;font:inherit;font-size:13px;cursor:pointer;color:var(--graphite-60)}
@@ -4016,6 +4047,7 @@ body.viewing.panelaway #panelHide{display:none}
           <div class="rv-board" id="rvBoard">
             <div class="rv-head">
               <h3 id="rvTitle">Nothing picked</h3>
+              <button class="rv-star" id="rvStar" hidden title="Bookmark this room" aria-label="Bookmark this room">&#9734;</button>
             </div>
             <div class="rv-tags" id="rvTags" hidden></div>
             <div class="rv-qs" id="rvQs" hidden></div>
@@ -4489,6 +4521,19 @@ body.viewing.panelaway #panelHide{display:none}
     </div>
     <p class="fineprint" id="signWarn"></p>
   </div>
+</dialog>
+
+<dialog id="placesDlg" class="placesdlg">
+  <div class="dlg-head">
+    <h2>Bookmarks and shelves</h2>
+    <button class="btn" id="placesClose">Done</button>
+  </div>
+  <div class="pd-tabs" role="tablist">
+    <button class="pd-tab on" data-pltab="bookmarks">Bookmarks</button>
+    <button class="pd-tab" data-pltab="shelves">Shelves</button>
+  </div>
+  <div class="dlg-body pd-body" id="placesBody"></div>
+  <input type="file" id="bmIconFile" accept="image/*" hidden>
 </dialog>
 
 <dialog id="shelfDlg">
@@ -5203,6 +5248,241 @@ function paintShelfPicks(){
   }
 }
 
+/* ---------------------------------------------------------------
+   BOOKMARKS AND SHELVES, in one place anybody can reach from a room.
+   A reader's bookmarks are theirs, kept in this browser; an editor's
+   are the map's. Either can be named, given a little picture (a GIF
+   moves), and put in whatever order suits.
+   --------------------------------------------------------------- */
+let plTab = "bookmarks", plOpenShelf = "";
+function placesBookmarks(){
+  const rows = S.personal.bookmarks.map(b=>({b, mine:true}));
+  if(canEdit()) rows.unshift(...S.bookmarks.map(b=>({b, mine:false})));
+  const how = S.personal.bmSort || "mine";
+  if(how === "name") rows.sort((x, y)=>String(x.b.label || "").localeCompare(String(y.b.label || ""), undefined, {numeric:true, sensitivity:"base"}));
+  else if(how === "new") rows.sort((x, y)=>String(y.b.at || "").localeCompare(String(x.b.at || "")));
+  return rows.filter(r=>!r.b.node || S.nodes.has(r.b.node));
+}
+function bmList(mine){ return mine ? S.personal.bookmarks : S.bookmarks; }
+function bmSaved(mine){ if(mine) savePersonal(); else markDirty(); renderContents(); paintStar(S.sel); }
+function goBookmark(id){
+  const b = S.bookmarks.concat(S.personal.bookmarks).find(x=>x.id === id);
+  if(!b) return;
+  if(b.node && S.nodes.has(b.node)){
+    if(inRoom()){ if(S.roomWorld) leaveWorld(); select(b.node); renderRoom(); }
+    else focusNode(b.node);
+    return;
+  }
+  gotoBookmark(id);
+}
+function openPlaces(tab){
+  if(tab) plTab = tab;
+  renderPlaces();
+  el("placesDlg").showModal();
+}
+/* a picture for a bookmark: a GIF is kept as it is so it still moves; anything
+   else is shrunk to a small square, since it is only ever shown tiny */
+async function bmIconFrom(file){
+  if(!file) return "";
+  const read = f=>new Promise((res, rej)=>{ const r = new FileReader(); r.onload = ()=>res(r.result); r.onerror = rej; r.readAsDataURL(f); });
+  if(/gif$/i.test(file.type) && file.size <= 400 * 1024) return read(file);
+  try{
+    const bmp = await createImageBitmap(file);
+    const side = 96, cv = document.createElement("canvas");
+    cv.width = cv.height = side;
+    const k = Math.max(side / bmp.width, side / bmp.height);
+    const w = bmp.width * k, h = bmp.height * k;
+    cv.getContext("2d").drawImage(bmp, (side - w) / 2, (side - h) / 2, w, h);
+    bmp.close && bmp.close();
+    return cv.toDataURL("image/png");
+  }catch(e){ return file.size <= 200 * 1024 ? read(file) : ""; }
+}
+let bmIconFor = null;
+function renderPlaces(){
+  document.querySelectorAll("[data-pltab]").forEach(b=>b.classList.toggle("on", b.dataset.pltab === plTab));
+  const body = el("placesBody");
+  if(plTab === "bookmarks"){
+    const rows = placesBookmarks();
+    const how = S.personal.bmSort || "mine";
+    body.innerHTML = `<div class="pl-bar">
+        <select id="plSort" aria-label="Order">
+          <option value="mine"${how === "mine" ? " selected" : ""}>My own order</option>
+          <option value="name"${how === "name" ? " selected" : ""}>By name</option>
+          <option value="new"${how === "new" ? " selected" : ""}>Newest first</option>
+        </select>
+        ${S.sel && S.nodes.has(S.sel) && !isNodeBookmarked(S.sel)
+          ? `<button class="btn primary" id="plAddHere">\u2606 Bookmark ${esc(nodeName(S.sel))}</button>` : ""}
+      </div>
+      ${rows.length ? rows.map(({b, mine}, i)=>{
+        const list = rows.filter(r=>r.mine === mine);
+        const at = list.findIndex(r=>r.b.id === b.id);
+        return `<div class="pl-row" data-bm="${esc(b.id)}" data-mine="${mine ? 1 : 0}">
+          <button class="pl-ic" data-bmicon="${esc(b.id)}" title="${b.icon ? "Change its picture" : "Give it a picture or GIF"}">
+            ${b.icon ? `<img src="${esc(b.icon)}" alt="">` : "&#9733;"}</button>
+          <div class="pl-main">
+            <input class="pd-name" value="${esc(b.label || "")}" data-bmname="${esc(b.id)}" aria-label="Bookmark name">
+            <div class="pl-where">${b.node ? "\u2192 " + esc(nodeName(b.node)) : "a place on the drawing"}${mine ? "" : " \u00b7 on the map, for everybody"}</div>
+          </div>
+          <div class="pl-acts">
+            ${how === "mine" ? `<button class="pl-mv" data-bmmove="-1" ${at <= 0 ? "disabled" : ""} title="Up">&#9650;</button>
+              <button class="pl-mv" data-bmmove="1" ${at >= list.length - 1 ? "disabled" : ""} title="Down">&#9660;</button>` : ""}
+            <button class="btn" data-bmopen="${esc(b.id)}">Go</button>
+            <button class="kill" data-bmdrop="${esc(b.id)}" title="Remove">&times;</button>
+          </div></div>`;
+      }).join("") : `<p class="histempty">No bookmarks yet. In any room, tap the \u2606 beside its name.</p>`}
+      <p class="fineprint" style="margin-top:10px">${canEdit() ? "Bookmarks on the map are for everybody; your own stay in this browser."
+        : "Your bookmarks stay in this browser on this computer."} Tap the star square to give one a picture \u2014 a GIF keeps moving.</p>`;
+  } else {
+    const mine = myShelves(), theirs = otherShelves();
+    const roomRow = (sh, k, i, n, own)=>`<div class="pl-row">
+        <u data-plgo="${esc(k)}">${esc(nodeName(k))}</u>
+        ${own ? `<button class="pl-mv" data-shmove="${esc(sh.id)}" data-room="${esc(k)}" data-d="-1" ${i === 0 ? "disabled" : ""}>&#9650;</button>
+        <button class="pl-mv" data-shmove="${esc(sh.id)}" data-room="${esc(k)}" data-d="1" ${i === n - 1 ? "disabled" : ""}>&#9660;</button>
+        <button class="kill" data-shoff="${esc(sh.id)}" data-room="${esc(k)}" title="Take it off this shelf">&times;</button>` : ""}
+      </div>`;
+    const shelfBox = (sh, own, i, n)=>{
+      const rooms = shelfNodes(sh);
+      const open = plOpenShelf === sh.id;
+      return `<div class="pl-shelf">
+        <div class="pl-row">
+          <button class="pl-ic" data-shopen="${esc(sh.id)}" title="${open ? "Fold" : "Show its rooms"}">${open ? "&#9662;" : "&#9635;"}</button>
+          <div class="pl-main">
+            ${own ? `<input class="pd-name" value="${esc(sh.name)}" data-shname="${esc(sh.id)}" aria-label="Shelf name">`
+                  : `<b style="padding-left:6px">${esc(sh.name)}</b>`}
+            <div class="pl-where">${rooms.length} room${rooms.length === 1 ? "" : "s"}${own ? "" : " \u00b7 " + esc(sh.person || "")}</div>
+          </div>
+          <div class="pl-acts">
+            ${own ? `<button class="pl-mv" data-shorder="${esc(sh.id)}" data-d="-1" ${i === 0 ? "disabled" : ""}>&#9650;</button>
+              <button class="pl-mv" data-shorder="${esc(sh.id)}" data-d="1" ${i === n - 1 ? "disabled" : ""}>&#9660;</button>` : ""}
+            ${own && S.sel && S.nodes.has(S.sel) && !rooms.includes(S.sel)
+              ? `<button class="btn" data-shaddhere="${esc(sh.id)}" title="Put ${esc(nodeName(S.sel))} on it">+ this room</button>` : ""}
+            <button class="btn" data-shstand="${esc(sh.id)}"${rooms.length ? "" : " disabled"}>Stand in it</button>
+            ${own ? `<button class="kill" data-shgone="${esc(sh.id)}" title="Put the shelf away">&times;</button>` : ""}
+          </div></div>
+        ${open ? `<div class="pl-rooms">${rooms.map((k, j)=>roomRow(sh, k, j, rooms.length, own)).join("")
+          || `<p class="fineprint">Nothing on it yet.</p>`}</div>` : ""}
+      </div>`;
+    };
+    body.innerHTML = `<div class="pl-new">
+        <input type="text" id="plNewShelf" placeholder="New shelf: Monday huddle, things I keep forgetting">
+        <button class="btn primary" id="plMakeShelf">${S.sel && S.nodes.has(S.sel) ? "Make it, with this room" : "Make it"}</button>
+      </div>
+      ${mine.length ? mine.map((sh, i)=>shelfBox(sh, true, i, mine.length)).join("")
+        : `<p class="histempty">No shelves of yours yet. A shelf gathers rooms you keep coming back to, and you can stand in all of them at once.</p>`}
+      ${theirs.length ? `<p class="subhead" style="margin-top:14px">Other people&rsquo;s</p>`
+        + theirs.slice(0, 20).map((sh, i)=>shelfBox(sh, false, i, theirs.length)).join("") : ""}`;
+  }
+  wirePlaces();
+}
+function wirePlaces(){
+  const body = el("placesBody");
+  const find = id=>{
+    const m = S.personal.bookmarks.find(x=>x.id === id);
+    return m ? {b:m, mine:true} : (S.bookmarks.find(x=>x.id === id) ? {b:S.bookmarks.find(x=>x.id === id), mine:false} : null);
+  };
+  if(el("plSort")) el("plSort").onchange = e=>{ S.personal.bmSort = e.target.value; savePersonal(); renderPlaces(); if(listOpen) renderList(); };
+  if(el("plAddHere")) el("plAddHere").onclick = ()=>{ toggleNodeBookmark(S.sel); renderPlaces(); };
+  body.querySelectorAll("[data-bmname]").forEach(inp=>{
+    inp.onchange = ()=>{ const r = find(inp.dataset.bmname); if(!r) return;
+      r.b.label = inp.value.trim() || nodeName(r.b.node); bmSaved(r.mine); if(listOpen) renderList(); };
+    inp.onkeydown = ev=>{ if(ev.key === "Enter"){ ev.preventDefault(); inp.blur(); } };
+  });
+  body.querySelectorAll("[data-bmicon]").forEach(b=>{
+    b.onclick = ()=>{
+      const r = find(b.dataset.bmicon);
+      if(!r) return;
+      /* one with a picture already: offer to take it off before picking another */
+      if(r.b.icon && confirm("Take this bookmark's picture off?\n\nOK takes it off. Cancel lets you choose a different one.")){
+        r.b.icon = ""; bmSaved(r.mine); renderPlaces(); if(listOpen) renderList(); return;
+      }
+      bmIconFor = b.dataset.bmicon;
+      el("bmIconFile").value = "";
+      el("bmIconFile").click();
+    };
+  });
+  body.querySelectorAll("[data-bmmove]").forEach(b=>{
+    b.onclick = ()=>{
+      const row = b.closest("[data-bm]"); const r = find(row.dataset.bm); if(!r) return;
+      const list = bmList(r.mine), at = list.indexOf(r.b), to = at + Number(b.dataset.bmmove);
+      if(to < 0 || to >= list.length) return;
+      list.splice(at, 1); list.splice(to, 0, r.b);
+      bmSaved(r.mine); renderPlaces(); if(listOpen) renderList();
+    };
+  });
+  body.querySelectorAll("[data-bmopen]").forEach(b=>{
+    b.onclick = ()=>{ el("placesDlg").close(); goBookmark(b.dataset.bmopen); };
+  });
+  body.querySelectorAll("[data-bmdrop]").forEach(b=>{
+    b.onclick = ()=>{
+      const r = find(b.dataset.bmdrop); if(!r) return;
+      if(!r.mine && !confirm("Remove this bookmark from the map for everybody?")) return;
+      if(r.mine) S.personal.bookmarks = S.personal.bookmarks.filter(x=>x.id !== r.b.id);
+      else S.bookmarks = S.bookmarks.filter(x=>x.id !== r.b.id);
+      bmSaved(r.mine); renderPlaces(); if(listOpen) renderList();
+    };
+  });
+  /* shelves */
+  const make = ()=>{
+    const name = (el("plNewShelf").value || "").trim();
+    if(!name){ toast("Give the shelf a name first."); return; }
+    if(!S.who) whoAmI(true);
+    const sh = makeShelf(name, S.sel && S.nodes.has(S.sel) ? [S.sel] : []);
+    plOpenShelf = sh.id;
+    renderPlaces();
+  };
+  if(el("plMakeShelf")) el("plMakeShelf").onclick = make;
+  if(el("plNewShelf")) el("plNewShelf").onkeydown = ev=>{ if(ev.key === "Enter"){ ev.preventDefault(); make(); } };
+  body.querySelectorAll("[data-shopen]").forEach(b=>{
+    b.onclick = ()=>{ plOpenShelf = plOpenShelf === b.dataset.shopen ? "" : b.dataset.shopen; renderPlaces(); };
+  });
+  body.querySelectorAll("[data-shname]").forEach(inp=>{
+    inp.onchange = ()=>{ shelfRename(inp.dataset.shname, inp.value); };
+    inp.onkeydown = ev=>{ if(ev.key === "Enter"){ ev.preventDefault(); inp.blur(); } };
+  });
+  body.querySelectorAll("[data-shorder]").forEach(b=>{
+    b.onclick = ()=>{
+      const mine = myShelves(), sh = shelfOf(b.dataset.shorder);
+      const at = mine.indexOf(sh), other = mine[at + Number(b.dataset.d)];
+      if(!sh || !other) return;
+      /* shelves keep their places in the one list, so swap where they sit in it */
+      const all = S.shelves, i = all.indexOf(sh), j = all.indexOf(other);
+      all[i] = other; all[j] = sh;
+      saveShelves(); renderPlaces();
+    };
+  });
+  body.querySelectorAll("[data-shaddhere]").forEach(b=>{
+    b.onclick = ()=>{ shelfPut(b.dataset.shaddhere, [S.sel]); plOpenShelf = b.dataset.shaddhere; renderPlaces(); };
+  });
+  body.querySelectorAll("[data-shstand]").forEach(b=>{
+    b.onclick = ()=>{ el("placesDlg").close(); standOnShelf(b.dataset.shstand); };
+  });
+  body.querySelectorAll("[data-shgone]").forEach(b=>{
+    b.onclick = ()=>{
+      const sh = shelfOf(b.dataset.shgone);
+      if(sh && confirm("Put away \u201c" + sh.name + "\u201d? The rooms on it stay where they are.")){
+        shelfForget(sh.id);
+        if(S.roomWorld === "shelf:" + sh.id){ S.roomWorld = ""; renderRoom(); }
+        renderPlaces();
+      }
+    };
+  });
+  body.querySelectorAll("[data-shmove]").forEach(b=>{
+    b.onclick = ()=>{
+      const sh = shelfOf(b.dataset.shmove); if(!sh) return;
+      const list = sh.nodes || [], at = list.indexOf(b.dataset.room), to = at + Number(b.dataset.d);
+      if(at < 0 || to < 0 || to >= list.length) return;
+      list.splice(at, 1); list.splice(to, 0, b.dataset.room);
+      sh.at = nowISO(); saveShelves(); renderPlaces();
+    };
+  });
+  body.querySelectorAll("[data-shoff]").forEach(b=>{
+    b.onclick = ()=>{ shelfDrop(b.dataset.shoff, b.dataset.room); renderPlaces(); };
+  });
+  body.querySelectorAll("[data-plgo]").forEach(u=>{
+    u.onclick = ()=>{ el("placesDlg").close(); if(S.roomWorld) leaveWorld(); select(u.dataset.plgo); if(inRoom()) renderRoom(); };
+  });
+}
+
 /* Kept in this browser straight away, and sent on with everything else. */
 function saveShelves(){
   try{ Store.putKey("shelves:" + (S.meta.key || "map"), S.shelves); }catch(e){}
@@ -5259,7 +5539,7 @@ function newArea(o={}){
   }, o);
 }
 function newBookmark(o={}){
-  return Object.assign({ id:uid("B-"), label:"Bookmark", node:"", x:0, y:0, k:1 }, o);
+  return Object.assign({ id:uid("B-"), label:"Bookmark", node:"", x:0, y:0, k:1, at:nowISO() }, o);
 }
 
 function newEdge(o={}){
@@ -5444,6 +5724,8 @@ function goRelative(dir){
    I have chosen for myself sits on top, unless I have switched that off for
    this node or for the whole map. */
 function artFor(n, which){
+  /* a reader's copy shows the host's pictures, and only those */
+  if(S.viewerBuild) return which === "badge" ? n.badgeImage : n.image;
   const mine = (S.personal.art || {})[n.id];
   const host = which === "badge" ? n.badgeImage : n.image;
   if(!mine) return host;
@@ -12319,7 +12601,7 @@ function toggleNodeBookmark(id){
   if(mine.length || theirs.length){
     S.personal.bookmarks = S.personal.bookmarks.filter(b=>b.node !== id);
     if(theirs.length && canEdit()){ S.bookmarks = S.bookmarks.filter(b=>b.node !== id); markDirty(); }
-    savePersonal(); renderContents();
+    savePersonal(); renderContents(); paintStar(S.sel); if(listOpen) renderList();
     toast("Bookmark removed");
     return;
   }
@@ -12327,8 +12609,8 @@ function toggleNodeBookmark(id){
     x:S.view.x, y:S.view.y, k:S.view.k});
   if(canEdit()){ S.bookmarks.push(bm); markDirty(); }
   else { S.personal.bookmarks.push(bm); savePersonal(); }
-  renderContents();
-  toast(canEdit() ? "Bookmarked on the map" : "Bookmarked, on this device");
+  renderContents(); paintStar(S.sel); if(listOpen) renderList();
+  toast(canEdit() ? "Bookmarked on the map" : "Bookmarked \u2014 find it under Go to");
 }
 
 function openNote(id, scrollToHit){
@@ -12682,8 +12964,8 @@ function renderRespond(){
 
     ${!respondOnly ? `
     <div class="rs-sec rs-foot">
-      <button class="btn" id="rsMark">${isNodeBookmarked(n.id) ? "Remove bookmark" : "Bookmark this room"}</button>
-      <button class="btn" id="rsArt">${hasOwnArt(n.id) ? "Change my picture" : "Put my own picture here"}</button>
+      <button class="btn" id="rsMark">${isNodeBookmarked(n.id) ? "\u2605 Remove bookmark" : "\u2606 Bookmark this room"}</button>
+      <button class="btn" id="rsShelf">Put it on a shelf</button>
     </div>` : `<div class="rs-sec"><button class="btn" id="rsAll">Everything else here \u2014 feedback, bookmark\u2026</button></div>`}`;
   if(el("rsAll")) el("rsAll").onclick = ()=>{ respondOnly = ""; renderRespond(); };
 
@@ -12718,14 +13000,8 @@ function renderRespond(){
     toast("Feedback sent");
     again();
   };
-  if(el("rsMark")) el("rsMark").onclick = ()=>{ toggleNodeBookmark(n.id); renderRespond(); };
-  if(el("rsArt")) el("rsArt").onclick = ()=>{
-    const cur = ((S.personal.art || {})[n.id] || {});
-    pickImage("My own picture for this room", cur.image || n.image || "",
-      v=>{ setOwnArt(n.id, "image", v); renderRespond(); renderRoomSoon(); },
-      ()=>{ if(S.personal.art) delete S.personal.art[n.id];
-        savePersonal(); rebuild(); renderRespond(); renderRoomSoon(); });
-  };
+  if(el("rsMark")) el("rsMark").onclick = ()=>{ toggleNodeBookmark(n.id); renderRespond(); paintStar(n.id); };
+  if(el("rsShelf")) el("rsShelf").onclick = ()=>{ el("respondDlg").close(); askShelf([n.id]); };
 }
 
 function openQuestion(id){
@@ -16236,9 +16512,10 @@ function adoptWorkbookBytes(buf, label, quiet){
   const me = personOf(S.who);
   const own = list=>(list || []).filter(x=>me && personOf(x.person) === me);
   const keepMine = S.fromWorkbook ? {
-    suggestions:own(S.suggestions), questions:own(S.questions),
-    pins:own(S.pins), checkItems:[], checkoffs:own(S.checkoffs),
-    examples:own(S.examples)
+    /* questions are the editor's, so a reader never holds any back */
+    suggestions:own(S.suggestions), questions:[],
+    pins:[], checkItems:[], checkoffs:own(S.checkoffs),
+    examples:own(S.examples), shelves:own(S.shelves)
   } : null;
 
   adoptModel(tablesToModel(t));
@@ -16256,6 +16533,13 @@ function adoptWorkbookBytes(buf, label, quiet){
     const liveItems = new Set(S.checkItems.map(x=>x.id));
     merge(S.checkoffs, keepMine.checkoffs.filter(x=>liveItems.has(x.item)));
     merge(S.examples, keepMine.examples);
+    /* a shelf changed a moment ago is newer than the one in any file */
+    S.shelves = S.shelves || [];
+    keepMine.shelves.forEach(x=>{
+      const at = S.shelves.findIndex(y=>y.id === x.id);
+      if(at < 0){ S.shelves.push(x); back++; }
+      else if(String(x.at || "") > String(S.shelves[at].at || "")) S.shelves[at] = x;
+    });
     S._notYetShared = back;
   }
   rebuild();
@@ -16684,7 +16968,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-09-30b";
+const APP_BUILD = "2026-09-30c";
 
 /* Reading that line back out of a copy of this file.
 
@@ -18086,6 +18370,7 @@ async function loadPersonal(){
     const rec = await Store.getKey(personalKey());
     if(rec){
       S.personal.bookmarks = Array.isArray(rec.bookmarks) ? rec.bookmarks : [];
+      S.personal.bmSort = rec.bmSort || "";
       S.personal.searches = Array.isArray(rec.searches) ? rec.searches : [];
       S.who = rec.who || S.who || "";
       S.whoKey = rec.whoKey || S.whoKey || "";
@@ -18154,7 +18439,7 @@ async function savePersonal(){
   saveMe();
   try{
     await Store.putKey(personalKey(), {
-      bookmarks:S.personal.bookmarks, searches:S.personal.searches,
+      bookmarks:S.personal.bookmarks, bmSort:S.personal.bmSort || "", searches:S.personal.searches,
       who:S.who, whoKey:S.whoKey || "", mode:S.mode, notesMode:S.notesMode, motion:S.motion, showIds:S.showIds,
       avoidNodes:S.avoidNodes, branchGrid:S.branchGrid, focusMode:S.focusMode,
       pickZoom:S.pickZoom, followOutline:S.followOutline,
@@ -20177,6 +20462,7 @@ function renderRoom(){
   if(wipeTags){ wipeTags.hidden = true; wipeTags.innerHTML = ""; }
   const wipeQs = el("rvQs");
   if(wipeQs){ wipeQs.hidden = true; wipeQs.innerHTML = ""; }
+  paintStar("");
   if(el("rvBulk")) el("rvBulk").hidden = true;
   /* Only a room that asks for examples offers the button, and the hall and a
      room of search results ask for nothing — they were keeping whichever one
@@ -20524,7 +20810,19 @@ function paintBanners(id){
   wrap.appendChild(tag);
 }
 
+function paintStar(id){
+  const b = el("rvStar");
+  if(!b) return;
+  b.hidden = !id || !S.nodes.has(id);
+  if(b.hidden) return;
+  const on = isNodeBookmarked(id);
+  b.innerHTML = on ? "&#9733;" : "&#9734;";
+  b.classList.toggle("on", on);
+  b.dataset.room = id;
+  b.title = on ? "Bookmarked \u2014 tap to take it off" : "Bookmark this room";
+}
 function paintRoomQuestions(id){
+  paintStar(id);
   const box = el("rvQs");
   if(!box) return;
   const qs = questionsForNode(id);
@@ -20569,8 +20867,8 @@ function paintStuff(id, items, owed){
   const out = [];
   /* a reader is counted only their own questions, the same ones the sheet
      shows them; everybody else's are the editor's to see */
-  const asks = canEdit() ? 0
-    : suggestionsFor(id).filter(x=>x.status === "open" && x.person === (S.who || "")).length;
+  /* a reader's own feedback lives under Respond, so it gets no pill of its own */
+  const asks = 0;
   const sug = canEdit() ? suggestionsFor(id).filter(x=>x.status === "open").length : 0;
   if(canEdit()){
     if(items.length) out.push(["confirm", items.length, "&#9745;", "To confirm",
@@ -22260,6 +22558,14 @@ function renderList(){
         + '<button class="lead" data-printfound="1">'
         + '<i>&#9113;</i><u>Print these notes</u></button>');
     }
+    /* bookmarks, in the order you keep them */
+    const bms = placesBookmarks().slice(0, 12);
+    out.push("<h5>Bookmarks</h5>"
+      + bms.map(({b})=>'<button data-bmgo="' + esc(b.id) + '">'
+        + (b.icon ? '<img class="bmic" src="' + esc(b.icon) + '" alt="">' : '<i>&#9733;</i>')
+        + '<u>' + esc(b.label || nodeName(b.node)) + '</u></button>').join("")
+      + (bms.length ? "" : '<p class="none">None yet. Tap the \u2606 beside a room\u2019s name.</p>')
+      + '<button class="lead" data-places="bookmarks"><i>&#9998;</i><u>Sort and edit bookmarks</u></button>');
     /* shelves: yours first, then anybody else's who left one in the folder */
     const mine = myShelves(), theirs = otherShelves();
     if(mine.length || theirs.length || id){
@@ -22271,6 +22577,7 @@ function renderList(){
       if(id) h += '<button class="lead" data-shelfadd="' + esc(id) + '">'
         + '<i>+</i><u>Put this room on a shelf</u></button>';
       if(theirs.length) h += theirs.slice(0, 8).map(shelfRow).join("");
+      h += '<button class="lead" data-places="shelves"><i>&#9998;</i><u>Build and sort shelves</u></button>';
       if(h) out.push("<h5>Shelves</h5>" + h);
     }
     const up = id && parentOf(id);
@@ -22684,6 +22991,10 @@ function wireRoom(){
       if(f) printNotes(f.ids, f.what);
       return;
     }
+    const bmg = ev.target.closest && ev.target.closest("[data-bmgo]");
+    if(bmg){ showList(false); goBookmark(bmg.dataset.bmgo); return; }
+    const pl = ev.target.closest && ev.target.closest("[data-places]");
+    if(pl){ showList(false); openPlaces(pl.dataset.places); return; }
     const sh = ev.target.closest && ev.target.closest("[data-shelf]");
     if(sh){ showList(false); standOnShelf(sh.dataset.shelf); return; }
     const put = ev.target.closest && ev.target.closest("[data-shelfadd]");
@@ -23511,6 +23822,21 @@ async function boot(){
 
   /* the shelf picker */
   el("shelfClose").onclick = ()=>el("shelfDlg").close();
+  el("placesClose").onclick = ()=>el("placesDlg").close();
+  document.querySelectorAll("[data-pltab]").forEach(b=>{ b.onclick = ()=>{ plTab = b.dataset.pltab; renderPlaces(); }; });
+  el("bmIconFile").onchange = async e=>{
+    const f = e.target.files && e.target.files[0];
+    const id = bmIconFor; bmIconFor = null;
+    if(!f || !id) return;
+    const pic = await bmIconFrom(f);
+    if(!pic){ toast("That picture could not be used."); return; }
+    const m = S.personal.bookmarks.find(x=>x.id === id), t = S.bookmarks.find(x=>x.id === id);
+    const b = m || t;
+    if(!b) return;
+    b.icon = pic;
+    bmSaved(!!m); renderPlaces(); if(listOpen) renderList();
+  };
+  el("rvStar").onclick = ev=>{ ev.stopPropagation(); const id = el("rvStar").dataset.room; if(id) toggleNodeBookmark(id); };
   el("shelfOpenDlg").onclick = ()=>{
     shelfFor = [];
     el("shelfWhat").textContent = "Nothing picked \u2014 this is just the list.";
