@@ -6971,8 +6971,30 @@ function mergeModel(M){
   });
   const bmIds = new Set(S.bookmarks.map(b=>b.id));
   for(const b of M.bookmarks) if(!bmIds.has(b.id)) S.bookmarks.push(b);
+  /* The roster, the teams, the tray, examples and shelves were left out of a
+     merge, so a list of people pushed to the sheet never came back with it.
+     Anybody not here yet is added; somebody already here keeps what this
+     copy says about them. */
+  S.people = S.people || [];
+  let peopleAdded = 0;
+  (M.people || []).forEach(x=>{
+    const same = S.people.find(y=>y.id === x.id
+      || String(y.name || "").toLowerCase() === String(x.name || "").toLowerCase());
+    if(!same){ S.people.push(x); peopleAdded++; }
+    else if(!(same.teams || []).length && (x.teams || []).length) same.teams = x.teams.slice();
+  });
+  const teamsNow = new Set((S.teamList || []).map(t=>t.toLowerCase()));
+  S.teamList = (S.teamList || []).concat(String((M.settings || {}).team_list || "").split(",")
+    .map(t=>t.trim()).filter(t=>t && !teamsNow.has(t.toLowerCase())));
+  const addById = (mine, theirs)=>{
+    const have = new Set((mine || []).map(x=>x.id));
+    (theirs || []).forEach(x=>{ if(!have.has(x.id)){ mine.push(x); have.add(x.id); } });
+  };
+  S.inbox = S.inbox || []; addById(S.inbox, M.inbox);
+  S.examples = S.examples || []; addById(S.examples, M.examples);
+  S.shelves = S.shelves || []; addById(S.shelves, M.shelves);
   for(const e of S.edges.values()) ensureTagStyle(e.tag);
-  return {added, updated, kept, linksAdded, revsAdded};
+  return {added, updated, kept, linksAdded, revsAdded, peopleAdded};
 }
 
 function importXlsx(file){
@@ -17053,7 +17075,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-09-30g";
+const APP_BUILD = "2026-09-30h";
 
 /* Reading that line back out of a copy of this file.
 
@@ -19933,7 +19955,8 @@ async function runSync(kind){
         const r = mergeModel(M);
         if(canEdit()) markDirty(); else markContribution();
         rebuild();
-        toast(`Merged — ${r.added} new, ${r.updated} updated, ${r.kept} kept local`);
+        toast(`Merged — ${r.added} new, ${r.updated} updated, ${r.kept} kept local`
+          + (r.peopleAdded ? `, ${r.peopleAdded} people added` : ""));
       }
       conn.last_sync = nowISO();
     }
