@@ -14967,8 +14967,17 @@ function mergeOverflow(t){
   t.Overflow = [];
 }
 
+/* The same long field gets split on every save. Say so once; after that only
+   when what is being split or left out changes. */
+const trimSaid = new Map();
 function reportTrim(r, where){
-  if(!r || (!r.split && !r.dropped)) return;
+  if(!r || (!r.split && !r.dropped)){ if(where) trimSaid.delete(where); return; }
+  const sig = r.split + "|" + r.dropped + "|" + [...(r.names || [])].sort().join("\u0001");
+  let said = trimSaid.get(where);
+  if(said === undefined){ try{ said = sessionStorage.getItem("trimSaid:" + where); }catch(e){} }
+  if(said === sig) return;
+  trimSaid.set(where, sig);
+  try{ sessionStorage.setItem("trimSaid:" + where, sig); }catch(e){}
   const bits = [];
   if(r.split) bits.push(r.split + " long value" + (r.split===1?"":"s")
     + " sent in parts and rejoined when read back");
@@ -16340,7 +16349,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-09-29p";
+const APP_BUILD = "2026-09-29q";
 
 /* Reading that line back out of a copy of this file.
 
