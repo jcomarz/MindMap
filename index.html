@@ -2972,6 +2972,42 @@ dialog#connDlg::backdrop{background:rgba(35,40,45,.42)}
 .rs-item .rs-what b{display:block;font-size:14px;font-weight:600}
 .rs-item .rs-what small{display:block;color:var(--graphite-60);font-size:12px;margin-top:2px}
 .rs-item .rs-what small.rs-note{color:var(--graphite);font-size:13px;white-space:pre-wrap;margin:3px 0 2px}
+.peopledlg{width:min(640px, calc(100vw - 20px))}
+.pd-tabs{display:flex;gap:4px;padding:8px 14px 0;border-bottom:1px solid var(--rule)}
+.pd-tab{border:1px solid transparent;border-bottom:0;background:transparent;padding:7px 12px;
+  border-radius:6px 6px 0 0;font:inherit;font-size:13px;cursor:pointer;color:var(--graphite-60)}
+.pd-tab.on{background:var(--paper);border-color:var(--rule);color:var(--graphite);font-weight:600;margin-bottom:-1px}
+.pd-tab span{font-weight:400;color:var(--graphite-60)}
+.pd-body{max-height:min(70vh, 640px)}
+.pd-filter{display:flex;gap:8px;margin-bottom:10px;position:sticky;top:-16px;background:var(--paper);padding:4px 0;z-index:2}
+.pd-filter input{flex:1;min-width:0}
+.pd-filter select{flex:0 1 180px;min-width:0}
+.pd-person{display:grid;grid-template-columns:minmax(120px, 1.1fr) 2fr auto;gap:8px;align-items:center;
+  padding:6px 0;border-top:1px solid var(--rule-soft)}
+.pd-person.off{opacity:.55}
+.pd-name{width:100%;box-sizing:border-box;border:1px solid transparent;background:transparent;font:inherit;
+  font-size:13.5px;padding:4px 6px;border-radius:4px;color:var(--graphite)}
+.pd-name:hover,.pd-name:focus{border-color:var(--rule);background:var(--paper)}
+.pd-chips{display:flex;flex-wrap:wrap;gap:4px;align-items:center;min-width:0}
+.pd-chips .teamchip,.pd-members .teamchip{display:inline-flex;align-items:center;gap:3px}
+.teamchip button{border:0;background:transparent;cursor:pointer;padding:0 2px;font-size:13px;line-height:1;color:inherit;opacity:.6}
+.teamchip button:hover{opacity:1}
+.pd-addteam{font-size:12px;padding:2px 4px;max-width:110px}
+.pd-acts{display:flex;gap:4px;align-items:center}
+.pd-acts .btn{padding:3px 9px;font-size:12px}
+.pd-team{border-top:1px solid var(--rule-soft);padding:4px 0}
+.pd-teamhead{display:flex;align-items:center;gap:6px}
+.pd-teamhead .pd-name{flex:1 1 auto;min-width:0;font-weight:600}
+.pd-teamhead .fold{flex:none}
+.pd-teamopen{border:0;background:transparent;cursor:pointer;width:22px;color:var(--graphite-60)}
+.pd-members{display:flex;flex-wrap:wrap;gap:5px;align-items:center;padding:4px 0 8px 28px}
+.pd-members select{font-size:12px;padding:2px 4px}
+@media (max-width:620px){
+  .pd-person{grid-template-columns:1fr auto;}
+  .pd-chips{grid-column:1 / -1;order:3}
+}
+.ncteams .check{margin:3px 0}
+.ncteamlist{margin:2px 0 4px 22px;max-height:170px;overflow:auto}
 .rs-done{font-family:var(--mono);font-size:11.5px;color:var(--blueprint);margin-top:4px}
 .rs-item .btn{flex:0 0 auto}
 .rs-mine{margin-top:8px}
@@ -3106,6 +3142,26 @@ dialog#signDlg::backdrop{background:rgba(35,40,45,.42)}
 .signrow .when{font-family:var(--mono);font-size:9.5px;color:var(--graphite-60)}
 .signrow .ref{font-family:var(--mono);font-size:10px;background:var(--blueprint-soft);
   color:var(--blueprint);border-radius:2px;padding:1px 5px}
+button.sign1{display:flex;flex-wrap:nowrap;width:100%;border:0;background:transparent;font:inherit;font-size:11px;
+  text-align:left;padding:3px 4px;margin:0;border-radius:3px;cursor:pointer;color:var(--graphite);min-width:0}
+button.sign1:hover{background:var(--blueprint-soft)}
+button.sign1 b{flex:0 0 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:45%}
+button.sign1 .when{flex:none}
+button.sign1 .ref{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+button.sign1 .ref.none{background:transparent}
+button.sign1 .evidshot{flex:none;width:18px;height:18px;vertical-align:0;margin-left:0}
+.forteams{background:var(--blueprint-soft);color:var(--blueprint)}
+dialog#signViewDlg{border:1px solid var(--graphite);border-radius:3px;padding:0;background:var(--paper);
+  color:var(--graphite);width:min(620px, calc(100vw - 20px));max-height:90vh;display:flex;flex-direction:column}
+dialog#signViewDlg::backdrop{background:rgba(35,40,45,.42)}
+dialog#signViewDlg .dlg-body{overflow:auto}
+.sv-item{font-weight:600;font-size:15px;margin:0 0 2px}
+.sv-note{font-size:13px;color:var(--graphite-60);margin:8px 0}
+.sv-sect{margin-top:14px}
+.sv-lab{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--graphite-60);margin-bottom:4px}
+.sv-answer{white-space:pre-wrap;word-break:break-word;font-family:var(--mono);font-size:13px;
+  background:var(--blueprint-soft);border-radius:4px;padding:8px 10px;user-select:text}
+.sv-shot img{max-width:100%;max-height:60vh;display:block;border:1px solid var(--rule);border-radius:3px}
 .evidshot{display:inline-block;width:22px;height:22px;object-fit:cover;border-radius:2px;
   border:1px solid var(--rule);vertical-align:-6px;margin-left:5px;cursor:pointer}
 @media (max-width:820px){ dialog#signDlg{width:100vw;height:100dvh;max-height:none;border:0;border-radius:0} }
@@ -3443,6 +3499,9 @@ body.viewing.panelaway #panelHide{display:none}
         <div class="row" style="margin-top:6px">
           <button class="btn wide" id="btnWho">Set your name</button>
         </div>
+        <div class="row" style="margin-top:6px">
+          <button class="btn wide" id="btnPeopleTop">People and teams</button>
+        </div>
       </div>
 
       <div class="group">
@@ -3615,7 +3674,7 @@ body.viewing.panelaway #panelHide{display:none}
 
       <div class="group" id="buildGroup">
         <h2>Build</h2>
-        <button class="btn wide" id="btnPeople">People who sign off</button>
+        <button class="btn wide" id="btnPeople">People and teams</button>
         <div class="row">
           <button class="btn" id="btnChild">Add child</button>
           <button class="btn" id="btnSibling">Add sibling</button>
@@ -4168,6 +4227,8 @@ body.viewing.panelaway #panelHide{display:none}
     <label class="field" id="ncAskWrap" hidden><span>What should the answer box ask?</span>
       <input type="text" id="ncAsk" placeholder="Accession number — or a question, e.g. What is the TAT for a STAT?"
              autocomplete="off"></label>
+    <div class="field"><span>Who is asked?</span>
+      <div id="ncTeams" class="ncteams"></div></div>
     <label class="field" id="ncShotWrap" hidden><span>What should the screenshot show?</span>
       <input type="text" id="ncShot" placeholder="e.g. The issue added in LIMS, with the date visible"
              autocomplete="off"></label>
@@ -4179,41 +4240,63 @@ body.viewing.panelaway #panelHide{display:none}
   </div>
 </dialog>
 
-<dialog id="peopleDlg">
+<dialog id="peopleDlg" class="peopledlg">
   <div class="dlg-head">
-    <h2>People who sign off</h2>
+    <h2>People and teams</h2>
     <button class="btn" id="peopleClose">Done</button>
   </div>
-  <div class="hist-controls">
-    <p class="subhead" style="margin-top:0">Paste your list</p>
-    <label class="field"><span>One person per line, columns separated by tabs or commas</span>
-      <textarea id="peopleNames" rows="4"
-        placeholder="Aaron&#9;AEdusei211947&#9;AKE&#10;Adrienne&#9;AMcCelvey9969&#9;ALM"></textarea></label>
-    <label class="field"><span>Show them as</span>
-      <select id="peopleJoin">
-        <option value="1-2-3">First - login - initials</option>
-        <option value="1 (3)">First (initials)</option>
-        <option value="1">First only</option>
-        <option value="3">Initials only</option>
-        <option value="2">Login only</option>
-        <option value="1 2">First and login</option>
-      </select></label>
-    <div class="row">
-      <button class="btn wide primary" id="peopleAdd">Add them</button>
-    </div>
-    <p class="subhead">Put people on a team</p>
-    <label class="field"><span>Team</span>
-      <input type="text" id="peopleTeam" placeholder="Senior Accessioners"></label>
-    <label class="field"><span>Who, by any column — one per line, or pasted rows</span>
-      <textarea id="peopleWho" rows="3" placeholder="AKE&#10;jmog207398&#10;Jerico"></textarea></label>
-    <div class="row">
-      <button class="btn wide" id="peopleAssign">Add them to that team</button>
-      <button class="btn" id="peopleUnassign">Take off</button>
-    </div>
-    <p class="fineprint">Someone can be on as many teams as you like. Everyone opening a viewer
-      picks their name from this list rather than typing one.</p>
+  <div class="pd-tabs" role="tablist">
+    <button class="pd-tab on" data-pdtab="people" role="tab">People <span id="pdCountPeople"></span></button>
+    <button class="pd-tab" data-pdtab="teams" role="tab">Teams <span id="pdCountTeams"></span></button>
+    <button class="pd-tab" data-pdtab="add" role="tab">Add people</button>
   </div>
-  <div class="dlg-body" id="peopleList"></div>
+  <div class="dlg-body pd-body">
+    <section data-pdpane="people">
+      <div class="pd-filter">
+        <input type="search" id="pdFind" placeholder="Find someone by any part of their name" autocomplete="off">
+        <select id="pdTeamFilter"></select>
+      </div>
+      <div id="peopleList"></div>
+      <p class="fineprint">Tap a name to change how it is written. Everyone opening a viewer picks their
+        name from this list; retired names are kept for past sign-offs but are no longer offered.</p>
+    </section>
+    <section data-pdpane="teams" hidden>
+      <div class="pd-filter">
+        <input type="text" id="pdNewTeam" placeholder="New team name" autocomplete="off">
+        <button class="btn primary" id="pdAddTeam">Make team</button>
+      </div>
+      <div id="teamList"></div>
+      <p class="fineprint">Someone can be on as many teams as you like. A confirm item can be asked of
+        chosen teams only, from its own settings.</p>
+    </section>
+    <section data-pdpane="add" hidden>
+      <label class="field"><span>Paste your list — one person per line, columns separated by tabs or commas</span>
+        <textarea id="peopleNames" rows="5"
+          placeholder="Aaron&#9;AEdusei211947&#9;AKE&#10;Adrienne&#9;AMcCelvey9969&#9;ALM"></textarea></label>
+      <label class="field"><span>Show them as</span>
+        <select id="peopleJoin">
+          <option value="1-2-3">First - login - initials</option>
+          <option value="1 (3)">First (initials)</option>
+          <option value="1">First only</option>
+          <option value="3">Initials only</option>
+          <option value="2">Login only</option>
+          <option value="1 2">First and login</option>
+        </select></label>
+      <label class="field"><span>Put them on a team too <i class="fineprint">optional</i></span>
+        <input type="text" id="peopleAddTeam" list="pdTeamNames" placeholder="Senior Accessioners"></label>
+      <datalist id="pdTeamNames"></datalist>
+      <div class="row"><button class="btn wide primary" id="peopleAdd">Add them</button></div>
+      <p class="subhead">Put people already on the list on a team</p>
+      <label class="field"><span>Team</span>
+        <input type="text" id="peopleTeam" list="pdTeamNames" placeholder="Senior Accessioners"></label>
+      <label class="field"><span>Who, by any column — one per line, or pasted rows</span>
+        <textarea id="peopleWho" rows="3" placeholder="AKE&#10;jmog207398&#10;Jerico"></textarea></label>
+      <div class="row">
+        <button class="btn wide" id="peopleAssign">Add them to that team</button>
+        <button class="btn" id="peopleUnassign">Take off</button>
+      </div>
+    </section>
+  </div>
 </dialog>
 
 <dialog id="whoDlg">
@@ -4254,6 +4337,13 @@ body.viewing.panelaway #panelHide{display:none}
   <div class="dlg-body" id="rsBody"></div>
 </dialog>
 
+<dialog id="signViewDlg" class="signview">
+  <div class="dlg-head">
+    <h2 id="svWho">Sign-off</h2>
+    <button class="btn" id="svClose">Close</button>
+  </div>
+  <div class="dlg-body" id="svBody"></div>
+</dialog>
 <dialog id="signDlg">
   <div class="dlg-head">
     <h2 id="signTitle">Confirm</h2>
@@ -4780,7 +4870,9 @@ function newCheckItem(o={}){
     /* what a person has to supply when they sign it off: "" | ref | proof | both */
     requires:"", prompt:"",
     /* what to tell people about it, and what the screenshot should show */
-    note:"", shot:""
+    note:"", shot:"",
+    /* which teams are asked; none means everybody on the roster */
+    teams:[]
   }, o);
 }
 function newCheckoff(o={}){
@@ -5446,6 +5538,21 @@ function openNewCheck(nodeId, itemId){
   el("ncNeeds").value = it ? (it.requires || "") : "";
   el("ncAsk").value = it ? (it.prompt || "") : "";
   el("ncShot").value = it ? (it.shot || "") : "";
+  const chosen = new Set(((it && it.teams) || []).map(t=>String(t).toLowerCase()));
+  const teams = allTeams();
+  el("ncTeams").innerHTML = `<label class="check"><input type="radio" name="ncWho" value="all"${chosen.size ? "" : " checked"}>
+      Everyone on the list</label>`
+    + (teams.length ? `<label class="check"><input type="radio" name="ncWho" value="teams"${chosen.size ? " checked" : ""}>
+      Only these teams:</label><div class="ncteamlist">` + teams.map(t=>`<label class="check">
+        <input type="checkbox" data-ncteam="${esc(t)}"${chosen.has(t.toLowerCase()) ? " checked" : ""}> ${esc(t)}
+        <span class="fold">${(S.people || []).filter(p=>p.active !== false && (p.teams || []).some(x=>x.toLowerCase() === t.toLowerCase())).length}</span></label>`).join("") + `</div>`
+      : `<p class="fineprint" style="margin:4px 0 0">Make teams in People and teams to ask only some people.</p>`);
+  const syncWho = ()=>{
+    const anyTicked = [...el("ncTeams").querySelectorAll("[data-ncteam]")].some(c=>c.checked);
+    const r = el("ncTeams").querySelector('input[value="teams"]');
+    if(r && anyTicked) r.checked = true;
+  };
+  el("ncTeams").querySelectorAll("[data-ncteam]").forEach(c=>c.onchange = syncWho);
   ncShowFields();
   el("newCheckDlg").showModal();
   setTimeout(()=>el("ncLabel").focus(), 60);
@@ -5457,31 +5564,177 @@ function openPeople(){
   el("peopleDlg").showModal();
 }
 
+let pdTab = "people", pdOpenTeam = "";
+function pdTeamPeople(team){
+  const k = String(team).toLowerCase();
+  return (S.people || []).filter(p=>(p.teams || []).some(t=>t.toLowerCase() === k));
+}
+function pdChanged(){ markDirty(); renderPeople(); if(S.sel) renderInspector(); renderRoomSoon(); }
 function renderPeople(){
-  const box = el("peopleList");
-  if(!box) return;
   const list = (S.people || []);
-  if(!list.length){ box.innerHTML = `<p class="histempty">Nobody yet.</p>`; return; }
-  const teams = [...new Set(list.flatMap(x=>x.teams || []))].sort();
-  box.innerHTML = `<p class="subhead">${list.length} on the list`
-    + (teams.length ? ` · ${teams.length} team${teams.length===1?"":"s"}` : "") + `</p>`
-    + list.map(x=>`<div class="personrow${x.active === false ? " off" : ""}">
-        <span>${esc(x.name)}${(x.teams || []).length
-          ? (x.teams || []).map(t=>`<b class="teamchip">${esc(t)}</b>`).join("") : ""}</span>
-        <button class="btn" data-pquiet="${esc(x.id)}">${x.active === false
-          ? "Bring back" : "Retire"}</button>
-        <button class="kill" data-pdrop="${esc(x.id)}">&times;</button>
+  const teams = allTeams();
+  el("pdCountPeople").textContent = list.length ? "(" + list.filter(p=>p.active !== false).length + ")" : "";
+  el("pdCountTeams").textContent = teams.length ? "(" + teams.length + ")" : "";
+  document.querySelectorAll("[data-pdtab]").forEach(b=>b.classList.toggle("on", b.dataset.pdtab === pdTab));
+  document.querySelectorAll("[data-pdpane]").forEach(p=>p.hidden = p.dataset.pdpane !== pdTab);
+  el("pdTeamNames").innerHTML = teams.map(t=>`<option value="${esc(t)}">`).join("");
+
+  /* ---- people */
+  const tf = el("pdTeamFilter");
+  const wasTf = tf.value;
+  tf.innerHTML = `<option value="">Every team</option><option value="__none">On no team</option>`
+    + teams.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join("")
+    + `<option value="__retired">Retired</option>`;
+  tf.value = [...tf.options].some(o=>o.value === wasTf) ? wasTf : "";
+  const q = (el("pdFind").value || "").trim().toLowerCase();
+  const f = tf.value;
+  const shown = list.filter(p=>{
+    if(f === "__retired") { if(p.active !== false) return false; }
+    else if(p.active === false && f) return false;
+    if(f === "__none" && (p.teams || []).length) return false;
+    if(f && f.indexOf("__") !== 0 && !(p.teams || []).some(t=>t.toLowerCase() === f.toLowerCase())) return false;
+    if(q && ![p.name, p.first, p.login, p.initials, ...(p.teams || [])].join(" ").toLowerCase().includes(q)) return false;
+    return true;
+  }).sort((a, b)=>(a.active === false) - (b.active === false) || a.name.localeCompare(b.name, undefined, {sensitivity:"base"}));
+  const box = el("peopleList");
+  box.innerHTML = !list.length ? `<p class="histempty">Nobody yet. Paste your list in Add people.</p>`
+    : !shown.length ? `<p class="histempty">Nobody matches.</p>`
+    : shown.map(p=>`<div class="pd-person${p.active === false ? " off" : ""}" data-pid="${esc(p.id)}">
+        <input class="pd-name" value="${esc(p.name)}" data-rename="${esc(p.id)}" title="Change how this name is written" aria-label="Name">
+        <div class="pd-chips">${(p.teams || []).map(t=>`<span class="teamchip">${esc(t)}<button data-untag="${esc(t)}" title="Take off ${esc(t)}">&times;</button></span>`).join("")}
+          <select class="pd-addteam" data-addteam="${esc(p.id)}" title="Put on a team">
+            <option value="">+ team</option>
+            ${teams.filter(t=>!(p.teams || []).some(x=>x.toLowerCase() === t.toLowerCase())).map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join("")}
+            <option value="__new">New team…</option>
+          </select></div>
+        <div class="pd-acts">
+          <button class="btn" data-pquiet="${esc(p.id)}">${p.active === false ? "Bring back" : "Retire"}</button>
+          <button class="kill" data-pdrop="${esc(p.id)}" title="Remove from the list">&times;</button>
+        </div>
       </div>`).join("");
+  const person = id=>(S.people || []).find(y=>y.id === id);
+  box.querySelectorAll("[data-rename]").forEach(inp=>{
+    inp.onchange = ()=>{
+      const p = person(inp.dataset.rename), v = inp.value.trim();
+      if(!p) return;
+      if(!v){ inp.value = p.name; return; }
+      if(v === p.name) return;
+      if((S.people || []).some(y=>y !== p && y.name.toLowerCase() === v.toLowerCase())){
+        toast("Somebody is already called that."); inp.value = p.name; return; }
+      /* what they have already signed goes with the name */
+      const was = p.name;
+      S.checkoffs.forEach(x=>{ if(x.person === was) x.person = v; });
+      p.name = v;
+      if(S.who === was){ S.who = v; savePersonal(); }
+      pdChanged();
+      toast("Renamed — their sign-offs follow the new name");
+    };
+    inp.onkeydown = ev=>{ if(ev.key === "Enter"){ ev.preventDefault(); inp.blur(); } };
+  });
+  box.querySelectorAll("[data-untag]").forEach(b=>{
+    b.onclick = ()=>{
+      const p = person(b.closest("[data-pid]").dataset.pid);
+      if(!p) return;
+      p.teams = (p.teams || []).filter(t=>t !== b.dataset.untag);
+      pdChanged();
+    };
+  });
+  box.querySelectorAll("[data-addteam]").forEach(sel=>{
+    sel.onchange = ()=>{
+      const p = person(sel.dataset.addteam);
+      let t = sel.value;
+      if(!p || !t) return;
+      if(t === "__new"){
+        t = (prompt("Name the new team") || "").trim();
+        if(!t){ sel.value = ""; return; }
+        S.teamList = [...new Set([...(S.teamList || []), t])];
+      }
+      p.teams = [...(p.teams || []), t];
+      pdChanged();
+    };
+  });
   box.querySelectorAll("[data-pquiet]").forEach(b=>{
     b.onclick = ()=>{
-      const x = S.people.find(y=>y.id === b.dataset.pquiet);
-      if(x){ x.active = x.active === false; markDirty(); renderPeople(); }
+      const x = person(b.dataset.pquiet);
+      if(x){ x.active = x.active === false; pdChanged(); }
     };
   });
   box.querySelectorAll("[data-pdrop]").forEach(b=>{
     b.onclick = ()=>{
-      S.people = S.people.filter(y=>y.id !== b.dataset.pdrop);
-      markDirty(); renderPeople();
+      const x = person(b.dataset.pdrop);
+      if(!x) return;
+      const signed = S.checkoffs.filter(c=>c.person === x.name && c.checked === "yes").length;
+      if(!confirm("Remove " + x.name + " from the list?"
+        + (signed ? "\n\nTheir " + signed + " sign-off" + (signed === 1 ? " stays" : "s stay")
+          + " on record. Retire keeps the name for the record and just stops offering it." : ""))) return;
+      S.people = S.people.filter(y=>y.id !== x.id);
+      pdChanged();
+    };
+  });
+
+  /* ---- teams */
+  const tl = el("teamList");
+  tl.innerHTML = !teams.length ? `<p class="histempty">No teams yet. Name one above.</p>`
+    : teams.map(t=>{
+      const members = pdTeamPeople(t);
+      const items = S.checkItems.filter(it=>(it.teams || []).some(x=>x.toLowerCase() === t.toLowerCase())).length;
+      const open = pdOpenTeam.toLowerCase() === t.toLowerCase();
+      return `<div class="pd-team${open ? " open" : ""}" data-team="${esc(t)}">
+        <div class="pd-teamhead">
+          <button class="pd-teamopen" data-openteam="${esc(t)}">${open ? "▾" : "▸"}</button>
+          <input class="pd-name" value="${esc(t)}" data-renameteam="${esc(t)}" aria-label="Team name">
+          <span class="fold">${members.filter(p=>p.active !== false).length} people${items ? " · asked " + items + " thing" + (items === 1 ? "" : "s") : ""}</span>
+          <button class="kill" data-dropteam="${esc(t)}" title="Delete this team">&times;</button>
+        </div>
+        ${open ? `<div class="pd-members">${members.map(p=>`<span class="teamchip">${esc(p.name)}<button data-teamout="${esc(p.id)}" title="Take ${esc(p.name)} off">&times;</button></span>`).join("") || `<span class="fineprint">Nobody on it yet.</span>`}
+          <select data-teamin="${esc(t)}"><option value="">+ add someone</option>
+            ${list.filter(p=>p.active !== false && !members.includes(p)).sort((a, b)=>a.name.localeCompare(b.name)).map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("")}
+          </select></div>` : ""}
+      </div>`;
+    }).join("");
+  tl.querySelectorAll("[data-openteam]").forEach(b=>{
+    b.onclick = ()=>{ const t = b.dataset.openteam; pdOpenTeam = pdOpenTeam.toLowerCase() === t.toLowerCase() ? "" : t; renderPeople(); };
+  });
+  tl.querySelectorAll("[data-renameteam]").forEach(inp=>{
+    inp.onchange = ()=>{
+      const from = inp.dataset.renameteam, to = inp.value.trim();
+      if(!to || to === from){ inp.value = from; return; }
+      const k = from.toLowerCase();
+      const swap = arr=>(arr || []).map(t=>t.toLowerCase() === k ? to : t);
+      (S.people || []).forEach(p=>{ p.teams = [...new Set(swap(p.teams))]; });
+      S.checkItems.forEach(it=>{ it.teams = [...new Set(swap(it.teams))]; });
+      S.teamList = [...new Set(swap(S.teamList))];
+      if(pdOpenTeam.toLowerCase() === k) pdOpenTeam = to;
+      pdChanged();
+      toast("Renamed — everyone on it and everything asked of it moved across");
+    };
+    inp.onkeydown = ev=>{ if(ev.key === "Enter"){ ev.preventDefault(); inp.blur(); } };
+  });
+  tl.querySelectorAll("[data-dropteam]").forEach(b=>{
+    b.onclick = ()=>{
+      const t = b.dataset.dropteam, k = t.toLowerCase();
+      const asked = S.checkItems.filter(it=>(it.teams || []).some(x=>x.toLowerCase() === k)).length;
+      if(!confirm("Delete the team " + t + "?\n\nNobody is removed from the list."
+        + (asked ? "\n\n" + asked + " thing" + (asked === 1 ? " is" : "s are")
+          + " asked only of this team; " + (asked === 1 ? "it" : "they") + " will be asked of everyone instead"
+          + " unless another team is still named on " + (asked === 1 ? "it." : "them.") : ""))) return;
+      const drop = arr=>(arr || []).filter(x=>x.toLowerCase() !== k);
+      (S.people || []).forEach(p=>{ p.teams = drop(p.teams); });
+      S.checkItems.forEach(it=>{ it.teams = drop(it.teams); });
+      S.teamList = drop(S.teamList);
+      pdChanged();
+    };
+  });
+  tl.querySelectorAll("[data-teamout]").forEach(b=>{
+    b.onclick = ()=>{
+      const p = person(b.dataset.teamout), k = b.closest("[data-team]").dataset.team.toLowerCase();
+      if(p){ p.teams = (p.teams || []).filter(t=>t.toLowerCase() !== k); pdChanged(); }
+    };
+  });
+  tl.querySelectorAll("[data-teamin]").forEach(sel=>{
+    sel.onchange = ()=>{
+      const p = person(sel.value);
+      if(p){ p.teams = [...(p.teams || []), sel.dataset.teamin]; pdChanged(); }
     };
   });
 }
@@ -5704,7 +5957,7 @@ const HDR = {
   Areas:["area_id","label","x","y","w","h","color","move_contents","holds","note"],
   Bookmarks:["bookmark_id","label","node_id","x","y","zoom","icon"],
   Suggestions:["suggestion_id","node_id","person","timestamp","kind","text","status","resolved_by","resolved_at"],
-  CheckItems:["item_id","node_id","label","created","author","requires","prompt","note","shot"],
+  CheckItems:["item_id","node_id","label","created","author","requires","prompt","note","shot","teams"],
   Checkoffs:["check_id","item_id","node_id","person","checked","timestamp","note","evidence","proof"],
   Examples:["example_id","node_id","person","accession","note","proof","at","status"],
   Shelves:["shelf_id","name","person","nodes","note","at","status"],
@@ -5774,7 +6027,8 @@ function toSheets(){
   }));
   const checkItems = S.checkItems.map(x=>({
     item_id:x.id, node_id:x.node, label:x.label, created:x.created, author:x.author,
-    requires:x.requires || "", prompt:x.prompt || "", note:x.note || "", shot:x.shot || ""
+    requires:x.requires || "", prompt:x.prompt || "", note:x.note || "", shot:x.shot || "",
+    teams:(x.teams || []).join(", ")
   }));
   const checkoffs = S.checkoffs.map(x=>({
     check_id:x.id, item_id:x.item, node_id:x.node, person:x.person,
@@ -5813,6 +6067,8 @@ function toSheets(){
     {key:"cross_line", value:S.meta.crossLine || "dashed"},
     {key:"cross_color", value:S.meta.crossColor || ""},
     {key:"new_badge_image", value:S.meta.newBadgeImage || ""},
+    /* teams that exist before anyone is on them */
+    {key:"team_list", value:(S.teamList || []).join(", ")},
     {key:"backdrop", value:S.meta.backdrop || ""},
     {key:"backdrop_floor", value:S.meta.backdropFloor == null ? 62 : S.meta.backdropFloor}
   ].concat(SEVERITIES.map(sv=>({key:sv.key, value:(S.meta.sevArt || {})[sv.key] || ""})));
@@ -6004,7 +6260,8 @@ function tablesToModel(t){
       label:String(r.label||"Read and understood"),
       created:String(r.created||nowISO()), author:String(r.author||""),
       requires:String(r.requires||""), prompt:String(r.prompt||""),
-      note:String(r.note||""), shot:String(r.shot||"")
+      note:String(r.note||""), shot:String(r.shot||""),
+      teams:String(r.teams||"").split(",").map(t=>t.trim()).filter(Boolean)
     }));
   }
   for(const r of (t.Checkoffs||[])){
@@ -6066,6 +6323,7 @@ function adoptModel(M, keepConnections){
   S.meta.crossLine = M.settings.cross_line || "dashed";
   S.meta.crossColor = M.settings.cross_color || "";
   S.meta.newBadgeImage = M.settings.new_badge_image || "";
+  S.teamList = String(M.settings.team_list || "").split(",").map(t=>t.trim()).filter(Boolean);
   S.meta.backdrop = M.settings.backdrop || "";
   S.meta.backdropFloor = M.settings.backdrop_floor === "" || M.settings.backdrop_floor == null
     ? 62 : Number(M.settings.backdrop_floor);
@@ -10095,6 +10353,7 @@ function updateModeUI(){
     : `The map is read only here. You can still confirm items, leave suggestions and keep your own bookmarks${S.who ? ", signed " + esc(S.who) : ""}.`;
   lock.textContent = S.meta.locked ? "Change or remove the lock" : "Lock this map";
   lock.disabled = !isRoot();
+  if(el("btnPeopleTop")) el("btnPeopleTop").hidden = !canEdit();
   updateReviewBadge();
   const c = pendingCount();
   if(isRoot() && c.total)
@@ -12088,7 +12347,7 @@ function renderRespond(){
     : (n.label || "This room");
   const part = k=>!respondOnly || respondOnly === k;
   const when = t=>esc(String(t || "").slice(0, 16));
-  const items = itemsFor(n.id);
+  const items = myItemsFor(n.id);
   const answerName = it=>(it.prompt || "an accession number");
   /* "a screenshot of The STAT flag" reads wrong; lower the first letter when it
      runs on in a sentence, unless the word is an acronym */
@@ -12632,6 +12891,30 @@ function completeSignOff(){
   });
 }
 
+function openSignView(itemId, person){
+  const it = S.checkItems.find(x=>x.id === itemId);
+  const x = checkoffFor(itemId, person);
+  if(!it || !x) return;
+  const node = S.nodes.get(x.node || it.node);
+  el("svWho").textContent = (person === S.who ? "You" : person) + " signed";
+  const b = el("svBody");
+  b.innerHTML = `
+    <p class="sv-item">${esc(it.label || "Read and understood")}</p>
+    <p class="fineprint">${node ? esc(node.title || node.label || "") + " \u00b7 " : ""}${esc(String(x.timestamp || "").slice(0, 16).replace("T", " "))}</p>
+    ${it.note ? `<p class="sv-note">${esc(it.note)}</p>` : ""}
+    ${x.evidence ? `<div class="sv-sect"><span class="sv-lab">${esc(it.prompt || "Accession number")}</span>
+      <div class="sv-answer">${esc(x.evidence)}</div></div>` : ""}
+    ${x.proof ? `<div class="sv-sect"><span class="sv-lab">${esc(it.shot || "Screenshot")}</span>
+      <div class="sv-shot" id="svShot"></div>
+      <button class="btn" id="svOpenShot" style="margin-top:6px">Open full size</button></div>` : ""}
+    ${!x.evidence && !x.proof ? `<p class="histempty">Ticked, with nothing else asked for.</p>` : ""}`;
+  if(x.proof){
+    showPicIn(el("svShot"), x.proof);
+    el("svOpenShot").onclick = ()=>showPicture(picURL(x.proof));
+  }
+  el("signViewDlg").showModal();
+}
+
 function contributionBlock(n){
   const items = itemsFor(n.id);
   const sugs = suggestionsFor(n.id).slice().reverse();
@@ -12645,16 +12928,18 @@ function contributionBlock(n){
         return `<div class="checkrow"><label class="check" style="align-items:flex-start">
           <input type="checkbox" data-check="${esc(it.id)}"${done?" checked":""}>
           <span>${esc(it.label)}
-            <span class="fold" style="margin-left:6px">${checkCount(it.id)} confirmed</span>
+            <span class="fold" style="margin-left:6px">${(it.teams || []).length
+              ? signedAmong(it) + " of " + audienceOf(it).length : checkCount(it.id)} confirmed</span>
+            ${(it.teams || []).length ? `<span class="fold forteams">for ${esc(it.teams.join(", "))}</span>` : ""}
             ${it.requires ? `<span class="fold">needs ${it.requires === "ref" ? "an answer"
               : it.requires === "proof" ? "a screenshot" : "an answer and a screenshot"}</span>` : ""}
             ${it.note ? `<br><span style="font-size:12px;color:var(--graphite-60)">${esc(it.note)}</span>` : ""}
             ${done && mine.timestamp?`<br><span style="font-family:var(--mono);font-size:10px;color:var(--graphite-60)">you, ${esc(String(mine.timestamp).slice(0,16))}</span>`:""}
-            ${done && (mine.evidence || mine.proof) ? `<span class="evid">
-              ${mine.evidence ? `<b>${esc(mine.evidence)}</b>` : ""}
-              ${mine.proof ? `<img class="evidshot" src="${esc(mine.proof)}"
-                 data-evidshot="${esc(mine.proof)}" alt="evidence">` : ""}</span>` : ""}
           </span></label>
+          ${done && (mine.evidence || mine.proof) ? `<div class="signedby"><button type="button" class="signrow sign1 mine"
+              data-svitem="${esc(it.id)}" data-svperson="${esc(me)}" title="See your whole entry">
+              <b>You</b>${mine.evidence ? `<span class="ref">${esc(mine.evidence)}</span>` : `<span class="ref none">screenshot</span>`}
+              ${mine.proof ? `<img class="evidshot" src="${esc(picURL(mine.proof))}" alt="">` : ""}</button></div>` : ""}
           ${(()=>{
               /* everyone else who has signed it, with what they gave. Outside
                  the label, or clicking a name would tick the box for you. */
@@ -12662,12 +12947,13 @@ function contributionBlock(n){
                 && x.checked === "yes" && x.person !== me);
               if(!others.length) return "";
               others.sort((a, b)=>String(b.timestamp||"").localeCompare(String(a.timestamp||"")));
-              const row = x=>`<div class="signrow">
+              /* one line each; the whole entry opens on a tap */
+              const row = x=>`<button type="button" class="signrow sign1" data-svitem="${esc(it.id)}"
+                data-svperson="${esc(x.person || "")}" title="See the whole entry">
                 <b>${esc(x.person || "someone")}</b>
-                <span class="when">${esc(String(x.timestamp || "").slice(0, 16))}</span>
-                ${x.evidence ? `<span class="ref">${esc(x.evidence)}</span>` : ""}
-                ${x.proof ? `<img class="evidshot" src="${esc(picURL(x.proof))}"
-                   data-evidshot="${esc(picURL(x.proof))}" alt="evidence">` : ""}</div>`;
+                <span class="when">${esc(String(x.timestamp || "").slice(5, 16).replace("T", " "))}</span>
+                ${x.evidence ? `<span class="ref">${esc(x.evidence)}</span>` : `<span class="ref none"></span>`}
+                ${x.proof ? `<img class="evidshot" src="${esc(picURL(x.proof))}" alt="">` : ""}</button>`;
               /* thirty sign-offs on one item is a wall of names, so only the
                  most recent few are shown until you ask for the rest */
               const SHOW = 4;
@@ -12751,6 +13037,9 @@ function wireContributions(n){
   });
   body.querySelectorAll("[data-evidshot]").forEach(img=>{
     img.onclick = ()=>showPicture(img.dataset.evidshot);
+  });
+  body.querySelectorAll("[data-svitem]").forEach(b=>{
+    b.onclick = ev=>{ ev.preventDefault(); openSignView(b.dataset.svitem, b.dataset.svperson); };
   });
   const ask = el("askAboutNode");
   if(ask) ask.onclick = ()=>askQuestion(n.id);
@@ -14710,7 +14999,7 @@ function buildWorkbookFrom(data){
     Questions:[14,56,16,19,10,34],
     QuestionPins:[14,14,14,16,19,30],
     Suggestions:[14,14,16,19,11,52,10,14,19],
-    CheckItems:[14,14,34,19,14,12,30,44,34],
+    CheckItems:[14,14,34,19,14,12,30,44,34,30],
     Checkoffs:[14,14,14,16,9,19,30,22,40],
     Examples:[14,14,16,18,40,40,19,8],
     Shelves:[14,24,16,60,30,19,8],
@@ -16051,7 +16340,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-09-29o";
+const APP_BUILD = "2026-09-29p";
 
 /* Reading that line back out of a copy of this file.
 
@@ -17853,6 +18142,37 @@ function nodeName(id){
   const n = S.nodes.get(id);
   return n ? (n.label || id) : id + " (deleted)";
 }
+/* ---------------------------------------------------------------
+   Who a confirm item is for.
+
+   An item can be limited to one or more teams; with none it is for
+   everyone. Everything that counts or lists what is owed asks here, so
+   the room's marks, For you, the monster and the counts all agree.
+   --------------------------------------------------------------- */
+function teamsOf(name){
+  const p = (S.people || []).find(x=>x.name === name);
+  return p ? (p.teams || []).map(t=>String(t).toLowerCase()) : [];
+}
+function itemFor(it, name){
+  const want = (it && it.teams || []).filter(Boolean);
+  if(!want.length) return true;
+  const mine = teamsOf(name);
+  return want.some(t=>mine.includes(String(t).toLowerCase()));
+}
+function audienceOf(it){ return peopleSeen().filter(n=>itemFor(it, n)); }
+function signedAmong(it){
+  const who = new Set(audienceOf(it));
+  return S.checkoffs.filter(x=>x.item === it.id && x.checked === "yes" && who.has(x.person)).length;
+}
+function myItemsFor(id){ return itemsFor(id).filter(it=>itemFor(it, S.who || "")); }
+function allTeams(){
+  const set = new Map();
+  (S.people || []).forEach(p=>(p.teams || []).forEach(t=>{
+    const k = String(t).toLowerCase(); if(!set.has(k)) set.set(k, t); }));
+  (S.teamList || []).forEach(t=>{ const k = String(t).toLowerCase(); if(!set.has(k)) set.set(k, t); });
+  return [...set.values()].sort((a, b)=>a.localeCompare(b, undefined, {sensitivity:"base"}));
+}
+
 function peopleSeen(){
   /* the roster is who is expected, when there is one: counting only people who
      have already left something meant a fresh map expected nobody, so nothing
@@ -17870,12 +18190,12 @@ function pendingCount(){
   const openQ = S.questions.filter(x=>x.status === "open").length;
   const roster = peopleSeen().length;
   const shortItems = roster
-    ? S.checkItems.filter(it=>checkCount(it.id) < roster).length
+    ? S.checkItems.filter(it=>signedAmong(it) < audienceOf(it).length).length
     : 0;
   /* what this person still owes: the number that matters in a viewing copy */
   const me = S.who || "";
   const mineToDo = me
-    ? S.checkItems.filter(it=>!S.checkoffs.some(x=>x.item === it.id
+    ? S.checkItems.filter(it=>itemFor(it, me) && !S.checkoffs.some(x=>x.item === it.id
         && x.person === me && x.checked === "yes")).length
     : 0;
   if(!canEdit()){
@@ -19058,9 +19378,10 @@ function roomTally(){
   const roster = canEdit() ? peopleSeen().length : 0;
   const owes = new Set(), short = new Set();
   for(const it of S.checkItems){
-    if(!done.has(it.id)) owes.add(it.node);
-    if(roster && (signed.get(it.id) || 0) < roster) short.add(it.node);
+    if(!done.has(it.id) && itemFor(it, me)) owes.add(it.node);
+    if(roster && signedAmong(it) < audienceOf(it).length) short.add(it.node);
   }
+  void signed;
   const sug = new Set();
   for(const x of S.suggestions) if(x.status === "open") sug.add(x.node);
   return {kids, owes, short, sug, me};
@@ -19172,7 +19493,7 @@ function worldSet(){
     }
   } else if(S.roomWorld === "mine"){
     const me = S.who || "";
-    const owed = new Set(S.checkItems.filter(it=>!S.checkoffs.some(x=>
+    const owed = new Set(S.checkItems.filter(it=>itemFor(it, me) && !S.checkoffs.some(x=>
       x.item === it.id && x.person === me && x.checked === "yes")).map(it=>it.node));
     ids = [...owed].filter(k=>S.nodes.has(k)).slice(0, 120);
     what = "Everything still waiting on you";
@@ -19622,7 +19943,7 @@ function renderRoom(){
   }
   if(hiddenHere > 0) bits.push(hiddenHere + " hidden by the filter");
   if(S.showIds) bits.push(n.id + " · v" + (n.rev || 1));
-  const owed = canEdit() ? 0 : items.filter(it=>!S.checkoffs.some(x=>
+  const owed = canEdit() ? 0 : items.filter(it=>itemFor(it, S.who || "") && !S.checkoffs.some(x=>
     x.item === it.id && x.person === (S.who || "") && x.checked === "yes")).length;
   markWorldButton();
   if(el("rvBarSays")) el("rvBarSays").innerHTML = (owed
@@ -19719,11 +20040,16 @@ function bossOf(id){
   if(!items.length) return null;
   const roster = peopleSeen().length;
   if(!roster) return null;
-  const full = items.length * roster;
-  let done = 0;
-  for(const it of items) done += checkCount(it.id);
+  let full = 0, done = 0;
+  const people = new Set();
+  for(const it of items){
+    const who = audienceOf(it);
+    full += who.length; done += signedAmong(it);
+    who.forEach(n=>people.add(n));
+  }
+  if(!full) return null;
   const left = Math.max(0, full - done);
-  return {full, done, left, items:items.length, roster};
+  return {full, done, left, items:items.length, roster:people.size};
 }
 
 function paintBoss(id){
@@ -21982,7 +22308,24 @@ async function boot(){
   el("modeViewer").onclick = ()=>setMode("viewer");
   el("btnWho").onclick = ()=>{ whoAmI(true); updateModeUI(); renderInspector(); };
   el("btnPeople").onclick = openPeople;
+  el("btnPeopleTop").onclick = openPeople;
   el("peopleClose").onclick = ()=>el("peopleDlg").close();
+  el("svClose").onclick = ()=>el("signViewDlg").close();
+  document.querySelectorAll("[data-pdtab]").forEach(b=>{
+    b.onclick = ()=>{ pdTab = b.dataset.pdtab; renderPeople(); };
+  });
+  el("pdFind").addEventListener("input", ()=>renderPeople());
+  el("pdTeamFilter").onchange = ()=>renderPeople();
+  const makeTeam = ()=>{
+    const t = (el("pdNewTeam").value || "").trim();
+    if(!t) return;
+    if(allTeams().some(x=>x.toLowerCase() === t.toLowerCase())){ toast("There is already a team called that."); return; }
+    S.teamList = [...(S.teamList || []), t];
+    el("pdNewTeam").value = ""; pdOpenTeam = t;
+    markDirty(); renderPeople();
+  };
+  el("pdAddTeam").onclick = makeTeam;
+  el("pdNewTeam").addEventListener("keydown", ev=>{ if(ev.key === "Enter"){ ev.preventDefault(); makeTeam(); } });
   el("peopleAdd").onclick = ()=>{
     const rows = splitPasted(el("peopleNames").value);
     if(!rows.length){ toast("Paste a list first."); return; }
@@ -22003,7 +22346,8 @@ async function boot(){
         already.initials = already.initials || initials;
         return;
       }
-      S.people.push({id:uid("P-"), name, first, login, initials, teams:[], active:true});
+      const joinTeam = (el("peopleAddTeam").value || "").trim();
+      S.people.push({id:uid("P-"), name, first, login, initials, teams:joinTeam ? [joinTeam] : [], active:true});
       added++;
     });
     el("peopleNames").value = "";
@@ -22459,11 +22803,13 @@ async function boot(){
     const ask = (requires === "ref" || requires === "both") ? (el("ncAsk").value || "").trim() : "";
     const shot = (requires === "proof" || requires === "both") ? (el("ncShot").value || "").trim() : "";
     const note = (el("ncNote").value || "").trim();
+    const onlyTeams = el("ncTeams").querySelector('input[value="teams"]:checked')
+      ? [...el("ncTeams").querySelectorAll("[data-ncteam]:checked")].map(c=>c.dataset.ncteam) : [];
     const was = editCheckId && S.checkItems.find(x=>x.id === editCheckId);
     if(was){
-      Object.assign(was, {label, requires, prompt:ask, shot, note});
+      Object.assign(was, {label, requires, prompt:ask, shot, note, teams:onlyTeams});
     } else {
-      S.checkItems.push(newCheckItem({node:id, label, requires, prompt:ask, shot, note}));
+      S.checkItems.push(newCheckItem({node:id, label, requires, prompt:ask, shot, note, teams:onlyTeams}));
     }
     el("newCheckDlg").close();
     newCheckFor = null; editCheckId = null;
