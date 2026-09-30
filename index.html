@@ -1468,6 +1468,13 @@ html[data-theme="dark"] #roomView[data-skin="plain"]{
 .rv-head h3{margin:0;font-size:18px;font-weight:600;line-height:1.25;flex:1;min-width:0;
   font-family:var(--sans);word-break:break-word;color:var(--rv-ink, var(--graphite))}
 .rv-head .rv-acts{display:flex;gap:5px;flex:0 0 auto}
+.rv-copy{flex:0 0 auto;border:1px solid transparent;background:transparent;cursor:pointer;padding:3px 4px;
+  border-radius:4px;color:var(--graphite-60);line-height:0;margin-top:-1px}
+.rv-copy svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.5}
+.rv-copy:hover{color:var(--blueprint);border-color:var(--rule)}
+.rv-copy[hidden]{display:none}
+.rv-board.copied{box-shadow:0 0 0 3px var(--blueprint-soft), 0 0 0 5px var(--blueprint)}
+#rvTitle.holding{opacity:.7}
 .rv-star{flex:0 0 auto;border:0;background:transparent;font-size:22px;line-height:1;cursor:pointer;
   color:var(--graphite-60);padding:0 2px;margin-top:-2px}
 .rv-star:hover{color:#C9971C}
@@ -1506,11 +1513,11 @@ html[data-theme="dark"] #roomView[data-skin="plain"]{
 .rv-wallrow{display:flex;gap:14px;align-items:flex-start;flex:1 1 auto;min-height:0;
   padding:0 16px 0}
 .rv-wallrow[hidden]{display:none}
-.rv-pic{margin:12px 0 0;flex:0 0 auto;width:min(38%, 260px);
+.rv-pic{margin:12px 0 0;flex:0 0 auto;width:fit-content;max-width:min(38%, 260px);
   background:var(--rv-board);padding:7px;border:1px solid var(--rv-line);
   box-shadow:0 6px 14px -10px rgba(20,24,28,.7), inset 0 0 0 1px rgba(255,255,255,.35)}
 .rv-pic[hidden]{display:none}
-.rv-pic img{display:block;width:100%;height:auto;max-height:260px;object-fit:cover;
+.rv-pic img{display:block;width:auto;max-width:100%;height:auto;max-height:260px;min-height:40px;
   border:1px solid var(--rule-soft)}
 .rv-note{flex:1 1 auto;min-height:0;overflow:auto;padding:12px 0 16px;
   font-size:14.5px;line-height:1.62;color:var(--rv-ink, var(--graphite))}
@@ -4047,6 +4054,8 @@ body.viewing.panelaway #panelHide{display:none}
           <div class="rv-board" id="rvBoard">
             <div class="rv-head">
               <h3 id="rvTitle">Nothing picked</h3>
+              <button class="rv-copy" id="rvCopy" hidden title="Copy this note" aria-label="Copy this note">
+                <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="9" height="9" rx="1.5"/><path d="M11 5V3.5A1.5 1.5 0 0 0 9.5 2h-6A1.5 1.5 0 0 0 2 3.5v6A1.5 1.5 0 0 0 3.5 11H5"/></svg></button>
               <button class="rv-star" id="rvStar" hidden title="Bookmark this room" aria-label="Bookmark this room">&#9734;</button>
             </div>
             <div class="rv-tags" id="rvTags" hidden></div>
@@ -5269,7 +5278,7 @@ function goBookmark(id){
   const b = S.bookmarks.concat(S.personal.bookmarks).find(x=>x.id === id);
   if(!b) return;
   if(b.node && S.nodes.has(b.node)){
-    if(inRoom()){ if(S.roomWorld) leaveWorld(); select(b.node); renderRoom(); }
+    if(inRoom()) arriveAt(b.node);
     else focusNode(b.node);
     return;
   }
@@ -5479,7 +5488,7 @@ function wirePlaces(){
     b.onclick = ()=>{ shelfDrop(b.dataset.shoff, b.dataset.room); renderPlaces(); };
   });
   body.querySelectorAll("[data-plgo]").forEach(u=>{
-    u.onclick = ()=>{ el("placesDlg").close(); if(S.roomWorld) leaveWorld(); select(u.dataset.plgo); if(inRoom()) renderRoom(); };
+    u.onclick = ()=>{ el("placesDlg").close(); arriveAt(u.dataset.plgo); };
   });
 }
 
@@ -9917,7 +9926,7 @@ function bindResultRows(){
     if(k0 === "node" && !e._held){ e._held = true; wireRowHold(e, id0); }
     e.onclick = ()=>{
       const [kind, id] = e.dataset.res.split(/:(.+)/);
-      if(kind === "node" && S.nodes.has(id)) pickNode(id);
+      if(kind === "node" && S.nodes.has(id)){ if(inRoom()) arriveAt(id); else pickNode(id); }
       else if(kind === "area") zoomToArea(id);
       else if(kind === "bm") gotoBookmark(id);
     };
@@ -17005,7 +17014,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-09-30d";
+const APP_BUILD = "2026-09-30f";
 
 /* Reading that line back out of a copy of this file.
 
@@ -20403,6 +20412,16 @@ function enterWorld(kind){
   if(!inRoom()) setVista("room", true);
   else renderRoom();
 }
+/* Going to one particular room from a list is going there: whatever the
+   search had you standing in is left behind, without a trip to Leave. */
+function arriveAt(id){
+  if(!id || !S.nodes.has(id)) return;
+  if(S.roomWorld){ muteWorld(); S.roomWorld = ""; worldFrom = ""; worldAuto = false; }
+  roomPeek = "";
+  select(id);
+  if(inRoom()) renderRoom();
+  if(typeof markWorldButton === "function") setTimeout(markWorldButton, 0);
+}
 function leaveWorld(){
   if(!S.roomWorld) return false;
   S.roomWorld = "";
@@ -20632,10 +20651,19 @@ function renderRoom(){
   note.scrollTop = 0;
 
   const pic = el("rvPic");
-  const art = picURL(artFor(n, "image") || "");
+  const artName = artFor(n, "image") || "";
+  const art = picURL(artName);
   if(pic){
-    if(art){ pic.hidden = false; pic.querySelector("img").src = art; }
-    else { pic.hidden = true; pic.querySelector("img").removeAttribute("src"); }
+    const img = pic.querySelector("img");
+    /* the wall is measured again once the picture is in, or a picture that
+       arrives after the wall was sized hangs off the bottom of it */
+    img.onload = ()=>{ if(S.sel === id) fitWall(); };
+    if(art && isFolderPath(art) && !/^(blob:|data:)/.test(art)){
+      /* not read from the folder yet: wait for it rather than showing a broken image */
+      pic.hidden = false; img.removeAttribute("src");
+      picRead(artName).then(url=>{ if(url && S.sel === id){ img.src = url; } else if(!url && S.sel === id){ pic.hidden = true; fitWall(); } }).catch(()=>{});
+    } else if(art){ pic.hidden = false; img.src = art; }
+    else { pic.hidden = true; img.removeAttribute("src"); }
   }
   /* With neither a note nor a picture there is nothing to hang, so the sheet
      comes off the wall altogether rather than hanging there blank. The count
@@ -20848,6 +20876,12 @@ function paintBanners(id){
 }
 
 function paintStar(id){
+  const c = el("rvCopy");
+  if(c){
+    const n = id && S.nodes.get(id);
+    c.hidden = !n || !String(n.body || "").trim();
+    c.dataset.room = id || "";
+  }
   const b = el("rvStar");
   if(!b) return;
   b.hidden = !id || !S.nodes.has(id);
@@ -20963,11 +20997,21 @@ function fitWall(){
      no note got a slab of white. */
   board.style.bottom = "auto";
   board.style.height = "auto";
+  const picBox = el("rvPic");
+  const picImg = picBox && !picBox.hidden ? picBox.querySelector("img") : null;
+  if(picImg) picImg.style.maxHeight = "";
   const natural = board.offsetHeight;
 
   const boardH = Math.min(natural,
     vh * (vh < 460 ? 0.40 : narrow ? 0.52 : 0.56));
   board.style.height = Math.round(boardH) + "px";
+  /* a wall shorter than its picture shrinks the picture to fit inside it,
+     rather than letting it hang out over the floor */
+  if(picImg && boardH < natural){
+    const top = picBox.getBoundingClientRect().top - board.getBoundingClientRect().top;
+    const count = el("rvCount") ? el("rvCount").offsetHeight : 0;
+    picImg.style.maxHeight = Math.max(48, Math.round(boardH - top - count - 26)) + "px";
+  }
 
   /* the side exits stand against the foot of the wall, so that strip of wall
      is spoken for before the floor takes the rest */
@@ -22388,6 +22432,16 @@ async function copyPlain(text){
     return ok;
   }catch(e){ return false; }
 }
+async function copyRoomNote(id){
+  const n = S.nodes.get(id);
+  if(!n) return;
+  const text = String(n.body || "").trim() || String(n.label || "").trim();
+  const ok = await copyPlain(text);
+  const b = el("rvBoard");
+  if(b){ b.classList.add("copied"); setTimeout(()=>b.classList.remove("copied"), 700); }
+  toast(ok ? "Note copied" + (n.body ? "" : " (just its name \u2014 nothing written in it)")
+           : "This browser would not let it be copied.");
+}
 async function copyThing(id){
   const text = thingText(id);
   if(!text){ toast("Nothing written there to copy."); return; }
@@ -23091,9 +23145,9 @@ function wireRoom(){
     const to = b.dataset.go;
     if(!S.nodes.has(to)) return;
     /* one step away is a walk, anywhere else is simply arriving */
-    const near = to === parentOf(S.sel) || childrenOf(S.sel).includes(to);
+    const near = !S.roomWorld && (to === parentOf(S.sel) || childrenOf(S.sel).includes(to));
     if(near) roomGo(to, to === parentOf(S.sel) ? "out" : "in");
-    else { select(to); renderRoom(); }
+    else arriveAt(to);
   });
   el("rvLayout").onclick = ()=>{
     S.roomFloor = S.roomFloor === "row" ? "roam" : "row";
@@ -23874,6 +23928,26 @@ async function boot(){
     b.icon = pic;
     bmSaved(!!m); renderPlaces(); if(listOpen) renderList();
   };
+  el("rvCopy").onclick = ev=>{ ev.stopPropagation(); const id = el("rvCopy").dataset.room; if(id) copyRoomNote(id); };
+  (()=>{
+    /* hold the room's name to copy its note, the same gesture as a creature */
+    const t = el("rvTitle");
+    let timer = null, armed = false, start = null;
+    const reset = ()=>{ clearTimeout(timer); timer = null; t.classList.remove("holding"); };
+    t.addEventListener("contextmenu", ev=>{ if(S.sel && !S.roomWorld) ev.preventDefault(); });
+    t.addEventListener("pointerdown", ev=>{
+      if(!S.sel || S.roomWorld || (ev.button != null && ev.button !== 0)) return;
+      armed = false; start = {x:ev.clientX, y:ev.clientY};
+      t.classList.add("holding");
+      timer = setTimeout(()=>{ timer = null; armed = true; }, HOLD_MS);
+    });
+    t.addEventListener("pointermove", ev=>{
+      if(start && Math.hypot(ev.clientX - start.x, ev.clientY - start.y) > 8){ armed = false; reset(); }
+    });
+    t.addEventListener("pointerup", ()=>{ const go = armed; reset(); armed = false; start = null;
+      if(go && S.sel) copyRoomNote(S.sel); });
+    t.addEventListener("pointercancel", ()=>{ reset(); armed = false; start = null; });
+  })();
   el("rvStar").onclick = ev=>{ ev.stopPropagation(); const id = el("rvStar").dataset.room; if(id) toggleNodeBookmark(id); };
   el("shelfOpenDlg").onclick = ()=>{
     shelfFor = [];
