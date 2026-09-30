@@ -4434,7 +4434,8 @@ body.viewing.panelaway #panelHide{display:none}
         chosen teams only, from its own settings.</p>
     </section>
     <section data-pdpane="add" hidden>
-      <label class="field"><span>Paste your list — one person per line, columns separated by tabs or commas</span>
+      <label class="field"><span>Paste your list — one person per line, columns separated by tabs or commas.
+        Rows copied straight off a People tab come in whole, teams and all.</span>
         <textarea id="peopleNames" rows="5"
           placeholder="Aaron&#9;AEdusei211947&#9;AKE&#10;Adrienne&#9;AMcCelvey9969&#9;ALM"></textarea></label>
       <label class="field"><span>Show them as</span>
@@ -5930,6 +5931,35 @@ function splitPasted(text){
   return String(text || "").split(/\r?\n/).map(line=>line.trim())
     .filter(Boolean)
     .map(line=>line.split(/\t|\s*,\s*|\s{2,}/).map(c=>c.trim()).filter(x=>x !== ""));
+}
+
+/* A block copied off a People tab: tab-separated, with the person_id,
+   name, first, login, initials, teams, active columns — with or without
+   the header row. Anything else is left to the ordinary paste. */
+function peopleFromTable(text){
+  const lines = String(text || "").split(/\r?\n/).filter(l=>l.trim());
+  if(!lines.length || !lines[0].includes("\t")) return null;
+  let cols = ["person_id", "name", "first", "login", "initials", "teams", "active"];
+  let rows = lines.map(l=>l.split("\t").map(c=>c.trim()));
+  if(rows[0].map(c=>c.toLowerCase()).includes("person_id")){
+    cols = rows[0].map(c=>c.toLowerCase());
+    rows = rows.slice(1);
+  } else if(!/^P-/i.test(rows[0][0] || "")) return null;
+  const at = k=>cols.indexOf(k);
+  let added = 0, updated = 0;
+  S.people = S.people || [];
+  rows.forEach(r=>{
+    const get = k=>at(k) >= 0 ? String(r[at(k)] || "").trim() : "";
+    const name = get("name");
+    if(!name) return;
+    const rec = {id:get("person_id") || uid("P-"), name, first:get("first"), login:get("login"),
+      initials:get("initials"), teams:get("teams").split(",").map(t=>t.trim()).filter(Boolean),
+      active:!/^no$/i.test(get("active"))};
+    const same = S.people.find(y=>y.id === rec.id || y.name.toLowerCase() === name.toLowerCase());
+    if(same){ Object.assign(same, rec, {id:same.id}); updated++; }
+    else { S.people.push(rec); added++; }
+  });
+  return {added, updated};
 }
 
 /* How a person is shown, built from whichever columns you pasted. */
@@ -17075,7 +17105,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-09-30h";
+const APP_BUILD = "2026-09-30i";
 
 /* Reading that line back out of a copy of this file.
 
@@ -23451,6 +23481,16 @@ async function boot(){
   el("pdAddTeam").onclick = makeTeam;
   el("pdNewTeam").addEventListener("keydown", ev=>{ if(ev.key === "Enter"){ ev.preventDefault(); makeTeam(); } });
   el("peopleAdd").onclick = ()=>{
+    /* rows copied straight off a People tab — from the workbook or the sheet —
+       come in whole, ids, teams and all */
+    const whole = peopleFromTable(el("peopleNames").value);
+    if(whole){
+      el("peopleNames").value = "";
+      markDirty(); renderPeople();
+      toast(whole.added + " added" + (whole.updated ? ", " + whole.updated + " updated" : "")
+        + " from the People tab");
+      return;
+    }
     const rows = splitPasted(el("peopleNames").value);
     if(!rows.length){ toast("Paste a list first."); return; }
     const how = el("peopleJoin").value;
