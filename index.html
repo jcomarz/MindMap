@@ -4429,8 +4429,8 @@ body.viewing.panelaway #panelHide{display:none}
       <input type="text" id="imgUrl" placeholder="https://… or data:image/…"></label>
     <p class="fineprint" id="imgNote"></p>
     <div class="row" style="margin-top:12px">
+      <button class="btn wide" id="imgFolder" hidden>Choose the shared folder, so it is saved as a file</button>
       <button class="btn wide" id="imgShrink" hidden>Shrink it to fit the file</button>
-      <button class="btn wide" id="imgAsPath" hidden>Point at it in the pictures folder instead</button>
       <button class="btn primary wide" id="imgUse">Use this</button>
       <button class="btn" id="imgDrop2" hidden></button>
       <button class="btn" id="imgRemove">Remove</button>
@@ -12566,11 +12566,15 @@ function askForEvidence(item, nodeId){
    accepts as the reason. If it still cannot be written, the picture is
    kept in the sheet as before and the person is told why.
    --------------------------------------------------------------- */
-const FEEDBACK_PICS = "feedbackimages";
+/* The folder every uploaded picture goes into, inside the shared folder.
+   Pictures saved earlier under feedbackimages/ keep working: each link says
+   which folder its picture is in. */
+const FEEDBACK_PICS = "userimages";
+function picFolder(){ return bookDir || picDir || null; }
 let picWriteWarned = false;
 async function saveFeedbackImage(dataUrl, what){
   if(!dataUrl || !dataUrl.startsWith("data:")) return dataUrl || "";
-  const root = bookDir || picDir;
+  const root = picFolder();
   if(!root){
     if(!picWriteWarned){ picWriteWarned = true;
       toast("No shared folder linked, so the picture is kept in the sheet itself."); }
@@ -13792,6 +13796,14 @@ const CELL_LIMIT = 32000;   // what a spreadsheet cell will actually carry
 /* One place to choose an image: drop it, paste it, browse for it, or point at
    one on the web. No prompts, and you can see what you are about to use. */
 let imgPick = null;
+/* Draw a picture that may be a link into the folder, an address, or data. */
+function showPicIn(box, v){
+  if(!box) return;
+  if(!v){ box.innerHTML = ""; return; }
+  if(!isFolderPath(v)){ box.innerHTML = `<img src="${esc(v)}" alt="">`; return; }
+  box.innerHTML = `<span class="fineprint">${esc(v)}</span>`;
+  picRead(v).then(url=>{ if(url) box.innerHTML = `<img src="${esc(url)}" alt="">`; }).catch(()=>{});
+}
 function pickImage(title, current, onPick, onRemove){
   imgPick = {value:current || "", onPick, onRemove};
   el("imgTitle").textContent = title;
@@ -13810,13 +13822,28 @@ function imgPreviewUpdate(){
     el("imgUse").disabled = true;
     return;
   }
-  box.innerHTML = `<img src="${esc(v)}" alt="">`;
+  if(isFolderPath(v) && !v.startsWith("data:")) showPicIn(box, v);
+  else box.innerHTML = `<img src="${esc(v)}" alt="">`;
   el("imgUse").disabled = false;
-  const shrink = el("imgShrink");
+  const shrink = el("imgShrink"), pickDir = el("imgFolder");
   const big = v.startsWith("data:") && v.length > CELL_LIMIT;
+  /* A picture that came from a file or a paste is saved as a file of its own
+     in userimages/, at full size, whenever there is a shared folder to put it
+     in. Only without one does the old choice — shrink it into the sheet —
+     come back, alongside the way to link the folder. */
+  const dir = picFolder();
+  if(v.startsWith("data:") && dir){
+    shrink.hidden = true; pickDir.hidden = true;
+    const kb = Math.round(v.length * 0.75 / 1024);
+    note.innerHTML = "Saved as its own file, full size (" + kb + " KB), in <b>"
+      + esc((dir.name || "the shared folder") + "/" + FEEDBACK_PICS) + "</b> when you press Use this. "
+      + "The workbook only keeps its name.";
+    el("imgUse").textContent = "Save it and use it";
+    return;
+  }
+  el("imgUse").textContent = "Use this";
+  pickDir.hidden = !v.startsWith("data:");
   if(shrink) shrink.hidden = !(big && !v.startsWith("data:image/gif"));
-  const asPath = el("imgAsPath");
-  if(asPath) asPath.hidden = !(big && asPath.dataset.name);
   if(v.startsWith("data:")){
     const kb = Math.round(v.length/1024);
     const gif = v.startsWith("data:image/gif");
@@ -13846,7 +13873,6 @@ function imgTake(v){
 }
 function readImageFile(f){
   if(!f || !/^image\//.test(f.type || "")){ toast("That is not an image."); return; }
-  if(el("imgAsPath")) el("imgAsPath").dataset.name = f.name;
   const fr = new FileReader();
   fr.onload = ()=>imgTake(String(fr.result || ""));
   fr.onerror = ()=>toast("That file could not be read.");
@@ -16025,7 +16051,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-09-29n";
+const APP_BUILD = "2026-09-29o";
 
 /* Reading that line back out of a copy of this file.
 
@@ -22299,11 +22325,30 @@ async function boot(){
     if(f) readImageFile(f);
     el("imgFile").value = "";
   };
-  el("imgUse").onclick = ()=>{
+  el("imgUse").onclick = async ()=>{
     if(!imgPick || !imgPick.value) return;
     const pick = imgPick;
+    let v = pick.value;
+    if(v.startsWith("data:") && picFolder()){
+      el("imgUse").disabled = true; el("imgUse").textContent = "Saving\u2026";
+      v = await saveFeedbackImage(v, el("imgTitle").textContent || "picture");
+      el("imgUse").disabled = false;
+      if(!v.startsWith("data:")) toast("Saved to " + v);
+    }
     el("imgDlg").close(); imgPick = null;
-    try{ pick.onPick && pick.onPick(pick.value); }catch(e){ toast("Could not use that picture."); }
+    try{ pick.onPick && pick.onPick(v); }catch(e){ toast("Could not use that picture."); }
+  };
+  /* Linking the folder from right here, for whoever has not done it yet */
+  el("imgFolder").onclick = async ()=>{
+    if(typeof window.showDirectoryPicker !== "function"){
+      toast("This browser cannot write into a folder. Chrome or Edge can."); return; }
+    try{
+      const d = await window.showDirectoryPicker({id:"mindmap-folder", mode:"readwrite"});
+      if(!bookDir){ bookDir = d; await rememberHandle("bookDir", d); }
+      if(!picDir){ picDir = d; await rememberHandle("picDir", d); }
+      imgPreviewUpdate();
+      toast("Pictures will be saved in " + (d.name || "that folder") + "/" + FEEDBACK_PICS);
+    }catch(e){ /* changed their mind */ }
   };
   el("imgRemove").onclick = ()=>{
     const pick = imgPick;
@@ -22333,10 +22378,7 @@ async function boot(){
     if(f) readImageFile(f);
   });
   dz.addEventListener("click", ev=>{ if(ev.target === dz || ev.target.closest(".dz-preview")) el("imgFile").click(); });
-  if(el("imgAsPath")) el("imgAsPath").onclick = ()=>{
-    const name = el("imgAsPath").dataset.name;
-    if(name) imgTake("images/" + name);
-  };
+
   el("imgShrink").onclick = ()=>{
     const before = imgPick && imgPick.value;
     if(!before) return;
@@ -22456,7 +22498,7 @@ async function boot(){
   });
   el("signProofPick").onclick = ()=>pickImage("Screenshot as evidence", signProof, v=>{
     signProof = v;
-    el("signProofPrev").innerHTML = v ? `<img src="${esc(v)}" alt="">` : "";
+    showPicIn(el("signProofPrev"), v);
     el("signWarn").textContent = "";
   }, ()=>{ signProof = ""; el("signProofPrev").innerHTML = ""; });
   el("bulkClose").onclick = ()=>el("bulkDlg").close();
