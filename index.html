@@ -228,6 +228,23 @@ details[open]>summary .toctwist{cursor:pointer;transform:rotate(90deg)}
    without being the same thing */
 /* a heading inside a dialog, the same weight as a group's in the panel */
 .moodgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.lookset{margin:6px 0 10px}
+.lookset[hidden]{display:none}
+.seg{display:inline-flex;border:1px solid var(--rule);border-radius:3px;overflow:hidden}
+.seg button{border:0;background:var(--paper);font:inherit;font-size:13px;padding:6px 16px;cursor:pointer;color:var(--graphite-60)}
+.seg button+button{border-left:1px solid var(--rule)}
+.seg button.on{background:var(--blueprint);color:#fff}
+.bdwhich{margin:2px 0 6px 22px}
+.bdwhich[hidden]{display:none}
+.bdwhich .check{align-items:center;flex-wrap:wrap;gap:6px;margin:4px 0}
+.bdwhich .btn.small{padding:2px 9px;font-size:12px}
+.bdown{font-family:var(--mono);font-size:11px;color:var(--graphite-60);max-width:220px;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+body:not(.caneditlook) .editoronly{display:none !important}
+/* a reader's copy is the rooms and nothing else: none of the drawing is there */
+body.viewerbuild #sheet, body.viewerbuild .titleblock, body.viewerbuild .zoombar,
+body.viewerbuild #fab, body.viewerbuild #vistaSwitch, body.viewerbuild #printGroup,
+body.viewerbuild #printroot, body.viewerbuild #themeAdvanced{display:none !important}
 @media (max-width:620px){ .moodgrid{grid-template-columns:1fr} }
 .moodcard{display:flex;flex-direction:column;align-items:flex-start;gap:5px;
   text-align:left;padding:0 0 13px;border:2px solid var(--rule);border-radius:6px;
@@ -1454,6 +1471,30 @@ html[data-theme="dark"] #roomView[data-skin="plain"]{
 .rv-head .btn{padding:4px 9px;font-size:12px}
 .rv-tags{display:flex;gap:4px;flex-wrap:wrap;padding:0 14px 8px;flex:0 0 auto}
 .rv-tags[hidden]{display:none}
+.rv-qs{display:flex;gap:5px;flex-wrap:wrap;align-items:center;padding:0 14px 8px;flex:0 0 auto}
+.rv-qs[hidden]{display:none}
+.rv-qlab{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--graphite-60)}
+.rv-q{border:1px solid var(--rule);background:var(--paper);border-radius:12px;font:inherit;font-size:12px;
+  padding:2px 10px 2px 8px;cursor:pointer;color:var(--graphite);max-width:100%;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.rv-q::before{content:"?";font-weight:700;color:var(--blueprint);margin-right:5px}
+.rv-q.more::before{content:none}
+.rv-q:hover{border-color:var(--blueprint);background:var(--blueprint-soft)}
+.resq-mark{display:inline-grid;place-items:center;width:17px;height:17px;border-radius:50%;background:var(--blueprint);
+  color:#fff;font-weight:700;font-size:11px;margin-right:6px;flex:none;vertical-align:1px}
+.resq{padding:7px 4px 6px;border-top:1px solid var(--rule-soft)}
+.resq-q{display:flex;align-items:flex-start;font-size:13.5px;font-weight:600;color:var(--graphite)}
+.resq-ans{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0 0 23px}
+.resq-go{border:1px solid var(--rule);background:var(--paper);border-radius:3px;font:inherit;font-size:12px;
+  padding:2px 8px;cursor:pointer;color:var(--blueprint)}
+.resq-go:hover{background:var(--blueprint-soft)}
+.resq-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 4px 6px;font-size:12px}
+.resq-head .rp-tag.on{background:var(--blueprint);color:#fff;border-color:var(--blueprint)}
+.resq-sep{border-top:2px solid var(--rule);margin:4px 0 0}
+.rs-qa{display:flex;align-items:flex-start;font-size:13.5px;margin:4px 0}
+.qanchor{display:flex;gap:6px;margin-top:8px}
+.qanchor input{flex:1;min-width:0}
+.qrow .qmeta .kill{margin-left:auto}
 .rv-tags .tagchip{font-size:11px;padding:1px 6px}
 /* a picture on this node is hung beside the note, not stacked above it:
    side by side is what fills a wide wall */
@@ -3628,52 +3669,95 @@ body.viewing.panelaway #panelHide{display:none}
         <div id="roomLook">
         <label class="check" style="margin-bottom:8px"><input type="checkbox" id="worldAutoPref">
           Searching in a room stands you in what it found</label>
-        <label class="field"><span>What opens first</span>
+        <label class="field editoronly" id="vistaPrefWrap"><span>What opens first</span>
           <select id="vistaPref">
             <option value="room">The room — stand inside the node you pick</option>
             <option value="map">The drawing — the whole map at once</option>
           </select></label>
-        <div class="row" style="margin-bottom:6px">
-          <button class="btn" id="mapBackdrop">Backdrop for every room</button>
-          <button class="btn" id="mapRandom">One each, from my folder</button>
-          <button class="btn" id="mapBackdropOff">Clear it</button>
+
+        <!-- Plain: its own settings, kept apart from Lively's -->
+        <div id="lookPro" class="lookset">
+          <div class="field"><span>Light or dark</span>
+            <div class="seg" id="proDarkSeg" role="group" aria-label="Light or dark">
+              <button type="button" data-prodark="light">Light</button>
+              <button type="button" data-prodark="dark">Dark</button>
+            </div></div>
+          <label class="field"><span>How the room is dressed</span>
+            <select id="proSkin">
+              <option value="pro">Plain and quiet — paper, no weather</option>
+              <option value="plain">Drafting paper and hairlines</option>
+              <option value="boardroom">Boardroom — plain and legible, for a projector</option>
+              <option value="compact">Compact — small and quick, for a phone</option>
+            </select></label>
+          <label class="field"><span>How much the room moves</span>
+            <select id="proLife">
+              <option value="quiet">Quiet — light under the doors, nothing drifting</option>
+              <option value="still">Still — a plain picture of the room</option>
+            </select></label>
         </div>
-        <p class="fineprint" id="bdPoolNote" style="margin:-2px 0 8px"></p>
+
+        <!-- Lively: the cast, the weather and the backdrops -->
+        <div id="lookSilly" class="lookset">
+          <label class="check"><input type="checkbox" id="bdOn"> Pictures behind the rooms</label>
+          <div id="bdWhich" class="bdwhich">
+            <label class="check"><input type="radio" name="bdSrc" value="shared" id="bdSrcShared">
+              The shared folder&rsquo;s backdrops</label>
+            <label class="check"><input type="radio" name="bdSrc" value="image" id="bdSrcImage">
+              A picture of my own
+              <button type="button" class="btn small" id="bdOwnPick">Choose&hellip;</button>
+              <span class="bdown" id="bdOwnImageName"></span></label>
+            <label class="check"><input type="radio" name="bdSrc" value="folder" id="bdSrcFolder">
+              A folder of my own
+              <button type="button" class="btn small" id="bdOwnFolder">Choose&hellip;</button>
+              <span class="bdown" id="bdOwnFolderName"></span></label>
+            <input type="file" id="bdOwnFile" accept="image/*" hidden>
+            <p class="fineprint" style="margin:2px 0 6px">Your own picture or folder stays in this browser
+              on this computer. It is never put in the shared folder and nobody else sees it.</p>
+            <p class="fineprint" id="bdPoolNote" style="margin:0 0 8px"></p>
+          </div>
+          <div class="editoronly" id="mapBdRow">
+            <p class="subhead" style="margin-top:8px">For everyone, in the map itself</p>
+            <div class="row" style="margin-bottom:6px">
+              <button class="btn" id="mapBackdrop">Backdrop for every room</button>
+              <button class="btn" id="mapRandom">One each, from the folder</button>
+              <button class="btn" id="mapBackdropOff">Clear it</button>
+            </div>
+            <p class="fineprint" style="margin:-2px 0 10px">A web address, or the name of a file in
+              the shared picture folder. One room can override it with its own.</p>
+          </div>
+          <label class="field"><span>Who is in the rooms</span>
+            <select id="roomCast">
+              <option value="blob">Blobs — round, cheerful, out of the way</option>
+              <option value="penguin">Penguins</option>
+              <option value="tube">Specimens — capped tubes with labels</option>
+              <option value="bot">Little robots</option>
+              <option value="ghost">Ghosts</option>
+              <option value="cat">Cats</option>
+              <option value="plate">Plates — just the name of the room</option>
+            </select></label>
+          <label class="field"><span>How the room is dressed</span>
+            <select id="roomSkin">
+              <option value="plain">Drafting paper and hairlines</option>
+              <option value="study">A study — warm walls, a board, a wooden floor</option>
+              <option value="workshop">A workshop — pegboard wall, concrete floor</option>
+              <option value="street">A street — brick, sky and paving</option>
+              <option value="scroll">A scroll — parchment, rolled at both ends</option>
+              <option value="compact">Compact — small and quick, for a phone</option>
+            </select></label>
+          <label class="field"><span>How much the room moves</span>
+            <select id="roomLife">
+              <option value="full">Full — depth, air, and light under the doors</option>
+              <option value="quiet">Quiet — light under the doors, nothing drifting</option>
+              <option value="still">Still — a plain picture of the room</option>
+            </select></label>
+        </div>
+
         <div class="folderstate" id="folderState">
           <span id="folderStateWhat"></span>
           <button class="btn small primary" id="folderStateGo" hidden>Reconnect</button>
           <button class="btn small" id="folderStatePick" hidden>Pick the folder</button>
           <code class="buildstamp" id="buildStamp"></code>
         </div>
-        <p class="fineprint" style="margin:-2px 0 10px">A web address, or the name of a file in
-          your synced picture folder. One room can override it with its own.</p>
-        <label class="field"><span>How much the room moves</span>
-          <select id="roomLife">
-            <option value="full">Full — depth, air, and light under the doors</option>
-            <option value="quiet">Quiet — light under the doors, nothing drifting</option>
-            <option value="still">Still — a plain picture of the room</option>
-          </select></label>
-        <label class="field"><span>Who is in the rooms</span>
-          <select id="roomCast">
-            <option value="plate">Plates — just the name of the room</option>
-            <option value="blob">Blobs — round, cheerful, out of the way</option>
-            <option value="penguin">Penguins</option>
-            <option value="tube">Specimens — capped tubes with labels</option>
-            <option value="bot">Little robots</option>
-            <option value="ghost">Ghosts</option>
-            <option value="cat">Cats</option>
-          </select></label>
-        <label class="field"><span>How the room is dressed</span>
-          <select id="roomSkin">
-            <option value="pro">Plain and quiet — paper, no weather</option>
-            <option value="plain">Drafting paper and hairlines</option>
-            <option value="study">A study — warm walls, a board, a wooden floor</option>
-            <option value="workshop">A workshop — pegboard wall, concrete floor</option>
-            <option value="street">A street — brick, sky and paving</option>
-            <option value="scroll">A scroll — parchment, rolled at both ends</option>
-            <option value="compact">Compact — small and quick, for a phone</option>
-            <option value="boardroom">Boardroom — plain and legible, for a projector</option>
-          </select></label>
         </div><!-- /roomLook -->
         <label class="field"><span>How branches are arranged</span>
           <select id="branchShape">
@@ -3876,7 +3960,7 @@ body.viewing.panelaway #panelHide{display:none}
       <div class="group">
         <h2>Questions</h2>
         <div id="tocQuestions"></div>
-        <button class="btn wide" id="btnAskQ" style="margin-top:8px">Ask a question</button>
+        <button class="btn wide" id="btnAskQ" style="margin-top:8px">Write a question</button>
       </div>
 
       <div class="group">
@@ -3934,6 +4018,7 @@ body.viewing.panelaway #panelHide{display:none}
               <h3 id="rvTitle">Nothing picked</h3>
             </div>
             <div class="rv-tags" id="rvTags" hidden></div>
+            <div class="rv-qs" id="rvQs" hidden></div>
             <div class="rv-wallrow">
               <figure class="rv-pic" id="rvPic" hidden><img alt=""></figure>
               <div class="rv-note" id="rvNote"></div>
@@ -4503,7 +4588,7 @@ body.viewing.panelaway #panelHide{display:none}
         <span class="mc-art pro"><i></i><i></i><i></i></span>
         <b>Plain</b>
         <s>Named plates on drawing paper. Nothing wanders, nothing behind it.
-           Reads on a projector and prints. Light or dark.</s>
+           Reads well on a projector. Light or dark.</s>
       </button>
       <button class="moodcard" data-mood="silly">
         <span class="mc-art silly"><i></i><i></i><i></i></span>
@@ -4582,7 +4667,7 @@ body.viewing.panelaway #panelHide{display:none}
   <div class="hist-controls">
     <input type="search" id="revQ" placeholder="Search text, people, node names">
     <div class="row" style="margin-top:8px">
-      <button class="btn rev-tab on" data-tab="suggestions">Suggestions</button>
+      <button class="btn rev-tab on" data-tab="suggestions">Feedback</button>
       <button class="btn rev-tab" data-tab="questions">Questions</button>
       <button class="btn rev-tab" data-tab="confirm">Confirmations</button>
     </div>
@@ -4836,6 +4921,11 @@ const S = {
   localOnly:false,             // a handed-out copy: the folder and nothing beyond it
   roomMood:"pro",              // pro | silly — the whole character of the place
   sillySkin:"plain", sillyCast:"blob",   // kept, so switching back restores them
+  sillyLife:"full",
+  proSkin:"pro", proLife:"quiet", proDark:"",   // Plain's own look, kept apart from Lively's
+  bdOff:false,                 // Lively without pictures behind the rooms
+  bdOwn:"",                    // "" | "image" | "folder": this browser's own backdrops
+  bdOwnName:"",
   worldAuto:true,              // a search in a room stands you in what it found
   bdMine:"",                   // a viewer's own backdrop choice, never the map's
   metGuest:"",                 // the day this browser was last shown the way in
@@ -4881,7 +4971,7 @@ function newNode(o={}){
     status:"active", flag:"", image:"", imageH:120, edit:0,
     badge:"", badgeAt:"", badgeImage:"", supersededBy:"", tableSort:"", order:"",
     backdrop:"", backdropFloor:"", backdropSalt:"", spots:"", date:"",
-    collect:"", collectGoal:"", noSearch:"",
+    collect:"", collectGoal:"", noSearch:"", keywords:"",
     created:nowISO(), modified:nowISO(),
     rev:1, author:S.meta.author, x:null, y:null, pinned:false, collapsed:false
   }, o);
@@ -4889,7 +4979,7 @@ function newNode(o={}){
 function newQuestion(o={}){
   return Object.assign({
     id:uid("Q-"), text:"", person:S.who || "anonymous", timestamp:nowISO(),
-    status:"open", note:""
+    status:"open", note:"", keywords:""
   }, o);
 }
 function newPin(o={}){
@@ -5274,13 +5364,48 @@ function questionsForNode(id){
   const qs = new Set(S.pins.filter(x=>x.node === id).map(x=>x.question));
   return S.questions.filter(q=>qs.has(q.id));
 }
+/* A question is found by how it is asked: its wording, the other ways of
+   putting it, and the editor's note on it. Not by the rooms that answer it —
+   a room turns up on its own merits. */
 function questionMatches(q, terms){
-  const pinned = pinsFor(q.id).map(x=>{
-    const n = S.nodes.get(x.node);
-    return n ? [n.label, n.body, (n.tags||[]).join(" ")].join(" ") : "";
-  }).join(" ");
-  const hay = [q.text, q.note, q.person, pinned].join(" ").toLowerCase();
-  return terms.every(t=>hay.includes(t));
+  const hay = [q.text, q.note, q.keywords].join(" ").toLowerCase();
+  return terms.every(t=>termMatches(hay, t) || hay.includes(t));
+}
+/* ---- Feedback: everything a reader sends in, one list, with a kind ---- */
+const FEEDBACK_KINDS = [["question", "Question"], ["reword", "Wording"],
+  ["logic", "Logic or routing"], ["retire", "Should be retired"], ["other", "Something else"]];
+function kindName(k){ const f = FEEDBACK_KINDS.find(x=>x[0] === k); return f ? f[1] : (k || "Feedback"); }
+function kindOptions(sel){
+  return FEEDBACK_KINDS.map(([v, l])=>`<option value="${v}"${v === sel ? " selected" : ""}>${l}</option>`).join("");
+}
+/* A question somebody asked from a viewing copy, before questions became the
+   editor's own, is feedback now: moved across with the same id each time, so
+   reading it twice never makes two. */
+function questionAsFeedback(q, pins){
+  const pin = (pins || []).find(p=>p.question === q.id);
+  return newSuggestion({id:"S-" + q.id, node:pin ? pin.node : "", person:q.person,
+    timestamp:q.timestamp, text:q.text, kind:"question",
+    status:q.status === "open" ? "open" : "accepted"});
+}
+/* the same, for rows straight out of somebody's file */
+function rawQuestionsAsFeedback(t){
+  const qs = t.Questions || [], pins = t.QuestionPins || [];
+  if(!qs.length) return [];
+  return qs.filter(r=>r.question_id && r.text).map(r=>{
+    const pin = pins.find(p=>String(p.question_id) === String(r.question_id));
+    return {suggestion_id:"S-" + r.question_id, node_id:pin ? pin.node_id : "", person:r.person,
+      timestamp:r.timestamp, kind:"question", text:r.text,
+      status:String(r.status || "open").toLowerCase() === "open" ? "open" : "accepted",
+      resolved_by:"", resolved_at:""};
+  });
+}
+/* keywords a room is found by without them being written anywhere on it */
+function keywordHit(n, terms){
+  const kw = String((n && n.keywords) || "").toLowerCase();
+  if(!kw || !terms.length) return "";
+  const words = kw.split(/[,;\n]+/).map(w=>w.trim()).filter(Boolean);
+  const hit = words.filter(w=>terms.some(t=>termMatches(w, t)));
+  return hit.length ? hit.join(", ") : "";
 }
 
 /* Depth-first order, the same order the outline shows, so Tab walks the map
@@ -6064,7 +6189,7 @@ function seed(){
    Kept human-readable so the workbook stands on its own.
    ===================================================================== */
 const HDR = {
-  Nodes:["node_id","label","body","type","tags","status","flag","image","image_h","created","modified","rev","edit","author","badge","badge_at","badge_image","superseded_by","table_sort","order","date","collect","collect_goal","backdrop","backdrop_floor","backdrop_salt","spots","x","y","pinned","parent_id","depth","path","no_search"],
+  Nodes:["node_id","label","body","type","tags","status","flag","image","image_h","created","modified","rev","edit","author","badge","badge_at","badge_image","superseded_by","table_sort","order","date","collect","collect_goal","backdrop","backdrop_floor","backdrop_salt","spots","x","y","pinned","parent_id","depth","path","no_search","keywords"],
   Links:["edge_id","from_id","to_id","link_type","tag","label","condition","route","from_side","to_side","bow","color","line_style","width","arrow"],
   Revisions:["rev_id","node_id","timestamp","author","field","class","note","folded","old_value","new_value"],
   TagStyles:["tag","color","line_style","width","arrow","applies_to"],
@@ -6078,7 +6203,7 @@ const HDR = {
   Shelves:["shelf_id","name","person","nodes","note","at","status"],
   Settings:["key","value"],
   Overflow:["ref_id","table","column","seq","text"],
-  Questions:["question_id","text","person","timestamp","status","note"],
+  Questions:["question_id","text","person","timestamp","status","note","keywords"],
   QuestionPins:["pin_id","question_id","node_id","person","timestamp","note"],
   Inbox:["item_id","text","created","author","session","node_id","planted_at","how","wrote"],
   People:["person_id","name","first","login","initials","teams","active"]
@@ -6107,6 +6232,7 @@ function toSheets(){
     collect:n.collect || "", collect_goal:n.collectGoal === "" || n.collectGoal == null
       ? "" : Number(n.collectGoal),
     no_search:n.noSearch === "yes" ? "yes" : "",
+    keywords:n.keywords || "",
     created:n.created, modified:n.modified, rev:n.rev, edit:n.edit|0, author:n.author,
     badge:n.badge||"", badge_at:n.badgeAt||"", badge_image:n.badgeImage||"",
     superseded_by:n.supersededBy || "",
@@ -6156,7 +6282,7 @@ function toSheets(){
   }));
   const questions = S.questions.map(x=>({
     question_id:x.id, text:x.text, person:x.person, timestamp:x.timestamp,
-    status:x.status, note:x.note||""
+    status:x.status, note:x.note||"", keywords:x.keywords||""
   }));
   const pins = S.pins.map(x=>({
     pin_id:x.id, question_id:x.question, node_id:x.node, person:x.person,
@@ -6270,6 +6396,7 @@ function tablesToModel(t){
       collectGoal:(r.collect_goal === "" || r.collect_goal == null)
         ? "" : Number(r.collect_goal),
       noSearch:/^(yes|true|1|y)$/i.test(String(r.no_search || "")) ? "yes" : "",
+      keywords:String(r.keywords || ""),
       created:String(r.created||nowISO()), modified:String(r.modified||nowISO()),
       rev:Number(r.rev)||1, edit:Number(r.edit)||0, author:String(r.author||S.meta.author),
       badge:String(r.badge||""), badgeAt:String(r.badge_at||""), badgeImage:String(r.badge_image||""),
@@ -6346,7 +6473,8 @@ function tablesToModel(t){
     M.questions.push(newQuestion({
       id:String(r.question_id||uid("Q-")), text:String(r.text||""),
       person:String(r.person||"anonymous"), timestamp:String(r.timestamp||nowISO()),
-      status:String(r.status||"open").toLowerCase(), note:String(r.note||"")
+      status:String(r.status||"open").toLowerCase(), note:String(r.note||""),
+      keywords:String(r.keywords||"")
     }));
   }
   for(const r of (t.QuestionPins||[])){
@@ -8961,6 +9089,11 @@ function decorateSelection(){
 let renderStamp = 0;
 function render(){
   renderStamp++;
+  /* a reader's copy never shows the drawing, so it is never drawn */
+  if(S.viewerBuild){
+    ["gEdges", "gNodes", "gAreas"].forEach(k=>{ const g = el(k); if(g && g.firstChild) g.textContent = ""; });
+    return;
+  }
   smokers = 0;
   flickers = 0;
   const gE = el("gEdges"), gN = el("gNodes"), gA = el("gAreas");
@@ -9290,14 +9423,18 @@ function renderResults(){
         flagged:"needing attention", parents:"section heads", labels:"by name",
         areas:"areas", bookmarks:"bookmarks", retired:"retired"
       }[S.searchScope] || "";
-      const label = hasQuery
+      const label = S.qOnly
+        ? (String(S.hitQuery).replace(/^\?+/, "").trim()
+            ? `Questions matching “${esc(String(S.hitQuery).replace(/^\?+/, "").trim())}”` : "Every question")
+        : hasQuery
         ? `${n} match${n===1?"":"es"} for “${esc(S.hitQuery)}”`
           + (scopeName ? " · " + scopeName : "")
         : S.tagPick.size
           ? `${n} node${n===1?"":"s"} tagged ` + esc([...S.tagPick].map(tagLeaf).join(", "))
           : `${n} ${scopeName || ("node" + (n===1?"":"s"))}`;
-      const qTerms = String(S.hitQuery || "").replace(/(^|\s)#[^\s#]*/g, " ").trim()
+      const qTerms = String(S.hitQuery || "").replace(/^\?+/, "").replace(/(^|\s)#[^\s#]*/g, " ").trim()
         .split(/\s+/).filter(Boolean);
+      const kwOf = id=>keywordHit(S.nodes.get(id), qTerms);
       const exHit = id=>exampleMatch(id, qTerms);
       const row = t=>{
         if(t.kind === "area"){
@@ -9326,6 +9463,7 @@ function renderResults(){
               display:inline-block;margin-right:6px;vertical-align:middle"></span>` : ""}
             ${gone ? `<span class="retchip">retired</span>` : ""}
             ${esc(n.label || n.id)}</span>
+          ${kwOf(t.id) && !exHit(t.id) ? `<span class="restrail exhit">keyword ${esc(kwOf(t.id))}</span>` : ""}
           ${exHit(t.id) ? `<span class="restrail exhit">example ${esc(exHit(t.id).accession)}${
                exHit(t.id).person ? " \u00b7 " + esc(exHit(t.id).person) : ""}</span>` : ""}
           ${newer ? `<span class="restrail">replaced by ${esc(nodeName(newer))}</span>`
@@ -9372,10 +9510,34 @@ function renderResults(){
                 + tagLines(h, tags)
               : '<span class="rp-said">matches no tag</span>')
           + '</div>').join("") + '</div>' : "";
-      el("tocResults").innerHTML = tagStrip +
-        (targets.length ? targets.slice(0, 300).map(row).join("")
-                        : `<p class="tocempty">Nothing matched.</p>`)
+      /* questions come first: each with the rooms that answer it underneath */
+      const qs = (S.qHits || []).map(id=>S.questions.find(x=>x.id === id)).filter(Boolean);
+      const qRow = x=>{
+        const ans = pinsFor(x.id).map(p=>p.node).filter(id=>S.nodes.has(id));
+        return `<div class="resq">
+          <div class="resq-q"><span class="resq-mark">?</span><span>${esc(x.text)}</span></div>
+          <div class="resq-ans">${ans.length ? ans.map(id=>`<button class="resq-go" data-res="node:${esc(id)}">
+              \u2192 ${esc(nodeName(id))}</button>`).join("")
+            : `<span class="fineprint">No room answers this yet.</span>`}</div></div>`;
+      };
+      const qToggle = (qs.length || S.qOnly) ? `<div class="resq-head"><b>${qs.length} question${qs.length === 1 ? "" : "s"}</b>
+          <button class="rp-tag${S.qOnly ? " on" : ""}" id="resQOnly">${S.qOnly ? "Show everything" : "Only questions"}</button></div>` : "";
+      const nodeRows = S.qOnly ? "" : (targets.length ? targets.slice(0, 300).map(row).join("")
+                        : (qs.length ? "" : `<p class="tocempty">Nothing matched.</p>`))
         + (targets.length > 300 ? `<p class="tocempty">Showing the first 300.</p>` : "");
+      el("tocResults").innerHTML = tagStrip + qToggle
+        + (qs.length ? qs.slice(0, 60).map(qRow).join("") + (S.qOnly ? "" : `<div class="resq-sep"></div>`)
+                     : (S.qOnly ? `<p class="tocempty">${S.questions.length ? "No question asked that way." : "There are no questions yet."}</p>` : ""))
+        + nodeRows;
+      if(el("resQOnly")) el("resQOnly").onclick = ev=>{
+        ev.stopPropagation();
+        const box = el("mq");
+        const was = box.value.trim();
+        const now = S.qOnly ? was.replace(/^\?+\s*/, "") : "?" + was;
+        box.value = now; el("q").value = now;
+        runSearch();
+        box.focus();
+      };
       placeResults();
       bindResultRows();
       /* an umbrella stays open or shut as you left it while you keep typing */
@@ -10172,11 +10334,11 @@ function renderContents(){
           const pins = pinsFor(x.id);
           return `<div class="qrow${matching.has(x.id)?" hit":""}" data-q="${esc(x.id)}">
             <div class="qtext">${esc(x.text)}</div>
-            <div class="qmeta">${esc(x.person)} · ${pins.length} answer${pins.length===1?"":"s"}
-              ${x.status !== "open" ? `<span class="fold">${esc(x.status)}</span>` : ""}</div>
+            <div class="qmeta">${pins.length ? "answered in " + pins.length + " room" + (pins.length===1?"":"s")
+              : `<span style="color:var(--flag)">no room answers it yet</span>`}</div>
           </div>`;
         }).join("")
-      : `<p class="tocempty">${q ? "No questions match." : "None yet. Ask one, then pin the nodes that answer it."}</p>`;
+      : `<p class="tocempty">${q ? "No questions match." : "None yet. Write the questions people ask, then point each at the rooms that answer it."}</p>`;
   }
 
   /* areas */
@@ -11030,15 +11192,17 @@ function applyMood(){
      can dress for it too */
   document.documentElement.dataset.mood = isPro() ? "pro" : "silly";
   if(isPro()){
-    /* the plain settings are not saved over the silly ones: they are what
-       professional means, and the silly choices wait where they were */
-    S.roomSkin = "pro";
+    /* each mood keeps its own look: what you set in Plain is still there
+       when you come back from Lively, and the other way round */
+    S.roomSkin = ["pro", "plain", "boardroom", "compact"].includes(S.proSkin) ? S.proSkin : "pro";
     S.roomCast = "plate";
-    S.roomLife = "quiet";
+    S.roomLife = S.proLife === "still" ? "still" : "quiet";
+    const wantDark = S.proDark || S.themeMode;
+    if(wantDark === "dark" || wantDark === "light") applyTheme(wantDark);
   } else {
-    S.roomSkin = S.sillySkin || "plain";
+    S.roomSkin = S.sillySkin && S.sillySkin !== "pro" && S.sillySkin !== "boardroom" ? S.sillySkin : "plain";
     S.roomCast = S.sillyCast || "blob";
-    if(S.roomLife === "quiet") S.roomLife = "full";
+    S.roomLife = ["full", "quiet", "still"].includes(S.sillyLife) ? S.sillyLife : "full";
     /* the cast is drawn for daylight, and looks ill in the dark */
     if(S.themeMode !== "light") applyTheme("light");
     /* Plain never asks the folder for anything, so after a spell in it the
@@ -11059,9 +11223,8 @@ function applyMood(){
       S.bdMine = "random"; savePrefs();
     }
   }
-  if(el("roomSkin")) el("roomSkin").value = S.roomSkin;
-  if(el("roomCast")) el("roomCast").value = S.roomCast;
-  if(el("roomLife")) el("roomLife").value = S.roomLife;
+  if(typeof applyLife === "function") applyLife();
+  paintLook();
   markMoodButton();
   savePrefs();
 }
@@ -11122,12 +11285,12 @@ function gatherLook(){
      would otherwise have no way to reach at all. The rail turns its groups
      into folding sections on the way up, so it is found by id rather than by
      the heading it no longer has. */
-  const more = el("themeMoreHome");
-  const printing = el("printGroup");
-  if(more && printing && !canEdit() && printing.parentNode !== more){
-    more.appendChild(printing);
-    if(printing.open === false) printing.open = true;
-  }
+  /* A reader has no drawing, so nothing about printing it or colouring it
+     is offered: the room is all there is. */
+  const adv = el("themeAdvanced");
+  if(adv) adv.hidden = !canEdit();
+  document.body.classList.toggle("caneditlook", canEdit());
+  paintLook();
 }
 
 function organiseRail(){
@@ -12250,7 +12413,7 @@ function closeNote(){
    eye lands on the line rather than hunting for four yellow digits.
    --------------------------------------------------------------- */
 function searchTermsNow(){
-  return String(S.hitQuery || "").replace(/(^|\s)#[^\s#]*/g, " ").toLowerCase()
+  return String(S.hitQuery || "").replace(/^\?+/, "").replace(/(^|\s)#[^\s#]*/g, " ").toLowerCase()
     .split(/\s+/).filter(t=>t && t.length >= 2);
 }
 function termPattern(term){
@@ -12432,16 +12595,17 @@ function openPanelFor(nodeId, which){
    --------------------------------------------------------------- */
 let respondFor = "";
 let respondOnly = "";       /* "confirm" or "ask": just that part, from its own button */
+let respondKind = "";       /* which kind of feedback the sheet opens on */
 function openRespond(nodeId, which, only){
   if(!nodeId || !S.nodes.has(nodeId)) return;
   if(S.sel !== nodeId) select(nodeId);
   respondFor = nodeId;
   respondOnly = only || "";
+  respondKind = (which === "question" || which === "ask") ? "question" : which === "suggest" ? "reword" : "";
   renderRespond();
   const dlg = el("respondDlg");
   if(!dlg.open) dlg.showModal();
-  const want = which === "suggest" ? "rsSuggest"
-             : (which === "question" || which === "ask") ? "rsAsk"
+  const want = (which === "suggest" || which === "question" || which === "ask") ? "rsFeedback"
              : which ? "rsConfirm" : "";
   if(want && el(want)){
     setTimeout(()=>{
@@ -12458,7 +12622,7 @@ function renderRespond(){
   if(!n || !body) return;
   const me = S.who || "";
   el("rsTitle").textContent = respondOnly === "confirm" ? "For you \u00b7 " + (n.label || "this room")
-    : respondOnly === "ask" ? "Questions \u00b7 " + (n.label || "this room")
+    : respondOnly === "ask" ? "Feedback \u00b7 " + (n.label || "this room")
     : (n.label || "This room");
   const part = k=>!respondOnly || respondOnly === k;
   const when = t=>esc(String(t || "").slice(0, 16));
@@ -12472,7 +12636,7 @@ function renderRespond(){
     : it.requires === "both" ? "Asks for " + (it.prompt ? "an answer (" + it.prompt + ")" : "an accession number")
         + " and a screenshot" + (it.shot ? " of " + inline(it.shot) : "") : "";
   void answerName;
-  const myQs = questionsForNode(n.id).filter(q=>q.person === me);
+  const answered = questionsForNode(n.id);
   const mySugs = suggestionsFor(n.id).filter(x=>x.person === me).slice().reverse();
 
   body.innerHTML = `
@@ -12499,37 +12663,28 @@ function renderRespond(){
       }).join("") : `<p class="tocempty">Nothing to confirm here.</p>`}
     </div>` : ""}
 
-    ${part("ask") ? `<div class="rs-sec" id="rsAsk">
-      <h3>Ask a question</h3>
-      <textarea id="rsQText" placeholder="What is unclear here?"></textarea>
-      <div class="rs-send"><span style="flex:1"></span>
-        <button class="btn primary" id="rsQSend">Ask</button></div>
-      ${myQs.length ? `<div class="rs-mine">${myQs.map(q=>`<div class="rs-row">
-        <time>${when(q.timestamp)}</time>${esc(q.text)}<span class="fold">${esc(q.status)}</span>
-        ${q.note ? `<div style="margin-top:3px;color:var(--graphite-60)">${esc(q.note)}</div>` : ""}</div>`).join("")}</div>` : ""}
+    ${answered.length && part("ask") ? `<div class="rs-sec" id="rsAnswers">
+      <h3>Questions this room answers</h3>
+      ${answered.map(q=>`<div class="rs-qa"><span class="resq-mark">?</span>${esc(q.text)}</div>`).join("")}
     </div>` : ""}
 
-    ${!respondOnly ? `<div class="rs-sec" id="rsSuggest">
-      <h3>Suggest a change</h3>
-      <textarea id="rsSText" placeholder="What should change, and why? The room itself is not altered."></textarea>
+    ${part("ask") ? `<div class="rs-sec" id="rsFeedback">
+      <h3>Feedback</h3>
+      <textarea id="rsSText" placeholder="A question, something unclear, or something that should change. The room itself is not altered."></textarea>
       <div class="rs-send">
-        <select id="rsSKind">
-          <option value="reword">Wording</option>
-          <option value="logic">Logic or routing</option>
-          <option value="retire">Should be retired</option>
-          <option value="question">Question</option>
-        </select>
+        <select id="rsSKind">${kindOptions(respondKind || "question")}</select>
         <button class="btn primary" id="rsSSend">Send</button>
       </div>
       ${mySugs.length ? `<div class="rs-mine">${mySugs.map(x=>`<div class="rs-row">
         <time>${when(x.timestamp)}</time>${esc(x.text)}
-        <span class="fold">${esc(x.kind)}</span><span class="fold">${esc(x.status)}</span></div>`).join("")}</div>` : ""}
-    </div>
+        <span class="fold">${esc(kindName(x.kind))}</span><span class="fold">${esc(x.status)}</span></div>`).join("")}</div>` : ""}
+    </div>` : ""}
 
+    ${!respondOnly ? `
     <div class="rs-sec rs-foot">
       <button class="btn" id="rsMark">${isNodeBookmarked(n.id) ? "Remove bookmark" : "Bookmark this room"}</button>
       <button class="btn" id="rsArt">${hasOwnArt(n.id) ? "Change my picture" : "Put my own picture here"}</button>
-    </div>` : `<div class="rs-sec"><button class="btn" id="rsAll">Everything else here \u2014 suggest a change, bookmark\u2026</button></div>`}`;
+    </div>` : `<div class="rs-sec"><button class="btn" id="rsAll">Everything else here \u2014 feedback, bookmark\u2026</button></div>`}`;
   if(el("rsAll")) el("rsAll").onclick = ()=>{ respondOnly = ""; renderRespond(); };
 
   const again = ()=>{ renderRespond(); if(inRoom()) renderRoomSoon(); updateReviewBadge && updateReviewBadge(); };
@@ -12554,24 +12709,13 @@ function renderRespond(){
       again();
     };
   });
-  if(el("rsQSend")) el("rsQSend").onclick = ()=>{
-    const text = el("rsQText").value.trim();
-    if(!text){ toast("Write the question first"); return; }
-    if(!whoAmI()) return;
-    const q = newQuestion({text, person:S.who});
-    S.questions.push(q);
-    S.pins.push(newPin({question:q.id, node:n.id, person:S.who}));
-    markContribution();
-    toast("Question sent");
-    again();
-  };
   if(el("rsSSend")) el("rsSSend").onclick = ()=>{
     const text = el("rsSText").value.trim();
-    if(!text){ toast("Write the suggestion first"); return; }
+    if(!text){ toast("Write it first"); return; }
     if(!whoAmI()) return;
     S.suggestions.push(newSuggestion({node:n.id, person:S.who, text, kind:el("rsSKind").value}));
     markContribution();
-    toast("Suggestion sent");
+    toast("Feedback sent");
     again();
   };
   if(el("rsMark")) el("rsMark").onclick = ()=>{ toggleNodeBookmark(n.id); renderRespond(); };
@@ -12588,16 +12732,44 @@ function openQuestion(id){
   S.selQuestion = id; S.sel = null; S.selArea = null;
   render(); renderInspector(); renderContents();
 }
+/* Questions are the editor's: the questions people actually ask, written
+   down once, each pointing at the rooms that answer it. */
 function askQuestion(fromNode){
-  const text = prompt("What is the question?");
+  if(!isRoot()){ toast("Questions are written in editing mode."); return; }
+  const text = prompt("What is the question, the way somebody would ask it?");
   if(text == null || !text.trim()) return;
-  if(!whoAmI()) return;
-  const q = newQuestion({text:text.trim(), person:S.who});
+  const q = newQuestion({text:text.trim(), person:S.who || S.meta.author || "editor", status:"live"});
   S.questions.push(q);
-  if(fromNode) S.pins.push(newPin({question:q.id, node:fromNode, person:S.who}));
-  markContribution();
+  if(fromNode) S.pins.push(newPin({question:q.id, node:fromNode, person:S.who || ""}));
+  markDirty();
   openQuestion(q.id);
-  toast("Question added" + (fromNode ? " with this node pinned as an answer" : ""));
+  toast("Question added" + (fromNode ? ", answered by this room" : ""));
+}
+function anchorQuestion(nodeId, typed){
+  if(!isRoot()) return;
+  const text = String(typed || "").trim();
+  if(!text){ toast("Type the question first"); return; }
+  let q = S.questions.find(x=>x.text.trim().toLowerCase() === text.toLowerCase());
+  const made = !q;
+  if(!q){ q = newQuestion({text, person:S.who || S.meta.author || "editor", status:"live"}); S.questions.push(q); }
+  if(pinsFor(q.id).some(p=>p.node === nodeId)){ toast("This room already answers it."); return; }
+  S.pins.push(newPin({question:q.id, node:nodeId, person:S.who || ""}));
+  markDirty(); renderInspector(); renderContents(); renderRoomSoon();
+  toast(made ? "New question, answered here" : "This room now answers it too");
+}
+/* a question somebody sent in, made into one everybody can search for */
+function feedbackToQuestion(id){
+  const x = S.suggestions.find(y=>y.id === id);
+  if(!x) return;
+  const text = prompt("Word it the way people will search for it:", x.text);
+  if(text == null || !text.trim()) return;
+  let q = S.questions.find(y=>y.text.trim().toLowerCase() === text.trim().toLowerCase());
+  if(!q){ q = newQuestion({text:text.trim(), person:S.who || S.meta.author || "editor", status:"live"}); S.questions.push(q); }
+  if(x.node && S.nodes.has(x.node) && !pinsFor(q.id).some(p=>p.node === x.node))
+    S.pins.push(newPin({question:q.id, node:x.node, person:S.who || ""}));
+  x.status = "accepted"; x.resolved_by = S.meta.author || S.who || "root"; x.resolved_at = nowISO();
+  markDirty(); updateReviewBadge(); renderContents(); renderRoomSoon();
+  toast("Added to the questions" + (x.node ? ", answered by that room" : ""));
 }
 
 function renderQuestionInspector(q){
@@ -12609,21 +12781,21 @@ function renderQuestionInspector(q){
     <div class="group">
       <p style="font-size:15px;line-height:1.4;margin:0 0 8px">${esc(q.text)}</p>
       <p style="font-size:12px;color:var(--graphite-60);margin:0">
-        asked by ${esc(q.person)} · ${esc(String(q.timestamp).slice(0,16))}
-        <span class="fold">${esc(q.status)}</span></p>
-      <label class="field" style="margin-top:12px"><span>Notes on this question</span>
+        written by ${esc(q.person)} · ${esc(String(q.timestamp).slice(0,16))}</p>
+      ${isRoot() ? `<label class="field" style="margin-top:12px"><span>The question</span>
+        <input type="text" id="qText" value="${esc(q.text)}"></label>
+      <label class="field"><span>Other ways people ask it <i class="fineprint">searched, never shown</i></span>
+        <input type="text" id="qKeywords" value="${esc(q.keywords || "")}" placeholder="reprint, label won't print, 660"></label>
+      <label class="field"><span>Notes</span>
         <textarea id="qNote">${esc(q.note||"")}</textarea></label>
       <div class="row">
-        <button class="btn" id="qPin">Pin the selected node</button>
+        <button class="btn" id="qPin">This room answers it</button>
         <button class="btn" id="qMark">Bookmark it</button>
-      </div>
-      <div class="row" style="margin-top:6px">
-        <button class="btn" id="qStatus">${q.status === "open" ? "Mark answered" : "Reopen"}</button>
         <button class="btn" id="qDrop">Delete</button>
-      </div>
+      </div>` : ""}
     </div>
     <div class="group">
-      <h2>Pinned answers</h2>
+      <h2>Rooms that answer it</h2>
       ${pins.length ? pins.map(pn=>{
         const nd = S.nodes.get(pn.node);
         return `<div class="tocrow" data-qjump="${esc(pn.node)}">
@@ -12631,17 +12803,19 @@ function renderQuestionInspector(q){
           <span class="toclabel">${esc(nd ? nd.label : pn.node + " (gone)")}</span>
           <button class="kill" data-unpin="${esc(pn.id)}" title="Unpin">&times;</button>
         </div>`;
-      }).join("") : `<p class="tocempty">Nothing pinned yet. Select a node on the map, then press
-        Pin the selected node.</p>`}
+      }).join("") : `<p class="tocempty">No room answers it yet. Go to one, then press
+        This room answers it — or add the question from the room's own panel.</p>`}
     </div>`;
-  el("qNote").onchange = e=>{ q.note = e.target.value; markContribution(); };
+  if(!el("qNote")) return;
+  el("qNote").onchange = e=>{ q.note = e.target.value; markDirty(); };
+  el("qText").onchange = e=>{ const v = e.target.value.trim(); if(v){ q.text = v; markDirty(); renderContents(); } };
+  el("qKeywords").onchange = e=>{ q.keywords = e.target.value.trim(); markDirty(); };
   el("qPin").onclick = ()=>{
     if(!S.lastNode || !S.nodes.has(S.lastNode)){ toast("Select a node on the map first."); return; }
-    if(pins.some(x=>x.node === S.lastNode)){ toast("Already pinned."); return; }
-    if(!whoAmI()) return;
-    S.pins.push(newPin({question:q.id, node:S.lastNode, person:S.who}));
-    markContribution(); renderInspector(); renderContents();
-    toast("Pinned " + (S.nodes.get(S.lastNode).label || "the node"));
+    if(pins.some(x=>x.node === S.lastNode)){ toast("That room already answers it."); return; }
+    S.pins.push(newPin({question:q.id, node:S.lastNode, person:S.who || ""}));
+    markDirty(); renderInspector(); renderContents(); renderRoomSoon();
+    toast((S.nodes.get(S.lastNode).label || "The room") + " answers it now");
   };
   el("qMark").onclick = ()=>{
     const bm = newBookmark({label:"Q: " + q.text.slice(0, 40), node:pinsFor(q.id)[0] ? pinsFor(q.id)[0].node : "",
@@ -12650,17 +12824,13 @@ function renderQuestionInspector(q){
     else { S.personal.bookmarks.push(bm); savePersonal(); }
     renderContents(); toast("Question bookmarked");
   };
-  el("qStatus").onclick = ()=>{
-    q.status = q.status === "open" ? "answered" : "open";
-    markContribution(); renderInspector(); renderContents();
-  };
   el("qDrop").onclick = ()=>{
-    if(!isRoot() && q.person !== S.who){ toast("Only the person who asked it, or an editor, can delete it."); return; }
-    if(!confirm("Delete this question and its pins?")) return;
+    if(!isRoot()) return;
+    if(!confirm("Delete this question? The rooms stay as they are.")) return;
     S.questions = S.questions.filter(x=>x.id !== q.id);
     S.pins = S.pins.filter(x=>x.question !== q.id);
     S.selQuestion = null;
-    markContribution(); renderInspector(); renderContents();
+    markDirty(); renderInspector(); renderContents(); renderRoomSoon();
   };
   body.querySelectorAll("[data-qjump]").forEach(e=>{
     e.onclick = ev=>{ if(ev.target.hasAttribute("data-unpin")) return;
@@ -12669,7 +12839,7 @@ function renderQuestionInspector(q){
   body.querySelectorAll("[data-unpin]").forEach(e=>{
     e.onclick = ev=>{ ev.stopPropagation();
       S.pins = S.pins.filter(x=>x.id !== e.dataset.unpin);
-      markContribution(); renderInspector(); renderContents(); };
+      markDirty(); renderInspector(); renderContents(); renderRoomSoon(); };
   });
 }
 
@@ -13087,30 +13257,33 @@ function contributionBlock(n){
         <button class="btn wide" id="addCheckItem">Add something to confirm</button></div>` : ""}
     </div>
 
-    <div class="group">
-      <h2>Questions</h2>
+    <div class="group" id="qGroup">
+      <h2>Questions this answers</h2>
       ${questionsForNode(n.id).length
         ? questionsForNode(n.id).map(q=>`<div class="qrow" data-q="${esc(q.id)}">
-            <div class="qtext">${esc(q.text)}</div>
-            <div class="qmeta">${esc(q.person)}<span class="fold">${esc(q.status)}</span></div>
+            <div class="qtext"><span class="resq-mark">?</span>${esc(q.text)}</div>
+            <div class="qmeta">${pinsFor(q.id).length > 1 ? "also answered in " + (pinsFor(q.id).length - 1)
+              + " other room" + (pinsFor(q.id).length === 2 ? "" : "s") : "only answered here"}
+              ${isRoot() ? `<button class="kill" data-unanchor="${esc(q.id)}" title="This room no longer answers it">&times;</button>` : ""}</div>
           </div>`).join("")
-        : `<p class="tocempty">This node is not pinned to a question yet.</p>`}
-      <div class="row" style="margin-top:8px">
-        <button class="btn wide" id="askAboutNode">Ask a question about this node</button>
+        : `<p class="tocempty">No question points here yet.</p>`}
+      ${isRoot() ? `<div class="qanchor">
+        <input type="text" id="qAnchorText" list="qAnchorList" autocomplete="off"
+          placeholder="Type a question this room answers">
+        <datalist id="qAnchorList">${S.questions.filter(q=>!pinsFor(q.id).some(p=>p.node === n.id))
+          .map(q=>`<option value="${esc(q.text)}">`).join("")}</datalist>
+        <button class="btn primary" id="qAnchorGo">Add</button>
       </div>
+      <p class="fineprint" style="margin:4px 0 0">Pick one already asked, or type a new one. People
+        find questions by searching, or by starting the search with <b>?</b></p>` : ""}
     </div>
 
     <div class="group">
-      <h2>Suggestions</h2>
-      <label class="field"><span>Propose a change — the node itself is not altered</span>
-        <textarea id="sugText" placeholder="What should change, and why?"></textarea></label>
+      <h2>Feedback</h2>
+      <label class="field"><span>A question, or a change to propose — the node itself is not altered</span>
+        <textarea id="sugText" placeholder="What is unclear, or what should change and why?"></textarea></label>
       <div class="row">
-        <select id="sugKind" style="flex:1">
-          <option value="reword">Wording</option>
-          <option value="logic">Logic or routing</option>
-          <option value="retire">Should be retired</option>
-          <option value="question">Question</option>
-        </select>
+        <select id="sugKind" style="flex:1">${kindOptions("reword")}</select>
         <button class="btn primary" id="sugSend">Send</button>
       </div>
       <div class="revlog" style="margin-top:10px">
@@ -13119,16 +13292,18 @@ function contributionBlock(n){
             <time>${esc(String(x.timestamp).slice(0,16))}</time>
             <div class="chg">
               <strong>${esc(x.person)}</strong>
-              <span class="fold">${esc(x.kind)}</span>
+              <span class="fold">${esc(kindName(x.kind))}</span>
               <span class="fold">${esc(x.status)}</span><br>
               ${esc(x.text)}
               ${isRoot() && x.status === "open" ? `<div class="row" style="margin-top:6px">
+                ${x.kind === "question" ? `<button class="btn" data-sug-toq="${esc(x.id)}" style="padding:2px 8px;font-size:11px"
+                  title="Add it to the questions, answered by this room">Make it a question</button>` : ""}
                 <button class="btn" data-sug-accept="${esc(x.id)}" style="padding:2px 8px;font-size:11px">Accept</button>
                 <button class="btn" data-sug-decline="${esc(x.id)}" style="padding:2px 8px;font-size:11px">Decline</button>
               </div>` : ""}
               ${x.resolved_by?`<br><span style="font-size:11px;color:var(--graphite-60)">${esc(x.status)} by ${esc(x.resolved_by)}</span>`:""}
             </div>
-          </div>`).join("") : `<p class="tocempty" style="margin-top:8px">No suggestions yet.</p>`}
+          </div>`).join("") : `<p class="tocempty" style="margin-top:8px">No feedback yet.</p>`}
       </div>
     </div>`;
 }
@@ -13156,20 +13331,35 @@ function wireContributions(n){
   body.querySelectorAll("[data-svitem]").forEach(b=>{
     b.onclick = ev=>{ ev.preventDefault(); openSignView(b.dataset.svitem, b.dataset.svperson); };
   });
-  const ask = el("askAboutNode");
-  if(ask) ask.onclick = ()=>askQuestion(n.id);
-  body.querySelectorAll("[data-q]").forEach(e=>{ e.onclick = ()=>openQuestion(e.dataset.q); });
+  body.querySelectorAll("[data-q]").forEach(e=>{
+    e.onclick = ev=>{ if(ev.target.closest("[data-unanchor]")) return; openQuestion(e.dataset.q); };
+  });
+  body.querySelectorAll("[data-unanchor]").forEach(b=>{
+    b.onclick = ev=>{
+      ev.stopPropagation();
+      S.pins = S.pins.filter(p=>!(p.question === b.dataset.unanchor && p.node === n.id));
+      markDirty(); renderInspector(); renderContents(); renderRoomSoon();
+    };
+  });
+  const qGo = el("qAnchorGo"), qTxt = el("qAnchorText");
+  if(qGo) qGo.onclick = ()=>{ anchorQuestion(n.id, qTxt.value); };
+  if(qTxt) qTxt.addEventListener("keydown", ev=>{
+    if(ev.key === "Enter"){ ev.preventDefault(); anchorQuestion(n.id, qTxt.value); }
+  });
+  body.querySelectorAll("[data-sug-toq]").forEach(b=>{
+    b.onclick = ()=>{ feedbackToQuestion(b.dataset.sugToq); renderInspector(); };
+  });
   const send = el("sugSend");
   if(send) send.onclick = ()=>{
     const text = el("sugText").value.trim();
-    if(!text){ toast("Write the suggestion first"); return; }
+    if(!text){ toast("Write it first"); return; }
     if(!whoAmI()) return;
     S.suggestions.push(newSuggestion({
       node:n.id, person:S.who, text, kind:el("sugKind").value
     }));
     markContribution();
     renderInspector();
-    toast("Suggestion recorded. Push to send it to the sheet.");
+    toast("Feedback recorded");
   };
   const add = el("addCheckItem");
   if(add) add.onclick = ()=>openNewCheck(n.id);
@@ -13263,6 +13453,8 @@ function renderInspector(){
         week turns.</p>` : ""}
       <label class="field"><span>Date for this one</span><input type="date" id="fDate" value="${esc(n.date || "")}"></label>
       <label class="field"><span>Tags, comma separated</span><input type="text" id="fTags" value="${esc((n.tags||[]).join(", "))}"></label>
+      <label class="field"><span>Search keywords <i class="fineprint">found by search, never shown</i></span>
+        <input type="text" id="fKeywords" value="${esc(n.keywords || "")}" placeholder="660, reprint, label won't print"></label>
       ${n.image ? `<div class="imgcard">
           <img src="${esc(picURL(n.image))}" alt="">
           <div><strong>${n.image.startsWith("data:image/gif") ? "Animated GIF in the cell"
@@ -13460,6 +13652,13 @@ function renderInspector(){
     const lab = e.target.parentElement.querySelector("span");
     if(lab) lab.textContent = "Where the floor starts in it \u2014 "
       + Math.round(n.backdropFloor) + "% down";
+  };
+  if(el("fKeywords")) el("fKeywords").onchange = e=>{
+    const v = e.target.value.split(/[,;\n]+/).map(w=>w.trim()).filter(Boolean).join(", ");
+    setField(n, "keywords", v);
+    e.target.value = v;
+    markDirty();
+    if((el("q").value || "").trim()) runSearch();
   };
   if(el("fNoSearch")) el("fNoSearch").onchange = e=>{
     setField(n, "noSearch", e.target.checked ? "yes" : "");
@@ -13788,6 +13987,7 @@ function rankHits(ids, terms){
   const byName = id=>{
     const n = S.nodes.get(id);
     if(!n) return false;
+    if(keywordHit(n, terms) && terms.every(t=>termMatches(String(n.keywords || "").toLowerCase(), t))) return true;
     return terms.every(t=>termMatches(searchable(String(n.label || "").toLowerCase()), t));
   };
   /* second question, among names: how close a match */
@@ -13925,13 +14125,18 @@ function exampleMatch(id, terms){
     && terms.some(t=>String(x.accession).toLowerCase().includes(t))) || null;
 }
 function runSearchInner(){
-  const typed = el("q").value.trim().toLowerCase();
+  const typedAll = el("q").value.trim().toLowerCase();
+  /* A leading ? searches the questions and nothing else: the quickest way to
+     find the question somebody has already asked, and the rooms that answer it. */
+  const qOnly = typedAll.startsWith("?");
+  S.qOnly = qOnly;
+  const typed = qOnly ? typedAll.replace(/^\?+/, "").trim() : typedAll;
   const hashTags = hashTagsIn(typed);
   const q = typed.replace(/(^|\s)#[^\s#]*/g, " ").trim();
-  S.hitQuery = typed;
+  S.hitQuery = typedAll;
   S.hits = []; S.qHits = []; S.areaHits = []; S.bmHits = [];
   const scope = S.searchScope;
-  const filtering = S.tagPick.size > 0 || scope !== "all" || hashTags.length > 0;
+  const filtering = S.tagPick.size > 0 || scope !== "all" || hashTags.length > 0 || qOnly;
 
   /* One letter matches almost everything and costs the most to draw, so it is
      treated as nothing typed yet — the search starts on the second letter. */
@@ -13969,7 +14174,8 @@ function runSearchInner(){
       .filter(b=>matches([b.label, nodeName(b.node)].join(" "))).map(b=>b.id);
   } else {
     S.qHits = (terms.length && scope === "all")
-      ? S.questions.filter(x=>questionMatches(x, terms)).map(x=>x.id) : [];
+      ? S.questions.filter(x=>questionMatches(x, terms)).map(x=>x.id)
+      : (qOnly ? S.questions.map(x=>x.id) : []);
     const viaQuestions = new Set();
     S.qHits.forEach(qid=>pinsFor(qid).forEach(pn=>{
       if(S.nodes.has(pn.node)) viaQuestions.add(pn.node);
@@ -13982,6 +14188,8 @@ function runSearchInner(){
     const leftOut = searchOutSet();
     S.hits = [...S.nodes.values()].filter(n=>{
       if(leftOut.has(n.id)) return false;
+      /* questions only: the rooms that answer them, and nothing else */
+      if(qOnly) return viaQuestions.has(n.id) && tagsPass(n) && hashPass(n, hashTags);
       if(scope === "parents" && !childrenOf(n.id).length) return false;
       if(scope === "flagged" && !severityOf(n)) return false;
       if(scope === "retired" && n.status !== "retired") return false;
@@ -13992,6 +14200,9 @@ function runSearchInner(){
       const hay = [n.label, n.body, n.id, n.type, n.status, (n.tags||[]).join(" "),
         (n.image||"").startsWith("data:") ? "photo image" : (n.image||"")].join(" ");
       if(viaQuestions.has(n.id) || matches(hay)) return true;
+      /* the room's own search keywords, looked at as written */
+      const kw = String(n.keywords || "").toLowerCase();
+      if(kw && terms.every(t=>termMatches(kw, t) || termMatches(searchable(String(hay).toLowerCase()), t))) return true;
       /* an example's accession number is looked at as it is, noise or not */
       const ex = exampleText(n.id);
       return !!ex && terms.every(t=>termMatches(ex.toLowerCase(), t) || String(hay).toLowerCase().includes(t));
@@ -15113,7 +15324,7 @@ function buildWorkbookFrom(data){
   reportTrim(splitForCells(data, XLSX_CELL), "a spreadsheet file");
   const wb = XLSX.utils.book_new();
   const widths = {
-    Nodes:[14,34,44,11,20,9,10,40,8,19,19,6,6,10,9,19,40,14,10,7,8,8,8,14,7,60],
+    Nodes:[14,34,44,11,20,9,10,40,8,19,19,6,6,10,9,19,40,14,10,7,8,8,8,14,7,60,8,8,8,8,8,8,8,8,30],
     Links:[14,14,14,10,14,20,24,10,10,10,7,10,11,7,7],
     Revisions:[8,14,19,10,14,11,26,7,30,30],
     TagStyles:[16,10,11,7,7,10],
@@ -16267,7 +16478,7 @@ function onlyMine(tables, who){
   const me = personOf(who);
   const out = {};
   SHARED_TABLES.forEach(name=>{
-    if(name === "CheckItems"){ out[name] = []; return; }
+    if(name === "CheckItems" || name === "Questions" || name === "QuestionPins"){ out[name] = []; return; }
     out[name] = (tables[name] || []).filter(r=>personOf(r.person) === me);
   });
   return out;
@@ -16276,10 +16487,12 @@ function onlyMine(tables, who){
 function fromOwner(M, fileName){
   const owner = ownerOfFeedback(fileName);
   const theirs = x=>personOf(x.person) === owner;
+  const asked = (M.questions || []).filter(theirs).map(q=>questionAsFeedback(q, M.pins));
   return {
-    suggestions:(M.suggestions || []).filter(theirs),
-    questions:(M.questions || []).filter(theirs),
-    pins:(M.pins || []).filter(theirs),
+    suggestions:(M.suggestions || []).filter(theirs).concat(asked),
+    /* questions are the editor's; a reader's file has none of its own */
+    questions:[],
+    pins:[],
     checkItems:[],
     checkoffs:(M.checkoffs || []).filter(theirs),
     examples:(M.examples || []).filter(theirs),
@@ -16342,6 +16555,8 @@ async function sendContributions(){
         const wb = XLSX.read(await old.arrayBuffer(), {type:"array"});
         const had = {};
         wb.SheetNames.forEach(n=>{ had[n] = XLSX.utils.sheet_to_json(wb.Sheets[n], {defval:""}); });
+        const oldAsks = rawQuestionsAsFeedback(had);
+        if(oldAsks.length) had.Suggestions = (had.Suggestions || []).concat(oldAsks);
         const kept = onlyMine(had, S.who);
         SHARED_TABLES.forEach(name=>{
           const byKey = new Map();
@@ -16469,7 +16684,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-09-29s";
+const APP_BUILD = "2026-09-30b";
 
 /* Reading that line back out of a copy of this file.
 
@@ -17909,7 +18124,8 @@ async function loadPersonal(){
 const PREF_KEYS = ["notesMode","motion","showIds","avoidNodes","branchGrid",
                    "focusMode","pickZoom","followOutline","railOpen","branchShape",
                    "searchExcludes","portals","vista","roomSkin","roomCast","roomLife","roomFloor","roomSort",
-                   "bdMine","worldAuto","roomMood","sillySkin","sillyCast"];
+                   "bdMine","worldAuto","roomMood","sillySkin","sillyCast",
+                   "sillyLife","proSkin","proLife","proDark","bdOff","bdOwn","bdOwnName"];
 async function savePrefs(){
   const out = {};
   PREF_KEYS.forEach(k=>{ out[k] = S[k]; });
@@ -18370,12 +18586,12 @@ function peopleSeen(){
   const set = new Set();
   S.checkoffs.forEach(x=>x.person && set.add(x.person));
   S.suggestions.forEach(x=>x.person && set.add(x.person));
-  S.questions.forEach(x=>x.person && set.add(x.person));
   return [...set].sort();
 }
 function pendingCount(){
   const openSug = S.suggestions.filter(x=>x.status === "open").length;
-  const openQ = S.questions.filter(x=>x.status === "open").length;
+  /* a question is only waiting on the editor to point it at a room */
+  const openQ = S.questions.filter(x=>!pinsFor(x.id).some(p=>S.nodes.has(p.node))).length;
   const roster = peopleSeen().length;
   const shortItems = roster
     ? S.checkItems.filter(it=>signedAmong(it) < audienceOf(it).length).length
@@ -18387,8 +18603,7 @@ function pendingCount(){
         && x.person === me && x.checked === "yes")).length
     : 0;
   if(!canEdit()){
-    return {openSug, openQ, shortItems, mineToDo,
-      total:mineToDo + S.questions.filter(x=>x.status === "open").length};
+    return {openSug, openQ, shortItems, mineToDo, total:mineToDo};
   }
   return {openSug, openQ, shortItems, mineToDo,
     total:openSug + openQ + shortItems};
@@ -18538,41 +18753,42 @@ function renderReview(){
     html = rows.length ? rows.map(x=>`
       <div class="revcard">
         <p class="where">on <a href="#" data-go="${esc(x.node)}">${esc(nodeName(x.node))}</a>
-          <span class="fold">${esc(x.kind)}</span>
+          <span class="fold">${esc(kindName(x.kind))}</span>
           <span class="fold">${esc(x.status)}</span></p>
         <p class="said">${esc(x.text)}</p>
         <p class="byline">${esc(x.person)} · ${esc(String(x.timestamp).slice(0,16))}
           ${x.resolved_by ? " · " + esc(x.status) + " by " + esc(x.resolved_by) : ""}</p>
         ${x.status === "open" ? `<div class="row" style="margin-top:9px">
+          ${x.kind === "question" && canEdit() ? `<button class="btn" data-toq="${esc(x.id)}">Make it a question</button>` : ""}
           <button class="btn primary" data-acc="${esc(x.id)}">Accept</button>
           <button class="btn" data-dec="${esc(x.id)}">Decline</button>
           <button class="btn" data-go="${esc(x.node)}">Go to the node</button>
         </div>` : ""}
       </div>`).join("")
-      : `<p class="histempty">${openOnly ? "No suggestions are waiting." : "No suggestions match."}</p>`;
+      : `<p class="histempty">${openOnly ? "No feedback is waiting." : "No feedback matches."}</p>`;
   }
 
   if(S.revTab === "questions"){
+    /* the question bank: what still needs a room to answer it comes first */
     const rows = S.questions
-      .filter(x=>!openOnly || x.status === "open")
-      .filter(x=>hit(x.text) || hit(x.person) || pinsFor(x.id).some(pn=>hit(nodeName(pn.node))))
+      .filter(x=>!openOnly || !pinsFor(x.id).some(p=>S.nodes.has(p.node)))
+      .filter(x=>hit(x.text) || hit(x.keywords || "") || pinsFor(x.id).some(pn=>hit(nodeName(pn.node))))
       .sort((a,b)=>String(b.timestamp).localeCompare(String(a.timestamp)));
-    html = rows.length ? rows.map(x=>{
-      const pins = pinsFor(x.id);
+    html = (canEdit() ? `<div class="row" style="margin-bottom:10px"><button class="btn primary" id="revNewQ">Write a question</button></div>` : "")
+      + (rows.length ? rows.map(x=>{
+      const pins = pinsFor(x.id).filter(p=>S.nodes.has(p.node));
       return `<div class="revcard">
-        <p class="said">${esc(x.text)}</p>
-        <p class="byline">${esc(x.person)} · ${esc(String(x.timestamp).slice(0,16))}
-          <span class="fold">${esc(x.status)}</span></p>
+        <p class="said"><span class="resq-mark">?</span>${esc(x.text)}</p>
+        ${x.keywords ? `<p class="byline">also asked as: ${esc(x.keywords)}</p>` : ""}
         <p class="where" style="margin-top:8px">${pins.length
-          ? "answers: " + pins.map(pn=>`<a href="#" data-go="${esc(pn.node)}">${esc(nodeName(pn.node))}</a>`).join(", ")
-          : "<span style=\"color:var(--flag)\">nothing pinned as an answer yet</span>"}</p>
+          ? "answered in " + pins.map(pn=>`<a href="#" data-go="${esc(pn.node)}">${esc(nodeName(pn.node))}</a>`).join(", ")
+          : "<span style=\"color:var(--flag)\">no room answers it yet</span>"}</p>
         <div class="row" style="margin-top:9px">
           <button class="btn" data-openq="${esc(x.id)}">Open it</button>
-          <button class="btn" data-qtoggle="${esc(x.id)}">${x.status === "open" ? "Mark answered" : "Reopen"}</button>
         </div>
       </div>`;
     }).join("")
-      : `<p class="histempty">${openOnly ? "No questions are open." : "No questions match."}</p>`;
+      : `<p class="histempty">${openOnly ? "Every question has a room that answers it." : "No questions match."}</p>`);
   }
 
   if(S.revTab === "confirm"){
@@ -18648,14 +18864,10 @@ function renderReview(){
   body.querySelectorAll("[data-openq]").forEach(b=>{
     b.onclick = ()=>{ el("reviewDlg").close(); openQuestion(b.dataset.openq); };
   });
-  body.querySelectorAll("[data-qtoggle]").forEach(b=>{
-    b.onclick = ()=>{
-      const x = S.questions.find(y=>y.id === b.dataset.qtoggle);
-      if(!x) return;
-      x.status = x.status === "open" ? "answered" : "open";
-      markDirty(); renderReview(); updateReviewBadge(); renderContents();
-    };
+  body.querySelectorAll("[data-toq]").forEach(b=>{
+    b.onclick = ()=>{ feedbackToQuestion(b.dataset.toq); renderReview(); };
   });
+  if(el("revNewQ")) el("revNewQ").onclick = ()=>{ el("reviewDlg").close(); askQuestion(""); };
   body.querySelectorAll("[data-dropitem]").forEach(b=>{
     b.onclick = ()=>{
       if(!confirm("Remove this confirmation item and everyone's answers to it?")) return;
@@ -19625,9 +19837,12 @@ function roomAllowed(){
    found" with no clue what had been asked for. */
 function filterWords(){
   const bits = [];
-  const typed = String(S.hitQuery || "").trim();
+  const typedAll = String(S.hitQuery || "").trim();
+  const asking = typedAll.startsWith("?");
+  const typed = typedAll.replace(/^\?+/, "").trim();
   const q = typed.replace(/(^|\s)#[^\s#]*/g, " ").replace(/\s+/g, " ").trim();
-  if(q) bits.push("matching \u201c" + q + "\u201d");
+  if(asking) bits.push(q ? "answering questions like \u201c" + q + "\u201d" : "answering a question");
+  else if(q) bits.push("matching \u201c" + q + "\u201d");
   hashResolved(typed).forEach(({h, tags})=>{
     const names = tags.map(([t])=>tagLeaf(t));
     bits.push(!names.length ? "tagged #" + h + " (no such tag)"
@@ -19923,6 +20138,8 @@ function backdropFor(id){
   /* nothing behind the wall in professional: a photograph of a cartoon
      igloo is the one thing that cannot be shown in a meeting */
   if(typeof isPro === "function" && isPro()) return null;
+  /* Lively, with the pictures switched off in this browser */
+  if(S.bdOff) return null;
   const n = id && S.nodes.get(id);
   const name = bdNameFor(id);
   if(!name) return null;
@@ -19958,6 +20175,8 @@ function renderRoom(){
   }
   const wipeTags = el("rvTags");
   if(wipeTags){ wipeTags.hidden = true; wipeTags.innerHTML = ""; }
+  const wipeQs = el("rvQs");
+  if(wipeQs){ wipeQs.hidden = true; wipeQs.innerHTML = ""; }
   if(el("rvBulk")) el("rvBulk").hidden = true;
   /* Only a room that asks for examples offers the button, and the hall and a
      room of search results ask for nothing — they were keeping whichever one
@@ -20057,7 +20276,8 @@ function renderRoom(){
       + (rs.length === 1
           ? 'This map has one branch, and it starts here.'
           : 'Every branch of this map starts behind one of these doors.')
-      + ' Walk into one, or switch to the drawing to see the whole thing at once.</p>';
+      + (canEdit() ? ' Walk into one, or switch to the drawing to see the whole thing at once.</p>'
+                   : ' Walk into one, or search for what you need.</p>');
     el("rvTags").hidden = true;
     el("rvCount").textContent = rs.length
       + (rs.length === 1 ? " branch" : " branches") + " from here";
@@ -20102,6 +20322,8 @@ function renderRoom(){
   el("rvBoard").dataset.bare = (words || art) ? "0" : "1";
 
   /* tags, as they are drawn on the map */
+  /* the questions this room answers, so a reader knows they are in the right place */
+  paintRoomQuestions(id);
   const tags = (n.tags || []).filter(Boolean);
   const tw = el("rvTags");
   tw.hidden = !tags.length;
@@ -20302,6 +20524,41 @@ function paintBanners(id){
   wrap.appendChild(tag);
 }
 
+function paintRoomQuestions(id){
+  const box = el("rvQs");
+  if(!box) return;
+  const qs = questionsForNode(id);
+  box.hidden = !qs.length;
+  if(!qs.length){ box.innerHTML = ""; return; }
+  const SHOW = 3;
+  box.innerHTML = `<span class="rv-qlab">Answers</span>` + qs.slice(0, SHOW).map(q=>
+    `<button class="rv-q" data-rvq="${esc(q.id)}" title="See every room that answers this">${esc(q.text)}</button>`).join("")
+    + (qs.length > SHOW ? `<button class="rv-q more" data-rvqall="1">+${qs.length - SHOW} more</button>` : "");
+  box.querySelectorAll("[data-rvq]").forEach(b=>{
+    b.onclick = ()=>{
+      const q = S.questions.find(x=>x.id === b.dataset.rvq);
+      if(q) searchFor("?" + q.text);
+    };
+  });
+  const all = box.querySelector("[data-rvqall]");
+  if(all) all.onclick = ()=>{ box.innerHTML = ""; box.hidden = true;
+    const keep = qs; box.hidden = false;
+    box.innerHTML = `<span class="rv-qlab">Answers</span>` + keep.map(q=>
+      `<button class="rv-q" data-rvq="${esc(q.id)}">${esc(q.text)}</button>`).join("");
+    box.querySelectorAll("[data-rvq]").forEach(b=>{ b.onclick = ()=>{
+      const q = S.questions.find(x=>x.id === b.dataset.rvq); if(q) searchFor("?" + q.text); }; });
+    if(typeof fitWall === "function") fitWall();
+  };
+}
+/* put words in the search box and run it, as if they had been typed */
+function searchFor(text){
+  const box = el("mq");
+  if(box) box.value = text;
+  el("q").value = text;
+  runSearch();
+  if(box) box.focus();
+}
+
 /* What this node is asking of people, standing against the right wall as
    things you can walk up to rather than counters in a panel somewhere else.
    A viewer sees only what is theirs to do. */
@@ -20312,20 +20569,20 @@ function paintStuff(id, items, owed){
   const out = [];
   /* a reader is counted only their own questions, the same ones the sheet
      shows them; everybody else's are the editor's to see */
-  const asks = questionsForNode(id).filter(q=>q.status === "open"
-    && (canEdit() || q.person === (S.who || ""))).length;
+  const asks = canEdit() ? 0
+    : suggestionsFor(id).filter(x=>x.status === "open" && x.person === (S.who || "")).length;
   const sug = canEdit() ? suggestionsFor(id).filter(x=>x.status === "open").length : 0;
   if(canEdit()){
     if(items.length) out.push(["confirm", items.length, "&#9745;", "To confirm",
       items.length + " thing" + (items.length === 1 ? "" : "s") + " people must confirm here"]);
-    if(sug) out.push(["suggest", sug, "&#9998;", "Suggested",
-      sug + " suggestion" + (sug === 1 ? "" : "s") + " waiting on this one"]);
+    if(sug) out.push(["suggest", sug, "&#9998;", "Feedback",
+      sug + " piece" + (sug === 1 ? "" : "s") + " of feedback waiting on this one"]);
   } else if(owed){
     out.push(["confirm mine", owed, "&#9745;", "For you",
       owed + " still waiting on you here"]);
   }
-  if(asks) out.push(["ask", asks, "?", asks === 1 ? "Question" : "Questions",
-    asks + " open question" + (asks === 1 ? "" : "s") + " pinned here"]);
+  if(asks) out.push(["ask", asks, "&#9998;", "Your feedback",
+    asks + " piece" + (asks === 1 ? "" : "s") + " of your feedback here, still open"]);
   box.innerHTML = out.map(([kind, n2, ic, label, title])=>
     '<button class="rvb ' + kind + '" data-open="' + kind.split(" ")[0] + '"'
     + ' title="' + esc(title) + '"><span class="ic">' + ic + '</span>'
@@ -20486,6 +20743,9 @@ function isPicName(name){ return /\.(png|jpe?g|gif|webp|avif|svg)$/i.test(name);
 
 /* The listing is names only. Reading a directory is cheap; reading the files
    in it is not, so this never opens one. */
+/* Folders that are never scenery: people's screenshots, and the pictures that
+   belong on nodes. Only a folder called backdrops, or loose pictures, are. */
+const BD_NEVER = /^(userimages|feedbackimages|users|images|nodeimages|pictures)$/i;
 async function backdropPool(force){
   if(bdPool && !force) return bdPool;
   if(force && (picDir || bookDir)) offerReconnect().catch(()=>{});
@@ -20493,7 +20753,7 @@ async function backdropPool(force){
     try{
       const saved = await Store.getKey("bdPool");
       if(saved && Array.isArray(saved.names) && saved.names.length){
-        bdPool = saved.names;
+        bdPool = saved.names.filter(n=>!BD_NEVER.test(String(n).split("/")[0]) || !String(n).includes("/"));
         return bdPool;
       }
     }catch(e){}
@@ -20534,6 +20794,8 @@ async function backdropPool(force){
         for await (const [name, h] of root.entries()){
           if(h.kind === "file" && isPicName(name)) names.push(name);
           /* one level down, so a folder of them beside the pictures works */
+          /* people's screenshots are evidence, not scenery: never backdrops */
+          else if(h.kind === "directory" && BD_NEVER.test(name)){ /* skipped */ }
           else if(h.kind === "directory"){
             try{
               for await (const [inner, ih] of h.entries()){
@@ -20548,7 +20810,10 @@ async function backdropPool(force){
     }catch(e){}
     if(names.length) break;
   }
-  bdPool = [...new Set(names)].sort();
+  /* a picture already hung on a node is that node's, not a wall for any room */
+  const onNodes = new Set();
+  S.nodes.forEach(n=>{ if(n.image) onNodes.add(String(n.image).replace(/^\.?\//, "")); });
+  bdPool = [...new Set(names)].filter(n=>!onNodes.has(n)).sort();
   crumbIdle("listed " + bdPool.length + " backdrops");
   if(!bdPool.length && folderWanted() === "backdrops") folderMissed();
   try{ await Store.putKey("bdPool", {names:bdPool, at:nowISO()}); }catch(e){}
@@ -20606,6 +20871,7 @@ function bdKeep(name, url){
    folder goes through the shrink-and-remember path exactly once. */
 async function backdropURL(name){
   if(!name) return "";
+  if(String(name).startsWith("mine:")) return ownBackdropURL(name);
   if(!isFolderPath(name)) return name;
   if(bdLive.has(name)) return bdKeep(name, bdLive.get(name));
   if(bdPending.has(name)) return bdPending.get(name);
@@ -20653,6 +20919,12 @@ async function backdropURL(name){
    you can still learn your way around. */
 function bdNameFor(id){
   const n = id && S.nodes.get(id);
+  /* this browser's own picture or folder comes before anything in the map */
+  if(S.bdOwn === "image" && S.bdOwnName) return "mine:image";
+  if(S.bdOwn === "folder" && myBdPool.length){
+    const salt = Number((n && n.backdropSalt) || 0) | 0;
+    return myBdPool[(rvSeed(String(id || "hall")) + salt * 2654435761) % myBdPool.length];
+  }
   if(n && n.backdrop) return n.backdrop;
   const map = S.meta.backdrop || S.bdMine || "";
   if(!map) return "";
@@ -20661,6 +20933,189 @@ function bdNameFor(id){
   if(!pool || !pool.length) return "";
   const salt = Number((n && n.backdropSalt) || 0) | 0;
   return pool[(rvSeed(String(id || "hall")) + salt * 2654435761) % pool.length];
+}
+
+/* ---- this browser's own backdrops ----
+   A picture or a folder somebody chooses for themselves. It is kept in this
+   browser only: never written to the shared folder or the workbook. */
+let myBdDir = null, myBdPool = [], myBdImageURL = "";
+async function ownBackdropURL(name){
+  if(bdLive.has(name)) return bdKeep(name, bdLive.get(name));
+  if(name === "mine:image"){
+    try{
+      const blob = await Store.getKey("bdOwnImage");
+      if(blob instanceof Blob) return bdKeep(name, URL.createObjectURL(blob));
+    }catch(e){}
+    return "";
+  }
+  const path = name.slice(5);
+  const key = "bd:" + BD_MAX_W + ":" + name + ":" + (S.bdOwnName || "");
+  try{
+    const cached = await Store.getKey(key);
+    if(cached instanceof Blob) return bdKeep(name, URL.createObjectURL(cached));
+  }catch(e){}
+  if(!myBdDir) return "";
+  if(await folderSays(myBdDir, "read", false) !== "granted") return "";
+  return picInLine(async ()=>{
+    const f = await readFrom(myBdDir, path);
+    if(!f) return "";
+    const small = await bdShrink(f);
+    if(worthStoring(small, f) && await roomToStore(small.size)){
+      try{ await Store.putKey(key, small); }catch(e){}
+    }
+    return bdKeep(name, URL.createObjectURL(small));
+  });
+}
+async function listOwnFolder(dir){
+  const names = [];
+  try{
+    for await (const [name, h] of dir.entries()){
+      if(h.kind === "file" && isPicName(name)) names.push("mine:" + name);
+      else if(h.kind === "directory"){
+        try{
+          for await (const [inner, ih] of h.entries()){
+            if(ih.kind === "file" && isPicName(inner)) names.push("mine:" + name + "/" + inner);
+            if(names.length >= BD_POOL_MAX) break;
+          }
+        }catch(e){}
+      }
+      if(names.length >= BD_POOL_MAX) break;
+      if(names.length % 150 === 149) await breath();
+    }
+  }catch(e){}
+  return [...new Set(names)].sort();
+}
+/* on the way in: what this browser chose last time */
+async function restoreOwnBackdrops(){
+  try{
+    const saved = await Store.getKey("myBdPool");
+    if(saved && Array.isArray(saved.names)) myBdPool = saved.names;
+  }catch(e){}
+  if(S.bdOwn === "folder"){
+    try{ myBdDir = await recallHandle("myBdDir"); }catch(e){}
+  }
+}
+async function chooseOwnFolder(){
+  let d = null;
+  try{ d = await window.showDirectoryPicker({id:"mindmap-mybackdrops", mode:"read"}); }catch(e){ return false; }
+  if(!d) return false;
+  const names = await listOwnFolder(d);
+  if(!names.length){ toast("No pictures in that folder."); return false; }
+  myBdDir = d; myBdPool = names;
+  S.bdOwn = "folder"; S.bdOwnName = d.name || "my folder"; S.bdOff = false;
+  try{ await Store.putKey("myBdPool", {names, at:nowISO()}); }catch(e){}
+  await rememberHandle("myBdDir", d);
+  bdLive.clear();
+  savePrefs(); paintLook(); renderRoomSoon();
+  toast(names.length + " pictures from " + S.bdOwnName + ", in this browser only");
+  return true;
+}
+async function useOwnImage(file){
+  if(!file) return;
+  const small = await bdShrink(file);
+  try{ await Store.putKey("bdOwnImage", small); }
+  catch(e){ toast("This browser would not keep the picture."); return; }
+  bdLive.delete("mine:image");
+  S.bdOwn = "image"; S.bdOwnName = file.name || "my picture"; S.bdOff = false;
+  savePrefs(); paintLook(); renderRoomSoon();
+  toast("Your own backdrop, in this browser only");
+}
+
+/* ---- the look settings: Plain and Lively each show only their own ---- */
+function setProDark(mode){
+  S.proDark = mode === "dark" ? "dark" : "light";
+  applyTheme(S.proDark);
+  try{ Store.putKey("theme", S.proDark); }catch(e){}
+  savePrefs();
+  markDarkButton();
+  paintLook();
+}
+function paintLook(){
+  const pro = isPro();
+  if(el("lookPro")) el("lookPro").hidden = !pro;
+  if(el("lookSilly")) el("lookSilly").hidden = pro;
+  const dark = document.documentElement.getAttribute("data-theme") === "dark";
+  document.querySelectorAll("[data-prodark]").forEach(b=>
+    b.classList.toggle("on", (b.dataset.prodark === "dark") === dark));
+  if(el("proSkin")) el("proSkin").value = ["pro", "plain", "boardroom", "compact"].includes(S.proSkin) ? S.proSkin : "pro";
+  if(el("proLife")) el("proLife").value = S.proLife === "still" ? "still" : "quiet";
+  if(!pro){
+    if(el("roomSkin")) el("roomSkin").value = S.roomSkin;
+    if(el("roomCast")) el("roomCast").value = S.roomCast;
+    if(el("roomLife")) el("roomLife").value = S.roomLife;
+  }
+  if(el("bdOn")) el("bdOn").checked = !S.bdOff;
+  if(el("bdWhich")) el("bdWhich").hidden = !!S.bdOff;
+  const src = S.bdOwn === "image" && S.bdOwnName ? "image" : S.bdOwn === "folder" && myBdPool.length ? "folder" : "shared";
+  [["shared", "bdSrcShared"], ["image", "bdSrcImage"], ["folder", "bdSrcFolder"]].forEach(([v, id])=>{
+    if(el(id)) el(id).checked = src === v;
+  });
+  if(el("bdOwnImageName")) el("bdOwnImageName").textContent = S.bdOwn === "image" ? S.bdOwnName : "";
+  if(el("bdOwnFolderName")) el("bdOwnFolderName").textContent = S.bdOwn === "folder" && myBdPool.length
+    ? S.bdOwnName + " \u00b7 " + myBdPool.length : "";
+}
+function wireLook(){
+  document.querySelectorAll("[data-prodark]").forEach(b=>{
+    b.onclick = ()=>setProDark(b.dataset.prodark);
+  });
+  if(el("proSkin")) el("proSkin").onchange = e=>{
+    const was = S.roomSkin;
+    S.proSkin = e.target.value; S.roomSkin = S.proSkin;
+    const working = k=>k === "compact" || k === "boardroom";
+    if(working(S.roomSkin) && !working(was)) S.roomFloor = "row";
+    else if(!working(S.roomSkin) && working(was)) S.roomFloor = "roam";
+    savePrefs(); layoutButton(); renderRoom();
+  };
+  if(el("proLife")) el("proLife").onchange = e=>{
+    S.proLife = e.target.value; S.roomLife = S.proLife; savePrefs(); applyLife(); renderRoom();
+  };
+  if(el("bdOn")) el("bdOn").onchange = async e=>{
+    S.bdOff = !e.target.checked;
+    /* on, with nothing chosen anywhere: take one each from the shared folder */
+    if(!S.bdOff && !S.bdOwn && !S.meta.backdrop && !S.bdMine){
+      S.bdMine = "random";
+      if(picDir || bookDir) await reconnectFolders();
+      backdropPool(true).then(()=>renderRoomSoon()).catch(()=>{});
+    }
+    savePrefs(); paintLook(); renderRoomSoon();
+  };
+  if(el("bdSrcShared")) el("bdSrcShared").onchange = async ()=>{
+    S.bdOwn = "";
+    if(!S.meta.backdrop && !S.bdMine) S.bdMine = "random";
+    if(picDir || bookDir) await reconnectFolders();
+    backdropPool(true).then(()=>renderRoomSoon()).catch(()=>{});
+    savePrefs(); paintLook(); renderRoomSoon();
+  };
+  const pickImg = ()=>el("bdOwnFile").click();
+  if(el("bdOwnPick")) el("bdOwnPick").onclick = ev=>{ ev.preventDefault(); pickImg(); };
+  if(el("bdSrcImage")) el("bdSrcImage").onchange = ()=>{
+    if(S.bdOwnName && S.bdOwn !== "folder"){ S.bdOwn = "image"; savePrefs(); paintLook(); renderRoomSoon(); return; }
+    Store.getKey("bdOwnImage").then(b=>{
+      if(b instanceof Blob && S.bdOwnName){ S.bdOwn = "image"; savePrefs(); paintLook(); renderRoomSoon(); }
+      else { paintLook(); pickImg(); }
+    }).catch(()=>{ paintLook(); pickImg(); });
+  };
+  if(el("bdOwnFile")) el("bdOwnFile").onchange = e=>{
+    const f = e.target.files && e.target.files[0];
+    e.target.value = "";
+    useOwnImage(f).catch(()=>{});
+  };
+  const pickDir = async ev=>{
+    if(ev) ev.preventDefault();
+    /* remembered, but the browser wants a nod before reading it again */
+    if(myBdDir && myBdPool.length && S.bdOwn === "folder"
+       && await folderSays(myBdDir, "read", true) === "granted"){
+      const names = await listOwnFolder(myBdDir);
+      if(names.length){ myBdPool = names; try{ await Store.putKey("myBdPool", {names, at:nowISO()}); }catch(e){} }
+      paintLook(); renderRoomSoon(); return;
+    }
+    if(!await chooseOwnFolder()) paintLook();
+  };
+  if(el("bdOwnFolder")) el("bdOwnFolder").onclick = pickDir;
+  if(el("bdSrcFolder")) el("bdSrcFolder").onchange = ()=>{
+    if(myBdPool.length){ S.bdOwn = "folder"; savePrefs(); paintLook(); renderRoomSoon(); }
+    else pickDir();
+  };
 }
 
 /* Once you are in a room, the rooms next door are read quietly, so walking
@@ -22252,8 +22707,7 @@ function wireRoom(){
   el("rvMood").onclick = ()=>setMood(isPro() ? "silly" : "pro");
   el("rvDark").onclick = ()=>{
     const dark = document.documentElement.getAttribute("data-theme") === "dark";
-    applyTheme(dark ? "light" : "dark");
-    markDarkButton();
+    setProDark(dark ? "light" : "dark");
   };
   el("moodPick").addEventListener("click", ev=>{
     const c = ev.target.closest && ev.target.closest("[data-mood]");
@@ -22414,10 +22868,11 @@ function wireRoom(){
     }
   });
 
+  wireLook();
   if(el("roomSkin")) el("roomSkin").onchange = e=>{
     const was = S.roomSkin;
     S.roomSkin = e.target.value;
-    if(!isPro()) S.sillySkin = S.roomSkin;
+    S.sillySkin = S.roomSkin;
     /* Compact and Boardroom are for reading, so they open lined up. Either
        can be set wandering again from the panel; changing dressing again
        puts the floor back the way the scenic rooms want it. */
@@ -22479,11 +22934,11 @@ function wireRoom(){
   };
   if(el("roomCast")) el("roomCast").onchange = e=>{
     S.roomCast = e.target.value;
-    if(!isPro()) S.sillyCast = S.roomCast;
+    S.sillyCast = S.roomCast;
     savePrefs(); renderRoom();
   };
   if(el("roomLife")) el("roomLife").onchange = e=>{
-    S.roomLife = e.target.value; savePrefs(); applyLife(); renderRoom();
+    S.roomLife = e.target.value; S.sillyLife = S.roomLife; savePrefs(); applyLife(); renderRoom();
   };
   if(el("vistaPref")) el("vistaPref").onchange = e=>setVista(e.target.value, true);
 }
@@ -22798,6 +23253,7 @@ async function boot(){
   el("themeBtn").onclick = ()=>{
     const now = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
     S.themeMode = now;
+    if(isPro()){ S.proDark = now; savePrefs(); }
     /* a theme changes node sizes, so the map reflows underneath: hold the
        place you were looking at rather than letting it slide */
     keepingPlace(()=>{ applyTheme(now); rebuild(); });
@@ -23468,7 +23924,7 @@ async function boot(){
     if((ev.ctrlKey||ev.metaKey) && ev.key.toLowerCase() === "a"){
       ev.preventDefault(); setMulti([...visibleNodes()]); }
     if((ev.ctrlKey||ev.metaKey) && ev.key.toLowerCase() === "s"){ ev.preventDefault(); exportXlsx(); }
-    if((ev.ctrlKey||ev.metaKey) && ev.key.toLowerCase() === "p"){ ev.preventDefault(); printCurrentView(); }
+    if((ev.ctrlKey||ev.metaKey) && ev.key.toLowerCase() === "p" && canEdit()){ ev.preventDefault(); printCurrentView(); }
     if(ev.key === "f" ) fitView();
   });
 
@@ -23556,6 +24012,7 @@ async function boot(){
     const custom = await Store.getKey("themes");
     if(Array.isArray(custom)) S.customThemes = custom;
     await loadPrefs();
+    try{ await restoreOwnBackdrops(); }catch(e){}
     if(el("vistaPref")) el("vistaPref").value = S.vista;
     if(el("worldAutoPref")) el("worldAutoPref").checked = S.worldAuto !== false;
     if(el("roomSkin")) el("roomSkin").value = S.roomSkin;
