@@ -4180,7 +4180,7 @@ body.viewing.panelaway #panelHide{display:none}
             <span class="ic">&#9776;</span><span class="lb">Go to</span></button>
           <div class="rv-findmore" id="rvFindMore" hidden></div>
           <div class="rv-bar-right">
-            <button class="rvb" id="rvHelp" title="How this works, and a guided tour (press ? any time)">
+            <button class="rvb" id="rvHelp" title="How this works, every shortcut, and a guided tour">
               <span class="ic">?</span><span class="lb">Help</span></button>
             <button class="rvb" id="rvMood" title="Plain, or the whole cast">
               <span class="ic">&#9788;</span><span class="lb">Liven it up</span></button>
@@ -4578,7 +4578,7 @@ body.viewing.panelaway #panelHide{display:none}
 
 <dialog id="respondDlg" class="respond">
   <div class="dlg-head">
-    <h2 id="rsTitle">Respond</h2>
+    <h2 id="rsTitle">Feedback</h2>
     <button class="btn" id="rsClose">Done</button>
   </div>
   <div class="dlg-body" id="rsBody"></div>
@@ -17521,7 +17521,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-10-01c";
+const APP_BUILD = "2026-10-01d";
 
 /* Reading that line back out of a copy of this file.
 
@@ -21311,9 +21311,9 @@ function renderRoom(){
   }
   fitWall();
   el("rvEdit").hidden = false;
-  el("rvEdit").querySelector(".lb").textContent = canEdit() ? "Edit" : "Respond";
+  el("rvEdit").querySelector(".lb").textContent = canEdit() ? "Edit" : "Feedback";
   el("rvEdit").title = canEdit() ? "Open this room's panel to change it"
-    : "Suggest a change, ask a question, or confirm what is asked here";
+    : "Send feedback on this room, and confirm anything asked of you here";
   el("rvEdit").classList.toggle("on",
     (!canEdit() && owed > 0) || (!panelIsAway() && !window.matchMedia("(max-width:820px)").matches));
   el("rvAdd").hidden = !canEdit();
@@ -21964,7 +21964,6 @@ function noteBackIntoWorkbook(n){
 const SHORTCUTS = [
   ["Anywhere", [
     ["/", "Jump to the search box (when you are not already typing somewhere)"],
-    ["?", "Open this help (Shift and /)"],
     ["Esc", "Clear the search, close a list or a peek, step out of what a search found"]]],
   ["In the search box", [
     ["Enter", "Go straight to the top result"],
@@ -22044,20 +22043,20 @@ const HELP_TOPICS = [
     <p class="lead">Some rooms ask you to confirm you have read and understood them.</p>
     <ol>
       <li>Rooms waiting on you show <b>For you</b> on the console with a number.</li>
-      <li>Press <b>For you</b> (or <b>Respond</b>) and then <b>Confirm</b> beside each item.</li>
+      <li>Press <b>For you</b> (or <b>Feedback</b>) and then <b>Confirm</b> beside each item.</li>
       <li>Some items ask for an accession number, an answer, or a screenshot as evidence. Give it, then confirm.</li>
       <li>Changed your mind? <b>Undo</b> is beside anything you confirmed.</li>
     </ol>
     <div class="tip">Each item is confirmed on its own, on purpose: read it, then give your evidence.</div>
-    {{shot:confirm|The Respond sheet with something to confirm}}`},
+    {{shot:confirm|The Feedback sheet with something to confirm}}`},
   {id:"feedback", title:"Questions and feedback", body:`
     <h3>Questions and feedback</h3>
     <ul>
-      <li>Press <b>Respond</b> in any room, then write in <b>Feedback</b>. Pick what it is &mdash; a question, wording, logic, should be retired, something else &mdash; and send.</li>
+      <li>Press <b>Feedback</b> in any room &mdash; every room has it &mdash; and write. Pick what it is &mdash; a question, wording, logic, should be retired, something else &mdash; and send.</li>
       <li>Only you and whoever looks after the map see your feedback.</li>
       <li>Your feedback is saved in your own file in the shared folder, so it reaches the editor even if you close the page.</li>
     </ul>
-    {{shot:feedback|Sending feedback from the Respond sheet}}`},
+    {{shot:feedback|Sending feedback from a room}}`},
   {id:"places", title:"Bookmarks and shelves", body:`
     <h3>Bookmarks and shelves</h3>
     <ul>
@@ -22187,10 +22186,18 @@ function tourSteps(){
     {title:"Questions", text:"Start a search with ? to search only the questions people ask. Each shows the rooms that answer it.",
       todo:"Clear the search box and type ?", target:()=>el("mq"),
       start:()=>{ if(listOpen) showList(false); }, done:()=>(el("mq").value || "").trim().startsWith("?")},
-    viewer ? {title:"Respond", text:"Respond is where you confirm what is asked of you and send feedback. For you shows how many rooms are waiting on you.",
-      target:()=>el("rvEdit")} : {title:"Your panel", text:"In editing mode, the panel on the right is where a room's note, questions, keywords and confirm items are changed.",
+    viewer ? {title:"Feedback", text:"Every room has Feedback: a question, something unclear, or something that should change. If a room asks you to confirm something, that is in here too, and For you shows how many rooms are waiting on you.",
+      todo:"Tap Feedback", target:()=>el("rvEdit"),
+      start:()=>{
+        /* back in a real room, out of whatever the search had them standing in */
+        if(S.roomWorld) leaveWorld();
+        el("mq").value = ""; el("q").value = ""; runSearch(); closeResults();
+        if(!S.sel || !S.nodes.has(S.sel)){ const first = roots()[0]; if(first) arriveAt(first); }
+        renderRoom();
+      },
+      done:()=>el("respondDlg").open, after:()=>{ if(el("respondDlg").open) el("respondDlg").close(); }} : {title:"Your panel", text:"In editing mode, the panel on the right is where a room's note, questions, keywords and confirm items are changed.",
       target:()=>el("inspector")},
-    {title:"Help any time", text:"That's it. The ? Help button (or the ? key) has all of this, every shortcut, and this tour.",
+    {title:"Help any time", text:"That's it. The ? Help button has all of this, every shortcut, and this tour.",
       target:()=>el("rvHelp")}
   ];
 }
@@ -22252,7 +22259,7 @@ function endTour(done){
   S.personal.tourDone = true; savePersonal();
   if(done){
     el("mq").value = ""; el("q").value = ""; runSearch();
-    toast("Tour done \u2014 press ? any time for help");
+    toast("Tour done \u2014 the ? Help button has it all again");
   }
 }
 function tourShow(){
@@ -22303,7 +22310,7 @@ function tourTick(){
     el("tourDo").classList.add("done");
     el("tourDo").innerHTML = "\u2713 " + (st.todo || "Done");
     el("tourNext").textContent = "Next";
-    setTimeout(()=>{ if(tour && tour.steps[tour.i] === st){ tour.i++; tourShow(); } }, 900);
+    setTimeout(()=>{ if(tour && tour.steps[tour.i] === st){ if(st.after) st.after(); tour.i++; tourShow(); } }, 900);
   }
   tourPlace();
 }
@@ -25381,9 +25388,6 @@ async function boot(){
        box, a note, a tag field or anything editable it is just a slash */
     const ae = document.activeElement;
     const typing = /INPUT|TEXTAREA|SELECT/.test(ae.tagName) || !!(ae && ae.isContentEditable);
-    if(ev.key === "?" && !typing && !document.querySelector("dialog[open]")){
-      ev.preventDefault(); openHelp(); return;
-    }
     if(ev.key === "Escape" && tour){ endTour(false); return; }
     if(ev.key === "/" && !typing && !ev.ctrlKey && !ev.metaKey && !ev.altKey
        && !document.querySelector("dialog[open]")){
