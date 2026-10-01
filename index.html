@@ -3075,6 +3075,46 @@ dialog#connDlg::backdrop{background:rgba(35,40,45,.42)}
 .rs-item .rs-what small{display:block;color:var(--graphite-60);font-size:12px;margin-top:2px}
 .rs-item .rs-what small.rs-note{color:var(--graphite);font-size:13px;white-space:pre-wrap;margin:3px 0 2px}
 .peopledlg{width:min(640px, calc(100vw - 20px))}
+dialog#exhibitDlg{border:0;border-radius:6px;padding:0;width:min(900px, calc(100vw - 20px));height:min(88vh, 860px);
+  display:flex;flex-direction:column;background:#F4EFE6;color:#2B2620;box-shadow:0 30px 80px rgba(0,0,0,.45)}
+dialog#exhibitDlg::backdrop{background:rgba(18,16,14,.72)}
+@media (max-width:820px){ dialog#exhibitDlg{width:100vw;height:100dvh;max-height:none;border-radius:0} }
+.ex-head{display:flex;align-items:flex-end;gap:12px;padding:22px 28px 14px;border-bottom:1px solid #D8CDBB;
+  background:linear-gradient(#EAE2D3,#F4EFE6)}
+.ex-head>div{flex:1;min-width:0}
+.ex-kicker{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#8A7A62}
+.ex-title{display:block;margin:4px 0 0;color:#2B2620;font-family:Georgia,"Times New Roman",serif;font-size:28px;font-weight:400;line-height:1.15}
+.ex-body{flex:1;overflow:auto;padding:22px 28px 40px}
+.ex-intro{font-family:Georgia,"Times New Roman",serif;font-size:17px;line-height:1.7;max-width:680px;margin:0 auto 26px;
+  padding:0 0 22px;border-bottom:1px solid #D8CDBB}
+.ex-intro p{margin:0 0 10px}
+.ex-empty{color:#8A7A62;font-style:italic;text-align:center}
+.ex-line{list-style:none;margin:0 auto;padding:0 0 0 30px;max-width:680px;position:relative}
+.ex-line::before{content:"";position:absolute;left:9px;top:6px;bottom:6px;width:2px;background:#C9B58F}
+.ex-stop{position:relative;margin:0 0 22px}
+.ex-dot{position:absolute;left:-27px;top:8px;width:14px;height:14px;border-radius:50%;background:#F4EFE6;border:2px solid #A9884F}
+.ex-stop.now .ex-dot{background:#A9884F;box-shadow:0 0 0 4px rgba(169,136,79,.25)}
+.ex-card{background:#FBF8F2;border:1px solid #DDD1BD;border-radius:4px;padding:14px 18px;box-shadow:0 2px 0 #E6DCCB}
+.ex-stop.now .ex-card{background:#fff;border-color:#A9884F}
+.ex-date{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A7A62}
+.ex-card h4{margin:4px 0 8px;font-family:Georgia,"Times New Roman",serif;font-size:20px;font-weight:400}
+.ex-placard{font-size:14.5px;line-height:1.6;border-left:3px solid #C9B58F;padding:2px 0 2px 12px;margin:0 0 10px}
+.ex-placard p{margin:0 0 6px}
+.ex-old{font-size:13px;margin:6px 0}
+.ex-old summary{cursor:pointer;color:#7A5C2E}
+.ex-old .noteview{max-height:260px;overflow:auto;background:#F4EFE6;padding:8px 10px;border-radius:3px;margin-top:6px}
+.ex-visit{border:0;background:none;color:#7A5C2E;cursor:pointer;font:inherit;font-size:13px;padding:4px 0 0}
+.ex-visit:hover{text-decoration:underline}
+.ex-nowline{margin:0;font-size:14px;color:#5A5040}
+.rv-past{display:flex;align-items:center;gap:8px;margin:0 14px 8px;align-self:flex-start;border:1px solid #C9B58F;
+  background:linear-gradient(#FBF6EC,#F1E7D4);color:#5A4426;border-radius:4px;padding:5px 12px 5px 9px;cursor:pointer;
+  font-family:Georgia,"Times New Roman",serif;font-size:13.5px;flex:0 0 auto}
+.rv-past:hover{border-color:#A9884F;box-shadow:0 2px 8px -4px rgba(90,68,38,.5)}
+.rv-past[hidden]{display:none}
+.rv-past s{text-decoration:none;font-family:var(--mono);font-size:10.5px;color:#8A7A62}
+.tr-stop{border:1px solid var(--rule);border-radius:4px;padding:8px 10px;margin:8px 0;background:var(--paper-2)}
+.tr-head{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.tr-head b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 dialog#helpDlg{border:1px solid var(--graphite);border-radius:3px;padding:0;background:var(--paper);color:var(--graphite);
   width:min(880px, calc(100vw - 20px));height:min(82vh, 760px);display:flex;flex-direction:column}
 dialog#helpDlg::backdrop{background:rgba(35,40,45,.42)}
@@ -4138,6 +4178,8 @@ body.viewing.panelaway #panelHide{display:none}
             </div>
             <div class="rv-tags" id="rvTags" hidden></div>
             <div class="rv-qs" id="rvQs" hidden></div>
+            <button class="rv-past" id="rvPast" hidden title="How this came to be">
+              <span class="rv-past-ic">&#127963;</span><span>Remember the Past</span><s id="rvPastN"></s></button>
             <div class="rv-wallrow">
               <figure class="rv-pic" id="rvPic" hidden><img alt=""></figure>
               <div class="rv-note" id="rvNote"></div>
@@ -4613,6 +4655,14 @@ body.viewing.panelaway #panelHide{display:none}
     </div>
     <p class="fineprint" id="signWarn"></p>
   </div>
+</dialog>
+
+<dialog id="exhibitDlg">
+  <div class="ex-head">
+    <div><span class="ex-kicker">Remember the Past</span><div class="ex-title" id="pastTitle"></div></div>
+    <button class="btn" id="exClose">Close</button>
+  </div>
+  <div class="ex-body" id="pastBody"></div>
 </dialog>
 
 <dialog id="helpDlg">
@@ -5141,6 +5191,7 @@ function newNode(o={}){
     badge:"", badgeAt:"", badgeImage:"", supersededBy:"", tableSort:"", order:"",
     backdrop:"", backdropFloor:"", backdropSalt:"", spots:"", date:"",
     collect:"", collectGoal:"", noSearch:"", keywords:"", bodyFile:"",
+    trailIntro:"", trailAdd:"", trailHide:"", trailDate:"", trailCaption:"",
     created:nowISO(), modified:nowISO(),
     rev:1, author:S.meta.author, x:null, y:null, pinned:false, collapsed:false
   }, o);
@@ -5883,6 +5934,145 @@ function setOwnArt(id, which, value){
    whatever replaced it, so looking up the old thing shows the new one
    in the same breath.
    --------------------------------------------------------------- */
+/* ---------------------------------------------------------------
+   REMEMBER THE PAST
+   A room can carry the story of how its point came to be: the retired
+   rooms it grew out of, in order, each with a placard saying what was
+   different then, and an opening statement for the whole exhibit.
+   The stops come from the retire-and-replace chain by themselves; any
+   other retired room can be added by hand, and any can be taken off.
+   The statement lives on the current room; each placard and its date
+   live on the retired room it describes.
+   --------------------------------------------------------------- */
+const idList = v=>String(v || "").split(",").map(x=>x.trim()).filter(Boolean);
+function trailStops(id){
+  const n = S.nodes.get(id);
+  if(!n) return [];
+  const hide = new Set(idList(n.trailHide));
+  const ids = [...new Set([...layersUnder(id), ...idList(n.trailAdd)])]
+    .filter(k=>k !== id && S.nodes.has(k) && !hide.has(k));
+  const when = k=>{ const x = S.nodes.get(k); return String(x.trailDate || x.created || "").slice(0, 10); };
+  return ids.sort((a, b)=>when(a).localeCompare(when(b)) || nodeName(a).localeCompare(nodeName(b)))
+    .map(k=>({id:k, date:when(k)}));
+}
+function hasTrail(id){
+  const n = S.nodes.get(id);
+  return !!n && (trailStops(id).length > 0 || !!String(n.trailIntro || "").trim());
+}
+function prettyDate(d){
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(d || ""));
+  if(!m) return d || "";
+  const mon = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+m[2] - 1];
+  return mon + " " + (+m[3]) + ", " + m[1];
+}
+function openExhibit(id){
+  const n = S.nodes.get(id);
+  if(!n) return;
+  const stops = trailStops(id);
+  const today = String(n.date || n.modified || nowISO()).slice(0, 10);
+  const body = el("pastBody");
+  el("pastTitle").textContent = n.label || "This room";
+  const placard = (txt)=>txt ? `<div class="ex-placard">${noteToHtml(txt)}</div>` : "";
+  const oldNote = (k)=>{
+    const x = S.nodes.get(k), t = String(x.body || "").trim();
+    if(!t) return "";
+    return `<details class="ex-old"><summary>What it said then</summary><div class="noteview">${noteToHtml(t, x)}</div></details>`;
+  };
+  body.innerHTML = `
+    ${String(n.trailIntro || "").trim() ? `<div class="ex-intro">${noteToHtml(n.trailIntro)}</div>`
+      : canEdit() ? `<p class="ex-empty">No opening statement yet \u2014 write one in this room's panel, under Remember the Past.</p>` : ""}
+    <ol class="ex-line">
+      ${stops.map((st, i)=>{ const x = S.nodes.get(st.id); return `<li class="ex-stop">
+        <div class="ex-dot"></div>
+        <div class="ex-card">
+          <div class="ex-date">${esc(prettyDate(st.date))}${i === 0 ? " \u00b7 where it began" : ""}</div>
+          <h4>${esc(x.label || st.id)}</h4>
+          ${placard(x.trailCaption)}
+          ${oldNote(st.id)}
+          <button class="ex-visit" data-exgo="${esc(st.id)}">Visit this room as it was &rarr;</button>
+        </div></li>`; }).join("")}
+      <li class="ex-stop now">
+        <div class="ex-dot"></div>
+        <div class="ex-card">
+          <div class="ex-date">Today</div>
+          <h4>${esc(n.label || id)}</h4>
+          <p class="ex-nowline">How it is done now &mdash; the room you are standing in.</p>
+        </div></li>
+    </ol>`;
+  body.querySelectorAll("[data-exgo]").forEach(b=>{
+    b.onclick = ()=>{ el("exhibitDlg").close(); arriveAt(b.dataset.exgo); };
+  });
+  el("exhibitDlg").showModal();
+  body.scrollTop = 0;
+}
+/* the panel section, for the editor */
+function trailPanel(n){
+  if(!isRoot()) return "";
+  const stops = trailStops(n.id);
+  const auto = new Set(layersUnder(n.id));
+  const hidden = idList(n.trailHide).filter(k=>S.nodes.has(k));
+  const candidates = [...S.nodes.values()].filter(x=>x.id !== n.id && x.status === "retired"
+    && !stops.some(s=>s.id === x.id));
+  return `<div class="group" id="trailGroup">
+      <h2>Remember the Past</h2>
+      <label class="field"><span>Opening statement for the exhibit</span>
+        <textarea id="trIntro" rows="4" placeholder="How this point came to be, and why it changed...">${esc(n.trailIntro || "")}</textarea></label>
+      ${stops.length ? stops.map(st=>{ const x = S.nodes.get(st.id); return `<div class="tr-stop">
+          <div class="tr-head"><b>${esc(x.label || st.id)}</b>
+            <span class="fold">${auto.has(st.id) ? "replaced by this" : "added by hand"}</span>
+            <button class="kill" data-trout="${esc(st.id)}" title="Leave it out of the exhibit">&times;</button></div>
+          <label class="field"><span>In use from</span>
+            <input type="date" data-trdate="${esc(st.id)}" value="${esc(String(x.trailDate || x.created || "").slice(0, 10))}"></label>
+          <label class="field"><span>Placard: what was different, and why it changed</span>
+            <textarea rows="3" data-trcap="${esc(st.id)}">${esc(x.trailCaption || "")}</textarea></label>
+        </div>`; }).join("")
+        : `<p class="tocempty">No earlier versions yet. Retire an old room and point it at this one, or add a retired room below.</p>`}
+      <div class="qanchor">
+        <input type="text" id="trAddText" list="trAddList" autocomplete="off" placeholder="Add a retired room to the trail">
+        <datalist id="trAddList">${candidates.map(x=>`<option value="${esc(x.label || x.id)}">`).join("")}</datalist>
+        <button class="btn" id="trAdd">Add</button>
+      </div>
+      ${hidden.length ? `<p class="fineprint" style="margin:6px 0 0">Left out: ${hidden.map(k=>`<a href="#" data-trback="${esc(k)}">${esc(nodeName(k))}</a>`).join(", ")}</p>` : ""}
+      <div class="row" style="margin-top:8px"><button class="btn wide" id="trOpen"${hasTrail(n.id) ? "" : " disabled"}>Open the exhibit</button></div>
+    </div>`;
+}
+function wireTrailPanel(n){
+  if(!el("trailGroup")) return;
+  const save = ()=>{ markDirty(); renderRoomSoon(); };
+  el("trIntro").onchange = e=>{ setField(n, "trailIntro", e.target.value); save(); el("trOpen").disabled = !hasTrail(n.id); };
+  el("trailGroup").querySelectorAll("[data-trdate]").forEach(i=>{
+    i.onchange = ()=>{ const x = S.nodes.get(i.dataset.trdate); if(!x) return; setField(x, "trailDate", i.value); save(); renderInspector(); };
+  });
+  el("trailGroup").querySelectorAll("[data-trcap]").forEach(t=>{
+    t.onchange = ()=>{ const x = S.nodes.get(t.dataset.trcap); if(!x) return; setField(x, "trailCaption", t.value); save(); };
+  });
+  el("trailGroup").querySelectorAll("[data-trout]").forEach(b=>{
+    b.onclick = ()=>{
+      const k = b.dataset.trout;
+      setField(n, "trailAdd", idList(n.trailAdd).filter(x=>x !== k).join(", "));
+      if(layersUnder(n.id).includes(k)) setField(n, "trailHide", [...new Set([...idList(n.trailHide), k])].join(", "));
+      save(); renderInspector();
+    };
+  });
+  el("trailGroup").querySelectorAll("[data-trback]").forEach(a=>{
+    a.onclick = ev=>{ ev.preventDefault();
+      setField(n, "trailHide", idList(n.trailHide).filter(x=>x !== a.dataset.trback).join(", ")); save(); renderInspector(); };
+  });
+  const add = ()=>{
+    const t = (el("trAddText").value || "").trim().toLowerCase();
+    if(!t) return;
+    const x = [...S.nodes.values()].find(y=>y.id !== n.id && (String(y.label || "").toLowerCase() === t || y.id.toLowerCase() === t));
+    if(!x){ toast("No room by that name."); return; }
+    setField(n, "trailAdd", [...new Set([...idList(n.trailAdd), x.id])].join(", "));
+    setField(n, "trailHide", idList(n.trailHide).filter(k=>k !== x.id).join(", "));
+    save(); renderInspector();
+    if(x.status !== "retired") toast("Added \u2014 it is not retired, so it shows as an earlier stage that still stands.");
+  };
+  el("trAdd").onclick = add;
+  el("trAddText").addEventListener("keydown", ev=>{ if(ev.key === "Enter"){ ev.preventDefault(); add(); } });
+  el("trOpen").onclick = ()=>openExhibit(n.id);
+}
+
 function replacementOf(id){
   const n = S.nodes.get(id);
   const to = n && n.supersededBy;
@@ -6691,7 +6881,7 @@ function seed(){
    Kept human-readable so the workbook stands on its own.
    ===================================================================== */
 const HDR = {
-  Nodes:["node_id","label","body","type","tags","status","flag","image","image_h","created","modified","rev","edit","author","badge","badge_at","badge_image","superseded_by","table_sort","order","date","collect","collect_goal","backdrop","backdrop_floor","backdrop_salt","spots","x","y","pinned","parent_id","depth","path","no_search","keywords","body_file"],
+  Nodes:["node_id","label","body","type","tags","status","flag","image","image_h","created","modified","rev","edit","author","badge","badge_at","badge_image","superseded_by","table_sort","order","date","collect","collect_goal","backdrop","backdrop_floor","backdrop_salt","spots","x","y","pinned","parent_id","depth","path","no_search","keywords","body_file","trail_intro","trail_add","trail_hide","trail_date","trail_caption"],
   Links:["edge_id","from_id","to_id","link_type","tag","label","condition","route","from_side","to_side","bow","color","line_style","width","arrow"],
   Revisions:["rev_id","node_id","timestamp","author","field","class","note","folded","old_value","new_value"],
   TagStyles:["tag","color","line_style","width","arrow","applies_to"],
@@ -6726,6 +6916,8 @@ function toSheets(){
   const nodes = [...S.nodes.values()].map(n=>({
     node_id:n.id, label:n.label, body:n.bodyFile && n._noteLoaded ? notePreview(n) : n.body, type:n.type,
     body_file:n.bodyFile || "",
+    trail_intro:n.trailIntro || "", trail_add:n.trailAdd || "", trail_hide:n.trailHide || "",
+    trail_date:n.trailDate || "", trail_caption:n.trailCaption || "",
     tags:(n.tags||[]).join(", "), status:n.status, flag:n.flag||"",
     image:n.image||"", image_h:n.image?(n.imageH||120):"",
     backdrop:n.backdrop||"", backdrop_floor:n.backdropFloor === "" || n.backdropFloor == null
@@ -6888,6 +7080,9 @@ function tablesToModel(t){
     const n = newNode({
       id:String(r.node_id||uid("N-")), label:String(r.label??""), body:String(r.body??""),
       bodyFile:String(r.body_file||"").trim(),
+      trailIntro:String(r.trail_intro||""), trailAdd:String(r.trail_add||"").trim(),
+      trailHide:String(r.trail_hide||"").trim(), trailDate:String(r.trail_date||"").trim(),
+      trailCaption:String(r.trail_caption||""),
       type:String(r.type||"step"),
       tags:String(r.tags||"").split(",").map(x=>x.trim()).filter(Boolean),
       status:String(r.status||"active").toLowerCase(), flag:String(r.flag||""),
@@ -13954,6 +14149,8 @@ function contributionBlock(n){
         <button class="btn wide" id="addCheckItem">Add something to confirm</button></div>` : ""}
     </div>
 
+    ${trailPanel(n)}
+
     <div class="group" id="qGroup">
       <h2>Questions this answers</h2>
       ${questionsForNode(n.id).length
@@ -14007,6 +14204,7 @@ function contributionBlock(n){
 
 function wireContributions(n){
   const body = el("inspBody");
+  wireTrailPanel(n);
   body.querySelectorAll("[data-check]").forEach(cb=>{
     cb.onchange = ()=>{
       if(!whoAmI()){ cb.checked = !cb.checked; return; }
@@ -14997,7 +15195,7 @@ function runSearchCore(){
       if(!hashPass(n, hashTags)) return false;
       if(!terms.length) return true;
       if(titleOnly) return matches([n.label, (n.tags||[]).join(" ")].join(" "));
-      const hay = [n.label, n.body, n.id, n.type, n.status, (n.tags||[]).join(" "),
+      const hay = [n.label, n.body, n.trailIntro || "", n.trailCaption || "", n.id, n.type, n.status, (n.tags||[]).join(" "),
         (n.image||"").startsWith("data:") ? "photo image" : (n.image||"")].join(" ");
       if(viaQuestions.has(n.id) || matches(hay)) return true;
       /* the room's own search keywords, looked at as written */
@@ -16145,7 +16343,7 @@ function buildWorkbookFrom(data){
   reportTrim(splitForCells(data, XLSX_CELL), "a spreadsheet file");
   const wb = XLSX.utils.book_new();
   const widths = {
-    Nodes:[14,34,44,11,20,9,10,40,8,19,19,6,6,10,9,19,40,14,10,7,8,8,8,14,7,60,8,8,8,8,8,8,8,8,30,30],
+    Nodes:[14,34,44,11,20,9,10,40,8,19,19,6,6,10,9,19,40,14,10,7,8,8,8,14,7,60,8,8,8,8,8,8,8,8,30,30,40,20,20,11,40],
     Links:[14,14,14,10,14,20,24,10,10,10,7,10,11,7,7],
     Revisions:[8,14,19,10,14,11,26,7,30,30],
     TagStyles:[16,10,11,7,7,10],
@@ -17521,7 +17719,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-10-01d";
+const APP_BUILD = "2026-10-01e";
 
 /* Reading that line back out of a copy of this file.
 
@@ -21055,6 +21253,7 @@ function renderRoom(){
   if(wipeTags){ wipeTags.hidden = true; wipeTags.innerHTML = ""; }
   const wipeQs = el("rvQs");
   if(wipeQs){ wipeQs.hidden = true; wipeQs.innerHTML = ""; }
+  if(el("rvPast")) el("rvPast").hidden = true;
   paintStar("");
   if(el("rvBulk")) el("rvBulk").hidden = true;
   /* Only a room that asks for examples offers the button, and the hall and a
@@ -21431,6 +21630,16 @@ function paintStar(id){
 }
 function paintRoomQuestions(id){
   paintStar(id);
+  const past = el("rvPast");
+  if(past){
+    const on = !!id && hasTrail(id);
+    past.hidden = !on;
+    if(on){
+      const k = trailStops(id).length;
+      el("rvPastN").textContent = k ? k + (k === 1 ? " earlier version" : " earlier versions") : "";
+      past.onclick = ()=>openExhibit(id);
+    }
+  }
   const box = el("rvQs");
   if(!box) return;
   const qs = questionsForNode(id);
@@ -22036,6 +22245,7 @@ const HELP_TOPICS = [
       <li><b>Answers</b> under the name are the questions this room answers.</li>
       <li><b>Pictures</b> sit beside the note. Long notes scroll inside the card.</li>
       <li><b>Line up</b> puts the rooms on the floor in a tidy row instead of wandering.</li>
+      <li><b>&#127963; Remember the Past</b>, when a room has it, opens the story of how this step came to be: each earlier version in order, with a placard on what changed and why.</li>
     </ul>
     {{shot:room|A room with its star, copy button and questions}}`},
   {id:"confirm", title:"Confirming things", body:`
@@ -22085,6 +22295,7 @@ const HELP_TOPICS = [
       <li><b>Search keywords</b> on a node are found by search but never shown &mdash; codes, other names, common misspellings.</li>
       <li>A very long note can be <b>moved into its own file</b> in notes/; it is still shown and searched in full.</li>
       <li><b>Waiting for you</b> lists feedback, questions with no answering room, and who still has to confirm what.</li>
+      <li><b>Remember the Past</b> in a node's panel: write the opening statement, and a date and placard for each earlier version. Retired rooms pointing at this one join by themselves; add others by name, or take any out with &times;.</li>
       <li><b>Out-of-date copies</b> warn themselves: building a copy records its build in the workbook, and any older copy that reads the workbook shows a yellow "This copy is out of date" bar. Build, then put the new copies in the shared folder.</li>
       <li>Screenshots for this help: click an empty picture slot here, in editing mode, to add one. It is saved as images/help-&lt;topic&gt;.png in the shared folder.</li>
     </ul>`}
@@ -24954,6 +25165,7 @@ async function boot(){
   el("shelfClose").onclick = ()=>el("shelfDlg").close();
   el("placesClose").onclick = ()=>el("placesDlg").close();
   el("helpClose").onclick = ()=>el("helpDlg").close();
+  el("exClose").onclick = ()=>el("exhibitDlg").close();
   el("staleHide").onclick = ()=>{ staleHidden = true; el("staleBar").hidden = true; };
   el("helpTour").onclick = ()=>startTour();
   el("rvHelp").onclick = ()=>openHelp();
