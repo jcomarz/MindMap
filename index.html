@@ -377,6 +377,22 @@ input[type=range],input[type=color],input[type=checkbox],input[type=file]{cursor
 .rp-tgroup[open]>summary::before{transform:rotate(90deg)}
 .rp-tgroup>summary .cnt{font-weight:400;color:var(--graphite-60);font-family:var(--mono);font-size:10.5px}
 .rp-tkids{display:flex;flex-wrap:wrap;gap:5px;padding:2px 9px 8px}
+#resultsPop.starter .rp-foot{display:none}
+.rp-filt.on{background:var(--blueprint-soft);border-color:var(--blueprint)}
+.rp-chips{display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px;border-bottom:1px solid var(--rule);flex:0 0 auto}
+.rp-chips[hidden]{display:none}
+.rp-chips .rp-tag.on{background:var(--blueprint);color:#fff;border-color:var(--blueprint)}
+.rp-chips .rp-taglist{flex:1 1 100%;display:flex;flex-wrap:wrap;gap:5px;padding-top:4px}
+.rp-sect{margin:8px 0 2px;font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--graphite-60)}
+.rp-recent{display:inline-flex;align-items:center;gap:5px;margin:3px 5px 3px 0}
+.ressnip{display:block;font-size:12px;color:var(--graphite-60);margin-top:2px;line-height:1.4;
+  overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.ressnip mark{background:var(--hit-line);color:var(--graphite);border-radius:1px;padding:0 1px}
+.rp-typo{font-size:12.5px;padding:7px 2px;border-bottom:1px solid var(--rule-soft);margin-bottom:4px}
+.rp-typo b{color:var(--graphite)}
+.rp-typo button{border:0;background:none;color:var(--blueprint);cursor:pointer;font:inherit;padding:0;text-decoration:underline}
+.rp-dead{padding:12px 4px;font-size:13px;color:var(--graphite-60)}
+.rp-dead .btn{margin-top:8px}
 .restrail.exhit{color:var(--blueprint, #2D6CDF);font-family:var(--mono)}
 /* a row being held fills from the left; ready when it is full */
 .resrow{position:relative;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
@@ -4287,8 +4303,10 @@ body.viewing.panelaway #panelHide{display:none}
 <div id="resultsPop" hidden>
   <div class="rp-head">
     <b id="resultsLabel"></b>
+    <button class="btn rp-filt" id="resFilters" title="Buttons for what the shortcuts do: ? for questions, # for tags">Filters &#9656;</button>
     <button class="btn" id="resClose">Close</button>
   </div>
+  <div class="rp-chips" id="resChips" hidden></div>
   <div class="rp-body" id="tocResults"></div>
   <div class="rp-foot">
     <button class="btn" id="resPrint">Print these notes</button>
@@ -9834,6 +9852,9 @@ function renderResultsCore(){
     const scoped = S.searchScope && S.searchScope !== "all";
     const showing = hasQuery || S.tagPick.size || scoped;
     const pop = el("resultsPop");
+    pop.classList.toggle("starter", !showing && starterOn);
+    paintChips();
+    if(!showing && starterOn){ renderStarter(); return; }
     pop.hidden = !showing;
     if(showing){
       const n = targets.length;
@@ -9881,6 +9902,7 @@ function renderResultsCore(){
               display:inline-block;margin-right:6px;vertical-align:middle"></span>` : ""}
             ${gone ? `<span class="retchip">retired</span>` : ""}
             ${esc(n.label || n.id)}</span>
+          ${(()=>{ const sn = snippetFor(n, qTerms); return sn ? `<span class="ressnip">${sn}</span>` : ""; })()}
           ${kwOf(t.id) && !exHit(t.id) ? `<span class="restrail exhit">keyword ${esc(kwOf(t.id))}</span>` : ""}
           ${exHit(t.id) ? `<span class="restrail exhit">example ${esc(exHit(t.id).accession)}${
                exHit(t.id).person ? " \u00b7 " + esc(exHit(t.id).person) : ""}</span>` : ""}
@@ -9943,10 +9965,23 @@ function renderResultsCore(){
       const nodeRows = S.qOnly ? "" : (targets.length ? targets.slice(0, 300).map(row).join("")
                         : (qs.length ? "" : `<p class="tocempty">Nothing matched.</p>`))
         + (targets.length > 300 ? `<p class="tocempty">Showing the first 300.</p>` : "");
-      el("tocResults").innerHTML = tagStrip + qToggle
+      const typoNote = S.typoFrom ? `<div class="rp-typo">Nothing for \u201c${esc(S.typoFrom)}\u201d, so this is
+          <b>\u201c${esc(String(S.hitQuery).replace(/^\?+/, ""))}\u201d</b>.
+          <button id="resNoFix">Search for \u201c${esc(S.typoFrom)}\u201d anyway</button></div>` : "";
+      const dead = !targets.length && !qs.length && hasQuery
+        && String(S.hitQuery || "").replace(/^\?+/, "").replace(/(^|\s)#\S*/g, " ").trim()
+        ? `<div class="rp-dead">Nothing found for \u201c${esc(String(S.hitQuery).replace(/^\?+/, ""))}\u201d.<br>
+            <button class="btn" id="resAsk">${canEdit() ? "Write it as a question" : "Ask this as a question"}</button></div>` : "";
+      el("tocResults").innerHTML = typoNote + tagStrip + qToggle
         + (qs.length ? qs.slice(0, 60).map(qRow).join("") + (S.qOnly ? "" : `<div class="resq-sep"></div>`)
                      : (S.qOnly ? `<p class="tocempty">${S.questions.length ? "No question asked that way." : "There are no questions yet."}</p>` : ""))
-        + nodeRows;
+        + (dead ? "" : nodeRows) + dead;
+      if(el("resNoFix")) el("resNoFix").onclick = ev=>{
+        ev.stopPropagation();
+        S.noTypoFix = S.typoFrom;
+        runSearch();
+      };
+      if(el("resAsk")) el("resAsk").onclick = ev=>{ ev.stopPropagation(); askFromSearch(String(S.hitQuery || "").replace(/^\?+/, "").trim()); };
       if(el("resQOnly")) el("resQOnly").onclick = ev=>{
         ev.stopPropagation();
         const box = el("mq");
@@ -9982,6 +10017,129 @@ function renderResultsCore(){
     }
   }
 
+}
+
+/* ---------------------------------------------------------------
+   BEFORE ANYTHING IS TYPED: an empty search box offers what you most
+   likely want — what you searched for lately, your bookmarks, and the
+   rooms you go into most — so often nothing has to be typed at all.
+   --------------------------------------------------------------- */
+let starterOn = false;
+function renderStarter(){
+  const pop = el("resultsPop");
+  const recent = (S.personal.searches || []).slice(0, 6);
+  const bms = placesBookmarks().slice(0, 6);
+  const visits = S.personal.visits || {};
+  const most = Object.keys(visits).filter(id=>S.nodes.has(id))
+    .sort((a, b)=>visits[b] - visits[a]).slice(0, 6);
+  const row = id=>{
+    const trail = []; let up = parentOf(id), g = 0;
+    while(up && g++ < 4){ trail.unshift(nodeName(up)); up = parentOf(up); }
+    return `<div class="resrow" data-res="node:${esc(id)}"><span class="toclabel">${esc(nodeName(id))}</span>
+      ${trail.length ? `<span class="restrail">${esc(trail.slice(-2).join(" \u203a "))}</span>` : ""}</div>`;
+  };
+  let html = "";
+  if(recent.length) html += `<p class="rp-sect">Searched lately</p><div>` + recent.map(q=>
+    `<button class="rp-tag rp-recent" data-starterq="${esc(q)}">${esc(q)}</button>`).join("") + `</div>`;
+  if(bms.length) html += `<p class="rp-sect">Bookmarks</p>` + bms.map(({b})=>
+    `<div class="resrow" data-bmgo="${esc(b.id)}"><span class="toclabel">${b.icon
+      ? `<img class="bmic" src="${esc(b.icon)}" alt="" style="width:16px;height:16px;object-fit:cover;border-radius:3px;vertical-align:-3px;margin-right:6px">`
+      : "\u2605 "}${esc(b.label || nodeName(b.node))}</span></div>`).join("");
+  if(most.length) html += `<p class="rp-sect">Where you go most</p>` + most.map(row).join("");
+  if(!html) html = `<p class="tocempty">Type a word, a code or an accession number. Start with <b>?</b> for questions,
+    <b>#</b> for a tag.</p>`;
+  el("resultsLabel").textContent = "Find";
+  el("tocResults").innerHTML = html;
+  pop.hidden = false;
+  placeResults();
+  bindResultRows();
+  el("tocResults").querySelectorAll("[data-starterq]").forEach(b=>{
+    b.onclick = ev=>{ ev.stopPropagation(); searchFor(b.dataset.starterq); };
+  });
+  el("tocResults").querySelectorAll("[data-bmgo]").forEach(r=>{
+    r.onclick = ()=>{ starterOn = false; el("resultsPop").hidden = true; goBookmark(r.dataset.bmgo); };
+  });
+}
+
+/* ---------------------------------------------------------------
+   The same things the shortcuts do, as buttons, for whoever would
+   rather click. Folded away until asked for, and remembered.
+   --------------------------------------------------------------- */
+let chipTags = false;
+function paintChips(){
+  const box = el("resChips"), btn = el("resFilters");
+  if(!box || !btn) return;
+  const open = !!S.personal.chipsOpen;
+  box.hidden = !open;
+  btn.classList.toggle("on", open);
+  btn.innerHTML = "Filters " + (open ? "&#9662;" : "&#9656;");
+  if(!open) return;
+  const typed = (el("mq").value || "").trim();
+  const asking = typed.startsWith("?");
+  const names = S.searchScope === "labels";
+  const tagged = /(^|\s)#/.test(typed);
+  box.innerHTML = `<button class="rp-tag${!asking && !names && !tagged ? " on" : ""}" data-chip="all">Everything</button>
+    <button class="rp-tag${asking ? " on" : ""}" data-chip="q" title="Same as starting with ?">Questions</button>
+    <button class="rp-tag${tagged || chipTags ? " on" : ""}" data-chip="tag" title="Same as typing #">Tags&hellip;</button>
+    <button class="rp-tag${names ? " on" : ""}" data-chip="names">Names only</button>
+    ${chipTags ? `<div class="rp-taglist">${(()=>{
+        const all = allTagsWithCounts();
+        const tops = new Map();
+        all.forEach(([t, c])=>{ const top = String(t).split("/")[0]; tops.set(top, (tops.get(top) || 0) + c); });
+        return [...tops.entries()].sort((a, b)=>tagOrder(a[0], b[0])).map(([t, c])=>
+          `<button class="rp-tag" data-chiptag="${esc(t)}">${esc(t)} <span class="cnt">${c}</span></button>`).join("")
+          || `<span class="fineprint">No tags yet.</span>`;
+      })()}</div>` : ""}`;
+  const put = v=>{ el("mq").value = v; el("q").value = v; runSearch(); el("mq").focus(); };
+  box.querySelectorAll("[data-chip]").forEach(b=>{
+    b.onmousedown = ev=>ev.preventDefault();
+    b.onclick = ev=>{
+      ev.stopPropagation();
+      const now = (el("mq").value || "").trim();
+      const k = b.dataset.chip;
+      if(k === "tag"){ chipTags = !chipTags; paintChips(); placeResults(); return; }
+      chipTags = false;
+      if(k === "all"){
+        if(S.searchScope !== "all"){ S.searchScope = "all"; if(el("searchScope")) el("searchScope").value = "all"; savePrefs(); }
+        put(now.replace(/^\?+\s*/, "").replace(/(^|\s)#\S*/g, " ").trim());
+      } else if(k === "q"){
+        put(now.startsWith("?") ? now.replace(/^\?+\s*/, "") : "?" + now);
+      } else if(k === "names"){
+        S.searchScope = S.searchScope === "labels" ? "all" : "labels";
+        if(el("searchScope")) el("searchScope").value = S.searchScope;
+        savePrefs(); put(now);
+      }
+    };
+  });
+  box.querySelectorAll("[data-chiptag]").forEach(b=>{
+    b.onmousedown = ev=>ev.preventDefault();
+    b.onclick = ev=>{
+      ev.stopPropagation();
+      const tok = "#" + String(b.dataset.chiptag).replace(/\s+/g, "_");
+      const now = (el("mq").value || "").trim().replace(/(^|\s)#\S*/g, " ").trim();
+      chipTags = false;
+      put((tok + " " + now).trim());
+    };
+  });
+}
+
+/* a search that found nothing, turned into something the editor will see */
+function askFromSearch(typed){
+  if(canEdit()){
+    const text = prompt("Write it as a question people will search for:", typed);
+    if(text == null || !text.trim()) return;
+    S.questions.push(newQuestion({text:text.trim(), person:S.who || S.meta.author || "editor", status:"live"}));
+    markDirty(); renderContents();
+    toast("Question added \u2014 point it at the room that answers it from that room's panel");
+    return;
+  }
+  if(!whoAmI()) return;
+  const text = prompt("What were you looking for? This goes to whoever looks after the map.", typed);
+  if(text == null || !text.trim()) return;
+  S.suggestions.push(newSuggestion({node:"", person:S.who, kind:"question",
+    text:text.trim() + (text.trim() !== typed ? "\n(searched for: " + typed + ")" : "")}));
+  markContribution();
+  toast("Sent \u2014 thank you. It helps fill the gaps.");
 }
 
 function placeResults(){
@@ -14581,8 +14739,88 @@ function exampleMatch(id, terms){
     && terms.some(t=>String(x.accession).toLowerCase().includes(t))) || null;
 }
 function runSearchInner(){ return withTreeIndex(runSearchCore); }
+
+/* ---------------------------------------------------------------
+   FORGIVING TYPOS, with nothing but the map itself.
+   Every word written anywhere in the map — names, notes, tags, search
+   keywords, questions — is counted once. When a search finds nothing,
+   each word that is not in that list is compared with the words that
+   are, by how many letters would have to change (a slip, a missed or
+   doubled letter, two letters swapped). The closest real word wins,
+   the commonest one if there is a tie, and the search runs with it.
+   Codes and anything with a digit in it are never "corrected".
+   --------------------------------------------------------------- */
+let searchOverride = null, vocabCache = {key:"", words:null};
+function searchVocab(){
+  let latest = "";
+  S.nodes.forEach(n=>{ if(String(n.modified) > latest) latest = String(n.modified); });
+  const key = S.nodes.size + "|" + latest + "|" + S.questions.length + "|" + [...S.nodes.values()].filter(n=>n._noteLoaded).length;
+  if(vocabCache.key === key && vocabCache.words) return vocabCache.words;
+  const m = new Map();
+  const add = t=>{ (String(t || "").toLowerCase().match(/[a-z][a-z']{2,}/g) || []).forEach(w=>m.set(w, (m.get(w) || 0) + 1)); };
+  S.nodes.forEach(n=>{ add(n.label); add(n.body); add((n.tags || []).join(" ")); add(n.keywords); });
+  S.questions.forEach(q=>{ add(q.text); add(q.keywords); });
+  vocabCache = {key, words:m};
+  return m;
+}
+/* letters to change, counting a swapped pair as one; gives up past max */
+function editDistance(a, b, max){
+  if(Math.abs(a.length - b.length) > max) return max + 1;
+  const prev2 = new Array(b.length + 1), prev = new Array(b.length + 1), cur = new Array(b.length + 1);
+  for(let j = 0; j <= b.length; j++) prev[j] = j;
+  for(let i = 1; i <= a.length; i++){
+    cur[0] = i; let low = cur[0];
+    for(let j = 1; j <= b.length; j++){
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      let v = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost);
+      if(i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) v = Math.min(v, prev2[j - 2] + 1);
+      cur[j] = v; if(v < low) low = v;
+    }
+    if(low > max) return max + 1;
+    for(let j = 0; j <= b.length; j++){ prev2[j] = prev[j]; prev[j] = cur[j]; }
+  }
+  return prev[b.length];
+}
+function correctTerm(t){
+  if(!t || t.length < 4 || /[^a-z']/.test(t)) return null;
+  const v = searchVocab();
+  if(v.has(t)) return null;
+  /* the start of a real word is not a typo, just unfinished */
+  for(const w of v.keys()) if(w.startsWith(t)) return null;
+  const max = t.length <= 5 ? 1 : 2;
+  let best = null, bd = max + 1, bc = 0;
+  for(const [w, c] of v){
+    if(Math.abs(w.length - t.length) > max) continue;
+    const d = editDistance(t, w, max);
+    if(d < bd || (d === bd && c > bc)){ best = w; bd = d; bc = c; }
+  }
+  return bd <= max ? best : null;
+}
+/* the sentence in a note that made it a match, so the right one can be
+   picked from the list without opening it */
+function snippetFor(n, terms){
+  const body = String((n && n.body) || "");
+  if(!body || !terms.length) return "";
+  const label = String(n.label || "").toLowerCase();
+  if(terms.every(t=>label.includes(t))) return "";
+  let at = -1, len = 0;
+  for(const t of terms){
+    let m = null;
+    try{ m = new RegExp(termPattern(t), "i").exec(body); }catch(e){}
+    if(m && (at < 0 || m.index < at)){ at = m.index; len = m[0].length; }
+  }
+  if(at < 0) return "";
+  const start = Math.max(0, at - 55, body.lastIndexOf("\n", at) + 1);
+  const end = Math.min(body.length, at + len + 85);
+  let html = esc(body.slice(start, end).replace(/\s+/g, " ").trim());
+  terms.forEach(t=>{
+    try{ html = html.replace(new RegExp("(" + termPattern(esc(t)) + ")", "ig"), "<mark>$1</mark>"); }catch(e){}
+  });
+  return (start > 0 ? "\u2026" : "") + html + (end < body.length ? "\u2026" : "");
+}
 function runSearchCore(){
-  const typedAll = el("q").value.trim().toLowerCase();
+  const typedAll = (searchOverride != null ? searchOverride : el("q").value).trim().toLowerCase();
+  if(searchOverride == null) S.typoFrom = "";
   /* A leading ? searches the questions and nothing else: the quickest way to
      find the question somebody has already asked, and the rooms that answer it. */
   const qOnly = typedAll.startsWith("?");
@@ -14665,6 +14903,22 @@ function runSearchCore(){
       return !!ex && terms.every(t=>termMatches(ex.toLowerCase(), t) || String(hay).toLowerCase().includes(t));
     }).map(n=>n.id);
     if(terms.length) S.hits = rankHits(S.hits, terms);
+  }
+
+  /* nothing at all: try it again with the nearest real words */
+  if(searchOverride == null && terms.length && !S.hits.length && !(S.qHits || []).length
+     && S.noTypoFix !== typedAll){
+    const fixed = terms.map(t=>correctTerm(t) || t);
+    if(fixed.some((t, i)=>t !== terms[i])){
+      const alt = (qOnly ? "?" : "") + hashTags.map(h=>"#" + h + " ").join("") + fixed.join(" ");
+      searchOverride = alt;
+      try{ runSearchCore(); } finally{ searchOverride = null; }
+      if(S.hits.length || (S.qHits || []).length){ S.typoFrom = typedAll; renderResults(); return; }
+      /* still nothing: say so about what they actually typed */
+      S.hitQuery = typedAll; S.typoFrom = "";
+      renderResults();
+      return;
+    }
   }
 
   const all = searchTargets();
@@ -17158,7 +17412,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-09-30k";
+const APP_BUILD = "2026-10-01a";
 
 /* Reading that line back out of a copy of this file.
 
@@ -18577,6 +18831,8 @@ async function loadPersonal(){
     if(rec){
       S.personal.bookmarks = Array.isArray(rec.bookmarks) ? rec.bookmarks : [];
       S.personal.bmSort = rec.bmSort || "";
+      S.personal.visits = rec.visits && typeof rec.visits === "object" ? rec.visits : {};
+      S.personal.chipsOpen = !!rec.chipsOpen;
       S.personal.searches = Array.isArray(rec.searches) ? rec.searches : [];
       S.who = rec.who || S.who || "";
       S.whoKey = rec.whoKey || S.whoKey || "";
@@ -18646,6 +18902,7 @@ async function savePersonal(){
   try{
     await Store.putKey(personalKey(), {
       bookmarks:S.personal.bookmarks, bmSort:S.personal.bmSort || "", searches:S.personal.searches,
+      visits:S.personal.visits || {}, chipsOpen:!!S.personal.chipsOpen,
       who:S.who, whoKey:S.whoKey || "", mode:S.mode, notesMode:S.notesMode, motion:S.motion, showIds:S.showIds,
       avoidNodes:S.avoidNodes, branchGrid:S.branchGrid, focusMode:S.focusMode,
       pickZoom:S.pickZoom, followOutline:S.followOutline,
@@ -18685,6 +18942,8 @@ function savePersonalSoon(){
 }
 function markVisited(id){
   if(!id || !S.nodes.has(id)) return;
+  S.personal.visits = S.personal.visits || {};
+  S.personal.visits[id] = (S.personal.visits[id] || 0) + 1;
   const now = nowISO();
   S.personal.recent = [{id, at:now}]
     .concat((S.personal.recent || []).filter(r=>r.id !== id))
@@ -19243,7 +19502,8 @@ function renderReview(){
       .sort((a,b)=>String(b.timestamp).localeCompare(String(a.timestamp)));
     html = rows.length ? rows.map(x=>`
       <div class="revcard">
-        <p class="where">on <a href="#" data-go="${esc(x.node)}">${esc(nodeName(x.node))}</a>
+        <p class="where">${x.node ? `on <a href="#" data-go="${esc(x.node)}">${esc(nodeName(x.node))}</a>`
+            : "from a search that found nothing"}
           <span class="fold">${esc(kindName(x.kind))}</span>
           <span class="fold">${esc(x.status)}</span></p>
         <p class="said">${esc(x.text)}</p>
@@ -19253,7 +19513,7 @@ function renderReview(){
           ${x.kind === "question" && canEdit() ? `<button class="btn" data-toq="${esc(x.id)}">Make it a question</button>` : ""}
           <button class="btn primary" data-acc="${esc(x.id)}">Accept</button>
           <button class="btn" data-dec="${esc(x.id)}">Decline</button>
-          <button class="btn" data-go="${esc(x.node)}">Go to the node</button>
+          ${x.node ? `<button class="btn" data-go="${esc(x.node)}">Go to the node</button>` : ""}
         </div>` : ""}
       </div>`).join("")
       : `<p class="histempty">${openOnly ? "No feedback is waiting." : "No feedback matches."}</p>`;
@@ -24088,10 +24348,35 @@ async function boot(){
      brings it back, rather than having to type something to see it again */
   el("mq").addEventListener("focus", ()=>{
     const pop = el("resultsPop");
-    if(pop && pop.hidden && (el("mq").value || "").trim()) renderResults();
+    if(!(el("mq").value || "").trim()){ starterOn = true; renderResults(); return; }
+    if(pop && pop.hidden) renderResults();
   });
+  el("mq").addEventListener("input", ()=>{ if((el("mq").value || "").trim()) starterOn = false; });
+  el("mq").addEventListener("blur", ()=>{
+    setTimeout(()=>{
+      const pop = el("resultsPop");
+      if(!starterOn || (pop && pop.contains(document.activeElement)) || document.activeElement === el("mq")) return;
+      starterOn = false;
+      if(!(el("mq").value || "").trim() && pop) pop.hidden = true;
+    }, 250);
+  });
+  el("resFilters").onmousedown = ev=>ev.preventDefault();
+  el("resFilters").onclick = ev=>{
+    ev.stopPropagation();
+    S.personal.chipsOpen = !S.personal.chipsOpen; chipTags = false;
+    savePersonal(); paintChips(); placeResults();
+  };
   el("mq").addEventListener("keydown", ev=>{
-    if(ev.key === "Enter"){ ev.preventDefault(); searchAtOnce(); el("mq").blur(); } });
+    if(ev.key === "Enter"){
+      ev.preventDefault(); searchAtOnce();
+      /* Enter takes you to the top result: the first room, or the first room
+         answering the first question that matched */
+      let to = searchTargets().find(t=>t.kind === "node");
+      to = to ? to.id : "";
+      if(!to && (S.qHits || []).length){ const p = pinsFor(S.qHits[0]).find(x=>S.nodes.has(x.node)); if(p) to = p.node; }
+      if(to && inRoom()){ arriveAt(to); closeResults(); }
+      el("mq").blur();
+    } });
   el("q").addEventListener("keydown", ev=>{
     if(ev.key === "Enter"){ ev.preventDefault(); searchAtOnce(); } });
   ["q","mq"].forEach(id=>{
@@ -24384,7 +24669,7 @@ async function boot(){
   };
   el("saveFeedback").onclick = downloadFeedback;
   el("panelHide").onclick = ()=>showPanel(false);
-  el("resClose").onclick = closeResults;
+  el("resClose").onclick = ()=>{ starterOn = false; closeResults(); };
   el("mqClear").onclick = clearTheSearch;
   el("filterFlag").onclick = clearTheSearch;
   ["q","mq"].forEach(id=>{
@@ -24609,8 +24894,16 @@ async function boot(){
        && document.body.classList.contains("focusing")){
       peeking = true; clearFocus();
     }
-    const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
-    if(ev.key === "/" && !typing){ ev.preventDefault(); el("q").focus(); }
+    /* "/" only jumps to search when you are not already typing somewhere: in a
+       box, a note, a tag field or anything editable it is just a slash */
+    const ae = document.activeElement;
+    const typing = /INPUT|TEXTAREA|SELECT/.test(ae.tagName) || !!(ae && ae.isContentEditable);
+    if(ev.key === "/" && !typing && !ev.ctrlKey && !ev.metaKey && !ev.altKey
+       && !document.querySelector("dialog[open]")){
+      ev.preventDefault();
+      const box = (typeof inRoom === "function" && inRoom()) || S.viewerBuild ? el("mq") : el("q");
+      (box && box.getClientRects().length ? box : el("mq") || el("q")).focus();
+    }
     if(ev.key === "Escape" && S.selectMode){ setSelectMode(false); clearPair(); return; }
     /* Escape means "show me everything again" before it means anything else:
        clearing the filter closes the results panel with it */
