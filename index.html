@@ -3111,6 +3111,11 @@ dialog#helpDlg .dlg-head{gap:8px}
   .help-keys td:first-child{white-space:normal}
 }
 /* the guided tour: everything dimmed but the one thing to press */
+.stalebar{position:fixed;left:50%;transform:translateX(-50%);top:10px;z-index:200;max-width:min(680px, calc(100vw - 20px));
+  display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;background:#FFF1C2;color:#4A3800;border:1px solid #E0B83A;
+  border-radius:6px;padding:8px 12px;font-size:13px;box-shadow:0 6px 18px -8px rgba(0,0,0,.4)}
+.stalebar[hidden]{display:none}
+.stalebar .btn{padding:3px 9px;font-size:12px}
 .tour-veil{position:fixed;inset:0;z-index:2147483000;pointer-events:none}
 .tour-veil[hidden],.tour-ring[hidden],.tour-card[hidden]{display:none}
 .tour-ring{position:fixed;z-index:2147483001;pointer-events:none;border-radius:8px;
@@ -4622,6 +4627,11 @@ body.viewing.panelaway #panelHide{display:none}
   </div>
 </dialog>
 
+<div class="stalebar" id="staleBar" hidden>
+  <b>This copy is out of date.</b>
+  <span id="staleWhat"></span>
+  <button class="btn" id="staleHide">Hide for now</button>
+</div>
 <div class="tour-veil" id="tourVeil" hidden></div>
 <div class="tour-ring" id="tourRing" hidden></div>
 <div class="tour-card" id="tourCard" hidden role="dialog" aria-live="polite">
@@ -6803,6 +6813,8 @@ function toSheets(){
     {key:"new_badge_image", value:S.meta.newBadgeImage || ""},
     /* teams that exist before anyone is on them */
     {key:"team_list", value:(S.teamList || []).join(", ")},
+    /* the newest build anybody has been handed, so older copies can say so */
+    {key:"copy_build", value:S.meta.copyBuild || ""},
     {key:"backdrop", value:S.meta.backdrop || ""},
     {key:"backdrop_floor", value:S.meta.backdropFloor == null ? 62 : S.meta.backdropFloor}
   ].concat(SEVERITIES.map(sv=>({key:sv.key, value:(S.meta.sevArt || {})[sv.key] || ""})));
@@ -7062,6 +7074,12 @@ function adoptModel(M, keepConnections){
   S.meta.crossColor = M.settings.cross_color || "";
   S.meta.newBadgeImage = M.settings.new_badge_image || "";
   S.teamList = String(M.settings.team_list || "").split(",").map(t=>t.trim()).filter(Boolean);
+  /* never lowered by an older copy writing the workbook back */
+  {
+    const cb = String(M.settings.copy_build || "");
+    if(cb > String(S.meta.copyBuild || "")) S.meta.copyBuild = cb;
+  }
+  setTimeout(checkCopyBuild, 0);
   S.meta.backdrop = M.settings.backdrop || "";
   S.meta.backdropFloor = M.settings.backdrop_floor === "" || M.settings.backdrop_floor == null
     ? 62 : Number(M.settings.backdrop_floor);
@@ -16881,6 +16899,10 @@ async function buildStandaloneViewer(kind){
   const blob = new Blob([out], {type:"text/html"});
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
+  if(kind === "workbook" || kind === "editor"){
+    const made = theirs || APP_BUILD;
+    if(made > String(S.meta.copyBuild || "")){ S.meta.copyBuild = made; markDirty(); }
+  }
   a.download = safe + (kind === "snapshot" ? "-snapshot.html"
                      : kind === "editor" ? "-editing.html" : "-viewer.html");
   a.click();
@@ -17499,7 +17521,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-10-01b";
+const APP_BUILD = "2026-10-01c";
 
 /* Reading that line back out of a copy of this file.
 
@@ -22064,6 +22086,7 @@ const HELP_TOPICS = [
       <li><b>Search keywords</b> on a node are found by search but never shown &mdash; codes, other names, common misspellings.</li>
       <li>A very long note can be <b>moved into its own file</b> in notes/; it is still shown and searched in full.</li>
       <li><b>Waiting for you</b> lists feedback, questions with no answering room, and who still has to confirm what.</li>
+      <li><b>Out-of-date copies</b> warn themselves: building a copy records its build in the workbook, and any older copy that reads the workbook shows a yellow "This copy is out of date" bar. Build, then put the new copies in the shared folder.</li>
       <li>Screenshots for this help: click an empty picture slot here, in editing mode, to add one. It is saved as images/help-&lt;topic&gt;.png in the shared folder.</li>
     </ul>`}
 ];
@@ -22170,6 +22193,22 @@ function tourSteps(){
     {title:"Help any time", text:"That's it. The ? Help button (or the ? key) has all of this, every shortcut, and this tour.",
       target:()=>el("rvHelp")}
   ];
+}
+/* A copy handed out before the newest one says so, once the workbook it
+   reads tells it a newer copy exists. Only copies check; the editor on its
+   own page is always the newest thing there is. */
+let staleHidden = false;
+function checkCopyBuild(){
+  const bar = el("staleBar");
+  if(!bar) return;
+  const isCopy = !!S.builtFrom || S.viewerBuild || document.body.classList.contains("editorbuild");
+  const newest = String(S.meta.copyBuild || "");
+  const mine = String(S.builtFrom || APP_BUILD);
+  const old = isCopy && newest && newest > mine && newest > APP_BUILD;
+  if(!old || staleHidden){ bar.hidden = true; return; }
+  el("staleWhat").textContent = "A newer copy (" + newest + ") is in the shared folder \u2014 close this one and open that. "
+    + "This one is " + mine + ".";
+  bar.hidden = false;
 }
 let tourCopies = 0, tourArrivals = 0, tourTimer = null, tourOffering = false;
 /* asked once, quietly: a card in the corner, nothing dimmed, nothing blocked */
@@ -24908,6 +24947,7 @@ async function boot(){
   el("shelfClose").onclick = ()=>el("shelfDlg").close();
   el("placesClose").onclick = ()=>el("placesDlg").close();
   el("helpClose").onclick = ()=>el("helpDlg").close();
+  el("staleHide").onclick = ()=>{ staleHidden = true; el("staleBar").hidden = true; };
   el("helpTour").onclick = ()=>startTour();
   el("rvHelp").onclick = ()=>openHelp();
   el("btnHelp").onclick = ()=>openHelp();
