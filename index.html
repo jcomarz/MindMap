@@ -3075,6 +3075,59 @@ dialog#connDlg::backdrop{background:rgba(35,40,45,.42)}
 .rs-item .rs-what small{display:block;color:var(--graphite-60);font-size:12px;margin-top:2px}
 .rs-item .rs-what small.rs-note{color:var(--graphite);font-size:13px;white-space:pre-wrap;margin:3px 0 2px}
 .peopledlg{width:min(640px, calc(100vw - 20px))}
+dialog#helpDlg{border:1px solid var(--graphite);border-radius:3px;padding:0;background:var(--paper);color:var(--graphite);
+  width:min(880px, calc(100vw - 20px));height:min(82vh, 760px);display:flex;flex-direction:column}
+dialog#helpDlg::backdrop{background:rgba(35,40,45,.42)}
+dialog#helpDlg .dlg-head{gap:8px}
+@media (max-width:820px){ dialog#helpDlg{width:100vw;height:100dvh;max-height:none;border:0;border-radius:0} }
+.help-wrap{display:flex;flex:1 1 auto;min-height:0}
+.help-nav{flex:0 0 200px;border-right:1px solid var(--rule);overflow:auto;padding:8px 0;background:var(--paper-2)}
+.help-nav button{display:block;width:100%;text-align:left;border:0;background:transparent;font:inherit;font-size:13.5px;
+  padding:8px 14px;cursor:pointer;color:var(--graphite)}
+.help-nav button.on{background:var(--paper);font-weight:600;box-shadow:inset 3px 0 0 var(--blueprint)}
+.help-nav .navsub{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--graphite-60);padding:12px 14px 4px}
+.help-body{flex:1 1 auto;overflow:auto;padding:18px 22px;font-size:14.5px;line-height:1.6}
+.help-body h3{margin:0 0 6px;font-size:19px}
+.help-body .lead{color:var(--graphite-60);margin:0 0 14px}
+.help-body h4{margin:18px 0 6px;font-size:14.5px}
+.help-body ol,.help-body ul{padding-left:22px;margin:6px 0}
+.help-body li{margin:4px 0}
+.help-body kbd,.tour-card kbd{font-family:var(--mono);font-size:12px;border:1px solid var(--rule);border-bottom-width:2px;
+  border-radius:4px;padding:1px 6px;background:var(--paper-2);white-space:nowrap}
+.help-body .tip{border-left:3px solid var(--blueprint);background:var(--blueprint-soft);padding:8px 12px;margin:12px 0;border-radius:0 4px 4px 0}
+.help-shot{margin:14px 0;border:1px solid var(--rule);border-radius:4px;overflow:hidden;background:var(--paper-2)}
+.help-shot img{display:block;max-width:100%;height:auto}
+.help-shot.empty{border-style:dashed;padding:18px;text-align:center;color:var(--graphite-60);font-size:12.5px;cursor:pointer}
+.help-shot.empty:hover{border-color:var(--blueprint);color:var(--blueprint)}
+.help-shot figcaption{font-size:12px;color:var(--graphite-60);padding:6px 10px;border-top:1px solid var(--rule)}
+.help-keys{width:100%;border-collapse:collapse;margin:6px 0 10px}
+.help-keys td{padding:7px 8px;border-top:1px solid var(--rule-soft);vertical-align:top}
+.help-keys td:first-child{width:38%;white-space:nowrap}
+@media (max-width:820px){
+  .help-wrap{flex-direction:column}
+  .help-nav{flex:0 0 auto;display:flex;overflow-x:auto;border-right:0;border-bottom:1px solid var(--rule);padding:0}
+  .help-nav button{white-space:nowrap;width:auto}
+  .help-nav .navsub{display:none}
+  .help-keys td:first-child{white-space:normal}
+}
+/* the guided tour: everything dimmed but the one thing to press */
+.tour-veil{position:fixed;inset:0;z-index:2147483000;pointer-events:none}
+.tour-veil[hidden],.tour-ring[hidden],.tour-card[hidden]{display:none}
+.tour-ring{position:fixed;z-index:2147483001;pointer-events:none;border-radius:8px;
+  box-shadow:0 0 0 4px #F5B700, 0 0 0 9999px rgba(20,24,28,.55);transition:all .25s ease}
+.tour-ring.pulse{animation:tourPulse 1.4s ease-in-out infinite}
+@keyframes tourPulse{50%{box-shadow:0 0 0 8px #F5B700, 0 0 0 9999px rgba(20,24,28,.55)}}
+.tour-ring.none{box-shadow:0 0 0 9999px rgba(20,24,28,.55);width:0 !important;height:0 !important;left:50% !important;top:40% !important}
+.tour-card{position:fixed;z-index:2147483002;width:min(360px, calc(100vw - 24px));background:var(--paper);color:var(--graphite);
+  border:1px solid var(--graphite);border-radius:8px;box-shadow:0 14px 40px rgba(0,0,0,.35);padding:14px 16px 12px}
+.tour-card h4{margin:2px 0 6px;font-size:16px}
+.tour-card p{margin:0 0 8px;font-size:14px;line-height:1.5}
+.tour-step{font-family:var(--mono);font-size:10.5px;color:var(--graphite-60);letter-spacing:.05em;text-transform:uppercase}
+.tour-do{background:#FFF6D6;border:1px solid #F0D27A;border-radius:5px;padding:7px 10px;font-weight:600;color:#5A4500}
+.tour-do:empty{display:none}
+.tour-do.done{background:#E3F4E6;border-color:#9DD3A8;color:#1E5B2C}
+.tour-acts{display:flex;gap:6px;align-items:center;margin-top:6px}
+.tour-acts .btn{padding:5px 11px;font-size:12.5px}
 dialog#placesDlg{border:1px solid var(--graphite);border-radius:3px;padding:0;background:var(--paper);
   color:var(--graphite);width:min(600px, calc(100vw - 20px));max-height:90vh;display:flex;flex-direction:column}
 dialog#placesDlg::backdrop{background:rgba(35,40,45,.42)}
@@ -3630,6 +3683,9 @@ body.viewing.panelaway #panelHide{display:none}
         <div class="row" style="margin-top:6px">
           <button class="btn wide" id="btnPeopleTop">People and teams</button>
         </div>
+        <div class="row" style="margin-top:6px">
+          <button class="btn wide" id="btnHelp">Help and the guided tour</button>
+        </div>
       </div>
 
       <div class="group">
@@ -4119,6 +4175,8 @@ body.viewing.panelaway #panelHide{display:none}
             <span class="ic">&#9776;</span><span class="lb">Go to</span></button>
           <div class="rv-findmore" id="rvFindMore" hidden></div>
           <div class="rv-bar-right">
+            <button class="rvb" id="rvHelp" title="How this works, and a guided tour (press ? any time)">
+              <span class="ic">?</span><span class="lb">Help</span></button>
             <button class="rvb" id="rvMood" title="Plain, or the whole cast">
               <span class="ic">&#9788;</span><span class="lb">Liven it up</span></button>
             <button class="rvb" id="rvDark" title="Light or dark">
@@ -4551,6 +4609,33 @@ body.viewing.panelaway #panelHide{display:none}
     <p class="fineprint" id="signWarn"></p>
   </div>
 </dialog>
+
+<dialog id="helpDlg">
+  <div class="dlg-head">
+    <h2>How this works</h2>
+    <button class="btn primary" id="helpTour">&#9654; Take the guided tour</button>
+    <button class="btn" id="helpClose">Done</button>
+  </div>
+  <div class="help-wrap">
+    <nav class="help-nav" id="helpNav"></nav>
+    <div class="dlg-body help-body" id="helpBody"></div>
+  </div>
+</dialog>
+
+<div class="tour-veil" id="tourVeil" hidden></div>
+<div class="tour-ring" id="tourRing" hidden></div>
+<div class="tour-card" id="tourCard" hidden role="dialog" aria-live="polite">
+  <div class="tour-step" id="tourStep"></div>
+  <h4 id="tourTitle"></h4>
+  <p id="tourText"></p>
+  <p class="tour-do" id="tourDo"></p>
+  <div class="tour-acts">
+    <button class="btn" id="tourStop">End the tour</button>
+    <span style="flex:1"></span>
+    <button class="btn" id="tourBack">Back</button>
+    <button class="btn primary" id="tourNext">Next</button>
+  </div>
+</div>
 
 <dialog id="placesDlg" class="placesdlg">
   <div class="dlg-head">
@@ -13718,7 +13803,9 @@ async function saveFeedbackImage(dataUrl, what, folder, fileBase){
     const ext = /^data:image\/(png|gif|webp)/.exec(dataUrl);
     const dot = "." + (ext ? ext[1] : "jpg");
     let name;
-    if(fileBase){
+    if(fileBase && imgPick && imgPick.fixedName){
+      name = fileBase + dot;
+    } else if(fileBase){
       /* a map picture is named after what it shows, and never overwrites one */
       const base = pictureSlug(fileBase);
       name = base + dot;
@@ -17412,7 +17499,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-10-01a";
+const APP_BUILD = "2026-10-01b";
 
 /* Reading that line back out of a copy of this file.
 
@@ -17848,6 +17935,10 @@ async function helloGo(){
   go.textContent = "In you go";
   setTimeout(()=>{
     shutHello(true);
+    if(!S.personal.tourDone && !S.personal.tourOffered){
+      S.personal.tourOffered = true; savePersonal();
+      setTimeout(tourOffer, 900);
+    }
   }, 620);
 }
 
@@ -18833,6 +18924,7 @@ async function loadPersonal(){
       S.personal.bmSort = rec.bmSort || "";
       S.personal.visits = rec.visits && typeof rec.visits === "object" ? rec.visits : {};
       S.personal.chipsOpen = !!rec.chipsOpen;
+      S.personal.tourDone = !!rec.tourDone; S.personal.tourOffered = !!rec.tourOffered;
       S.personal.searches = Array.isArray(rec.searches) ? rec.searches : [];
       S.who = rec.who || S.who || "";
       S.whoKey = rec.whoKey || S.whoKey || "";
@@ -18903,6 +18995,7 @@ async function savePersonal(){
     await Store.putKey(personalKey(), {
       bookmarks:S.personal.bookmarks, bmSort:S.personal.bmSort || "", searches:S.personal.searches,
       visits:S.personal.visits || {}, chipsOpen:!!S.personal.chipsOpen,
+      tourDone:!!S.personal.tourDone, tourOffered:!!S.personal.tourOffered,
       who:S.who, whoKey:S.whoKey || "", mode:S.mode, notesMode:S.notesMode, motion:S.motion, showIds:S.showIds,
       avoidNodes:S.avoidNodes, branchGrid:S.branchGrid, focusMode:S.focusMode,
       pickZoom:S.pickZoom, followOutline:S.followOutline,
@@ -20837,6 +20930,7 @@ function enterWorld(kind){
    search had you standing in is left behind, without a trip to Leave. */
 function arriveAt(id){
   if(!id || !S.nodes.has(id)) return;
+  if(typeof tourArrivals === "number") tourArrivals++;
   if(S.roomWorld){ muteWorld(); S.roomWorld = ""; worldFrom = ""; worldAuto = false; }
   roomPeek = "";
   select(id);
@@ -21833,6 +21927,346 @@ function noteBackIntoWorkbook(n){
   n.bodyFile = ""; n.modified = nowISO();
   markDirty(); renderInspector();
   toast("Back in the workbook");
+}
+
+/* =====================================================================
+   HELP AND THE GUIDED TOUR
+   =====================================================================
+   Everything the help says lives in HELP_TOPICS and SHORTCUTS below, in
+   plain words, so it can be kept up to date in one place whenever
+   something changes. Each topic can carry screenshots: a slot named
+   "search" shows images/help-search.png (or .jpg/.gif/.webp) from the
+   shared folder when there is one, and in editing mode an empty slot
+   can be clicked to add the picture.
+   ===================================================================== */
+const SHORTCUTS = [
+  ["Anywhere", [
+    ["/", "Jump to the search box (when you are not already typing somewhere)"],
+    ["?", "Open this help (Shift and /)"],
+    ["Esc", "Clear the search, close a list or a peek, step out of what a search found"]]],
+  ["In the search box", [
+    ["Enter", "Go straight to the top result"],
+    ["?  then words", "Search only the questions, e.g. <kbd>?</kbd>reprint label"],
+    ["?  on its own", "List every question"],
+    ["#word", "Only rooms with that tag, e.g. <kbd>#lims</kbd> &mdash; the start of a tag is enough"],
+    ["#two_words", "A tag with a space in it: use _ for the space"],
+    ["#tag  words", "Mix them: <kbd>#lims unlabeled</kbd>"]]],
+  ["In a room", [
+    ["\u2190 \u2192", "Step between the rooms on the floor"],
+    ["\u2193", "Start stepping through them"],
+    ["Enter", "Walk into the one you are on"],
+    ["\u2191  or  Backspace", "Walk back out"],
+    ["Hold a creature or a result", "Copy that room\u2019s note (hold, then let go)"],
+    ["Hold the room\u2019s name", "Copy this room\u2019s note"]]],
+  ["In Go to", [
+    ["Type", "Filter by name across the whole map"],
+    ["Enter", "Go to the first one"],
+    ["Esc", "Close it"]]]
+];
+const EDITOR_SHORTCUTS = [
+  ["On the drawing (editing)", [
+    ["Enter / Shift+Enter", "Add a child / a sibling to the picked node"],
+    ["Tab / Shift+Tab", "Next / previous node"],
+    ["\u2190 \u2192 \u2191 \u2193", "Parent, child, previous, next"],
+    ["Ctrl+C / Ctrl+V", "Copy the selection / paste a branch"],
+    ["Ctrl+A", "Select everything showing"],
+    ["Ctrl+S", "Save a workbook"],
+    ["Ctrl+P", "Print the view"],
+    ["Hold Ctrl", "Peek past focus mode"]]]
+];
+const HELP_TOPICS = [
+  {id:"start", title:"The basics", body:`
+    <h3>The basics</h3>
+    <p class="lead">Every step of our process is a <b>room</b>. You stand in one room at a time.</p>
+    <ul>
+      <li><b>The big card</b> at the top is the room's note &mdash; what to do here.</li>
+      <li><b>The things on the floor</b> are the rooms that come next. Tap one to see what it is, tap again (or <b>Go in</b>) to walk in.</li>
+      <li><b>The button on the left</b> (&larr;) takes you back out, one room up.</li>
+      <li><b>The path along the top</b> shows where you are. Tap any part of it to jump back there.</li>
+      <li><b>Your name</b> is in the top left corner. Tap it if it is not you.</li>
+    </ul>
+    <div class="tip">Lost? Press the <b>&#8962;</b> at the start of the path to get back to the hall, where every branch starts.</div>
+    {{shot:basics|The hall, and a room with its note}}`},
+  {id:"search", title:"Finding things", body:`
+    <h3>Finding things</h3>
+    <p class="lead">The search box at the bottom finds rooms by their name, their note, their tags, and words added just for searching.</p>
+    <ol>
+      <li>Tap the search box (or press <kbd>/</kbd>). Before you type, it shows what you searched lately, your bookmarks and the rooms you visit most.</li>
+      <li>Type a word, a code, or an accession number. The list fills as you type.</li>
+      <li>The grey line under a result shows <b>why</b> it matched &mdash; the sentence from its note.</li>
+      <li>Tap a result to go there, or press <kbd>Enter</kbd> for the top one.</li>
+    </ol>
+    <h4>Typos are fine</h4>
+    <p>If nothing matches, it tries the nearest real word &mdash; <i>unlabled</i> finds <i>unlabeled</i> &mdash; and says so at the top. You can still search for exactly what you typed.</p>
+    <h4>Shortcuts in the box</h4>
+    <ul>
+      <li><kbd>?</kbd> at the start searches the <b>questions</b> people ask, and shows the rooms that answer each one.</li>
+      <li><kbd>#</kbd> and a tag shows only rooms with that tag: <kbd>#lims</kbd>.</li>
+      <li>Rather click? <b>Filters &#9656;</b> at the top of the list opens buttons that do the same.</li>
+    </ul>
+    <h4>Found nothing?</h4>
+    <p>Press <b>Ask this as a question</b>. It goes to whoever looks after the map, so the gap gets filled.</p>
+    {{shot:search|The search list, with why each one matched}}`},
+  {id:"room", title:"Inside a room", body:`
+    <h3>Inside a room</h3>
+    <ul>
+      <li><b>&#9734;</b> beside the name bookmarks the room. It turns gold.</li>
+      <li><b>The copy button</b> beside it copies the whole note. Holding the room's name does the same.</li>
+      <li><b>Answers</b> under the name are the questions this room answers.</li>
+      <li><b>Pictures</b> sit beside the note. Long notes scroll inside the card.</li>
+      <li><b>Line up</b> puts the rooms on the floor in a tidy row instead of wandering.</li>
+    </ul>
+    {{shot:room|A room with its star, copy button and questions}}`},
+  {id:"confirm", title:"Confirming things", body:`
+    <h3>Confirming things</h3>
+    <p class="lead">Some rooms ask you to confirm you have read and understood them.</p>
+    <ol>
+      <li>Rooms waiting on you show <b>For you</b> on the console with a number.</li>
+      <li>Press <b>For you</b> (or <b>Respond</b>) and then <b>Confirm</b> beside each item.</li>
+      <li>Some items ask for an accession number, an answer, or a screenshot as evidence. Give it, then confirm.</li>
+      <li>Changed your mind? <b>Undo</b> is beside anything you confirmed.</li>
+    </ol>
+    <div class="tip">Each item is confirmed on its own, on purpose: read it, then give your evidence.</div>
+    {{shot:confirm|The Respond sheet with something to confirm}}`},
+  {id:"feedback", title:"Questions and feedback", body:`
+    <h3>Questions and feedback</h3>
+    <ul>
+      <li>Press <b>Respond</b> in any room, then write in <b>Feedback</b>. Pick what it is &mdash; a question, wording, logic, should be retired, something else &mdash; and send.</li>
+      <li>Only you and whoever looks after the map see your feedback.</li>
+      <li>Your feedback is saved in your own file in the shared folder, so it reaches the editor even if you close the page.</li>
+    </ul>
+    {{shot:feedback|Sending feedback from the Respond sheet}}`},
+  {id:"places", title:"Bookmarks and shelves", body:`
+    <h3>Bookmarks and shelves</h3>
+    <ul>
+      <li><b>Bookmark</b> a room with the &#9734; beside its name.</li>
+      <li>Your bookmarks are at the top of <b>Go to</b>, and in the search box before you type.</li>
+      <li><b>Sort and edit bookmarks</b> (in Go to) lets you rename them, reorder them, and give each a tiny picture &mdash; a GIF keeps moving.</li>
+      <li>A <b>shelf</b> is a group of rooms you keep coming back to. Make one under <b>Build and sort shelves</b>, then <b>Stand in it</b> to see all of them at once.</li>
+    </ul>
+    <p>Bookmarks stay in your browser. Shelves are shared, so others can stand in yours.</p>
+    {{shot:places|Bookmarks and shelves}}`},
+  {id:"look", title:"How it looks", body:`
+    <h3>How it looks</h3>
+    <ul>
+      <li><b>Liven it up</b> switches between <b>Plain</b> (quiet, light or dark) and <b>Lively</b> (creatures, backdrops, weather).</li>
+      <li><b>More</b> &rarr; <b>How it looks</b> has the settings for each. Each keeps its own, so switching back finds them as you left them.</li>
+      <li>In Lively you can turn the pictures behind rooms off, or use a picture or folder of your own. That stays in your browser only.</li>
+    </ul>
+    {{shot:look|How it looks}}`},
+  {id:"keys", title:"Keyboard shortcuts", body:`{{keys}}`},
+  {id:"editor", title:"For the editor", editor:true, body:`
+    <h3>For the editor</h3>
+    <ul>
+      <li><b>People and teams</b> (top left) holds the list of names. Viewers pick theirs from it. Paste rows straight from a People tab.</li>
+      <li><b>Add something to confirm</b> in a node's panel; choose who is asked under <b>Who is asked?</b></li>
+      <li><b>Questions this answers</b> in a node's panel: type a question people ask, pick an existing one, and it is found by searching or with <kbd>?</kbd>.</li>
+      <li><b>Search keywords</b> on a node are found by search but never shown &mdash; codes, other names, common misspellings.</li>
+      <li>A very long note can be <b>moved into its own file</b> in notes/; it is still shown and searched in full.</li>
+      <li><b>Waiting for you</b> lists feedback, questions with no answering room, and who still has to confirm what.</li>
+      <li>Screenshots for this help: click an empty picture slot here, in editing mode, to add one. It is saved as images/help-&lt;topic&gt;.png in the shared folder.</li>
+    </ul>`}
+];
+let helpTopic = "start";
+function openHelp(topic){
+  if(topic) helpTopic = topic;
+  renderHelp();
+  const d = el("helpDlg");
+  if(!d.open) d.showModal();
+}
+function keysTable(groups){
+  return groups.map(([head, rows])=>`<h4>${esc(head)}</h4><table class="help-keys">`
+    + rows.map(([k, what])=>`<tr><td>${k.split(/\s{2,}/).map(x=>/^(or|then|then words|on its own|words)$/.test(x.trim())
+        ? esc(x) : `<kbd>${esc(x)}</kbd>`).join(" ")}</td><td>${what}</td></tr>`).join("") + `</table>`).join("");
+}
+const HELP_EXT = ["png", "jpg", "jpeg", "gif", "webp"];
+function renderHelp(){
+  const topics = HELP_TOPICS.filter(t=>!t.editor || canEdit());
+  if(!topics.some(t=>t.id === helpTopic)) helpTopic = "start";
+  el("helpNav").innerHTML = topics.map(t=>`<button data-help="${t.id}" class="${t.id === helpTopic ? "on" : ""}">${esc(t.title)}</button>`).join("");
+  const t = topics.find(x=>x.id === helpTopic);
+  let html = t.body;
+  if(html.includes("{{keys}}")) html = html.replace("{{keys}}", `<h3>Keyboard shortcuts</h3>
+    <p class="lead">Everything can be done with the mouse too. These are for going faster.</p>`
+    + keysTable(SHORTCUTS) + (canEdit() ? keysTable(EDITOR_SHORTCUTS) : ""));
+  html = html.replace(/\{\{shot:([\w-]+)\|([^}]*)\}\}/g, (m, slot, cap)=>
+    `<figure class="help-shot empty" data-shot="${slot}" data-cap="${esc(cap)}" hidden>${esc(cap)}</figure>`);
+  el("helpBody").innerHTML = html;
+  el("helpBody").scrollTop = 0;
+  el("helpNav").querySelectorAll("[data-help]").forEach(b=>{ b.onclick = ()=>{ helpTopic = b.dataset.help; renderHelp(); }; });
+  el("helpBody").querySelectorAll("[data-shot]").forEach(fig=>fillHelpShot(fig));
+}
+/* a screenshot from the shared folder if there is one; an editor sees an
+   empty slot to fill, a reader sees nothing rather than a blank box */
+async function fillHelpShot(fig){
+  const slot = fig.dataset.shot, cap = fig.dataset.cap;
+  for(const ext of HELP_EXT){
+    const name = NODE_PICS + "/help-" + slot + "." + ext;
+    let url = picCache.get(name);
+    if(!url){ try{ url = await picRead(name); }catch(e){ url = ""; } }
+    if(url){
+      fig.classList.remove("empty"); fig.hidden = false;
+      fig.innerHTML = `<img src="${esc(url)}" alt="${esc(cap)}"><figcaption>${esc(cap)}</figcaption>`;
+      if(canEdit()){ fig.title = "Click to replace this screenshot"; fig.style.cursor = "pointer"; fig.onclick = ()=>pickHelpShot(slot, cap); }
+      return;
+    }
+  }
+  if(canEdit()){
+    fig.hidden = false;
+    fig.innerHTML = `&#128247; Room for a screenshot: <b>${esc(cap)}</b><br>Click to add one &mdash; saved as images/help-${esc(slot)}.png`;
+    fig.onclick = ()=>pickHelpShot(slot, cap);
+  }
+}
+function pickHelpShot(slot, cap){
+  pickImage("Screenshot for help: " + cap, "", ()=>{ renderHelp(); }, ()=>{});
+  /* saved with a fixed name, so the help finds it again */
+  imgPick.folder = NODE_PICS; imgPick.base = "help-" + slot; imgPick.fixedName = true;
+}
+
+/* ---- the tour ---- */
+let tour = null;
+function tourWord(){
+  /* a word that really is in this map, so the search step always finds something */
+  const counts = new Map();
+  S.nodes.forEach(n=>{
+    (String(n.label || "").toLowerCase().match(/[a-z]{4,}/g) || []).forEach(w=>{
+      if(!/^(with|from|this|that|into|have|will|when|then|they|your|just|only|after|before|start|step|note|notes|room|rooms|here|there)$/.test(w))
+        counts.set(w, (counts.get(w) || 0) + 1);
+    });
+  });
+  const ranked = [...counts.entries()].filter(([, c])=>c >= 2 && c <= 25).sort((a, b)=>b[1] - a[1]);
+  return (ranked[0] || [...counts.entries()][0] || ["room"])[0];
+}
+function tourSteps(){
+  const word = tourWord();
+  const viewer = !canEdit();
+  return [
+    {title:"Welcome", text:"This is a quick walk through the board. Each step lights up one thing. Do what the yellow box says, or press Next.",
+      target:null},
+    {title:"This is a room", text:"Every step of the process is a room. The big card is the room's note: what to do here.",
+      target:()=>el("rvBoard")},
+    {title:"Search", text:"The fastest way to anything is the search box. You can also press / to get here.",
+      todo:`Type <b>${esc(word)}</b> in the search box`, target:()=>el("mq"),
+      done:()=>(el("mq").value || "").toLowerCase().includes(word.slice(0, 4))},
+    {title:"The results", text:"Here is everything that matched. The grey line shows why. Tap one to go there.",
+      todo:"Tap one of the results", target:()=>el("resultsPop"),
+      start:t=>{ t.n = tourArrivals; }, done:t=>tourArrivals > t.n},
+    {title:"Bookmark it", text:"The star beside a room's name keeps it handy. Your bookmarks show up in Go to and in the search box.",
+      todo:"Tap the \u2606 beside the name", target:()=>el("rvStar"),
+      start:t=>{ t.was = isNodeBookmarked(S.sel); t.room = S.sel; }, done:t=>!t.was && isNodeBookmarked(t.room),
+      skipIf:()=>!el("rvStar") || el("rvStar").hidden},
+    {title:"Copy the note", text:"This copies the whole note to paste anywhere. Holding the room's name does the same.",
+      todo:"Tap the copy button", target:()=>el("rvCopy"),
+      start:t=>{ t.n = tourCopies; }, done:t=>tourCopies > t.n,
+      skipIf:()=>!el("rvCopy") || el("rvCopy").hidden},
+    {title:"Go to", text:"Go to lists the rooms around you, your bookmarks and your shelves.",
+      todo:"Tap Go to", target:()=>el("rvJump"), done:()=>listOpen},
+    {title:"Questions", text:"Start a search with ? to search only the questions people ask. Each shows the rooms that answer it.",
+      todo:"Clear the search box and type ?", target:()=>el("mq"),
+      start:()=>{ if(listOpen) showList(false); }, done:()=>(el("mq").value || "").trim().startsWith("?")},
+    viewer ? {title:"Respond", text:"Respond is where you confirm what is asked of you and send feedback. For you shows how many rooms are waiting on you.",
+      target:()=>el("rvEdit")} : {title:"Your panel", text:"In editing mode, the panel on the right is where a room's note, questions, keywords and confirm items are changed.",
+      target:()=>el("inspector")},
+    {title:"Help any time", text:"That's it. The ? Help button (or the ? key) has all of this, every shortcut, and this tour.",
+      target:()=>el("rvHelp")}
+  ];
+}
+let tourCopies = 0, tourArrivals = 0, tourTimer = null, tourOffering = false;
+/* asked once, quietly: a card in the corner, nothing dimmed, nothing blocked */
+function tourOffer(){
+  if(tour) return;
+  tourOffering = true;
+  el("tourStep").textContent = "New here?";
+  el("tourTitle").textContent = "Take the two-minute tour";
+  el("tourText").textContent = "It lights up each part of the board and walks you through finding something, bookmarking it and copying its note. You can start it again any time from Help.";
+  el("tourDo").innerHTML = "";
+  el("tourBack").hidden = true;
+  el("tourNext").textContent = "Start the tour";
+  el("tourStop").textContent = "Not now";
+  const card = el("tourCard");
+  card.hidden = false;
+  card.style.left = Math.max(12, innerWidth - card.offsetWidth - 16) + "px";
+  card.style.top = "56px";
+}
+function tourOfferDone(){
+  tourOffering = false;
+  el("tourBack").hidden = false;
+  el("tourStop").textContent = "End the tour";
+  el("tourCard").hidden = true;
+}
+function startTour(){
+  if(tourOffering) tourOfferDone();
+  if(el("helpDlg").open) el("helpDlg").close();
+  if(!inRoom()) setVista("room", true);
+  /* start somewhere calm: the hall, with nothing searched */
+  if(S.roomWorld) leaveWorld();
+  el("mq").value = ""; el("q").value = ""; runSearch();
+  tour = {i:0, steps:tourSteps()};
+  ["tourVeil", "tourRing", "tourCard"].forEach(k=>el(k).hidden = false);
+  tourShow();
+  clearInterval(tourTimer);
+  tourTimer = setInterval(tourTick, 250);
+}
+function endTour(done){
+  clearInterval(tourTimer); tourTimer = null; tour = null;
+  ["tourVeil", "tourRing", "tourCard"].forEach(k=>el(k).hidden = true);
+  S.personal.tourDone = true; savePersonal();
+  if(done){
+    el("mq").value = ""; el("q").value = ""; runSearch();
+    toast("Tour done \u2014 press ? any time for help");
+  }
+}
+function tourShow(){
+  if(!tour) return;
+  let st = tour.steps[tour.i];
+  while(st && st.skipIf && st.skipIf()){ tour.i++; st = tour.steps[tour.i]; }
+  if(!st){ endTour(true); return; }
+  st.ok = false;
+  if(st.start) st.start(st);
+  el("tourStep").textContent = "Step " + (tour.i + 1) + " of " + tour.steps.length;
+  el("tourTitle").textContent = st.title;
+  el("tourText").textContent = st.text;
+  el("tourDo").innerHTML = st.todo || "";
+  el("tourDo").classList.remove("done");
+  el("tourBack").disabled = tour.i === 0;
+  el("tourNext").textContent = tour.i === tour.steps.length - 1 ? "Finish" : st.done ? "Skip this" : "Next";
+  tourPlace();
+}
+function tourPlace(){
+  if(!tour) return;
+  const st = tour.steps[tour.i];
+  const t = st && st.target ? st.target() : null;
+  const ring = el("tourRing"), card = el("tourCard");
+  const r = t && t.getClientRects().length ? t.getBoundingClientRect() : null;
+  if(!r || !r.width){
+    ring.className = "tour-ring none";
+    card.style.left = Math.max(12, (innerWidth - card.offsetWidth) / 2) + "px";
+    card.style.top = Math.max(12, innerHeight * .3) + "px";
+    return;
+  }
+  ring.className = "tour-ring" + (st.done && !st.ok ? " pulse" : "");
+  const pad = 6;
+  Object.assign(ring.style, {left:(r.left - pad) + "px", top:(r.top - pad) + "px",
+    width:(r.width + pad * 2) + "px", height:(r.height + pad * 2) + "px"});
+  /* the card goes where there is room for it: above, below, or beside */
+  const cw = card.offsetWidth, ch = card.offsetHeight;
+  let x = Math.min(Math.max(12, r.left), innerWidth - cw - 12), y;
+  if(r.top - ch - 18 > 8) y = r.top - ch - 18;
+  else if(r.bottom + ch + 18 < innerHeight) y = r.bottom + 18;
+  else { y = Math.max(12, Math.min(innerHeight - ch - 12, r.top)); x = r.right + 18 + cw < innerWidth ? r.right + 18 : Math.max(12, r.left - cw - 18); }
+  card.style.left = x + "px"; card.style.top = y + "px";
+}
+function tourTick(){
+  if(!tour) return;
+  const st = tour.steps[tour.i];
+  if(st && st.done && !st.ok && st.done(st)){
+    st.ok = true;
+    el("tourDo").classList.add("done");
+    el("tourDo").innerHTML = "\u2713 " + (st.todo || "Done");
+    el("tourNext").textContent = "Next";
+    setTimeout(()=>{ if(tour && tour.steps[tour.i] === st){ tour.i++; tourShow(); } }, 900);
+  }
+  tourPlace();
 }
 
 /* ---- this browser's own backdrops ----
@@ -22956,6 +23390,7 @@ async function copyPlain(text){
 async function copyRoomNote(id){
   const n = S.nodes.get(id);
   if(!n) return;
+  tourCopies++;
   const text = String(n.body || "").trim() || String(n.label || "").trim();
   const ok = await copyPlain(text);
   const b = el("rvBoard");
@@ -24472,6 +24907,14 @@ async function boot(){
   /* the shelf picker */
   el("shelfClose").onclick = ()=>el("shelfDlg").close();
   el("placesClose").onclick = ()=>el("placesDlg").close();
+  el("helpClose").onclick = ()=>el("helpDlg").close();
+  el("helpTour").onclick = ()=>startTour();
+  el("rvHelp").onclick = ()=>openHelp();
+  el("btnHelp").onclick = ()=>openHelp();
+  el("tourStop").onclick = ()=>{ if(tourOffering){ tourOfferDone(); return; } endTour(false); };
+  el("tourBack").onclick = ()=>{ if(tour && tour.i > 0){ tour.i--; tourShow(); } };
+  el("tourNext").onclick = ()=>{ if(tourOffering){ startTour(); return; } if(!tour) return; if(tour.i >= tour.steps.length - 1){ endTour(true); return; } tour.i++; tourShow(); };
+  window.addEventListener("resize", ()=>tourPlace());
   document.querySelectorAll("[data-pltab]").forEach(b=>{ b.onclick = ()=>{ plTab = b.dataset.pltab; renderPlaces(); }; });
   el("bmIconFile").onchange = async e=>{
     const f = e.target.files && e.target.files[0];
@@ -24898,6 +25341,10 @@ async function boot(){
        box, a note, a tag field or anything editable it is just a slash */
     const ae = document.activeElement;
     const typing = /INPUT|TEXTAREA|SELECT/.test(ae.tagName) || !!(ae && ae.isContentEditable);
+    if(ev.key === "?" && !typing && !document.querySelector("dialog[open]")){
+      ev.preventDefault(); openHelp(); return;
+    }
+    if(ev.key === "Escape" && tour){ endTour(false); return; }
     if(ev.key === "/" && !typing && !ev.ctrlKey && !ev.metaKey && !ev.altKey
        && !document.querySelector("dialog[open]")){
       ev.preventDefault();
