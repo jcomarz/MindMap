@@ -1559,6 +1559,21 @@ html[data-theme="dark"] #roomView[data-skin="plain"]{
 .rv-note .empty{color:var(--rv-dim, var(--graphite-60));font-style:italic;font-size:13px}
 
 .rv-note img{max-width:100%;height:auto}
+.rv-pic img,.rv-note img{cursor:zoom-in}
+dialog#picView{padding:0;margin:0;border:0;width:100vw;height:100dvh;max-width:none;max-height:none;
+  background:#131517 !important;color:#eee;overflow:hidden;inset:0}
+dialog#picView::backdrop{background:rgba(0,0,0,.6)}
+.pv-stage{position:absolute;inset:0 0 52px 0;overflow:hidden;touch-action:none;cursor:grab}
+.pv-stage.dragging{cursor:grabbing}
+.pv-stage img{position:absolute;left:0;top:0;transform-origin:0 0;max-width:none;max-height:none;
+  user-select:none;-webkit-user-drag:none;background:#fff;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+.pv-bar{position:absolute;left:0;right:0;bottom:0;height:52px;display:flex;align-items:center;gap:6px;
+  padding:0 10px;background:rgba(0,0,0,.55);border-top:1px solid rgba(255,255,255,.12)}
+.pv-bar .btn{flex:0 0 auto;min-width:40px;background:#2a2e33;color:#f2f2f2;border-color:#4a5058}
+.pv-bar .btn:hover{background:#383d44}
+.pv-bar .btn.primary{background:#2D6CDF;border-color:#2D6CDF;color:#fff}
+.pv-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;opacity:.85}
+@media (max-width:820px){ .pv-name{display:none} .pv-bar{justify-content:space-between} }
 .rv-note table{border-collapse:collapse;font-size:13px;margin:10px 0;max-width:100%}
 /* a table wider than the board scrolls rather than losing its last column */
 .rv-note{overflow:auto;overscroll-behavior:contain}
@@ -4658,6 +4673,17 @@ body.viewing.panelaway #panelHide{display:none}
   </div>
 </dialog>
 
+<dialog id="picView" aria-label="Picture, full view">
+  <div class="pv-stage" id="pvStage" tabindex="-1"><img id="pvImg" alt="" draggable="false"></div>
+  <div class="pv-bar">
+    <span class="pv-name" id="pvName"></span>
+    <button class="btn" id="pvOut" title="Smaller (−)">&minus;</button>
+    <button class="btn" id="pvFit" title="Fit the screen (0)">Fit</button>
+    <button class="btn" id="pvIn" title="Bigger (+)">+</button>
+    <button class="btn" id="pvWin" title="Open just the picture in its own window">Own window</button>
+    <button class="btn primary" id="pvClose" title="Close (Esc)">Close</button>
+  </div>
+</dialog>
 <dialog id="placeDlg">
   <div class="dlg-head">
     <h2>Where does it go?</h2>
@@ -14427,6 +14453,122 @@ function writeCheckoff(itemId, nodeId, on, evidence, proof){
   return row;
 }
 
+
+/* A room's picture, full view. A flowchart shrunk to fit the wall cannot be
+   read, so a click on it fills the screen. Wheel or pinch zooms toward where
+   you point, drag moves it, a double click jumps between fit and actual size.
+   "Own window" puts just the picture in a plain window of its own. */
+const pv = {k:1, x:0, y:0, fit:1, w:0, h:0, pts:new Map(), last:null, pinch:0, moved:0};
+function openPicView(src, name){
+  if(!src) return;
+  const d = el("picView"), img = el("pvImg");
+  el("pvName").textContent = name || "";
+  pv.src = src; pv.name = name || "Picture";
+  img.onload = ()=>{ pv.w = img.naturalWidth; pv.h = img.naturalHeight; pvFit(); };
+  img.src = src;
+  if(!d.open){ d.showModal(); el("pvStage").focus({preventScroll:true}); }
+  if(img.complete && img.naturalWidth){ pv.w = img.naturalWidth; pv.h = img.naturalHeight; pvFit(); }
+}
+function pvApply(){
+  const img = el("pvImg");
+  img.style.width = pv.w + "px"; img.style.height = pv.h + "px";
+  img.style.transform = "translate(" + pv.x + "px," + pv.y + "px) scale(" + pv.k + ")";
+}
+function pvFit(){
+  const st = el("pvStage").getBoundingClientRect();
+  if(!pv.w || !st.width) return;
+  pv.fit = Math.min((st.width - 24) / pv.w, (st.height - 24) / pv.h, 4);
+  pv.k = pv.fit;
+  pv.x = (st.width - pv.w * pv.k) / 2; pv.y = (st.height - pv.h * pv.k) / 2;
+  pvApply();
+}
+function pvZoom(f, cx, cy){
+  const st = el("pvStage").getBoundingClientRect();
+  if(cx == null){ cx = st.width / 2; cy = st.height / 2; }
+  const k = Math.max(Math.min(pv.fit, 1) * 0.5, Math.min(8, pv.k * f));
+  pv.x = cx - (cx - pv.x) * (k / pv.k); pv.y = cy - (cy - pv.y) * (k / pv.k);
+  pv.k = k; pvApply();
+}
+function pvOwnWindow(){
+  const w = window.open("", "_blank");
+  if(!w){ toast("The browser stopped the new window. Allow pop-ups for this page, or use the full view here."); return; }
+  const src = String(pv.src).replace(/"/g, "&quot;");
+  w.document.write('<!doctype html><meta charset="utf-8"><title>' + esc(pv.name) + '</title>'
+    + '<style>html,body{margin:0;height:100%;background:#16181a}'
+    + 'body{display:grid;place-items:center;overflow:auto}'
+    + 'img{max-width:100vw;max-height:100vh;background:#fff;cursor:zoom-in}'
+    + 'body.full{display:block}body.full img{max-width:none;max-height:none;cursor:zoom-out}</style>'
+    + '<img src="' + src + '" alt="" onclick="document.body.classList.toggle(\'full\')"'
+    + ' title="Click for actual size; click again to fit">');
+  w.document.close();
+}
+function wirePicView(){
+  const d = el("picView"), stage = el("pvStage");
+  if(!d) return;
+  const local = ev=>{ const r = stage.getBoundingClientRect(); return {x:ev.clientX - r.left, y:ev.clientY - r.top}; };
+  el("pvClose").onclick = ()=>d.close();
+  el("pvFit").onclick = pvFit;
+  el("pvIn").onclick = ()=>pvZoom(1.4);
+  el("pvOut").onclick = ()=>pvZoom(1 / 1.4);
+  el("pvWin").onclick = pvOwnWindow;
+  d.addEventListener("close", ()=>{ el("pvImg").removeAttribute("src"); pv.pts.clear(); });
+  stage.addEventListener("wheel", ev=>{
+    ev.preventDefault();
+    const p = local(ev);
+    pvZoom(Math.exp(-ev.deltaY * 0.0015), p.x, p.y);
+  }, {passive:false});
+  stage.addEventListener("dblclick", ev=>{
+    const p = local(ev);
+    if(Math.abs(pv.k - pv.fit) < 0.01) pvZoom(Math.max(1, pv.fit * 2.5) / pv.k, p.x, p.y); else pvFit();
+  });
+  stage.addEventListener("pointerdown", ev=>{
+    stage.setPointerCapture(ev.pointerId);
+    pv.pts.set(ev.pointerId, local(ev));
+    pv.moved = 0;
+    if(pv.pts.size === 2){
+      const [a, b] = [...pv.pts.values()];
+      pv.pinch = Math.hypot(a.x - b.x, a.y - b.y);
+    }
+    stage.classList.add("dragging");
+  });
+  stage.addEventListener("pointermove", ev=>{
+    if(!pv.pts.has(ev.pointerId)) return;
+    const was = pv.pts.get(ev.pointerId), now = local(ev);
+    pv.pts.set(ev.pointerId, now);
+    if(pv.pts.size === 1){
+      pv.x += now.x - was.x; pv.y += now.y - was.y;
+      pv.moved += Math.abs(now.x - was.x) + Math.abs(now.y - was.y);
+      pvApply();
+    } else if(pv.pts.size === 2){
+      const [a, b] = [...pv.pts.values()];
+      const dist = Math.hypot(a.x - b.x, a.y - b.y);
+      if(pv.pinch) pvZoom(dist / pv.pinch, (a.x + b.x) / 2, (a.y + b.y) / 2);
+      pv.pinch = dist; pv.moved += 99;
+    }
+  });
+  const lift = ev=>{
+    pv.pts.delete(ev.pointerId);
+    if(pv.pts.size < 2) pv.pinch = 0;
+    if(!pv.pts.size) stage.classList.remove("dragging");
+  };
+  stage.addEventListener("pointerup", lift);
+  stage.addEventListener("pointercancel", lift);
+  d.addEventListener("keydown", ev=>{
+    if(ev.key === "+" || ev.key === "="){ ev.preventDefault(); pvZoom(1.4); }
+    else if(ev.key === "-" || ev.key === "_"){ ev.preventDefault(); pvZoom(1 / 1.4); }
+    else if(ev.key === "0"){ ev.preventDefault(); pvFit(); }
+  });
+  window.addEventListener("resize", ()=>{ if(d.open) pvFit(); });
+  /* the room's picture, and any picture inside its note */
+  document.addEventListener("click", ev=>{
+    const img = ev.target.closest && ev.target.closest("#rvPic img, .rv-note img");
+    if(!img || !img.src) return;
+    ev.preventDefault(); ev.stopPropagation();
+    const n = S.nodes.get(S.sel);
+    openPicView(img.currentSrc || img.src, (n && (n.label || n.id)) || "Picture");
+  }, true);
+}
+
 /* Open an attached screenshot at full size. */
 function showPicture(src){
   if(!src) return;
@@ -18220,7 +18362,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-10-02a";
+const APP_BUILD = "2026-10-02b";
 
 /* Reading that line back out of a copy of this file.
 
@@ -22695,6 +22837,11 @@ const SHORTCUTS = [
     ["\u2191  or  Backspace", "Walk back out"],
     ["Hold a creature or a result", "Copy that room\u2019s note (hold, then let go)"],
     ["Hold the room\u2019s name", "Copy this room\u2019s note"]]],
+  ["Looking at a picture full screen", [
+    ["Scroll  or  pinch", "Zoom in and out where you point"],
+    ["+  −  0", "Bigger, smaller, fit the screen"],
+    ["Double-click", "Flip between fit and close-up"],
+    ["Esc", "Close it"]]],
   ["In Go to", [
     ["Type", "Filter by name across the whole map"],
     ["Enter", "Go to the first one"],
@@ -22751,6 +22898,7 @@ const HELP_TOPICS = [
       <li><b>The copy button</b> beside it copies the whole note. Holding the room's name does the same.</li>
       <li><b>Answers</b> under the name are the questions this room answers.</li>
       <li><b>Pictures</b> sit beside the note. Long notes scroll inside the card.</li>
+      <li><b>Click or tap a picture</b> to see it full screen. Scroll or pinch to zoom, drag to move around, double-click to flip between fit and close-up. <b>Own window</b> opens just the picture by itself. Esc or Close goes back.</li>
       <li><b>Line up</b> puts the rooms on the floor in a tidy row instead of wandering.</li>
       <li><b>&#127963; Remember the Past</b>, when a room has it, opens the story of how this step came to be: each earlier version in order, with a placard on what changed and why.</li>
     </ul>
@@ -25030,6 +25178,7 @@ function wireRoom(){
 
   wireLook();
   wireTagSuggest();
+  wirePicView();
   if(el("roomSkin")) el("roomSkin").onchange = e=>{
     const was = S.roomSkin;
     S.roomSkin = e.target.value;
