@@ -1493,6 +1493,19 @@ html[data-theme="dark"] #roomView[data-skin="plain"]{
 #rvTitle.holding{opacity:.7}
 .rv-thing.dropon{outline:3px dashed var(--blueprint);outline-offset:4px;border-radius:10px;
   filter:drop-shadow(0 0 8px rgba(20,84,155,.45))}
+.tagsug{z-index:2000;background:var(--paper);border:1px solid var(--graphite-60);border-radius:8px;
+  box-shadow:0 6px 18px rgba(0,0,0,.18);overflow:auto;padding:4px;font-family:var(--sans)}
+.tagsug[hidden]{display:none}
+.tagsug-head{font-size:11px;color:var(--graphite-60);padding:3px 8px 4px}
+.tagsug-item{display:flex;align-items:center;gap:8px;width:100%;border:0;background:transparent;color:inherit;
+  text-align:left;padding:7px 8px;border-radius:6px;font-size:13px;cursor:pointer;font-family:inherit}
+.tagsug-item.on,.tagsug-item:hover{background:var(--paper-2)}
+.tagsug-item i{flex:0 0 auto;width:14px;height:0;border-top:3px solid #888;border-radius:2px}
+.tagsug-item span{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tagsug-item em{font-style:normal;font-size:10.5px;color:var(--flag, #b45309)}
+.tagsug-item s{text-decoration:none;font-family:var(--mono);font-size:11px;color:var(--graphite-60)}
+.tagsug-new{font-size:11.5px;color:var(--graphite-60);padding:6px 8px 4px;border-top:1px dashed var(--paper-2);margin-top:2px}
+@media (max-width:820px){ .tagsug-item{padding:10px 8px;font-size:14px} }
 .rv-thing.overone{opacity:.55}
 .rv-thing.dropon{z-index:5}
 .rv-thing.dropon::after{content:"Drop to put inside";position:absolute;left:50%;top:-26px;transform:translateX(-50%);
@@ -4733,7 +4746,7 @@ body.viewing.panelaway #panelHide{display:none}
       </div>
       <div class="pw-row">
         <label class="field" style="flex:2"><span>Tag them all <i class="fineprint">optional</i></span>
-          <input type="text" id="bxTag" placeholder="Huddles/2026-10-01"></label>
+          <input type="text" id="bxTag" data-tagsuggest="one" autocomplete="off" placeholder="Huddles/2026-10-01"></label>
         <label class="field"><span>Date them all</span><input type="date" id="bxDate"></label>
       </div>
       <p class="fineprint" id="bxWhere"></p>
@@ -4852,7 +4865,7 @@ body.viewing.panelaway #panelHide{display:none}
       Include everything underneath them</label>
 
     <label class="field" style="margin-top:8px"><span>Add these tags</span>
-      <input type="text" id="bulkAdd" placeholder="huddle/2026-08-19, acc3"></label>
+      <input type="text" id="bulkAdd" data-tagsuggest="many" autocomplete="off" placeholder="huddle/2026-08-19, acc3"></label>
     <div class="row">
       <button class="btn wide primary" id="bulkApply">Add to them all</button>
     </div>
@@ -11887,6 +11900,161 @@ function dropTag(tag){
   for(const e of S.edges.values()) if(e.tag === tag) e.tag = "";
   markDirty();
 }
+/* Tag suggestions while typing one. Nobody remembers whether it was
+   "LabHold", "Lab hold" or "Issues-LabHold", and a near miss quietly makes a
+   second tag. So any box that takes tags offers the ones already in the map:
+   the start of a word, anywhere in it, or a small typo all find it. Arrows,
+   Enter or Tab, Esc; a tap works the same. Nothing leaves the page. */
+const tagNorm = t=>String(t || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+function tagMatches(word, skip){
+  const w = tagNorm(word), out = [];
+  for(const [tag, count] of tagUseCounts()){
+    if(skip.has(tag.toLowerCase())) continue;
+    let score = -1;
+    if(!w) score = 5;
+    else {
+      const whole = tagNorm(tag);
+      const parts = String(tag).toLowerCase().split(/[\/\-_\s.:]+/).map(tagNorm).filter(Boolean);
+      if(whole.startsWith(w)) score = 0;
+      else if(parts.some(p=>p.startsWith(w))) score = 1;
+      else if(whole.includes(w)) score = 2;
+      else if(w.length >= 3){
+        const room = w.length >= 7 ? 2 : 1;
+        const near = [whole, ...parts].some(p=>
+          editDistance(w, p.slice(0, Math.max(w.length, Math.min(p.length, w.length + 1))), room) <= room
+          || editDistance(w, p, room) <= room);
+        if(near) score = 3;
+      }
+    }
+    if(score >= 0) out.push({tag, count, score});
+  }
+  out.sort((a,b)=>a.score - b.score || b.count - a.count || a.tag.localeCompare(b.tag));
+  return out.slice(0, 8);
+}
+const tagSug = {box:null, input:null, items:[], at:0, quiet:false};
+function tagSugParts(input){
+  const v = input.value;
+  if(input.dataset.tagsuggest === "one") return {before:"", word:v.trim(), all:[]};
+  const cut = v.lastIndexOf(",");
+  return {before:v.slice(0, cut + 1), word:v.slice(cut + 1).trim(),
+    all:v.slice(0, cut + 1).split(",").map(x=>x.trim().toLowerCase()).filter(Boolean)};
+}
+function tagSugShut(){
+  if(tagSug.box) tagSug.box.hidden = true;
+  tagSug.input = null; tagSug.items = [];
+}
+function tagSugShow(input){
+  if(!canEdit()){ tagSugShut(); return; }
+  const {word, all} = tagSugParts(input);
+  const skip = new Set(all);
+  const items = tagMatches(word, skip);
+  /* the word already is a tag, exactly: nothing to offer */
+  if(word && items.length === 1 && items[0].tag.toLowerCase() === word.toLowerCase()){ tagSugShut(); return; }
+  const host = input.closest("dialog") || document.body;
+  let box = tagSug.box;
+  if(!box){
+    box = document.createElement("div");
+    box.className = "tagsug"; box.setAttribute("role", "listbox");
+    /* keep the cursor in the box: choosing must not blur it first */
+    box.addEventListener("pointerdown", ev=>ev.preventDefault());
+    box.addEventListener("mousedown", ev=>ev.preventDefault());
+    box.addEventListener("click", ev=>{
+      const b = ev.target.closest("[data-sugtag]");
+      if(b && tagSug.input) tagSugTake(tagSug.input, b.dataset.sugtag);
+    });
+    tagSug.box = box;
+  }
+  if(box.parentNode !== host) host.appendChild(box);
+  tagSug.input = input; tagSug.items = items; tagSug.at = 0;
+  if(!items.length && !word){ tagSugShut(); return; }
+  const w = word.toLowerCase();
+  const mark = t=>{
+    const i = w ? t.toLowerCase().indexOf(w) : -1;
+    return i < 0 ? esc(t) : esc(t.slice(0, i)) + "<b>" + esc(t.slice(i, i + w.length)) + "</b>" + esc(t.slice(i + w.length));
+  };
+  box.innerHTML = (word ? "" : '<div class="tagsug-head">Tags you use most</div>')
+    + items.map((x, i)=>{
+      const st = styleFor(x.tag);
+      return '<button type="button" class="tagsug-item' + (i === 0 ? " on" : "") + '" data-sugtag="' + esc(x.tag) + '">'
+        + '<i style="border-top-color:' + esc(st.color) + '"></i>'
+        + '<span>' + mark(x.tag) + '</span>'
+        + (x.score === 3 ? '<em>close spelling</em>' : "")
+        + '<s>' + x.count + '</s></button>';
+    }).join("")
+    + (word && !items.some(x=>x.tag.toLowerCase() === w)
+        ? '<div class="tagsug-new">' + (items.length ? "Or keep typing for a new tag: " : "No tag like that yet. New tag: ")
+          + '<b>' + esc(word) + '</b></div>' : "");
+  box.hidden = false;
+  tagSugPlace();
+}
+function tagSugPlace(){
+  const box = tagSug.box, input = tagSug.input;
+  if(!box || !input || box.hidden) return;
+  const r = input.getBoundingClientRect();
+  const host = box.parentNode;
+  const below = window.innerHeight - r.bottom;
+  const up = below < 200 && r.top > below;
+  if(host === document.body){
+    box.style.position = "fixed";
+    box.style.left = Math.round(r.left) + "px";
+    box.style.top = up ? "" : Math.round(r.bottom + 3) + "px";
+    box.style.bottom = up ? Math.round(window.innerHeight - r.top + 3) + "px" : "";
+  } else {
+    const h = host.getBoundingClientRect();
+    box.style.position = "absolute";
+    box.style.left = Math.round(r.left - h.left - host.clientLeft + host.scrollLeft) + "px";
+    box.style.top = up ? "" : Math.round(r.bottom - h.top - host.clientTop + host.scrollTop + 3) + "px";
+    box.style.bottom = up ? Math.round(h.bottom - r.top - host.scrollTop + 3) + "px" : "";
+  }
+  box.style.width = Math.max(220, Math.round(r.width)) + "px";
+  box.style.maxHeight = Math.max(140, Math.min(300, up ? r.top - 12 : below - 12)) + "px";
+}
+function tagSugTake(input, tag){
+  const {before} = tagSugParts(input);
+  if(input.dataset.tagsuggest === "one") input.value = tag;
+  else input.value = (before ? before.replace(/\s*$/, "") + " " : "") + tag + ", ";
+  tagSugShut();
+  input.focus();
+  try{ input.setSelectionRange(input.value.length, input.value.length); }catch(e){}
+  input.dispatchEvent(new Event("input", {bubbles:true}));
+}
+function tagSugMove(d){
+  const b = tagSug.box; if(!b) return;
+  const rows = [...b.querySelectorAll(".tagsug-item")]; if(!rows.length) return;
+  tagSug.at = (tagSug.at + d + rows.length) % rows.length;
+  rows.forEach((x, i)=>x.classList.toggle("on", i === tagSug.at));
+  rows[tagSug.at].scrollIntoView({block:"nearest"});
+}
+function wireTagSuggest(){
+  const isTagBox = t=>t && t.matches && t.matches("input[data-tagsuggest]");
+  document.addEventListener("focusin", ev=>{
+    if(isTagBox(ev.target)) tagSugShow(ev.target);
+    else if(tagSug.input && !(tagSug.box && tagSug.box.contains(ev.target))) tagSugShut();
+  });
+  document.addEventListener("input", ev=>{
+    if(isTagBox(ev.target) && !tagSug.quiet) tagSugShow(ev.target);
+  });
+  document.addEventListener("focusout", ev=>{
+    if(ev.target === tagSug.input) setTimeout(()=>{
+      if(tagSug.input && document.activeElement !== tagSug.input) tagSugShut();
+    }, 120);
+  });
+  /* first in line, so Enter takes the suggestion rather than submitting */
+  document.addEventListener("keydown", ev=>{
+    if(!isTagBox(ev.target) || ev.target !== tagSug.input || !tagSug.box || tagSug.box.hidden) return;
+    const has = tagSug.items.length > 0;
+    if(ev.key === "ArrowDown" && has){ ev.preventDefault(); ev.stopImmediatePropagation(); tagSugMove(1); }
+    else if(ev.key === "ArrowUp" && has){ ev.preventDefault(); ev.stopImmediatePropagation(); tagSugMove(-1); }
+    else if((ev.key === "Enter" || ev.key === "Tab") && has && tagSugParts(ev.target).word){
+      ev.preventDefault(); ev.stopImmediatePropagation();
+      tagSugTake(ev.target, tagSug.items[tagSug.at].tag);
+    }
+    else if(ev.key === "Escape"){ ev.preventDefault(); ev.stopImmediatePropagation(); tagSugShut(); }
+  }, true);
+  window.addEventListener("resize", tagSugPlace);
+  document.addEventListener("scroll", tagSugPlace, true);
+}
+
 /* Tagging a whole selection at once, optionally reaching down through
    everything beneath it. */
 function bulkTargets(){
@@ -14689,7 +14857,7 @@ function renderInspector(){
         this week, ${examplesFor(n.id).length} altogether. Banners come down when the
         week turns.</p>` : ""}
       <label class="field"><span>Date for this one</span><input type="date" id="fDate" value="${esc(n.date || "")}"></label>
-      <label class="field"><span>Tags, comma separated</span><input type="text" id="fTags" value="${esc((n.tags||[]).join(", "))}"></label>
+      <label class="field"><span>Tags, comma separated</span><input type="text" id="fTags" data-tagsuggest="many" autocomplete="off" value="${esc((n.tags||[]).join(", "))}"></label>
       <label class="field"><span>Search keywords <i class="fineprint">found by search, never shown</i></span>
         <input type="text" id="fKeywords" value="${esc(n.keywords || "")}" placeholder="660, reprint, label won't print"></label>
       ${n.image ? `<div class="imgcard">
@@ -18052,7 +18220,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-10-01i";
+const APP_BUILD = "2026-10-02a";
 
 /* Reading that line back out of a copy of this file.
 
@@ -22636,6 +22804,7 @@ const HELP_TOPICS = [
       <li><b>Waiting for you</b> lists feedback, questions with no answering room, and who still has to confirm what.</li>
       <li><b>Paste many</b> (room console): paste a block of text and it becomes one room per line, paragraph, bullet or mark you choose. Names are made from the start of each, or taken from its first line. <b>Huddle today</b> puts them inside a new "Huddle MM/DD/YYYY" room, tagged Huddles/YYYY-MM-DD and dated.</li>
       <li><b>Sort</b> (room console): goes through each room in here with <b>Move to&hellip;</b>, plus one-tap buttons for the places you moved to lately. <b>Undo</b> on any of them.</li>
+      <li><b>Tagging</b>: start typing in any tag box and the tags you already use come up. It finds any part of the name (<i>labhold</i> finds <i>Sentences/Issues-LabHold</i>) and small typos. Tap one, or use the arrows and Enter. Click into an empty tag box to see the ones you use most. If nothing matches, keep typing to make a new tag.</li>
       <li><b>Drag one character onto another</b> (room view): the one underneath gets a dashed ring; let go and pick <b>Move under</b> to make it a child (its whole branch comes along), <b>Cross-link</b>, or <b>Replace</b>.</li>
       <li><b>Move</b> (room console, or <b>Move&hellip;</b> on a room's bubble): sends a room and everything inside it anywhere; type part of a name, arrows and Enter work.</li>
       <li><b>Remember the Past</b> in a node's panel: write the opening statement, and a date and placard for each earlier version. Retired rooms pointing at this one join by themselves; add others by name, or take any out with &times;.</li>
@@ -24860,6 +25029,7 @@ function wireRoom(){
   });
 
   wireLook();
+  wireTagSuggest();
   if(el("roomSkin")) el("roomSkin").onchange = e=>{
     const was = S.roomSkin;
     S.roomSkin = e.target.value;
