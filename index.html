@@ -1782,6 +1782,10 @@ mark.hit{background:var(--hit-line, #FFE07A);color:inherit;border-radius:2px;pad
   box-shadow:0 0 0 2px var(--hit-line, #FFE07A)}
 tr.hitrow>td{background:color-mix(in srgb, var(--hit-line, #FFE07A) 38%, transparent)}
 .rv-peek .row{flex:0 0 auto}
+/* however cramped the screen, Go in / Move / Shut it stay in reach: when the
+   bubble runs out of room it scrolls, with the buttons pinned to its bottom */
+.rv-peek{overflow-y:auto}
+.rv-peek .row{position:sticky;bottom:-10px;background:var(--paper);padding-bottom:2px;z-index:1}
 .rv-peek::after{content:"";position:absolute;left:var(--tail, 50%);bottom:-9px;
   width:15px;height:15px;transform:translateX(-50%) rotate(45deg);
   background:var(--paper);border-right:3px solid var(--rv-ink);
@@ -18048,7 +18052,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-10-01h";
+const APP_BUILD = "2026-10-01i";
 
 /* Reading that line back out of a copy of this file.
 
@@ -23720,14 +23724,17 @@ function placePeek(){
   const w = Math.max(280, Math.min(560, b.width - 16));
   p.style.setProperty("--peek-l", Math.round(b.left + (b.width - w) / 2) + "px");
   p.style.setProperty("--peek-w", Math.round(w) + "px");
-  const top = Math.max(v.top + 8, b.top + 10);
+  const bar = el("rvBar");
+  const floorLine = bar ? bar.getBoundingClientRect().top : window.innerHeight;
+  let top = Math.max(v.top + 8, b.top + 10);
+  /* a short screen (a phone on its side): start higher, over the sign, so the
+     buttons at the bottom of the bubble are never below the console */
+  if(floorLine - top < 230) top = Math.max(8, Math.min(top, floorLine - 230));
   p.style.setProperty("--peek-t", Math.round(top) + "px");
   /* the only ceiling is the screen: from where it starts down to just above
      the console, and not a pixel of arbitrary squeezing before that */
-  const bar = el("rvBar");
-  const floorLine = bar ? bar.getBoundingClientRect().top : window.innerHeight;
   p.style.setProperty("--peek-max",
-    Math.round(Math.max(150, floorLine - top - 12)) + "px");
+    Math.round(Math.max(120, floorLine - top - 12)) + "px");
 }
 
 /* Walk through. The door you chose opens first, then the room you are leaving
@@ -24008,7 +24015,7 @@ async function copyThing(id){
 let dropOnto = null;
 function wireThingDrag(strip){
   let from = null, start = null, live = false, hold = null, wasFixed = false;
-  let holdTimer = null, armed = false;
+  let holdTimer = null, armed = false, slop = 8, travel = 0;
   const unhold = ()=>{
     clearTimeout(holdTimer); holdTimer = null;
     strip.querySelectorAll(".rv-thing.holding, .rv-thing.armed").forEach(x=>
@@ -24031,15 +24038,18 @@ function wireThingDrag(strip){
       t.classList.add("armed");
       try{ if(navigator.vibrate) navigator.vibrate(15); }catch(e){}
     }, HOLD_MS);
-    from = t; start = {x:ev.clientX, y:ev.clientY}; live = false;
+    from = t; start = {x:ev.clientX, y:ev.clientY, at:Date.now()}; live = false;
+    /* a fingertip wobbles; a mouse does not */
+    slop = ev.pointerType === "mouse" ? 8 : 16;
     hold = roamers.find(r=>r.id === t.dataset.thing) || null;
     wasFixed = !!(hold && hold.fixed);
     if(!fieldBox.w) fieldBox = fieldSize();
   });
   const move = ev=>{
     if(!from || !start) return;
-    const far = Math.abs(ev.clientX - start.x) + Math.abs(ev.clientY - start.y);
-    if(!live && far < 8) return;
+    const far = Math.hypot(ev.clientX - start.x, ev.clientY - start.y);
+    travel = Math.max(travel, far);
+    if(!live && far < slop) return;
     if(!live){
       live = true;
       armed = false; unhold();          /* moving makes it a drag, not a copy */
@@ -24083,11 +24093,14 @@ function wireThingDrag(strip){
     if(rvOverRow){ rvOverRow.classList.remove("onto"); rvOverRow = null; }
     const onto = dropOnto;
     if(dropOnto){ dropOnto.classList.remove("dropon"); dropOnto = null; }
-    const was = live, held = hold;
-    from = null; start = null; live = false; hold = null;
+    const was = live, held = hold, went = travel, quick = start && (Date.now() - start.at) < 400;
+    from = null; start = null; live = false; hold = null; travel = 0;
     if(!was && wasArmed){ copyThing(what); return; }
     if(!was && ev.type === "pointercancel") return;
     if(!was){ roomTap(what); return; }
+    /* barely moved, let go quickly, landed on nothing: that was a tap */
+    if(!onto && !row && quick && went < 32 && ev.type !== "pointercancel"
+       && (floorIsRow() || !held)){ roomTap(what); return; }
     /* dropped on another one: put it inside, cross-link, or replace */
     if(onto && canEdit() && onto.dataset.thing && onto.dataset.thing !== what){
       if(held){ held.fixed = wasFixed; }
