@@ -1491,6 +1491,10 @@ html[data-theme="dark"] #roomView[data-skin="plain"]{
 .rv-copy[hidden]{display:none}
 .rv-board.copied{box-shadow:0 0 0 3px var(--blueprint-soft), 0 0 0 5px var(--blueprint)}
 #rvTitle.holding{opacity:.7}
+.rv-thing.dropon{outline:3px dashed var(--blueprint);outline-offset:4px;border-radius:10px;
+  filter:drop-shadow(0 0 8px rgba(20,84,155,.45))}
+.rv-thing.dropon::after{content:"Drop to put inside";position:absolute;left:50%;top:-26px;transform:translateX(-50%);
+  white-space:nowrap;font-size:11px;font-family:var(--sans);background:var(--blueprint);color:#fff;padding:2px 7px;border-radius:9px;pointer-events:none}
 .rv-star{flex:0 0 auto;border:0;background:transparent;font-size:22px;line-height:1;cursor:pointer;
   color:var(--graphite-60);padding:0 2px;margin-top:-2px}
 .rv-star:hover{color:#C9971C}
@@ -11099,6 +11103,7 @@ function finishMoving(where){
   markDirty();
   keepingPlace(()=>{ rebuild(); });
   renderInspector();
+  if(inRoom()) renderRoomSoon();
 }
 function askWhereToPlace(target){
   const it = S.inbox.find(x=>x.id === S.inboxArmed);
@@ -18041,7 +18046,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-10-01f";
+const APP_BUILD = "2026-10-01g";
 
 /* Reading that line back out of a copy of this file.
 
@@ -22625,6 +22630,7 @@ const HELP_TOPICS = [
       <li><b>Waiting for you</b> lists feedback, questions with no answering room, and who still has to confirm what.</li>
       <li><b>Paste many</b> (room console): paste a block of text and it becomes one room per line, paragraph, bullet or mark you choose. Names are made from the start of each, or taken from its first line. <b>Huddle today</b> puts them inside a new "Huddle MM/DD/YYYY" room, tagged Huddles/YYYY-MM-DD and dated.</li>
       <li><b>Sort</b> (room console): goes through each room in here with <b>Move to&hellip;</b>, plus one-tap buttons for the places you moved to lately. <b>Undo</b> on any of them.</li>
+      <li><b>Drag one character onto another</b> (room view): the one underneath gets a dashed ring; let go and pick <b>Move under</b> to make it a child (its whole branch comes along), <b>Cross-link</b>, or <b>Replace</b>.</li>
       <li><b>Move</b> (room console, or <b>Move&hellip;</b> on a room's bubble): sends a room and everything inside it anywhere; type part of a name, arrows and Enter work.</li>
       <li><b>Remember the Past</b> in a node's panel: write the opening statement, and a date and placard for each earlier version. Retired rooms pointing at this one join by themselves; add others by name, or take any out with &times;.</li>
       <li><b>Out-of-date copies</b> warn themselves: building a copy records its build in the workbook, and any older copy that reads the workbook shows a yellow "This copy is out of date" bar. Build, then put the new copies in the shared folder.</li>
@@ -23997,6 +24003,7 @@ async function copyThing(id){
            : "This browser would not let it be copied.");
 }
 
+let dropOnto = null;
 function wireThingDrag(strip){
   let from = null, start = null, live = false, hold = null, wasFixed = false;
   let holdTimer = null, armed = false;
@@ -24050,7 +24057,17 @@ function wireThingDrag(strip){
         placeOne(hold);
       }
     }
-    if(canEdit()) rvMarkRow(ev.clientX, ev.clientY);
+    if(canEdit()){
+      rvMarkRow(ev.clientX, ev.clientY);
+      /* another one under the finger: a drop there puts this one inside it */
+      const other = document.elementsFromPoint(ev.clientX, ev.clientY)
+        .map(x=>x.closest && x.closest(".rv-thing")).find(x=>x && x !== from) || null;
+      if(other !== dropOnto){
+        if(dropOnto) dropOnto.classList.remove("dropon");
+        dropOnto = other;
+        if(dropOnto) dropOnto.classList.add("dropon");
+      }
+    }
     if(ev.cancelable) ev.preventDefault();
   };
   const up = ev=>{
@@ -24061,11 +24078,19 @@ function wireThingDrag(strip){
     from.classList.remove("lifted");
     const row = rvOverRow;
     if(rvOverRow){ rvOverRow.classList.remove("onto"); rvOverRow = null; }
+    const onto = dropOnto;
+    if(dropOnto){ dropOnto.classList.remove("dropon"); dropOnto = null; }
     const was = live, held = hold;
     from = null; start = null; live = false; hold = null;
     if(!was && wasArmed){ copyThing(what); return; }
     if(!was && ev.type === "pointercancel") return;
     if(!was){ roomTap(what); return; }
+    /* dropped on another one: put it inside, cross-link, or replace */
+    if(onto && canEdit() && onto.dataset.thing && onto.dataset.thing !== what){
+      if(held){ held.fixed = wasFixed; }
+      askWhatToDoWith(what, onto.dataset.thing);
+      return;
+    }
     /* dropped on the outline: that is somebody saying these two belong
        together, which is the editor's business */
     if(row && canEdit() && row.dataset.jump && row.dataset.jump !== what){
