@@ -4815,6 +4815,24 @@ body.viewing.panelaway #panelHide{display:none}
     <button class="btn primary" id="fvClose" title="Close (Esc)">Close</button>
   </div>
 </dialog>
+<dialog id="flowIO" aria-label="Import or export a flowchart">
+  <div class="dlg-head"><h2>Import / Export</h2><button class="btn" id="fioClose">Close</button></div>
+  <div class="hist-controls">
+    <p class="fineprint" style="margin:0 0 6px">The chart as text. <b>Export</b>: copy it, or save it as a file to keep or
+      to send to another editor. <b>Import</b>: paste a chart's text over it, or load a <i>.flowchart.json</i> file,
+      then press <b>Use this</b>. It replaces what is drawn now; Undo brings it back.</p>
+    <textarea id="fioText" rows="10" spellcheck="false" style="width:100%;font:12px var(--mono);box-sizing:border-box"></textarea>
+    <p class="fineprint" id="fioSays" style="min-height:1.2em;margin:4px 0"></p>
+    <div class="row" style="flex-wrap:wrap;gap:6px">
+      <button class="btn" id="fioCopy">Copy text</button>
+      <button class="btn" id="fioSave">Save as file</button>
+      <button class="btn" id="fioLoad">Load a file&hellip;</button>
+      <input type="file" id="fioFile" accept=".json,application/json,text/plain" hidden>
+      <span style="flex:1"></span>
+      <button class="btn primary" id="fioUse">Use this</button>
+    </div>
+  </div>
+</dialog>
 <dialog id="flowEdit" aria-label="Draw a flowchart">
   <div class="fe-top">
     <b class="fe-title">Flowchart &middot; <span id="feName"></span></b>
@@ -4824,6 +4842,7 @@ body.viewing.panelaway #panelHide{display:none}
     <button class="btn" id="feUndo" title="Undo (Ctrl+Z)">&#8630;</button>
     <button class="btn" id="feRedo" title="Redo (Ctrl+Y)">&#8631;</button>
     <button class="btn" id="feFitBtn" title="Show it all">Fit</button>
+    <button class="btn" id="feIO" title="Copy this chart out as text or a file, or bring one in">Import / Export</button>
     <button class="btn" id="feClear" title="Take the flowchart off this room">Clear</button>
     <button class="btn" id="feCancel">Cancel</button>
     <button class="btn primary" id="feSave" title="Ctrl+S">Save</button>
@@ -14828,7 +14847,8 @@ function flowEdgeGeom(d, e){
   if(e.k !== "curve" && pts.length > 1){
     let total = 0; const segs = [];
     for(let i = 1; i < pts.length; i++){ const L = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y); segs.push(L); total += L; }
-    let want = total * (pts.length > 2 ? 0.3 : 0.45);
+    /* close to the shape it leaves, the way a hand-drawn chart has it */
+    let want = segs[0] >= 50 ? Math.min(24, segs[0] * 0.4) + 10 : total * (pts.length > 2 ? 0.3 : 0.45);
     for(let i = 0; i < segs.length; i++){
       if(want <= segs[i]){ const t = segs[i] ? want / segs[i] : 0;
         lab = {x:pts[i].x + (pts[i + 1].x - pts[i].x) * t, y:pts[i].y + (pts[i + 1].y - pts[i].y) * t}; break; }
@@ -15130,6 +15150,72 @@ function wireFlowView(){
   el("rvFlow").addEventListener("click", ()=>{ if(S.sel) openFlowView(S.sel); });
 }
 
+
+/* --- import / export ------------------------------------------- */
+function flowToText(d){
+  return JSON.stringify({kind:"mindmap-flowchart", v:1,
+    nodes:d.nodes.map(x=>{ const o = {id:x.id, s:x.s, x:Math.round(x.x), y:Math.round(x.y), w:Math.round(x.w), h:Math.round(x.h), t:x.t};
+      ["c", "b", "a", "fs", "wt", "al", "ic"].forEach(k=>{ if(x[k]) o[k] = x[k]; }); return o; }),
+    edges:d.edges.map(e=>{ const o = {id:e.id, a:e.a, b:e.b}; ["t", "c", "k", "as", "bs"].forEach(k=>{ if(e[k]) o[k] = e[k]; }); return o; })}, null, 1);
+}
+function fioCheck(){
+  const raw = el("fioText").value.trim(), says = el("fioSays");
+  if(!raw){ says.textContent = ""; el("fioUse").disabled = true; return null; }
+  const d = flowParse(raw);
+  if(!d){ says.innerHTML = '<span style="color:var(--flag)">That is not a flowchart this can read.</span>'; el("fioUse").disabled = true; return null; }
+  says.textContent = d.nodes.length + " shapes, " + d.edges.length + " arrows.";
+  el("fioUse").disabled = false;
+  return d;
+}
+function openFlowIO(){
+  el("fioText").value = fe.d.nodes.length ? flowToText(fe.d) : "";
+  el("flowIO").showModal();
+  fioCheck();
+  el("fioText").select();
+}
+function wireFlowIO(){
+  if(!el("flowIO")) return;
+  el("feIO").onclick = openFlowIO;
+  el("fioClose").onclick = ()=>el("flowIO").close();
+  el("fioText").addEventListener("input", fioCheck);
+  el("fioCopy").onclick = async ()=>{
+    const t = el("fioText").value;
+    try{ await navigator.clipboard.writeText(t); toast("Copied. Paste it into Import on any room."); }
+    catch(e){ el("fioText").select(); document.execCommand("copy"); toast("Copied."); }
+  };
+  el("fioSave").onclick = ()=>{
+    const t = el("fioText").value; if(!t.trim()) return;
+    const n = S.nodes.get(fe.nodeId);
+    const name = pictureSlug((n && n.label) || "flowchart") + ".flowchart.json";
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([t], {type:"application/json"}));
+    a.download = name; document.body.appendChild(a); a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 500);
+    toast("Saved " + name + " to your downloads.");
+  };
+  el("fioLoad").onclick = ()=>el("fioFile").click();
+  const readFile = f=>{
+    if(!f) return;
+    const r = new FileReader();
+    r.onload = ()=>{ el("fioText").value = String(r.result || ""); fioCheck(); };
+    r.readAsText(f);
+  };
+  el("fioFile").onchange = ev=>{ readFile(ev.target.files[0]); ev.target.value = ""; };
+  el("fioText").addEventListener("dragover", ev=>ev.preventDefault());
+  el("fioText").addEventListener("drop", ev=>{
+    const f = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
+    if(f){ ev.preventDefault(); readFile(f); }
+  });
+  el("fioUse").onclick = ()=>{
+    const d = fioCheck(); if(!d) return;
+    feSnapshot();
+    fe.d = {v:1, nodes:d.nodes, edges:d.edges};
+    fe.sel = new Set();
+    el("flowIO").close();
+    feRender(); feFit();
+    toast("Brought in " + d.nodes.length + " shapes. Press Save to keep it on this room.");
+  };
+}
 /* --- drawing it: the editor ------------------------------------ */
 const fe = {d:null, nodeId:"", sel:new Set(), k:1, x:0, y:0, undo:[], redo:[], drag:null, clip:null, dirty:false};
 const FLOW_GRID = 10;
@@ -19448,7 +19534,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-10-04a";
+const APP_BUILD = "2026-10-04b";
 
 /* Reading that line back out of a copy of this file.
 
@@ -24207,7 +24293,7 @@ const HELP_TOPICS = [
       <li><b>Waiting for you</b> lists feedback, questions with no answering room, and who still has to confirm what.</li>
       <li><b>Paste many</b> (room console): paste a block of text and it becomes one room per line, paragraph, bullet or mark you choose. Names are made from the start of each, or taken from its first line. <b>Huddle today</b> puts them inside a new "Huddle MM/DD/YYYY" room, tagged Huddles/YYYY-MM-DD and dated.</li>
       <li><b>Sort</b> (room console): goes through each room in here with <b>Move to&hellip;</b>, plus one-tap buttons for the places you moved to lately. <b>Undo</b> on any of them.</li>
-      <li><b>Flowcharts in a room</b>: press <b>&#9671; Flowchart</b> on the room console, or <b>+ Flowchart</b> in a room's bubble, or <b>Draw a flowchart in this room</b> in the Edit panel. Pick shapes and colours from the top bar. To draw an arrow, drag one of a shape's blue dots onto another shape; let go on empty paper and a new step appears there, already joined. Double-click a shape (or press Enter) to type in it; double-click the paper for a new box. With a shape chosen, <b>+ YES &rarr;</b> and <b>+ NO &darr;</b> add the next step with a labelled arrow (Tab and Shift+Tab do the same). Click an arrow to label it, curve it or flip it. <b>Motion</b> makes a shape pulse, bob, glow, wiggle or spin in. Ctrl+Z undoes, Ctrl+D copies, arrow keys nudge, Delete removes, Ctrl+S saves. The words in a flowchart are not searched; put what people search for in the note or keywords.</li>
+      <li><b>Flowcharts in a room</b>: <b>Import / Export</b> on the drawing page copies a chart out as text or saves it as a <i>.flowchart.json</i> file, and brings one back in by pasting or loading the file. That is how to copy a chart to another room or send it to another editor. Press <b>&#9671; Flowchart</b> on the room console, or <b>+ Flowchart</b> in a room's bubble, or <b>Draw a flowchart in this room</b> in the Edit panel. Pick shapes and colours from the top bar. To draw an arrow, drag one of a shape's blue dots onto another shape; let go on empty paper and a new step appears there, already joined. Double-click a shape (or press Enter) to type in it; double-click the paper for a new box. With a shape chosen, <b>+ YES &rarr;</b> and <b>+ NO &darr;</b> add the next step with a labelled arrow (Tab and Shift+Tab do the same). Click an arrow to label it, curve it or flip it. <b>Motion</b> makes a shape pulse, bob, glow, wiggle or spin in. Ctrl+Z undoes, Ctrl+D copies, arrow keys nudge, Delete removes, Ctrl+S saves. The words in a flowchart are not searched; put what people search for in the note or keywords.</li>
       <li><b>Picture file names</b>: a picture, badge or backdrop you add to a room is saved by a fixed rule. It goes in a folder that follows the breadcrumb two deep, and the name is the room plus its id, for example <i>images/03-the-accession/issues/opv-flowchart_n-s3l6yo39.png</i>. Nothing is ever overwritten; a second one gets <i>-2</i>. To bring older pictures in line, use <b>File all pictures by the naming rule</b> under <b>Badges and pictures</b>. Old files go to <i>images/_old-names</i>, and once you are happy you can delete that folder. Save afterwards.</li>
       <li><b>Tagging</b>: start typing in any tag box and the tags you already use come up. It finds any part of the name (<i>labhold</i> finds <i>Sentences/Issues-LabHold</i>) and small typos. Tap one, or use the arrows and Enter. Click into an empty tag box to see the ones you use most. If nothing matches, keep typing to make a new tag.</li>
       <li><b>Drag one character onto another</b> (room view): the one underneath gets a dashed ring; let go and pick <b>Move under</b> to make it a child (its whole branch comes along), <b>Cross-link</b>, or <b>Replace</b>.</li>
@@ -26442,6 +26528,7 @@ function wireRoom(){
   wirePicView();
   wireFlowView();
   wireFlowEditor();
+  wireFlowIO();
   if(el("btnFilePics")) el("btnFilePics").onclick = ()=>organizePictures();
   if(el("roomSkin")) el("roomSkin").onchange = e=>{
     const was = S.roomSkin;
