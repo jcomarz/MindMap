@@ -1696,6 +1696,32 @@ html[data-theme="dark"] .fe-stage{background:#14171b}
   font:13px var(--sans);box-shadow:0 6px 18px rgba(0,0,0,.08)}
 #bootNote .bn-dot{width:9px;height:9px;border-radius:50%;background:var(--blueprint, #2D6CDF);animation:bnPulse 1s ease-in-out infinite}
 @keyframes bnPulse{50%{opacity:.25;transform:scale(.7)}}
+.tablepaste{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:-4px 0 10px;padding:7px 9px;
+  border:1px solid var(--blueprint-soft, #cfe0f5);background:var(--blueprint-soft, #eef4fc);border-radius:7px;font-size:12.5px}
+.tablepaste[hidden]{display:none}
+.tablepaste span{flex:1 1 180px}
+.tablepaste .btn{padding:4px 10px;font-size:12px}
+dialog#teamsDlg{width:min(760px, 96vw);max-height:92vh}
+#teamsDlg .ti-bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;position:sticky;top:0;background:var(--paper);padding:6px 0;z-index:1;border-bottom:1px solid var(--rule-soft, #ddd)}
+#teamsDlg .ti-note{font-size:12.5px;background:var(--hit-fill, #FFF3CE);border:1px solid var(--hit-line, #E0B83A);border-radius:6px;padding:6px 9px;margin:6px 0}
+#teamsDlg .ti-list{margin-top:4px}
+#teamsDlg .ti-row{display:flex;gap:8px;padding:9px 4px;border-bottom:1px solid var(--rule-soft, #e3e5e0)}
+#teamsDlg .ti-row.flagged{background:color-mix(in srgb, var(--flag, #B4472A) 7%, transparent);border-left:3px solid var(--flag, #B4472A);padding-left:7px}
+#teamsDlg .ti-row.done{opacity:.5}
+#teamsDlg .ti-pick{padding-top:3px}
+#teamsDlg .ti-main{flex:1;min-width:0}
+#teamsDlg .ti-meta{font:11px var(--mono);color:var(--graphite-60)}
+#teamsDlg .ti-title{width:100%;margin:4px 0;font-weight:600;font-size:13.5px;padding:4px 6px;box-sizing:border-box}
+#teamsDlg .ti-text{white-space:pre-wrap;word-break:break-word;font-size:12.5px;max-height:160px;overflow:auto}
+#teamsDlg .ti-row.flagged .ti-text{max-height:none}
+#teamsDlg mark{background:var(--hit-line, #F5CE55);color:inherit;border-radius:2px;padding:0 1px}
+#teamsDlg .ti-chip{display:inline-block;font:600 10.5px var(--sans);background:var(--blueprint-soft, #E4EDF7);color:var(--blueprint, #14549B);border-radius:3px;padding:0 5px;margin-left:5px}
+#teamsDlg .ti-flag{display:inline-block;font:700 10.5px var(--sans);background:var(--flag, #B4472A);color:#fff;border-radius:3px;padding:0 5px;margin-left:5px}
+#teamsDlg .ti-replies summary{cursor:pointer;font-size:12px;color:var(--blueprint);margin-top:4px}
+#teamsDlg .ti-reply{margin:5px 0 0 10px;padding-left:8px;border-left:2px solid var(--rule-soft, #e3e5e0)}
+#teamsDlg .ti-pics{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+#teamsDlg .ti-pics img{width:84px;height:62px;object-fit:cover;border:1px solid var(--rule-soft, #ccc);border-radius:3px}
+#teamsDlg .ti-keep{margin-top:4px;font-size:12px}
 .fe-look{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--graphite-60);padding-left:6px;border-left:1px solid var(--rule-soft, #ddd)}
 .fe-look select{font-size:12.5px}
 .flowsvg .fe-casing{fill:none;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
@@ -4484,6 +4510,8 @@ body.viewing.panelaway #panelHide{display:none}
               <span class="ic">&#8631;</span><span class="lb">Sort</span></button>
             <button class="rvb" id="rvMove" hidden title="Move this room, and everything inside it, somewhere else">
               <span class="ic">&#8644;</span><span class="lb">Move</span></button>
+            <button class="rvb" id="rvTeams" hidden title="Bring in posts grabbed from Teams, as rooms under this one">
+              <span class="ic">&#8681;</span><span class="lb">From Teams</span></button>
             <button class="rvb" id="rvFlowBtn" hidden title="Draw a flowchart of shapes and arrows inside this room">
               <span class="ic">&#9671;</span><span class="lb">Flowchart</span></button>
           </div>
@@ -4840,6 +4868,36 @@ body.viewing.panelaway #panelHide{display:none}
   </div>
 </dialog>
 
+<dialog id="teamsDlg" aria-label="Import from Teams">
+  <div class="dlg-head"><h2>Import from Teams</h2><button class="btn" id="tiClose">Close</button></div>
+  <div class="hist-controls">
+    <div id="tiStart">
+      <p class="fineprint" style="margin:0 0 6px">In Teams, use <b>Grab for MindMap</b> and press <b>Copy for MindMap</b>
+        (or <b>Save as a .json file</b>). Then paste it here, or load the file. Nothing goes in until you tick it.</p>
+      <textarea id="tiText" rows="6" spellcheck="false" placeholder="Paste here (Ctrl+V)"
+        style="width:100%;font:12px var(--mono);box-sizing:border-box"></textarea>
+      <div class="row" style="flex-wrap:wrap;gap:6px;margin-top:6px">
+        <button class="btn" id="tiClip">Paste from the clipboard</button>
+        <button class="btn" id="tiLoad">Load a file&hellip;</button>
+        <input type="file" id="tiFile" accept=".json,application/json,text/plain" hidden>
+      </div>
+      <p class="fineprint" id="tiSays" style="min-height:1.2em"></p>
+    </div>
+    <div id="tiReview" hidden>
+      <label class="field"><span>Put them under</span><select id="tiUnder"></select></label>
+      <div class="ti-bar">
+        <b id="tiCount"></b>
+        <button class="btn" id="tiAll">Tick all not flagged</button>
+        <button class="btn" id="tiNone">Untick all</button>
+        <span style="flex:1"></span>
+        <button class="btn" id="tiBack">Start over</button>
+        <button class="btn primary" id="tiAdd">Add</button>
+      </div>
+      <div id="tiNotes"></div>
+      <div id="tiList" class="ti-list"></div>
+    </div>
+  </div>
+</dialog>
 <dialog id="flowView" aria-label="Flowchart, full view">
   <div class="fv-stage" id="fvStage" tabindex="-1"></div>
   <div class="fv-walkbar" id="fvWalkBar" hidden>
@@ -5595,7 +5653,7 @@ function newNode(o={}){
     backdrop:"", backdropFloor:"", backdropSalt:"", spots:"", date:"",
     collect:"", collectGoal:"", noSearch:"", keywords:"", bodyFile:"",
     trailIntro:"", trailAdd:"", trailHide:"", trailDate:"", trailCaption:"",
-    flow:"",
+    flow:"", source:"",
     created:nowISO(), modified:nowISO(),
     rev:1, author:S.meta.author, x:null, y:null, pinned:false, collapsed:false
   }, o);
@@ -7540,7 +7598,7 @@ function seed(){
    Kept human-readable so the workbook stands on its own.
    ===================================================================== */
 const HDR = {
-  Nodes:["node_id","label","body","type","tags","status","flag","image","image_h","created","modified","rev","edit","author","badge","badge_at","badge_image","superseded_by","table_sort","order","date","collect","collect_goal","backdrop","backdrop_floor","backdrop_salt","spots","x","y","pinned","parent_id","depth","path","no_search","keywords","body_file","trail_intro","trail_add","trail_hide","trail_date","trail_caption","flow"],
+  Nodes:["node_id","label","body","type","tags","status","flag","image","image_h","created","modified","rev","edit","author","badge","badge_at","badge_image","superseded_by","table_sort","order","date","collect","collect_goal","backdrop","backdrop_floor","backdrop_salt","spots","x","y","pinned","parent_id","depth","path","no_search","keywords","body_file","trail_intro","trail_add","trail_hide","trail_date","trail_caption","flow","source"],
   Links:["edge_id","from_id","to_id","link_type","tag","label","condition","route","from_side","to_side","bow","color","line_style","width","arrow"],
   Revisions:["rev_id","node_id","timestamp","author","field","class","note","folded","old_value","new_value"],
   TagStyles:["tag","color","line_style","width","arrow","applies_to"],
@@ -7577,7 +7635,7 @@ function toSheets(){
     body_file:n.bodyFile || "",
     trail_intro:n.trailIntro || "", trail_add:n.trailAdd || "", trail_hide:n.trailHide || "",
     trail_date:n.trailDate || "", trail_caption:n.trailCaption || "",
-    flow:n.flow || "",
+    flow:n.flow || "", source:n.source || "",
     tags:(n.tags||[]).join(", "), status:n.status, flag:n.flag||"",
     image:n.image||"", image_h:n.image?(n.imageH||120):"",
     backdrop:n.backdrop||"", backdrop_floor:n.backdropFloor === "" || n.backdropFloor == null
@@ -7743,7 +7801,7 @@ function tablesToModel(t){
       trailIntro:String(r.trail_intro||""), trailAdd:String(r.trail_add||"").trim(),
       trailHide:String(r.trail_hide||"").trim(), trailDate:String(r.trail_date||"").trim(),
       trailCaption:String(r.trail_caption||""),
-      flow:String(r.flow||""),
+      flow:String(r.flow||""), source:String(r.source||""),
       type:String(r.type||"step"),
       tags:String(r.tags||"").split(",").map(x=>x.trim()).filter(Boolean),
       status:String(r.status||"active").toLowerCase(), flag:String(r.flag||""),
@@ -14528,6 +14586,144 @@ function renderQuestionInspector(q){
   });
 }
 
+
+/* ---------------------------------------------------------------
+   Tables pasted into a note. Excel, Sheets, Teams, Word and web pages put
+   a real table on the clipboard; a spreadsheet also gives tab-separated
+   text. Either becomes a pipe table, which a note draws as a table (and
+   can sort, if the room allows). Nothing is converted without asking.
+   --------------------------------------------------------------- */
+function rowsFromHtml(html){
+  if(!html || !/<table/i.test(html)) return null;
+  try{
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const t = doc.querySelector("table"); if(!t) return null;
+    const rows = [...t.querySelectorAll("tr")].map(tr=>{
+      const out = [];
+      [...tr.children].filter(c=>/^(TD|TH)$/.test(c.tagName)).forEach(c=>{
+        /* line breaks inside a cell become "; " so the words do not run together */
+        c.querySelectorAll("br").forEach(br=>br.replaceWith("\n"));
+        c.querySelectorAll("p,div,li").forEach(x=>x.append("\n"));
+        out.push((c.textContent || "").replace(/\s*\n\s*/g, "; ").replace(/^;\s*|;\s*$/g, "").replace(/\s+/g, " ").trim());
+        for(let k = 1; k < Math.min(20, +c.getAttribute("colspan") || 1); k++) out.push("");
+      });
+      return out;
+    });
+    return tidyRows(rows);
+  }catch(e){ return null; }
+}
+/* tab-separated (what a spreadsheet copies), with its quoted cells; commas
+   only when every line agrees, so ordinary sentences are left alone */
+function rowsFromDelimited(text){
+  const t = String(text || "").replace(/\r\n?/g, "\n").replace(/\n+$/, "");
+  if(!t.includes("\n")) return null;
+  const split = (sep)=>{
+    const rows = []; let row = [], cell = "", q = false;
+    for(let i = 0; i < t.length; i++){
+      const ch = t[i];
+      if(q){
+        if(ch === '"' && t[i + 1] === '"'){ cell += '"'; i++; }
+        else if(ch === '"') q = false;
+        else cell += ch;
+      } else if(ch === '"' && cell === "") q = true;
+      else if(ch === sep){ row.push(cell); cell = ""; }
+      else if(ch === "\n"){ row.push(cell); rows.push(row); row = []; cell = ""; }
+      else cell += ch;
+    }
+    row.push(cell); rows.push(row);
+    return rows.map(r=>r.map(c=>c.replace(/\s*\n\s*/g, "; ").trim()));
+  };
+  if(t.includes("\t")){
+    const rows = tidyRows(split("\t"));
+    if(rows && rows[0].length >= 2) return rows;
+  }
+  if(t.includes(",")){
+    const rows = split(",").filter(r=>r.some(Boolean));
+    if(rows.length >= 2 && rows[0].length >= 2 && rows.every(r=>r.length === rows[0].length)) return tidyRows(rows);
+  }
+  return null;
+}
+function tidyRows(rows){
+  rows = (rows || []).filter(r=>r.some(c=>String(c).trim()));
+  if(rows.length < 2) return null;
+  let w = Math.max(...rows.map(r=>r.length));
+  rows = rows.map(r=>r.concat(Array(w - r.length).fill("")));
+  /* columns empty from top to bottom go */
+  const keep = [...Array(w).keys()].filter(i=>rows.some(r=>String(r[i]).trim()));
+  rows = rows.map(r=>keep.map(i=>r[i]));
+  if(keep.length < 2) return null;
+  return rows;
+}
+function rowsToMarkdown(rows){
+  /* a pipe inside a cell would split it, so it is written as a slash */
+  const clean = rows.map(r=>r.map(c=>String(c).replace(/\|/g, "/").trim() || " "));
+  const line = r=>"| " + r.join(" | ") + " |";
+  return [line(clean[0]), "| " + clean[0].map(()=>"---").join(" | ") + " |", ...clean.slice(1).map(line)].join("\n");
+}
+/* swap a stretch of the note for a table, with the blank lines a table needs */
+function putTableInto(ta, start, end, rows){
+  const v = ta.value, before = v.slice(0, start), after = v.slice(end);
+  const lead = !before || /\n\n$/.test(before) ? "" : /\n$/.test(before) ? "\n" : "\n\n";
+  const tail = !after || /^\n\n/.test(after) ? "" : /^\n/.test(after) ? "\n" : "\n\n";
+  const md = rowsToMarkdown(rows);
+  ta.value = before + lead + md + tail + after;
+  const at = (before + lead + md).length;
+  ta.focus(); ta.setSelectionRange(at, at);
+  ta.dispatchEvent(new Event("input", {bubbles:true}));
+  ta.dispatchEvent(new Event("change", {bubbles:true}));
+}
+function wireTableAssist(ta, bar){
+  if(!ta || !bar || ta.readOnly) return;
+  let offer = null;
+  const say = (msg, how)=>{
+    offer = how;
+    bar.innerHTML = '<span>' + msg + '</span><button class="btn primary" type="button" data-tbl="go">Make it a table</button>'
+      + '<button class="btn" type="button" data-tbl="no">Leave it</button>';
+    bar.hidden = false;
+  };
+  const hide = ()=>{ bar.hidden = true; offer = null; };
+  ta.addEventListener("paste", ev=>{
+    const cd = ev.clipboardData; if(!cd) return;
+    const text = cd.getData("text/plain") || "", html = cd.getData("text/html") || "";
+    const rows = rowsFromHtml(html) || rowsFromDelimited(text);
+    if(!rows){ hide(); return; }
+    const start = ta.selectionStart;
+    /* the paste goes in as usual; the offer comes straight after */
+    setTimeout(()=>{
+      say("That looks like a table: " + (rows.length - 1) + " row" + (rows.length === 2 ? "" : "s") + " under a header, "
+        + rows[0].length + " columns.", ()=>{
+          let a = start, b = start + text.replace(/\r\n?/g, "\n").length;
+          if(ta.value.slice(a, b) !== text.replace(/\r\n?/g, "\n")){
+            const at = ta.value.indexOf(text.replace(/\r\n?/g, "\n"));
+            if(at < 0){ toast("The pasted text has changed since; select it and try again."); return; }
+            a = at; b = at + text.replace(/\r\n?/g, "\n").length;
+          }
+          putTableInto(ta, a, b, rows);
+        });
+    }, 0);
+  });
+  /* or pick out some tab- or comma-separated lines already in the note */
+  const checkSel = ()=>{
+    const a = ta.selectionStart, b = ta.selectionEnd;
+    if(b - a < 5){ if(offer && offer.sel) hide(); return; }
+    const pick = ta.value.slice(a, b);
+    if(/^\s*\|/.test(pick)) return;
+    const rows = rowsFromDelimited(pick);
+    if(!rows) return;
+    const fn = ()=>putTableInto(ta, a, b, rows); fn.sel = true;
+    say("The selected lines look like a table (" + rows[0].length + " columns).", fn);
+  };
+  ta.addEventListener("mouseup", checkSel);
+  ta.addEventListener("keyup", ev=>{ if(ev.shiftKey || ev.key === "a") checkSel(); });
+  bar.addEventListener("mousedown", ev=>ev.preventDefault());
+  bar.addEventListener("click", ev=>{
+    const b = ev.target.closest("[data-tbl]"); if(!b) return;
+    const go = offer;
+    hide();
+    if(b.dataset.tbl === "go" && go) go();
+  });
+}
+
 /* Pipe tables in a note are rendered as tables. Anything else is left as
    written, so plain notes are untouched. */
 function looksLikeTable(text){
@@ -15460,6 +15656,264 @@ function wireFlowView(){
   }).observe(document.documentElement, {attributes:true, attributeFilter:["data-theme"]});
 }
 
+
+
+/* ---------------------------------------------------------------
+   Import from Teams. The Grab for MindMap script in Teams copies a
+   block of JSON (one conversation, or a batch of them). Here it is
+   read, every thread is listed for a person to look at, and only the
+   ones they tick become rooms. Anything the script flagged as a
+   possible patient identifier starts unticked and highlighted. A
+   thread brought in before is shown greyed and cannot be added twice.
+   Nothing is sent anywhere: this only reads what was pasted.
+   --------------------------------------------------------------- */
+const ti = {grabs:[], rows:[], under:""};
+function teamsGrabsFrom(raw){
+  let j;
+  try{ j = typeof raw === "string" ? JSON.parse(raw.trim()) : raw; }catch(e){ return null; }
+  if(!j || typeof j !== "object") return null;
+  if(j.kind === "mindmap-teams-batch" && Array.isArray(j.grabs)) return j.grabs.filter(g=>g && Array.isArray(g.posts));
+  if(j.kind === "mindmap-teams-grab" && Array.isArray(j.posts)) return [j];
+  if(Array.isArray(j.posts)) return [j];
+  return null;
+}
+function teamsSourceId(g, p){ return "teams:" + String(p.id || ""); }
+function teamsAlready(){
+  const have = new Set();
+  for(const n of S.nodes.values()) if(n.source) have.add(n.source);
+  return have;
+}
+function teamsDay(iso){
+  const d = new Date(iso);
+  if(isNaN(d)) return "";
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+function teamsWhen(iso){
+  const d = new Date(iso);
+  return isNaN(d) ? "" : d.toLocaleString([], {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"});
+}
+/* the text with what the script flagged picked out, safely */
+function teamsMarked(text, marks){
+  const found = [...new Set((marks || []).map(m=>m && m.match).filter(Boolean))].sort((a, b)=>b.length - a.length);
+  if(!found.length) return esc(text);
+  const rx = new RegExp(found.map(x=>x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"), "g");
+  let out = "", at = 0, m;
+  while((m = rx.exec(text))){
+    out += esc(text.slice(at, m.index)) + "<mark>" + esc(m[0]) + "</mark>";
+    at = m.index + m[0].length;
+    if(!m[0].length) rx.lastIndex++;
+  }
+  return out + esc(text.slice(at));
+}
+/* A channel mention ("General", "@General") is drawn as its own line in a
+   post; it is noise in a room's note, so it comes out. */
+function teamsTidy(text, g){
+  const ch = String((g && g.channel) || "").trim().toLowerCase();
+  return String(text || "").split("\n")
+    .filter(l=>{ const t = l.trim().replace(/^@/, "").toLowerCase(); return !(t && ch && t === ch); })
+    .join("\n").replace(/^\s*\n+/, "").replace(/\n{3,}/g, "\n\n").trim();
+}
+const TEAMS_GREETING = /^(hi|hello|hey|good (morning|afternoon|evening)|greetings|dear)\b[^.!?]{0,30}[,!.:]?$/i;
+function teamsTitle(p, g){
+  /* a post's own subject line is the best name it has */
+  if(String(p.subject || "").trim()) return String(p.subject).trim().slice(0, 120);
+  const first = teamsTidy(String(p.text || "").replace(/^\(Reply to an earlier post[^\n]*\n/, ""), g)
+    .split(/\n/).map(x=>x.replace(/\[image \d+\]/g, "").trim())
+    .find(x=>x && !TEAMS_GREETING.test(x)) || "";
+  return (typeof titleFromText === "function" ? titleFromText(first) : first.slice(0, 80)) || "Teams post";
+}
+function openTeamsImport(underId){
+  if(!canEdit()){ toast("Switch to editing mode first."); return; }
+  ti.under = underId && S.nodes.has(underId) ? underId : (S.sel || "");
+  ti.grabs = []; ti.rows = [];
+  el("tiStart").hidden = false; el("tiReview").hidden = true;
+  el("tiText").value = ""; el("tiSays").textContent = "";
+  el("teamsDlg").showModal();
+  setTimeout(()=>el("tiText").focus(), 30);
+}
+function teamsTake(raw){
+  const grabs = teamsGrabsFrom(raw);
+  if(!grabs){ el("tiSays").innerHTML = '<span style="color:var(--flag)">That is not something Grab for MindMap copied. In Teams, press Copy for MindMap again and paste it here.</span>'; return; }
+  const have = teamsAlready();
+  ti.grabs = grabs;
+  ti.rows = [];
+  grabs.forEach((g, gi)=>g.posts.forEach(p=>{
+    const src = teamsSourceId(g, p);
+    const flagged = (p.flags || []).length > 0;
+    const pics = (p.images || []).concat(...(p.replies || []).map(r=>r.images || []));
+    ti.rows.push({g, p, gi, src, flagged, done:have.has(src), pick:!flagged && !have.has(src),
+      title:teamsTitle(p, g), keepPics:pics.some(i=>i.preview), pics});
+  }));
+  /* newest first, as in Teams */
+  ti.rows.sort((a, b)=>String(b.p.at).localeCompare(String(a.p.at)));
+  renderTeamsReview();
+}
+function renderTeamsReview(){
+  el("tiStart").hidden = true; el("tiReview").hidden = false;
+  /* where they go: the room you were in, or any room */
+  const sel = el("tiUnder");
+  /* each room with the rooms above it, so two of the same name can be told apart */
+  const trail = id=>{ const out = []; let x = id, g = 0; while(x && g++ < 12){ out.unshift(nodeName(x)); x = parentOf(x); } return out.join(" › "); };
+  const opts = [...S.nodes.values()].filter(n=>!isLayer(n.id)).map(n=>[n.id, trail(n.id)]);
+  opts.sort((a, b)=>a[1].localeCompare(b[1]));
+  sel.innerHTML = opts.map(([id, l])=>`<option value="${esc(id)}"${id === ti.under ? " selected" : ""}>${esc(l)}</option>`).join("");
+  if(!ti.under && opts.length){ ti.under = (opts.find(o=>/scratch/i.test(o[1])) || opts[0])[0]; sel.value = ti.under; }
+  /* what the script itself said */
+  const notes = [];
+  ti.grabs.forEach(g=>{
+    const where = (g.team ? g.team + " › " : "") + (g.channel || "Teams");
+    if(g.complete === false) notes.push(where + ": the grab stopped before " + (g.cutoff || "the date picked") + ", so older posts are missing.");
+    if(g.undated) notes.push(where + ": " + g.undated + " message" + (g.undated === 1 ? "" : "s") + " had no time the script could read and were left out.");
+    (g.notes || []).forEach(n=>notes.push(where + ": " + n));
+  });
+  const flagged = ti.rows.filter(r=>r.flagged && !r.done).length;
+  if(flagged) notes.unshift(flagged + " thread" + (flagged === 1 ? " was" : "s were") + " flagged for a possible patient detail (highlighted). "
+    + "They start unticked. Read each one before ticking it.");
+  el("tiNotes").innerHTML = notes.map(n=>`<div class="ti-note">${esc(n)}</div>`).join("");
+  el("tiList").innerHTML = ti.rows.map((r, i)=>{
+    const p = r.p, where = (r.g.team ? r.g.team + " › " : "") + (r.g.channel || "");
+    const replies = (p.replies || []);
+    const thumbs = r.pics.filter(x=>x.preview).slice(0, 6)
+      .map(x=>`<img src="${esc(x.preview)}" alt="" title="${esc(x.pointer || "")}">`).join("");
+    return `<div class="ti-row${r.flagged ? " flagged" : ""}${r.done ? " done" : ""}" data-ti="${i}">
+      <label class="ti-pick"><input type="checkbox" data-tipick="${i}"${r.pick ? " checked" : ""}${r.done ? " disabled" : ""}></label>
+      <div class="ti-main">
+        <div class="ti-meta">${esc(p.author || "")} · ${esc(teamsWhen(p.at))}${where ? " · " + esc(where) : ""}
+          ${replies.length ? `<span class="ti-chip">${replies.length} repl${replies.length === 1 ? "y" : "ies"}</span>` : ""}
+          ${r.pics.length ? `<span class="ti-chip">${r.pics.length} picture${r.pics.length === 1 ? "" : "s"}</span>` : ""}
+          ${(p.flags || []).map(f=>`<span class="ti-flag">${esc(f)}</span>`).join("")}
+          ${r.done ? `<span class="ti-chip">already brought in</span>` : ""}</div>
+        <input type="text" class="ti-title" data-tititle="${i}" value="${esc(r.title)}"${r.done ? " disabled" : ""} title="The room's name">
+        <div class="ti-text">${teamsMarked(teamsTidy(p.text, r.g).slice(0, r.flagged ? 4000 : 600), p.marks)}${!r.flagged && String(p.text || "").length > 600 ? " …" : ""}</div>
+        ${replies.length ? `<details class="ti-replies"><summary>Replies</summary>${replies.map(x=>`<div class="ti-reply">
+            <div class="ti-meta">${esc(x.author || "")} · ${esc(teamsWhen(x.at))}${(x.flags || []).map(f=>`<span class="ti-flag">${esc(f)}</span>`).join("")}</div>
+            <div class="ti-text">${teamsMarked(String(x.text || ""), x.marks)}</div></div>`).join("")}</details>` : ""}
+        ${thumbs ? `<div class="ti-pics">${thumbs}</div>
+          <label class="check ti-keep"><input type="checkbox" data-tipics="${i}"${r.keepPics ? " checked" : ""}${r.done ? " disabled" : ""}>
+            Bring the pictures too <span class="fineprint">(pictures are not checked for patient details; look at each one)</span></label>` : ""}
+      </div></div>`;
+  }).join("") || '<p class="fineprint">No threads in what was pasted.</p>';
+  teamsCount();
+}
+function teamsCount(){
+  const n = ti.rows.filter(r=>r.pick && !r.done).length;
+  el("tiCount").textContent = n + " of " + ti.rows.filter(r=>!r.done).length + " ticked";
+  el("tiAdd").disabled = !n;
+  el("tiAdd").textContent = n ? "Add " + n + " as room" + (n === 1 ? "" : "s") : "Add";
+}
+/* the room's note: the post, its replies under it, then links and where each picture lives */
+function teamsBody(r, picPaths){
+  const p = r.p, where = (r.g.team ? r.g.team + " › " : "") + (r.g.channel || "Teams");
+  const swap = (t, own)=>String(t || "").replace(/\[image (\d+)\]/g, (m, k)=>{
+    const hit = own.find(x=>+x.n === +k);
+    const path = hit && picPaths.get(hit);
+    return path ? "[picture: " + path + "]" : "[picture " + k + (hit && hit.pointer ? " — " + hit.pointer : "") + "]";
+  });
+  let out = (String(p.subject || "").trim() ? p.subject.trim() + "\n\n" : "") + swap(teamsTidy(p.text, r.g), p.images || []);
+  (p.replies || []).forEach(x=>{
+    out += "\n\n— " + (x.author || "Someone") + ", " + teamsWhen(x.at) + ":\n" + swap(teamsTidy(x.text, r.g), x.images || []);
+  });
+  if((p.links || []).length) out += "\n\nLinks:\n" + p.links.map(l=>"• " + l).join("\n");
+  out += "\n\nFrom Teams: " + where + ", " + (p.author || "") + ", " + teamsWhen(p.at) + ".";
+  return out.trim();
+}
+async function teamsAdd(){
+  const picked = ti.rows.filter(r=>r.pick && !r.done);
+  if(!picked.length) return;
+  const flagged = picked.filter(r=>r.flagged).length;
+  if(flagged && !confirm(flagged + " of these " + (flagged === 1 ? "is" : "are") + " flagged for a possible patient detail. "
+    + "Have you read " + (flagged === 1 ? "it" : "them") + " and are " + (flagged === 1 ? "it" : "they") + " fine to share with everyone who opens the map?")) return;
+  const under = el("tiUnder").value || ti.under;
+  if(!S.nodes.has(under)){ toast("Pick a room to put them under."); return; }
+  /* pictures go into the shared folder by the naming rule when there is one */
+  const root = typeof picFolder === "function" ? picFolder() : null;
+  let canWrite = false;
+  if(root && picked.some(r=>r.keepPics && r.pics.some(x=>x.preview))){
+    try{
+      let perm = await root.queryPermission({mode:"readwrite"});
+      if(perm !== "granted") perm = await root.requestPermission({mode:"readwrite"});
+      canWrite = perm === "granted";
+    }catch(e){}
+  }
+  el("tiAdd").disabled = true; el("tiAdd").textContent = "Adding…";
+  let made = 0, picsSaved = 0, picsSkipped = 0;
+  const kids = childrenOf(under).length;
+  for(const r of picked){
+    const tag = "Teams/" + String(r.g.channel || "Teams").replace(/[,\/]+/g, " ").trim();
+    ensureTagStyle(tag);
+    const n = newNode({label:(r.title || "").trim() || teamsTitle(r.p, r.g), body:"", tags:[tag],
+      date:teamsDay(r.p.at), source:r.src});
+    n.order = String(kids + made + 1);
+    S.nodes.set(n.id, n);
+    const e = newEdge({from:under, to:n.id, link_type:"tree"}); S.edges.set(e.id, e);
+    logRev(n.id, "created", "", n.label);
+    const picPaths = new Map();
+    if(r.keepPics){
+      let k = 0;
+      for(const pic of r.pics){
+        if(!pic.preview) continue;
+        k++;
+        if(canWrite){
+          try{
+            const blob = await (await fetch(pic.preview)).blob();
+            const ext = /^data:image\/png/.test(pic.preview) ? "png" : "jpg";
+            const path = await writePictureBytes(blob, n, k === 1 ? "" : "teams-" + k, ext);
+            picPaths.set(pic, path); picsSaved++;
+            if(k === 1) n.image = path;
+          }catch(err){ picsSkipped++; }
+        } else if(k === 1 && pic.preview.length < CELL_LIMIT * 0.9){
+          /* no shared folder linked: the first, if small, rides in the workbook */
+          n.image = pic.preview; picsSaved++;
+        } else picsSkipped++;
+      }
+    }
+    n.body = teamsBody(r, picPaths);
+    r.done = true; r.pick = false;
+    made++;
+  }
+  markDirty(); rebuild();
+  if(inRoom()) renderRoomSoon();
+  el("teamsDlg").close();
+  toast("Added " + made + " room" + (made === 1 ? "" : "s") + " under " + nodeName(under)
+    + (picsSaved ? ", " + picsSaved + " picture" + (picsSaved === 1 ? "" : "s") : "")
+    + (picsSkipped ? " (" + picsSkipped + " picture" + (picsSkipped === 1 ? "" : "s") + " left in Teams: link the shared folder to bring them all)" : "")
+    + ". Save the map to share them.");
+}
+function wireTeamsImport(){
+  if(!el("teamsDlg")) return;
+  el("tiClose").onclick = ()=>el("teamsDlg").close();
+  el("tiText").addEventListener("paste", ()=>setTimeout(()=>teamsTake(el("tiText").value), 0));
+  el("tiText").addEventListener("input", ()=>{
+    const v = el("tiText").value.trim();
+    if(v.length > 20 && /^\{/.test(v) && /\}$/.test(v)) teamsTake(v);
+  });
+  el("tiClip").onclick = async ()=>{
+    try{ const t = await navigator.clipboard.readText(); el("tiText").value = t; teamsTake(t); }
+    catch(e){ toast("The browser would not hand over the clipboard. Click in the box and press Ctrl+V instead."); el("tiText").focus(); }
+  };
+  el("tiLoad").onclick = ()=>el("tiFile").click();
+  el("tiFile").onchange = ev=>{
+    const f = ev.target.files[0]; ev.target.value = "";
+    if(!f) return;
+    const rd = new FileReader();
+    rd.onload = ()=>{ el("tiText").value = ""; teamsTake(String(rd.result || "")); };
+    rd.readAsText(f);
+  };
+  el("tiUnder").onchange = ev=>{ ti.under = ev.target.value; };
+  el("tiBack").onclick = ()=>openTeamsImport(ti.under);
+  el("tiAll").onclick = ()=>{ ti.rows.forEach(r=>{ if(!r.done) r.pick = !r.flagged; }); renderTeamsReview(); };
+  el("tiNone").onclick = ()=>{ ti.rows.forEach(r=>{ r.pick = false; }); renderTeamsReview(); };
+  el("tiAdd").onclick = ()=>teamsAdd().catch(err=>{ toast("Could not add them: " + (err.message || err)); teamsCount(); });
+  el("tiList").addEventListener("change", ev=>{
+    const t = ev.target;
+    if(t.dataset.tipick != null){ ti.rows[+t.dataset.tipick].pick = t.checked; teamsCount(); }
+    if(t.dataset.tipics != null) ti.rows[+t.dataset.tipics].keepPics = t.checked;
+  });
+  el("tiList").addEventListener("input", ev=>{
+    const t = ev.target;
+    if(t.dataset.tititle != null) ti.rows[+t.dataset.tititle].title = t.value;
+  });
+}
 
 /* --- import / export ------------------------------------------- */
 function flowToText(d){
@@ -16443,6 +16897,7 @@ function renderInspector(){
       <label class="field"><span>Notes${n.body && n.body.length > 600
         ? ` <span class="fold">${(n.body.length/1000).toFixed(1)}k characters</span>` : ""}</span>
         <textarea id="fBody" class="notebox"${n.bodyFile && !n._noteLoaded ? " readonly" : ""}>${esc(n.body)}</textarea></label>
+      <div class="tablepaste" id="fTablePaste" hidden></div>
       ${n.bodyFile ? `<div class="notefile">
           <p class="fineprint" style="margin:0 0 6px">${n._noteLoaded
             ? "Kept in <b>" + esc(n.bodyFile) + "</b> in the shared folder. Edits here are saved to that file; the workbook holds only its first lines."
@@ -16626,6 +17081,7 @@ function renderInspector(){
     commit("body", e.target.value);
     if(n.bodyFile) noteChanged(n);
   };
+  wireTableAssist(el("fBody"), el("fTablePaste"));
   if(el("fNoteOut")) el("fNoteOut").onclick = ()=>moveNoteToFile(n);
   if(el("fNoteBack")) el("fNoteBack").onclick = ()=>noteBackIntoWorkbook(n);
   /* When a search brought you here, put the cursor on the match so it is
@@ -19851,7 +20307,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-10-04h";
+const APP_BUILD = "2026-10-04k";
 
 /* Reading that line back out of a copy of this file.
 
@@ -23601,7 +24057,7 @@ function renderRoom(){
     el("rvEdit").hidden = true;
     el("rvAdd").hidden = true;
     el("rvBatch").hidden = true; el("rvMove").hidden = true; el("rvSort").hidden = true;
-    el("rvFlowBtn").hidden = true;
+    el("rvFlowBtn").hidden = true; el("rvTeams").hidden = true;
     /* A room of everything the filter found is a parent in all but name, so
        it can be worked on like one: take the lot and change them together. */
     if(el("rvBulk")) el("rvBulk").hidden = !canEdit();
@@ -23639,7 +24095,7 @@ function renderRoom(){
     el("rvArches").innerHTML = "";
     el("rvEdit").hidden = true; el("rvAdd").hidden = true;
     el("rvBatch").hidden = !canEdit(); el("rvMove").hidden = true; el("rvSort").hidden = true;
-    el("rvFlowBtn").hidden = true;
+    el("rvFlowBtn").hidden = true; el("rvTeams").hidden = true;
     wayOut(null);
     paintStuff(null, [], 0);
     paintBoss(null); paintBanners(null);
@@ -23798,6 +24254,7 @@ function renderRoom(){
   el("rvBatch").hidden = !canEdit();
   el("rvMove").hidden = !canEdit();
   el("rvFlowBtn").hidden = !canEdit();
+  el("rvTeams").hidden = !canEdit();
   el("rvFlowBtn").querySelector(".lb").textContent = S.sel && (S.nodes.get(S.sel) || {}).flow ? "Edit flowchart" : "Flowchart";
   el("rvSort").hidden = !canEdit() || !childrenOf(S.sel).length;
   /* the same for a real parent: everything standing in here, together */
@@ -24613,6 +25070,8 @@ const HELP_TOPICS = [
       <li><b>Sort</b> (room console): goes through each room in here with <b>Move to&hellip;</b>, plus one-tap buttons for the places you moved to lately. <b>Undo</b> on any of them.</li>
       <li><b>Flowcharts in a room</b>: <b>Import / Export</b> on the drawing page copies a chart out as text or saves it as a <i>.flowchart.json</i> file, and brings one back in by pasting or loading the file. That is how to copy a chart to another room or send it to another editor. Press <b>&#9671; Flowchart</b> on the room console, or <b>+ Flowchart</b> in a room's bubble, or <b>Draw a flowchart in this room</b> in the Edit panel. Pick shapes and colours from the top bar. To draw an arrow, drag one of a shape's blue dots onto another shape; let go on empty paper and a new step appears there, already joined. Double-click a shape (or press Enter) to type in it; double-click the paper for a new box. With a shape chosen, <b>+ YES &rarr;</b> and <b>+ NO &darr;</b> add the next step with a labelled arrow (Tab and Shift+Tab do the same). Click an arrow to label it, curve it or flip it. <b>Motion</b> makes a shape pulse, bob, glow, wiggle or spin in. <b>Look</b> (top bar) dresses the whole chart in one of the map's themes: Islands (sand islands, palms, fish along the arrows), Ant farm (burrows, tunnels, ants), City (blocks with buildings, roads, traffic), Blueprint, Foolscap, Terminal, Dusk or Boardroom. Your colours still show through, so YES and NO stay green and orange. Ctrl+Z undoes, Ctrl+D copies, arrow keys nudge, Delete removes, Ctrl+S saves. The words in a flowchart are not searched; put what people search for in the note or keywords.</li>
       <li><b>Picture file names</b>: a picture, badge or backdrop you add to a room is saved by a fixed rule. It goes in a folder that follows the breadcrumb two deep, and the name is the room plus its id, for example <i>images/03-the-accession/issues/opv-flowchart_n-s3l6yo39.png</i>. Nothing is ever overwritten; a second one gets <i>-2</i>. To bring older pictures in line, use <b>File all pictures by the naming rule</b> under <b>Badges and pictures</b>. Old files go to <i>images/_old-names</i>, and once you are happy you can delete that folder. Save afterwards.</li>
+      <li><b>From Teams</b> (room console): bring in posts grabbed with the Grab for MindMap script in Teams. Paste what it copied (or load its .json file), check the list, edit any titles, tick what goes in, and pick the room they go under (the room you are in is the default). Each becomes a room: the post and its replies in the note, its date, a <i>Teams/&lt;channel&gt;</i> tag, and its first picture. Threads flagged for a possible patient detail start unticked and highlighted. A thread brought in before shows greyed and cannot be added twice.</li>
+      <li><b>Tables in a note</b>: paste a table from Excel, Sheets, Teams, Word or a web page into a room's note, and a bar offers <b>Make it a table</b>. It becomes a table people see properly in the room (tick <b>Let people sort the tables</b> to make the columns sortable). You can also select some tab- or comma-separated lines already in a note to get the same offer. <b>Leave it</b> keeps exactly what you pasted.</li>
       <li><b>Tagging</b>: start typing in any tag box and the tags you already use come up. It finds any part of the name (<i>labhold</i> finds <i>Sentences/Issues-LabHold</i>) and small typos. Tap one, or use the arrows and Enter. Click into an empty tag box to see the ones you use most. If nothing matches, keep typing to make a new tag.</li>
       <li><b>Drag one character onto another</b> (room view): the one underneath gets a dashed ring; let go and pick <b>Move under</b> to make it a child (its whole branch comes along), <b>Cross-link</b>, or <b>Replace</b>.</li>
       <li><b>Move</b> (room console, or <b>Move&hellip;</b> on a room's bubble): sends a room and everything inside it anywhere; type part of a name, arrows and Enter work.</li>
@@ -26847,6 +27306,7 @@ function wireRoom(){
   wireFlowView();
   wireFlowEditor();
   wireFlowIO();
+  wireTeamsImport();
   if(el("btnFilePics")) el("btnFilePics").onclick = ()=>organizePictures();
   if(el("roomSkin")) el("roomSkin").onchange = e=>{
     const was = S.roomSkin;
@@ -27532,6 +27992,7 @@ async function boot(){
   el("rvBatch").onclick = openBatch;
   el("rvMove").onclick = ()=>{ if(S.sel) openMove([S.sel]); };
   el("rvFlowBtn").onclick = ()=>{ if(S.sel && canEdit()) openFlowEditor(S.sel); };
+  el("rvTeams").onclick = ()=>openTeamsImport(S.sel);
   el("rvSort").onclick = ()=>{ if(S.sel) openSort(S.sel); };
   el("bxClose").onclick = ()=>el("batchDlg").close();
   el("bxGo").onclick = batchMake;
