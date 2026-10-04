@@ -382,6 +382,7 @@ input[type=range],input[type=color],input[type=checkbox],input[type=file]{cursor
 .rp-chips{display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px;border-bottom:1px solid var(--rule);flex:0 0 auto}
 .rp-chips[hidden]{display:none}
 .rp-chips .rp-tag.on{background:var(--blueprint);color:#fff;border-color:var(--blueprint)}
+.resrow .toclabel .fold{display:inline-block;margin-left:6px;padding:0 6px;border:1px solid var(--line, #ccc);border-radius:9px;font-size:10.5px;line-height:16px;opacity:.75;vertical-align:1px;font-weight:400}
 .rp-chips .rp-dates{flex:1 1 100%;display:flex;flex-direction:column;gap:6px;padding-top:4px}
 .rp-chips .rp-daterow{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}
 .rp-chips .rp-daterow label{display:flex;align-items:center;gap:5px;font-size:12.5px}
@@ -5616,7 +5617,7 @@ const S = {
   hitQuery:"",
   searchExcludes:true,         // skip accession numbers, tracking numbers and dates
   searchScope:"all",           // all | parents | areas | bookmarks
-  tagPick:new Set(), dateFrom:"", dateTo:"", tagMode:"any", tagOnly:false, tagOpen:new Set(),
+  tagPick:new Set(), dateFrom:"", dateTo:"", flowOnly:false, tagMode:"any", tagOnly:false, tagOpen:new Set(),
   areaHits:[], bmHits:[],
   expanded:new Set(),          // nodes showing their whole note
   folded:new Set(), unfolded:new Set(),   // outline sections shut and opened by hand
@@ -11015,7 +11016,7 @@ function renderResultsCore(){
     /* a narrowed scope is a filter in its own right, so Needs attention and
        the rest get the same temporary list */
     const scoped = S.searchScope && S.searchScope !== "all";
-    const showing = hasQuery || S.tagPick.size || scoped || datesOn();
+    const showing = hasQuery || S.tagPick.size || scoped || datesOn() || S.flowOnly;
     const pop = el("resultsPop");
     pop.classList.toggle("starter", !showing && starterOn);
     paintChips();
@@ -11036,7 +11037,8 @@ function renderResultsCore(){
         : S.tagPick.size
           ? `${n} node${n===1?"":"s"} tagged ` + esc([...S.tagPick].map(tagLeaf).join(", "))
           : `${n} ${scopeName || ("node" + (n===1?"":"s"))}`;
-      const labelDated = datesOn() ? label + " · dated " + esc(dateRangeText()) : label;
+      const labelDated = (S.flowOnly ? label + " · with a flowchart" : label)
+        + (datesOn() ? " · dated " + esc(dateRangeText()) : "");
       const qTerms = String(S.hitQuery || "").replace(/^\?+/, "").replace(/(^|\s)#[^\s#]*/g, " ").trim()
         .split(/\s+/).filter(Boolean);
       const kwOf = id=>keywordHit(S.nodes.get(id), qTerms);
@@ -11067,7 +11069,7 @@ function renderResultsCore(){
             ${sv ? `<span class="sevdot" style="background:${sv.colour};
               display:inline-block;margin-right:6px;vertical-align:middle"></span>` : ""}
             ${gone ? `<span class="retchip">retired</span>` : ""}
-            ${esc(n.label || n.id)}${datesOn() && roomDay(n) ? ` <span class="fold">${esc(shortDay(roomDay(n)))}</span>` : ""}</span>
+            ${esc(n.label || n.id)}${datesOn() && roomDay(n) ? ` <span class="fold">${esc(shortDay(roomDay(n)))}</span>` : ""}${hasFlow(n) ? ` <span class="fold" title="Has a flowchart">flowchart</span>` : ""}</span>
           ${(()=>{ const sn = snippetFor(n, qTerms); return sn ? `<span class="ressnip">${sn}</span>` : ""; })()}
           ${kwOf(t.id) && !exHit(t.id) ? `<span class="restrail exhit">keyword ${esc(kwOf(t.id))}</span>` : ""}
           ${exHit(t.id) ? `<span class="restrail exhit">example ${esc(exHit(t.id).accession)}${
@@ -11243,6 +11245,12 @@ function roomDay(n){
   return dateFromTagsOf(n) || String(n.created || "").slice(0, 10);
 }
 function datesOn(){ return !!(S.dateFrom || S.dateTo); }
+/* Only rooms with a flowchart on the wall, for when you want the walk-throughs. */
+function hasFlow(n){
+  const d = flowOf(n);
+  return !!(d && d.nodes && d.nodes.length);
+}
+function flowPass(n){ return !S.flowOnly || hasFlow(n); }
 function datePass(n){
   if(!datesOn()) return true;
   const d = roomDay(n);
@@ -11294,16 +11302,17 @@ function paintChips(){
   const open = !!S.personal.chipsOpen;
   box.hidden = !open;
   btn.classList.toggle("on", open);
-  btn.innerHTML = "Filters " + (datesOn() ? "&#9679; " : "") + (open ? "&#9662;" : "&#9656;");
+  btn.innerHTML = "Filters " + (datesOn() || S.flowOnly ? "&#9679; " : "") + (open ? "&#9662;" : "&#9656;");
   if(!open) return;
   const typed = (el("mq").value || "").trim();
   const asking = typed.startsWith("?");
   const names = S.searchScope === "labels";
   const tagged = /(^|\s)#/.test(typed);
-  box.innerHTML = `<button class="rp-tag${!asking && !names && !tagged ? " on" : ""}" data-chip="all">Everything</button>
+  box.innerHTML = `<button class="rp-tag${!asking && !names && !tagged && !S.flowOnly ? " on" : ""}" data-chip="all">Everything</button>
     <button class="rp-tag${asking ? " on" : ""}" data-chip="q" title="Same as starting with ?">Questions</button>
     <button class="rp-tag${tagged || chipTags ? " on" : ""}" data-chip="tag" title="Same as typing #">Tags&hellip;</button>
     <button class="rp-tag${names ? " on" : ""}" data-chip="names">Names only</button>
+    <button class="rp-tag${S.flowOnly ? " on" : ""}" data-chip="flows" title="Only rooms with a flowchart">Flowcharts</button>
     <button class="rp-tag${datesOn() || chipDates ? " on" : ""}" data-chip="dates" title="Only rooms dated within a range">${datesOn() ? "Dates: " + esc(dateRangeText()) : "Dates&hellip;"}</button>
     ${chipDates ? `<div class="rp-dates">
         <div class="rp-daterow">
@@ -11337,8 +11346,10 @@ function paintChips(){
       const k = b.dataset.chip;
       if(k === "tag"){ chipTags = !chipTags; chipDates = false; paintChips(); placeResults(); return; }
       if(k === "dates"){ chipDates = !chipDates; chipTags = false; paintChips(); placeResults(); return; }
+      if(k === "flows"){ S.flowOnly = !S.flowOnly; runSearch(); el("mq").focus(); return; }
       chipTags = false; chipDates = false;
       if(k === "all"){
+        S.flowOnly = false;
         if(S.searchScope !== "all"){ S.searchScope = "all"; if(el("searchScope")) el("searchScope").value = "all"; savePrefs(); }
         put(now.replace(/^\?+\s*/, "").replace(/(^|\s)#\S*/g, " ").trim());
       } else if(k === "q"){
@@ -13179,7 +13190,7 @@ function findMoreShown(want){
   pruneTagPick();
   const q = el("mq");
   const typed = !!(q && q.value.trim());
-  const narrowed = S.tagPick.size || (S.searchScope && S.searchScope !== "all") || datesOn();
+  const narrowed = S.tagPick.size || (S.searchScope && S.searchScope !== "all") || datesOn() || S.flowOnly;
   const busy = want != null ? want : (typed || narrowed);
   more.hidden = !busy;
   fitWall();
@@ -17375,7 +17386,7 @@ function clearTheSearch(){
   if(el("mq")) el("mq").value = "";
   S.tagPick.clear();
   S.tagOnly = false;
-  S.dateFrom = ""; S.dateTo = "";
+  S.dateFrom = ""; S.dateTo = ""; S.flowOnly = false;
   S.searchScope = "all";
   const sel = el("searchScope"); if(sel) sel.value = "all";
   updateTagCount();
@@ -17388,7 +17399,7 @@ function clearTheSearch(){
 
 function anyFilterOn(){
   return !!((el("q") && el("q").value.trim()) || S.tagPick.size
-    || (S.searchScope && S.searchScope !== "all") || datesOn());
+    || (S.searchScope && S.searchScope !== "all") || datesOn() || S.flowOnly);
 }
 
 function syncClearButton(){
@@ -17405,6 +17416,7 @@ function syncClearButton(){
       if(q) bits.push("“" + shorten(q, 18) + "”");
       if(S.tagPick.size) bits.push([...S.tagPick].map(tagLeaf).join(", "));
       if(S.searchScope && S.searchScope !== "all") bits.push(S.searchScope);
+      if(S.flowOnly) bits.push("flowcharts");
       if(datesOn()) bits.push(dateRangeText());
       chip.textContent = "Filtered: " + shorten(bits.join(" · "), 34) + "  ✕";
       chip.title = "Clear the filter (Esc)";
@@ -17740,7 +17752,7 @@ function runSearchCore(){
   S.hitQuery = typedAll;
   S.hits = []; S.qHits = []; S.areaHits = []; S.bmHits = [];
   const scope = S.searchScope;
-  const filtering = S.tagPick.size > 0 || scope !== "all" || hashTags.length > 0 || qOnly || datesOn();
+  const filtering = S.tagPick.size > 0 || scope !== "all" || hashTags.length > 0 || qOnly || datesOn() || !!S.flowOnly;
 
   /* One letter matches almost everything and costs the most to draw, so it is
      treated as nothing typed yet — the search starts on the second letter. */
@@ -17794,6 +17806,7 @@ function runSearchCore(){
       if(leftOut.has(n.id)) return false;
       /* questions only: the rooms that answer them, and nothing else */
       if(!datePass(n)) return false;
+      if(!flowPass(n)) return false;
       if(qOnly) return viaQuestions.has(n.id) && tagsPass(n) && hashPass(n, hashTags);
       if(scope === "parents" && !childrenOf(n.id).length) return false;
       if(scope === "flagged" && !severityOf(n)) return false;
@@ -17803,7 +17816,7 @@ function runSearchCore(){
       if(!terms.length) return true;
       if(titleOnly) return matches([n.label, (n.tags||[]).join(" ")].join(" "));
       const hay = [n.label, n.body, n.trailIntro || "", n.trailCaption || "", n.id, n.type, n.status, (n.tags||[]).join(" "),
-        (n.image||"").startsWith("data:") ? "photo image" : (n.image||"")].join(" ");
+        (n.image||"").startsWith("data:") ? "photo image" : (n.image||""), n.flow ? "flowchart" : ""].join(" ");
       if(viaQuestions.has(n.id) || matches(hay)) return true;
       /* the room's own search keywords, looked at as written */
       const kw = String(n.keywords || "").toLowerCase();
@@ -20358,7 +20371,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-10-04o";
+const APP_BUILD = "2026-10-04p";
 
 /* Reading that line back out of a copy of this file.
 
@@ -25058,6 +25071,7 @@ const HELP_TOPICS = [
       <li><kbd>?</kbd> at the start searches the <b>questions</b> people ask, and shows the rooms that answer each one.</li>
       <li><kbd>#</kbd> and a tag shows only rooms with that tag: <kbd>#lims</kbd>.</li>
       <li>Rather click? <b>Filters &#9656;</b> at the top of the list opens buttons that do the same.</li>
+      <li><b>Flowcharts</b> in Filters shows only rooms that have a flowchart to walk through. It works together with words, tags and dates; tap it again to turn it off.</li>
     </ul>
     <h4>Only a stretch of dates</h4>
     <p><b>Filters &#9656;</b> &rarr; <b>Dates&hellip;</b> lets you pick a <b>From</b> and <b>To</b> day, or tap <b>Today</b>, <b>Yesterday</b>, <b>Last 7 days</b>, <b>This month</b> or <b>Last month</b>. With nothing typed you get every room in that range, newest first; type a word as well and only matches inside the range are kept. A room's date is the one set on it, else a date in one of its tags (like <i>huddle/2026-09-16</i>), else the day it was made. A dot on <b>Filters</b> means a range is on; <b>Clear dates</b>, the &#10005; or <kbd>Esc</kbd> turns it off.</p>
@@ -28312,7 +28326,7 @@ async function boot(){
   el("resClear").onclick = ()=>{
     el("q").value = ""; if(el("mq")) el("mq").value = "";
     S.tagPick.clear(); S.tagOnly = false;
-    S.dateFrom = ""; S.dateTo = "";
+    S.dateFrom = ""; S.dateTo = ""; S.flowOnly = false;
     S.searchScope = "all";
     const sel = el("searchScope"); if(sel) sel.value = "all";
     updateTagCount(); renderTagPicker();
