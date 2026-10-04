@@ -1607,10 +1607,11 @@ dialog#flowView::backdrop{background:rgba(0,0,0,.6)}
 .fv-stage{position:absolute;inset:0 0 52px 0;overflow:hidden;touch-action:none;cursor:grab;outline:none;
   background-image:radial-gradient(#d5d8d2 1px, transparent 1px);background-size:20px 20px}
 .fv-stage svg{position:absolute;left:0;top:0;transform-origin:0 0}
-.fv-stage.walking .fn > .fn-body{opacity:.25;transition:opacity .3s}
+.fv-stage.walking .fn > g{opacity:.25;transition:opacity .3s}
+.fv-stage.walking .flow-riders{opacity:.35}
 .fv-stage.walking .fe > *{opacity:.2;transition:opacity .3s}
-.fv-stage.walking .fn.been > .fn-body,.fv-stage.walking .fe.been > *{opacity:.8}
-.fv-stage.walking .fn.here > .fn-body{opacity:1}
+.fv-stage.walking .fn.been > g,.fv-stage.walking .fe.been > *{opacity:.8}
+.fv-stage.walking .fn.here > g{opacity:1}
 .fv-stage.walking .fn.here .fn-shape{filter:drop-shadow(0 0 0 #2D6CDF) drop-shadow(0 0 10px rgba(45,108,223,.75));
   animation:fwHere 1.4s ease-in-out infinite}
 @keyframes fwHere{50%{filter:drop-shadow(0 0 2px #2D6CDF) drop-shadow(0 0 16px rgba(45,108,223,.9))}}
@@ -1664,6 +1665,17 @@ dialog#flowEdit[open]{display:flex}
 .fe-starter p{margin:6px 0 10px;font-size:13px}
 .fe-panel{flex:0 0 auto;border-top:1px solid var(--rule-soft, #ddd);padding:7px 10px;background:var(--paper)}
 .fe-hint{font-size:12px;color:var(--graphite-60);padding:6px 0}
+
+.fe-look{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--graphite-60);padding-left:6px;border-left:1px solid var(--rule-soft, #ddd)}
+.fe-look select{font-size:12.5px}
+.flowsvg .fe-casing{fill:none;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
+.flowsvg .fe-centre{fill:none;stroke-width:1.1;stroke-dasharray:7 8;pointer-events:none}
+.flowsvg .palm-g{transform-box:fill-box;transform-origin:bottom center;animation:palmsway 3.4s ease-in-out infinite}
+.flowsvg .flow-riders{pointer-events:none}
+.flowsvg.look-antfarm{--beam-flow:#2a1a0c}
+.flowsvg.look-simcity{--beam-flow:#2F3D45}
+.flowsvg.look-islands{--beam-flow:#E2793A}
+html[data-motion="off"] .flowsvg .flow-riders,html[data-motion="off"] .flowsvg .smoke{display:none}
 .fe-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .fe-row[hidden]{display:none}
 .fe-row textarea{flex:1 1 260px;min-width:180px;font:14px var(--sans);resize:vertical;padding:6px 8px}
@@ -4838,6 +4850,8 @@ body.viewing.panelaway #panelHide{display:none}
     <b class="fe-title">Flowchart &middot; <span id="feName"></span></b>
     <div class="fe-shapes" id="feShapes"></div>
     <div class="fe-colors" id="feColors"></div>
+    <label class="fe-look" title="Draw the whole chart in one of the map's themes">Look
+      <select id="feTheme"></select></label>
     <span class="fe-sp"></span>
     <button class="btn" id="feUndo" title="Undo (Ctrl+Z)">&#8630;</button>
     <button class="btn" id="feRedo" title="Redo (Ctrl+Y)">&#8631;</button>
@@ -14889,57 +14903,247 @@ function flowDepths(d){
 }
 
 /* --- drawing it ------------------------------------------------ */
+/* A look borrowed from the map's themes: the same islands, burrows and city
+   blocks, their shores and spoil heaps, the background, and the fish, ants
+   and traffic running the arrows. "" is the plain flowchart. */
+function flowLook(id){
+  if(!id) return null;
+  const t = PRESETS.find(p=>p.id === id); if(!t) return null;
+  const c = t.light || {}, nd = t.node || {};
+  return {id, t, c, shape:nd.shape || "rect", decor:t.decor || "", beam:t.beam || "",
+    edgeStyle:t.edgeStyle || "plain", font:t.font || "sans", bg:t.bg || {pattern:"none"},
+    base:nd.color || (nd.fill === "soft" ? mixHex(c.paper, "#ffffff", .55) : mixHex(c.paper, "#ffffff", .35)),
+    stroke:nd.stroke || mixHex(c.ink, c.paper, .25), radius:+nd.radius || 0, border:+nd.border || 1.3};
+}
+const FLOW_BOXY = new Set(["box", "round"]);
+function flowThemedPath(n, look){
+  const w = n.w, h = n.h, seed = seedOf(n.id);
+  const j = (i, amp)=>((Math.sin(seed * (i + 1) * 12.9898) * 43758.5453) % 1 + 1) % 1 * amp - amp / 2;
+  if(look.shape === "island"){
+    const r = 16, bx = w * .5, by = h + 6 + j(1, 10);
+    return `<path d="M${r + j(2,8)},${j(3,4)} Q${w*.35},${-6 + j(4,7)} ${w*.62},${j(5,5)} Q${w - r*.4},${j(6,4)} ${w + j(7,7)},${h*.42}`
+      + ` Q${w + 4 + j(8,6)},${h*.86} ${w*.72},${h + j(9,7)} Q${bx},${by} ${w*.28},${h + j(10,7)}`
+      + ` Q${-4 + j(11,6)},${h*.84} ${j(12,7)},${h*.4} Q-2,${j(13,5)} ${r + j(2,8)},${j(3,4)} Z"/>`;
+  }
+  if(look.shape === "burrow"){
+    const k = (i, amp)=>((Math.sin(seed * (i + 1) * 91.7) * 4137.13) % 1 + 1) % 1 * amp - amp / 2, r = 20;
+    return `<path d="M0,${h*.5} C${-6 + k(1,7)},${h*.24} ${r*.3},${-8 + k(2,6)} ${w*.34},${k(3,5)}`
+      + ` C${w*.62},${-9 + k(4,8)} ${w + 6 + k(5,7)},${h*.16} ${w + 2 + k(6,6)},${h*.52}`
+      + ` C${w + k(7,6)},${h*.86} ${w*.66},${h + 7 + k(8,6)} ${w*.36},${h + k(9,5)}`
+      + ` C${r*.3},${h - k(10,6)} ${-5 + k(11,6)},${h*.78} 0,${h*.5} Z"/>`;
+  }
+  if(look.shape === "block"){
+    const a = 7 + Math.round(seed * 9), b2 = 4 + Math.round(seed * 13);
+    const x1 = Math.round(w * (.22 + seed * .16)), x2 = Math.round(w * (.55 + seed * .18));
+    return `<path d="M0,0 L${x1},0 L${x1},${-a} L${x2},${-a} L${x2},${-b2} L${w},${-b2} L${w},${h} L0,${h} Z"/>`;
+  }
+  if(look.shape === "pill") return `<rect x="0" y="0" width="${w}" height="${h}" rx="${Math.min(h / 2, 18)}"/>`;
+  return `<rect x="0" y="0" width="${w}" height="${h}" rx="${Math.min(look.radius, 14)}"/>`;
+}
+/* the same outline, a little bigger, for a shore or a spoil heap */
+function flowRing(markup, w, h, k, cls){
+  const cx = w / 2, cy = h / 2;
+  return `<g class="${cls}" transform="translate(${cx},${cy}) scale(${k}) translate(${-cx},${-cy})">${markup}</g>`;
+}
+function flowDecorUnder(n, look, markup){
+  if(n.s === "text") return "";
+  if(look.decor === "island") return flowRing(markup, n.w, n.h, 1.16, "shallows") + flowRing(markup, n.w, n.h, 1.07, "beach");
+  if(look.decor === "burrow"){
+    let out = flowRing(markup, n.w, n.h, 1.16, "spoil") + flowRing(markup, n.w, n.h, 1.06, "rim");
+    const seed = seedOf(n.id);
+    for(let i = 0; i < 7; i++){
+      const a = rnd(seed, i) * Math.PI * 2, rad = 0.56 + rnd(seed, i + 30) * .12;
+      out += `<circle class="pebble" cx="${(n.w / 2 + Math.cos(a) * n.w * rad).toFixed(1)}" cy="${(n.h / 2 + Math.sin(a) * n.h * (rad + .18)).toFixed(1)}" r="${(1.1 + rnd(seed, i + 60) * 1.8).toFixed(1)}"/>`;
+    }
+    return out;
+  }
+  return "";
+}
+function flowDecorOver(n, look, room){
+  if(n.s === "text") return "";
+  const w = n.w, h = n.h, seed = seedOf(n.id);
+  let out = "";
+  if(look.decor === "island"){
+    const palms = h > 90 ? 3 : h > 52 ? 2 : 1;
+    for(let i = 0; i < palms; i++){
+      if(rnd(seed, i + 5) < .28) continue;
+      const side = i % 2 ? 1 : -1;
+      const x = side < 0 ? -2 - rnd(seed, i + 6) * 5 : w + 2 + rnd(seed, i + 6) * 5;
+      const y = h * (.34 + rnd(seed, i + 16) * .38), lean = (rnd(seed, i + 26) - .5) * 16, sc = 0.85 + rnd(seed, i + 36) * .5;
+      out += `<g transform="translate(${x.toFixed(1)},${y.toFixed(1)}) rotate(${lean.toFixed(1)}) scale(${sc.toFixed(2)})">`
+        + `<g class="palm-g" style="animation-delay:${(-rnd(seed, i + 46) * 3).toFixed(2)}s">`
+        + `<path class="palm" d="M0,0 q-1.5,-8 0,-16 M0,-16 q-9,-5 -13,1 M0,-16 q9,-5 13,1 M0,-16 q-6,-9 -1,-12 M0,-16 q6,-9 1,-12 M0,-16 q4,-8 9,-9"/>`
+        + `<circle class="coconut" cx="-1.6" cy="-15" r="1.5"/><circle class="coconut" cx="1.8" cy="-14.2" r="1.4"/></g></g>`;
+    }
+    for(let i = 0; i < 4; i++){
+      if(rnd(seed, i + 70) < .4) continue;
+      const top = i % 2 === 0, x = w * (.16 + rnd(seed, i + 80) * .68);
+      const y = top ? -3 - rnd(seed, i + 84) * 4 : h + 3 + rnd(seed, i + 84) * 4;
+      out += `<path class="shell" transform="translate(${x.toFixed(1)},${y.toFixed(1)}) rotate(${Math.round(rnd(seed, i + 90) * 360)})" d="M0,0 q-4,-4.5 0,-7 q4,2.5 0,7 z M0,-7 l-3,6 M0,-7 l3,6"/>`;
+    }
+  }
+  if(look.decor === "burrow"){
+    for(let i = 0; i < 2; i++){
+      const a = rnd(seed, i + 90) * Math.PI * 2, x = w / 2 + Math.cos(a) * w * .48, y = h / 2 + Math.sin(a) * h * .62;
+      out += `<path class="leaf" transform="translate(${x.toFixed(1)},${y.toFixed(1)}) rotate(${Math.round(rnd(seed, i + 120) * 360)})" d="M0,0 q5,-4.5 11,0 q-6,4.5 -11,0 z M0,0 l11,0"/>`;
+    }
+  }
+  if(look.decor === "city" && room >= 12){
+    /* a row of premises along the bottom of the block, zoned like the old game */
+    const kind = n.s === "diamond" ? "com" : n.s === "pill" ? "civ" : rnd(seed, 1) < .42 ? "res" : rnd(seed, 2) < .55 ? "ind" : "com";
+    const floor = h - 4;
+    out += `<rect class="zoneband zone-${kind}" x="5" y="${floor - room - 1}" width="${w - 10}" height="${room + 1}" rx="1"/>`;
+    let x = 8, i = 0;
+    while(x < w - 20 && i < 9){
+      const bw = 10 + Math.round(rnd(seed, i) * (kind === "ind" ? 18 : 11));
+      const bh = Math.max(7, Math.round(room * (0.42 + rnd(seed, i + 20) * 0.55))), y = floor - bh;
+      out += `<rect class="bldg zone-${kind}" x="${x}" y="${y}" width="${bw}" height="${bh}"/>`;
+      if(kind === "res" && bh > 10) out += `<path class="bldg-roof zone-res" d="M${x - 1.5},${y} L${x + bw / 2},${y - 5} L${x + bw + 1.5},${y} Z"/>`;
+      if(kind === "ind" && rnd(seed, i + 40) > .55){
+        out += `<rect class="stack" x="${x + bw - 5}" y="${y - 9}" width="3.4" height="10"/>`
+          + `<circle class="smoke" cx="${x + bw - 3.3}" cy="${y - 12}" r="3.4" style="animation-delay:${(-rnd(seed, i) * 3).toFixed(2)}s"/>`;
+      }
+      if(bh > 11){
+        const rows = bh > 18 ? 2 : 1, cols = Math.max(1, Math.floor((bw - 5) / 5));
+        for(let r = 0; r < rows; r++) for(let c = 0; c < cols; c++){
+          const roll = rnd(seed, i * 17 + r * 5 + c);
+          out += `<rect class="window${roll > .55 ? " lit" : ""}${roll > .8 ? " flicker" : ""}" x="${x + 3 + c * 5}" y="${y + 4 + r * 6}" width="2.6" height="3.4"`
+            + (roll > .8 ? ` style="animation-delay:${(-roll * 11).toFixed(1)}s;animation-duration:${(2.6 + roll * 5.5).toFixed(1)}s"` : "") + `/>`;
+        }
+      }
+      x += bw + 3;
+      if(kind === "res" && rnd(seed, i + 60) > .5 && x < w - 26){ out += `<circle class="tree" cx="${x + 2.5}" cy="${floor - 5}" r="3.4"/>`; x += 8; }
+      i++;
+    }
+  }
+  return out;
+}
+function flowBgDefs(look, uidp){
+  const bg = look.bg || {}, c = look.c, st = +bg.strength || .4, s = Math.max(8, +bg.scale || 24);
+  const line = hexA(c.ink, st * .5);
+  switch(bg.pattern){
+    case "grid": return `<pattern id="${uidp}bg" width="${s}" height="${s}" patternUnits="userSpaceOnUse"><path d="M${s},0 V${s} H0" fill="none" stroke="${line}" stroke-width="1"/></pattern>`;
+    case "dots": return `<pattern id="${uidp}bg" width="${s}" height="${s}" patternUnits="userSpaceOnUse"><circle cx="1.5" cy="1.5" r="1.2" fill="${line}"/></pattern>`;
+    case "rules": return `<pattern id="${uidp}bg" width="${s * 4}" height="${s}" patternUnits="userSpaceOnUse"><path d="M0,${s - .5} H${s * 4}" stroke="${line}"/></pattern>`;
+    case "soil": { const g = hexA(c.ink, st * .3);
+      return `<pattern id="${uidp}bg" width="${s * 3}" height="${s * 3}" patternUnits="userSpaceOnUse">`
+        + `<circle cx="${s * .4}" cy="${s * .5}" r="1.4" fill="${g}"/><circle cx="${s * 1.7}" cy="${s * 1.2}" r="1" fill="${g}"/>`
+        + `<circle cx="${s * 2.5}" cy="${s * 2.4}" r="1.5" fill="${g}"/><circle cx="${s * .9}" cy="${s * 2.2}" r="1.1" fill="${g}"/>`
+        + `<ellipse cx="${s * 2}" cy="${s * .6}" rx="${s * .9}" ry="${s * .22}" fill="${hexA(c.paper2, .55)}"/></pattern>`; }
+    case "citygrid": { const road = hexA(c.ink, st * .22), kerb = hexA(c.ink, st * .09);
+      return `<pattern id="${uidp}bg" width="${s * 4}" height="${s * 4}" patternUnits="userSpaceOnUse">`
+        + `<path d="M0,${s} H${s * 4} M0,${s * 2} H${s * 4} M0,${s * 3} H${s * 4} M${s},0 V${s * 4} M${s * 2},0 V${s * 4} M${s * 3},0 V${s * 4}" stroke="${kerb}"/>`
+        + `<path d="M0,1 H${s * 4} M1,0 V${s * 4}" stroke="${road}" stroke-width="2"/></pattern>`; }
+    case "waves": { const a = hexA(c.ink, st * .16);
+      return `<pattern id="${uidp}bg" width="${s * 4}" height="${s * 3}" patternUnits="userSpaceOnUse">`
+        + `<path d="M${s * .4},${s * 1.2} q${s * .6},-${s * .3} ${s * 1.2},0 t${s * 1.2},0" fill="none" stroke="${a}" stroke-width="2" stroke-linecap="round"/>`
+        + `<path d="M${s * 2.2},${s * 2.4} q${s * .6},-${s * .3} ${s * 1.2},0 t${s * 1.2},0" fill="none" stroke="${a}" stroke-width="2" stroke-linecap="round"/></pattern>`; }
+  }
+  return "";
+}
 let flowSvgSeq = 0;
 function flowSVG(d, o){
   o = o || {};
   const uidp = "fl" + (++flowSvgSeq);
   const B = o.bounds || flowBounds(d);
+  const look = flowLook(d.th);
   const depth = o.animate ? flowDepths(d) : null;
   const colors = new Set(d.edges.map(flowEdgeColor));
   const markers = [...colors].map((c, i)=>
     `<marker id="${uidp}m${i}" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">`
     + `<path d="M0,0 L10,5 L0,10 z" fill="${c}"/></marker>`).join("");
   const mIndex = new Map([...colors].map((c, i)=>[c, i]));
+  const tread = look && (look.edgeStyle === "tunnel" || look.edgeStyle === "road") ? look.edgeStyle : "";
   const edges = d.edges.map(e=>{
     const g = flowEdgeGeom(d, e); if(!g) return "";
     const c = flowEdgeColor(e), sel = o.sel && o.sel.has(e.id);
     const dl = depth ? (depth.get(e.a) || 0) * 110 + 140 : 0;
-    const w = 4;
     const label = String(e.t || "").trim();
     const lw = Math.max(26, label.length * 7.4 + 12);
+    const wide = tread === "tunnel" ? 17 : 15;
     return `<g class="fe${sel ? " sel" : ""}" data-fe="${esc(e.id)}" style="--dl:${dl}ms">`
       + `<path class="fe-hit" d="${g.d}"/>`
-      + `<path class="fe-line" d="${g.d}" stroke="${c}" stroke-width="${w}" marker-end="url(#${uidp}m${mIndex.get(c)})"/>`
-      + (o.flowing !== false ? `<path class="fe-run" d="${g.d}"/>` : "")
+      + (tread ? `<path class="fe-casing" d="${g.d}" stroke="${look.c.casing || "#555"}" stroke-width="${wide}"/>`
+          + `<path class="fe-casing" d="${g.d}" stroke="${look.c.surface || "#aaa"}" stroke-width="${wide - 4}"/>`
+          + (tread === "road" ? `<path class="fe-centre" d="${g.d}" stroke="${look.c.centre || "#F2D14B"}"/>` : "") : "")
+      + `<path class="fe-line" d="${g.d}" stroke="${c}" stroke-width="${tread ? 2.5 : 4}" marker-end="url(#${uidp}m${mIndex.get(c)})"/>`
+      + (o.flowing !== false && !(look && look.beam) ? `<path class="fe-run" d="${g.d}"/>` : "")
       + (label ? `<g class="fe-lab" transform="translate(${g.lab.x},${g.lab.y})">`
           + `<rect x="${-lw / 2}" y="-10" width="${lw}" height="20" rx="10"/>`
           + `<text text-anchor="middle" dy="4.5">${esc(label)}</text></g>` : "")
       + `</g>`;
   }).join("");
   const nodes = d.nodes.map(n=>{
-    const fill = n.s === "text" ? "transparent" : flowColor(n.c, "#FFFFFF");
-    const ink = n.s === "text" ? flowColor(n.ic, "#1f2328") : flowInk(fill);
-    const tb = flowTextBox(n);
+    const own = n.s === "text" ? "transparent" : flowColor(n.c, look ? "" : "#FFFFFF");
+    const fill = n.s === "text" ? "transparent"
+      : look ? (own && own !== "#FFFFFF" ? mixHex(look.base, own, .74) : look.base) : own;
+    const ink = n.s === "text" ? flowColor(n.ic, look ? look.c.ink : "#1f2328") : flowInk(fill);
+    const rel = Object.assign({}, n, {x:0, y:0});
+    const markup = look && FLOW_BOXY.has(n.s) ? flowThemedPath(rel, look) : flowShapePath(rel);
+    /* the city puts its buildings along the bottom of a block, so the words sit above them */
+    const room = look && look.decor === "city" && FLOW_BOXY.has(n.s) && n.h >= 60 ? Math.min(26, Math.round(n.h * .3)) : 0;
+    const tb = flowTextBox(rel);
+    if(room) tb.h = Math.max(14, tb.h - room - 2);
     const dl = depth ? (depth.get(n.id) || 0) * 110 : 0;
     const sel = o.sel && o.sel.has(n.id);
     const fs = +n.fs || 13;
-    const stroke = n.s === "text" ? "none" : (n.b ? flowColor(n.b, "#3B4252") : "rgba(0,0,0,.18)");
+    const stroke = n.s === "text" ? "none" : (n.b ? flowColor(n.b, "#3B4252") : look ? look.stroke : "rgba(0,0,0,.18)");
+    const font = look && look.font === "mono" ? "var(--mono)" : look && look.font === "serif" ? "Georgia, 'Times New Roman', serif" : "";
     return `<g class="fn${n.a ? " an-" + n.a : ""}${sel ? " sel" : ""}" data-fn="${esc(n.id)}"`
       + ` style="--dl:${dl}ms;transform-origin:${n.x + n.w / 2}px ${n.y + n.h / 2}px">`
-      + `<g class="fn-body" style="transform-origin:${n.x + n.w / 2}px ${n.y + n.h / 2}px">`
-      + `<g class="fn-shape" fill="${fill}" stroke="${stroke}" stroke-width="1.5">${flowShapePath(n)}</g>`
+      + `<g transform="translate(${n.x},${n.y})">`
+      + (look ? flowDecorUnder(n, look, markup) : "")
+      + `<g class="fn-body" style="transform-origin:${n.w / 2}px ${n.h / 2}px">`
+      + `<g class="fn-shape" fill="${fill}" stroke="${stroke}" stroke-width="${look ? look.border + .2 : 1.5}">${markup}</g>`
+      + (look ? flowDecorOver(n, look, room) : "")
       + `<foreignObject x="${tb.x}" y="${tb.y}" width="${Math.max(1, tb.w)}" height="${Math.max(1, tb.h)}">`
       + `<div xmlns="http://www.w3.org/1999/xhtml" class="fn-text" style="color:${ink};font-size:${fs}px;`
-      + `font-weight:${n.wt === "n" ? 400 : 650};text-align:${n.al || "center"}">${esc(n.t).replace(/\n/g, "<br>")}</div>`
-      + `</foreignObject></g></g>`;
+      + `font-weight:${n.wt === "n" ? 400 : 650};text-align:${n.al || "center"}${font ? ";font-family:" + font : ""}">${esc(n.t).replace(/\n/g, "<br>")}</div>`
+      + `</foreignObject></g></g></g>`;
   }).join("");
-  const cls = "flowsvg" + (o.animate ? " flow-anim" : "") + (o.cls ? " " + o.cls : "");
+  const cls = "flowsvg" + (o.animate ? " flow-anim" : "") + (o.cls ? " " + o.cls : "") + (look ? " look-" + look.id : "");
+  /* the theme's own colours for its scenery, kept to this drawing */
+  let vars = "";
+  if(look){
+    const c = look.c;
+    Object.keys(c).filter(k=>k.startsWith("decor_")).forEach(k=>{ vars += `--decor-${k.slice(6)}:${c[k]};`; });
+    vars += `--node-stroke:${look.stroke};--paper:${c.paper};`;
+  }
+  const bgDefs = look ? flowBgDefs(look, uidp) : "";
+  const bg = look ? `<rect class="flow-bg" x="${B.x}" y="${B.y}" width="${B.w}" height="${B.h}" fill="${look.c.paper}"/>`
+    + (bgDefs ? `<rect class="flow-bg" x="${B.x}" y="${B.y}" width="${B.w}" height="${B.h}" fill="url(#${uidp}bg)"/>` : "") : "";
   return `<svg class="${cls}" xmlns="http://www.w3.org/2000/svg" viewBox="${B.x} ${B.y} ${B.w} ${B.h}"`
     + (o.size === false ? "" : ` width="${B.w}" height="${B.h}"`)
+    + (vars ? ` style="${vars}"` : "")
+    + (look && look.beam ? ` data-beam="${look.beam}"` : "")
     + ` preserveAspectRatio="xMidYMid meet" role="img" aria-label="Flowchart">`
-    + `<defs>${markers}</defs><g class="flow-edges">${edges}</g><g class="flow-nodes">${nodes}</g></svg>`;
+    + `<defs>${markers}${bgDefs}</defs>${bg}<g class="flow-edges">${edges}</g><g class="flow-nodes">${nodes}</g></svg>`;
 }
-
+/* the fish, ants or traffic, once the drawing is on the page */
+function flowRiders(svg, few){
+  if(!svg || !svg.dataset.beam) return;
+  if(document.documentElement.dataset.motion === "off") return;
+  const beam = svg.dataset.beam;
+  const colour = getComputedStyle(svg).getPropertyValue("--beam-flow").trim();
+  const look = flowLook([...svg.classList].find(c=>c.startsWith("look-")).slice(5));
+  const tint = (look && (look.c.beamOut || look.c.accent)) || "#333";
+  let host = svg.querySelector("g.flow-riders");
+  if(host) host.remove();
+  host = mk("g", {class:"flow-riders"});
+  svg.querySelector(".flow-edges").after(host);
+  let budget = few ? 14 : 44;
+  svg.querySelectorAll(".fe").forEach(g=>{
+    const p = g.querySelector(".fe-line"); if(!p || budget <= 0) return;
+    const dd = p.getAttribute("d"), len = p.getTotalLength ? p.getTotalLength() : 200;
+    const spacing = beam === "ants" ? 48 : beam === "cars" ? 110 : 120;
+    const n = Math.max(1, Math.min(few ? 1 : 4, Math.round(len / spacing), budget));
+    budget -= n;
+    const key = g.dataset.fe || "";
+    if(beam === "fish") swim(host, dd, colour || tint, false, n, null, key, len);
+    else if(beam === "ants") march(host, dd, colour || tint, false, n, null, key, len);
+    else if(beam === "cars") drive(host, dd, colour || tint, false, n, null, key, len);
+  });
+}
 /* --- on the wall ----------------------------------------------- */
 function paintRoomFlow(n){
   const box = el("rvFlow");
@@ -14949,6 +15153,7 @@ function paintRoomFlow(n){
   box.hidden = false;
   box.innerHTML = flowSVG(d, {animate:true, size:false})
     + '<figcaption>Flowchart &middot; tap to open</figcaption>';
+  flowRiders(box.querySelector("svg"), true);
   /* the wall is measured again with it in place */
   requestAnimationFrame(()=>{ if(S.sel === n.id) fitWall(); });
   box.title = "Open the flowchart full screen";
@@ -14967,6 +15172,7 @@ function openFlowView(nodeId, walk){
   const B = flowBounds(d, 40);
   fv.B = B;
   el("fvStage").innerHTML = flowSVG(d, {animate:true, bounds:B});
+  flowRiders(fvSvg());
   el("fvWalkBar").hidden = true;
   const dlg = el("flowView");
   if(!dlg.open) dlg.showModal();
@@ -15100,7 +15306,10 @@ function wireFlowView(){
     if(b.dataset.fwrestart){ flowWalkStart(); return; }
     if(b.dataset.fwgo) flowWalkTake(b.dataset.fwgo);
   });
-  d.addEventListener("close", ()=>{ stage.innerHTML = ""; fv.walk = null; fv.pts.clear(); stage.classList.remove("walking"); });
+  d.addEventListener("close", ()=>{
+    /* closed and opened again straight away: the new chart stays */
+    if(d.open) return;
+    stage.innerHTML = ""; fv.walk = null; fv.pts.clear(); stage.classList.remove("walking"); });
   stage.addEventListener("wheel", ev=>{ ev.preventDefault(); const p = local(ev); fvZoom(Math.exp(-ev.deltaY * 0.0015), p.x, p.y); }, {passive:false});
   stage.addEventListener("dblclick", ev=>{
     if(ev.target.closest(".fn")) return;
@@ -15153,7 +15362,7 @@ function wireFlowView(){
 
 /* --- import / export ------------------------------------------- */
 function flowToText(d){
-  return JSON.stringify({kind:"mindmap-flowchart", v:1,
+  return JSON.stringify({kind:"mindmap-flowchart", v:1, th:d.th || undefined,
     nodes:d.nodes.map(x=>{ const o = {id:x.id, s:x.s, x:Math.round(x.x), y:Math.round(x.y), w:Math.round(x.w), h:Math.round(x.h), t:x.t};
       ["c", "b", "a", "fs", "wt", "al", "ic"].forEach(k=>{ if(x[k]) o[k] = x[k]; }); return o; }),
     edges:d.edges.map(e=>{ const o = {id:e.id, a:e.a, b:e.b}; ["t", "c", "k", "as", "bs"].forEach(k=>{ if(e[k]) o[k] = e[k]; }); return o; })}, null, 1);
@@ -15209,7 +15418,7 @@ function wireFlowIO(){
   el("fioUse").onclick = ()=>{
     const d = fioCheck(); if(!d) return;
     feSnapshot();
-    fe.d = {v:1, nodes:d.nodes, edges:d.edges};
+    fe.d = {v:1, nodes:d.nodes, edges:d.edges, th:d.th || ""};
     fe.sel = new Set();
     el("flowIO").close();
     feRender(); feFit();
@@ -15233,16 +15442,19 @@ function openFlowEditor(nodeId){
   feRender();
   requestAnimationFrame(()=>{ feFit(); if(!fe.d.nodes.length) el("feStarter").hidden = false; });
 }
-function feSnapshot(){ fe.undo.push(JSON.stringify({nodes:fe.d.nodes, edges:fe.d.edges})); if(fe.undo.length > 120) fe.undo.shift(); fe.redo = []; fe.dirty = true; }
-function feRestore(json){ const o = JSON.parse(json); fe.d.nodes = o.nodes; fe.d.edges = o.edges; fe.sel = new Set([...fe.sel].filter(id=>fe.d.nodes.some(n=>n.id === id) || fe.d.edges.some(e=>e.id === id))); feRender(); }
-function feUndo(){ if(!fe.undo.length) return; fe.redo.push(JSON.stringify({nodes:fe.d.nodes, edges:fe.d.edges})); feRestore(fe.undo.pop()); }
-function feRedo(){ if(!fe.redo.length) return; fe.undo.push(JSON.stringify({nodes:fe.d.nodes, edges:fe.d.edges})); feRestore(fe.redo.pop()); }
+function feSnapshot(){ fe.undo.push(JSON.stringify({nodes:fe.d.nodes, edges:fe.d.edges, th:fe.d.th || ""})); if(fe.undo.length > 120) fe.undo.shift(); fe.redo = []; fe.dirty = true; }
+function feRestore(json){ const o = JSON.parse(json); fe.d.nodes = o.nodes; fe.d.edges = o.edges; fe.d.th = o.th || ""; fe.sel = new Set([...fe.sel].filter(id=>fe.d.nodes.some(n=>n.id === id) || fe.d.edges.some(e=>e.id === id))); feRender(); }
+function feUndo(){ if(!fe.undo.length) return; fe.redo.push(JSON.stringify({nodes:fe.d.nodes, edges:fe.d.edges, th:fe.d.th || ""})); feRestore(fe.undo.pop()); }
+function feRedo(){ if(!fe.redo.length) return; fe.undo.push(JSON.stringify({nodes:fe.d.nodes, edges:fe.d.edges, th:fe.d.th || ""})); feRestore(fe.redo.pop()); }
 function feNode(id){ return fe.d.nodes.find(n=>n.id === id); }
 function feEdge(id){ return fe.d.edges.find(e=>e.id === id); }
 function feRender(){
   const stage = el("feStage");
   const svgHtml = flowSVG(fe.d, {sel:fe.sel, bounds:{x:-5000, y:-5000, w:10000, h:10000}, size:false, flowing:true, cls:"fe-svg"});
   stage.querySelector(".fe-world").innerHTML = svgHtml.replace("<svg ", '<svg x="-5000" y="-5000" width="10000" height="10000" overflow="visible" ');
+  /* the travellers come back once things stop moving */
+  clearTimeout(fe.riderTimer);
+  fe.riderTimer = setTimeout(()=>{ if(!fe.drag) flowRiders(stage.querySelector(".fe-world svg")); }, 400);
   /* the handles on whatever is chosen: a corner to stretch it, dots to draw arrows from */
   const one = fe.sel.size === 1 ? feNode([...fe.sel][0]) : null;
   const h = el("feHandles");
@@ -15259,6 +15471,7 @@ function feRender(){
   fePanel();
   el("feStarter").hidden = !!fe.d.nodes.length;
   el("feUndo").disabled = !fe.undo.length;
+  if(el("feTheme").value !== (fe.d.th || "")) el("feTheme").value = fe.d.th || "";
   el("feRedo").disabled = !fe.redo.length;
 }
 function feApplyView(){
@@ -15367,7 +15580,7 @@ function feDuplicate(){
 function feSave(){
   const n = S.nodes.get(fe.nodeId); if(!n) return;
   const d = fe.d;
-  const json = d.nodes.length ? JSON.stringify({v:1, nodes:d.nodes.map(x=>{
+  const json = d.nodes.length ? JSON.stringify({v:1, th:d.th || undefined, nodes:d.nodes.map(x=>{
       const o = {id:x.id, s:x.s, x:Math.round(x.x), y:Math.round(x.y), w:Math.round(x.w), h:Math.round(x.h), t:x.t};
       ["c", "b", "a", "fs", "wt", "al", "ic"].forEach(k=>{ if(x[k]) o[k] = x[k]; });
       return o; }),
@@ -15399,6 +15612,9 @@ function wireFlowEditor(){
   el("feColors").innerHTML = FLOW_COLORS.map(([k, hex])=>
     `<button class="fe-swatch" data-fecolor="${k}" title="${k}" style="background:${hex}"></button>`).join("")
     + `<button class="fe-swatch auto" data-fecolor="" title="Automatic (arrows: YES green, NO orange)">A</button>`;
+  el("feTheme").innerHTML = '<option value="">Plain</option>'
+    + PRESETS.filter(p=>p.id !== "drafting").map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("");
+  el("feTheme").onchange = ev=>{ feSnapshot(); fe.d.th = ev.target.value; feRender(); };
   el("feAnim").innerHTML = FLOW_ANIMS.map(([k, name])=>`<option value="${k}">${name}</option>`).join("");
   el("feShapes").addEventListener("click", ev=>{
     const b = ev.target.closest("[data-feshape]"); if(!b) return;
@@ -19534,7 +19750,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-10-04b";
+const APP_BUILD = "2026-10-04d";
 
 /* Reading that line back out of a copy of this file.
 
@@ -24293,7 +24509,7 @@ const HELP_TOPICS = [
       <li><b>Waiting for you</b> lists feedback, questions with no answering room, and who still has to confirm what.</li>
       <li><b>Paste many</b> (room console): paste a block of text and it becomes one room per line, paragraph, bullet or mark you choose. Names are made from the start of each, or taken from its first line. <b>Huddle today</b> puts them inside a new "Huddle MM/DD/YYYY" room, tagged Huddles/YYYY-MM-DD and dated.</li>
       <li><b>Sort</b> (room console): goes through each room in here with <b>Move to&hellip;</b>, plus one-tap buttons for the places you moved to lately. <b>Undo</b> on any of them.</li>
-      <li><b>Flowcharts in a room</b>: <b>Import / Export</b> on the drawing page copies a chart out as text or saves it as a <i>.flowchart.json</i> file, and brings one back in by pasting or loading the file. That is how to copy a chart to another room or send it to another editor. Press <b>&#9671; Flowchart</b> on the room console, or <b>+ Flowchart</b> in a room's bubble, or <b>Draw a flowchart in this room</b> in the Edit panel. Pick shapes and colours from the top bar. To draw an arrow, drag one of a shape's blue dots onto another shape; let go on empty paper and a new step appears there, already joined. Double-click a shape (or press Enter) to type in it; double-click the paper for a new box. With a shape chosen, <b>+ YES &rarr;</b> and <b>+ NO &darr;</b> add the next step with a labelled arrow (Tab and Shift+Tab do the same). Click an arrow to label it, curve it or flip it. <b>Motion</b> makes a shape pulse, bob, glow, wiggle or spin in. Ctrl+Z undoes, Ctrl+D copies, arrow keys nudge, Delete removes, Ctrl+S saves. The words in a flowchart are not searched; put what people search for in the note or keywords.</li>
+      <li><b>Flowcharts in a room</b>: <b>Import / Export</b> on the drawing page copies a chart out as text or saves it as a <i>.flowchart.json</i> file, and brings one back in by pasting or loading the file. That is how to copy a chart to another room or send it to another editor. Press <b>&#9671; Flowchart</b> on the room console, or <b>+ Flowchart</b> in a room's bubble, or <b>Draw a flowchart in this room</b> in the Edit panel. Pick shapes and colours from the top bar. To draw an arrow, drag one of a shape's blue dots onto another shape; let go on empty paper and a new step appears there, already joined. Double-click a shape (or press Enter) to type in it; double-click the paper for a new box. With a shape chosen, <b>+ YES &rarr;</b> and <b>+ NO &darr;</b> add the next step with a labelled arrow (Tab and Shift+Tab do the same). Click an arrow to label it, curve it or flip it. <b>Motion</b> makes a shape pulse, bob, glow, wiggle or spin in. <b>Look</b> (top bar) dresses the whole chart in one of the map's themes: Islands (sand islands, palms, fish along the arrows), Ant farm (burrows, tunnels, ants), City (blocks with buildings, roads, traffic), Blueprint, Foolscap, Terminal, Dusk or Boardroom. Your colours still show through, so YES and NO stay green and orange. Ctrl+Z undoes, Ctrl+D copies, arrow keys nudge, Delete removes, Ctrl+S saves. The words in a flowchart are not searched; put what people search for in the note or keywords.</li>
       <li><b>Picture file names</b>: a picture, badge or backdrop you add to a room is saved by a fixed rule. It goes in a folder that follows the breadcrumb two deep, and the name is the room plus its id, for example <i>images/03-the-accession/issues/opv-flowchart_n-s3l6yo39.png</i>. Nothing is ever overwritten; a second one gets <i>-2</i>. To bring older pictures in line, use <b>File all pictures by the naming rule</b> under <b>Badges and pictures</b>. Old files go to <i>images/_old-names</i>, and once you are happy you can delete that folder. Save afterwards.</li>
       <li><b>Tagging</b>: start typing in any tag box and the tags you already use come up. It finds any part of the name (<i>labhold</i> finds <i>Sentences/Issues-LabHold</i>) and small typos. Tap one, or use the arrows and Enter. Click into an empty tag box to see the ones you use most. If nothing matches, keep typing to make a new tag.</li>
       <li><b>Drag one character onto another</b> (room view): the one underneath gets a dashed ring; let go and pick <b>Move under</b> to make it a child (its whole branch comes along), <b>Cross-link</b>, or <b>Replace</b>.</li>
