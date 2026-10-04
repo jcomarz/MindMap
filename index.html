@@ -1653,6 +1653,8 @@ dialog#flowEdit[open]{display:flex}
 .fe-svg .fe{cursor:pointer}
 .fe-svg .fn.sel .fn-shape{filter:drop-shadow(0 0 0 #2D6CDF) drop-shadow(0 0 4px rgba(45,108,223,.6))}
 .fe-svg .fe.sel .fe-line{filter:drop-shadow(0 0 3px rgba(45,108,223,.9))}
+.fe-svg .fe-labg.sel .fe-lab rect{stroke:#2D6CDF;stroke-width:2}
+.fe-svg .fe-labg{cursor:pointer}
 .fe-svg .fn.target .fn-shape{filter:drop-shadow(0 0 8px rgba(45,108,223,.95))}
 #feHandles .fe-selbox{fill:none;stroke:#2D6CDF;stroke-width:1.2;stroke-dasharray:5 4;pointer-events:none}
 #feHandles .fe-dot{fill:#2D6CDF;stroke:#fff;stroke-width:2;cursor:crosshair}
@@ -1666,6 +1668,20 @@ dialog#flowEdit[open]{display:flex}
 .fe-panel{flex:0 0 auto;border-top:1px solid var(--rule-soft, #ddd);padding:7px 10px;background:var(--paper)}
 .fe-hint{font-size:12px;color:var(--graphite-60);padding:6px 0}
 
+
+/* dark */
+.rv-flow svg{transition:background .2s}
+.flowsvg.flow-dark .fe-lab rect{fill:#2b3138;stroke:rgba(255,255,255,.16)}
+.flowsvg.flow-dark .fe-lab text{fill:#eef1f4}
+.flowsvg.flow-dark .fe-run{stroke:rgba(255,255,255,.6)}
+html[data-theme="dark"] .rv-flow svg{background:#171b20;border-color:#2c333b}
+dialog#flowView.fv-dark{background:#0f1215 !important;color:#e6e9ec}
+dialog#flowView.fv-dark .fv-stage{background-image:radial-gradient(#262c33 1px, transparent 1px)}
+dialog#flowView.fv-dark .fv-walkbar{background:#1d2228;border-color:#323941;color:#e6e9ec;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+dialog#flowView.fv-dark .fv-walktext small{color:#9aa4ae}
+dialog#flowView.fv-dark .fv-walkbar .btn{background:#2a3038;color:#eef1f4;border-color:#3d454e}
+.fv-stage.walking .flow-labels .fe:not(.been) > *{opacity:.2}
+html[data-theme="dark"] .fe-stage{background:#14171b}
 .fe-look{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--graphite-60);padding-left:6px;border-left:1px solid var(--rule-soft, #ddd)}
 .fe-look select{font-size:12.5px}
 .flowsvg .fe-casing{fill:none;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
@@ -1673,7 +1689,7 @@ dialog#flowEdit[open]{display:flex}
 .flowsvg .palm-g{transform-box:fill-box;transform-origin:bottom center;animation:palmsway 3.4s ease-in-out infinite}
 .flowsvg .flow-riders{pointer-events:none}
 .flowsvg.look-antfarm{--beam-flow:#2a1a0c}
-.flowsvg.look-simcity{--beam-flow:#2F3D45}
+.flowsvg.look-simcity:not(.flow-dark){--beam-flow:#2F3D45}
 .flowsvg.look-islands{--beam-flow:#E2793A}
 html[data-motion="off"] .flowsvg .flow-riders,html[data-motion="off"] .flowsvg .smoke{display:none}
 .fe-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
@@ -4822,6 +4838,7 @@ body.viewing.panelaway #panelHide{display:none}
     <button class="btn" id="fvOut" title="Smaller (−)">&minus;</button>
     <button class="btn" id="fvFit" title="Fit the screen (0)">Fit</button>
     <button class="btn" id="fvIn" title="Bigger (+)">+</button>
+    <button class="btn" id="fvDark" title="Light or dark, for this chart">&#9681; Dark</button>
     <button class="btn" id="fvWalk" title="Start at the beginning and answer each question">Walk me through it</button>
     <button class="btn" id="fvEdit" hidden>Edit</button>
     <button class="btn primary" id="fvClose" title="Close (Esc)">Close</button>
@@ -14906,15 +14923,21 @@ function flowDepths(d){
 /* A look borrowed from the map's themes: the same islands, burrows and city
    blocks, their shores and spoil heaps, the background, and the fish, ants
    and traffic running the arrows. "" is the plain flowchart. */
-function flowLook(id){
+function flowLook(id, dark){
   if(!id) return null;
   const t = PRESETS.find(p=>p.id === id); if(!t) return null;
-  const c = t.light || {}, nd = t.node || {};
-  return {id, t, c, shape:nd.shape || "rect", decor:t.decor || "", beam:t.beam || "",
-    edgeStyle:t.edgeStyle || "plain", font:t.font || "sans", bg:t.bg || {pattern:"none"},
-    base:nd.color || (nd.fill === "soft" ? mixHex(c.paper, "#ffffff", .55) : mixHex(c.paper, "#ffffff", .35)),
-    stroke:nd.stroke || mixHex(c.ink, c.paper, .25), radius:+nd.radius || 0, border:+nd.border || 1.3};
+  const c = (dark ? t.dark : t.light) || t.light || {}, nd = t.node || {};
+  const base = dark
+    ? (nd.colorDark || mixHex(c.paper, "#ffffff", nd.fill === "soft" ? .12 : .08))
+    : (nd.color || (nd.fill === "soft" ? mixHex(c.paper, "#ffffff", .55) : mixHex(c.paper, "#ffffff", .35)));
+  return {id, t, c, dark:!!dark, shape:nd.shape || "rect", decor:t.decor || "", beam:t.beam || "",
+    edgeStyle:t.edgeStyle || "plain", font:t.font || "sans", bg:t.bg || {pattern:"none"}, base,
+    stroke:dark ? mixHex(c.ink, c.paper, .45) : (nd.stroke || mixHex(c.ink, c.paper, .25)),
+    radius:+nd.radius || 0, border:+nd.border || 1.3};
 }
+/* light or dark: whatever the page is in, unless the chart was told otherwise */
+function pageIsDark(){ return document.documentElement.getAttribute("data-theme") === "dark"; }
+const FLOW_DARK_PAPER = "#171b20";
 const FLOW_BOXY = new Set(["box", "round"]);
 function flowThemedPath(n, look){
   const w = n.w, h = n.h, seed = seedOf(n.id);
@@ -15046,7 +15069,8 @@ function flowSVG(d, o){
   o = o || {};
   const uidp = "fl" + (++flowSvgSeq);
   const B = o.bounds || flowBounds(d);
-  const look = flowLook(d.th);
+  const dark = o.dark == null ? pageIsDark() : !!o.dark;
+  const look = flowLook(d.th, dark);
   const depth = o.animate ? flowDepths(d) : null;
   const colors = new Set(d.edges.map(flowEdgeColor));
   const markers = [...colors].map((c, i)=>
@@ -15058,8 +15082,6 @@ function flowSVG(d, o){
     const g = flowEdgeGeom(d, e); if(!g) return "";
     const c = flowEdgeColor(e), sel = o.sel && o.sel.has(e.id);
     const dl = depth ? (depth.get(e.a) || 0) * 110 + 140 : 0;
-    const label = String(e.t || "").trim();
-    const lw = Math.max(26, label.length * 7.4 + 12);
     const wide = tread === "tunnel" ? 17 : 15;
     return `<g class="fe${sel ? " sel" : ""}" data-fe="${esc(e.id)}" style="--dl:${dl}ms">`
       + `<path class="fe-hit" d="${g.d}"/>`
@@ -15068,16 +15090,27 @@ function flowSVG(d, o){
           + (tread === "road" ? `<path class="fe-centre" d="${g.d}" stroke="${look.c.centre || "#F2D14B"}"/>` : "") : "")
       + `<path class="fe-line" d="${g.d}" stroke="${c}" stroke-width="${tread ? 2.5 : 4}" marker-end="url(#${uidp}m${mIndex.get(c)})"/>`
       + (o.flowing !== false && !(look && look.beam) ? `<path class="fe-run" d="${g.d}"/>` : "")
-      + (label ? `<g class="fe-lab" transform="translate(${g.lab.x},${g.lab.y})">`
-          + `<rect x="${-lw / 2}" y="-10" width="${lw}" height="20" rx="10"/>`
-          + `<text text-anchor="middle" dy="4.5">${esc(label)}</text></g>` : "")
       + `</g>`;
+  }).join("");
+  /* the words on the arrows sit above everything travelling along them */
+  const labels = d.edges.map(e=>{
+    const label = String(e.t || "").trim(); if(!label) return "";
+    const g = flowEdgeGeom(d, e); if(!g) return "";
+    const sel = o.sel && o.sel.has(e.id);
+    const dl = depth ? (depth.get(e.a) || 0) * 110 + 140 : 0;
+    const lw = Math.max(26, label.length * 7.4 + 12);
+    return `<g class="fe fe-labg${sel ? " sel" : ""}" data-fe="${esc(e.id)}" style="--dl:${dl}ms">`
+      + `<g class="fe-lab" transform="translate(${g.lab.x},${g.lab.y})">`
+      + `<rect x="${-lw / 2}" y="-10" width="${lw}" height="20" rx="10"/>`
+      + `<text text-anchor="middle" dy="4.5">${esc(label)}</text></g></g>`;
   }).join("");
   const nodes = d.nodes.map(n=>{
     const own = n.s === "text" ? "transparent" : flowColor(n.c, look ? "" : "#FFFFFF");
-    const fill = n.s === "text" ? "transparent"
-      : look ? (own && own !== "#FFFFFF" ? mixHex(look.base, own, .74) : look.base) : own;
-    const ink = n.s === "text" ? flowColor(n.ic, look ? look.c.ink : "#1f2328") : flowInk(fill);
+    let fill = n.s === "text" ? "transparent"
+      : look ? (own && own !== "#FFFFFF" ? mixHex(look.base, own, dark ? .72 : .74) : look.base) : own;
+    /* in the dark the pastels step down so they glow rather than glare */
+    if(dark && !look && n.s !== "text") fill = own === "#FFFFFF" ? "#2a3038" : mixHex(own, FLOW_DARK_PAPER, .3);
+    const ink = n.s === "text" ? flowColor(n.ic, look ? look.c.ink : dark ? "#e6e9ec" : "#1f2328") : flowInk(fill);
     const rel = Object.assign({}, n, {x:0, y:0});
     const markup = look && FLOW_BOXY.has(n.s) ? flowThemedPath(rel, look) : flowShapePath(rel);
     /* the city puts its buildings along the bottom of a block, so the words sit above them */
@@ -15087,7 +15120,7 @@ function flowSVG(d, o){
     const dl = depth ? (depth.get(n.id) || 0) * 110 : 0;
     const sel = o.sel && o.sel.has(n.id);
     const fs = +n.fs || 13;
-    const stroke = n.s === "text" ? "none" : (n.b ? flowColor(n.b, "#3B4252") : look ? look.stroke : "rgba(0,0,0,.18)");
+    const stroke = n.s === "text" ? "none" : (n.b ? flowColor(n.b, "#3B4252") : look ? look.stroke : dark ? "rgba(255,255,255,.16)" : "rgba(0,0,0,.18)");
     const font = look && look.font === "mono" ? "var(--mono)" : look && look.font === "serif" ? "Georgia, 'Times New Roman', serif" : "";
     return `<g class="fn${n.a ? " an-" + n.a : ""}${sel ? " sel" : ""}" data-fn="${esc(n.id)}"`
       + ` style="--dl:${dl}ms;transform-origin:${n.x + n.w / 2}px ${n.y + n.h / 2}px">`
@@ -15101,7 +15134,7 @@ function flowSVG(d, o){
       + `font-weight:${n.wt === "n" ? 400 : 650};text-align:${n.al || "center"}${font ? ";font-family:" + font : ""}">${esc(n.t).replace(/\n/g, "<br>")}</div>`
       + `</foreignObject></g></g></g>`;
   }).join("");
-  const cls = "flowsvg" + (o.animate ? " flow-anim" : "") + (o.cls ? " " + o.cls : "") + (look ? " look-" + look.id : "");
+  const cls = "flowsvg" + (o.animate ? " flow-anim" : "") + (o.cls ? " " + o.cls : "") + (look ? " look-" + look.id : "") + (dark ? " flow-dark" : "");
   /* the theme's own colours for its scenery, kept to this drawing */
   let vars = "";
   if(look){
@@ -15111,13 +15144,15 @@ function flowSVG(d, o){
   }
   const bgDefs = look ? flowBgDefs(look, uidp) : "";
   const bg = look ? `<rect class="flow-bg" x="${B.x}" y="${B.y}" width="${B.w}" height="${B.h}" fill="${look.c.paper}"/>`
-    + (bgDefs ? `<rect class="flow-bg" x="${B.x}" y="${B.y}" width="${B.w}" height="${B.h}" fill="url(#${uidp}bg)"/>` : "") : "";
+    + (bgDefs ? `<rect class="flow-bg" x="${B.x}" y="${B.y}" width="${B.w}" height="${B.h}" fill="url(#${uidp}bg)"/>` : "")
+    : dark && o.paper !== false ? `<rect class="flow-bg" x="${B.x}" y="${B.y}" width="${B.w}" height="${B.h}" fill="${FLOW_DARK_PAPER}"/>` : "";
   return `<svg class="${cls}" xmlns="http://www.w3.org/2000/svg" viewBox="${B.x} ${B.y} ${B.w} ${B.h}"`
     + (o.size === false ? "" : ` width="${B.w}" height="${B.h}"`)
     + (vars ? ` style="${vars}"` : "")
     + (look && look.beam ? ` data-beam="${look.beam}"` : "")
     + ` preserveAspectRatio="xMidYMid meet" role="img" aria-label="Flowchart">`
-    + `<defs>${markers}${bgDefs}</defs>${bg}<g class="flow-edges">${edges}</g><g class="flow-nodes">${nodes}</g></svg>`;
+    + `<defs>${markers}${bgDefs}</defs>${bg}<g class="flow-edges">${edges}</g><g class="flow-nodes">${nodes}</g>`
+    + `<g class="flow-labels">${labels}</g></svg>`;
 }
 /* the fish, ants or traffic, once the drawing is on the page */
 function flowRiders(svg, few){
@@ -15125,7 +15160,7 @@ function flowRiders(svg, few){
   if(document.documentElement.dataset.motion === "off") return;
   const beam = svg.dataset.beam;
   const colour = getComputedStyle(svg).getPropertyValue("--beam-flow").trim();
-  const look = flowLook([...svg.classList].find(c=>c.startsWith("look-")).slice(5));
+  const look = flowLook([...svg.classList].find(c=>c.startsWith("look-")).slice(5), svg.classList.contains("flow-dark"));
   const tint = (look && (look.c.beamOut || look.c.accent)) || "#333";
   let host = svg.querySelector("g.flow-riders");
   if(host) host.remove();
@@ -15167,11 +15202,15 @@ function openFlowView(nodeId, walk){
   const d = flowOf(n);
   if(!d || !d.nodes.length){ toast("This room has no flowchart yet."); return; }
   fv.d = d; fv.nodeId = nodeId; fv.walk = null;
+  /* starts out the way the room is; the button flips it for this chart only */
+  fv.dark = pageIsDark();
+  fvMarkDark();
   el("fvName").textContent = n.label || "";
   el("fvEdit").hidden = !canEdit();
   const B = flowBounds(d, 40);
   fv.B = B;
-  el("fvStage").innerHTML = flowSVG(d, {animate:true, bounds:B});
+  el("fvStage").classList.remove("walking");
+  el("fvStage").innerHTML = flowSVG(d, {animate:true, bounds:B, dark:fv.dark});
   flowRiders(fvSvg());
   el("fvWalkBar").hidden = true;
   const dlg = el("flowView");
@@ -15180,6 +15219,21 @@ function openFlowView(nodeId, walk){
   requestAnimationFrame(()=>{ fvFit(); if(walk) flowWalkStart(); });
 }
 function fvSvg(){ return el("fvStage").querySelector("svg"); }
+function fvMarkDark(){
+  el("flowView").classList.toggle("fv-dark", !!fv.dark);
+  const b = el("fvDark");
+  if(b){ b.innerHTML = fv.dark ? "&#9728; Light" : "&#9681; Dark"; b.title = fv.dark ? "Back to daylight" : "Dark, for a dim room"; }
+}
+/* the same chart again in the other light, keeping where you are in it */
+function fvToggleDark(){
+  fv.dark = !fv.dark;
+  fvMarkDark();
+  if(!fv.d) return;
+  el("fvStage").innerHTML = flowSVG(fv.d, {animate:false, bounds:fv.B, dark:fv.dark});
+  fvApply();
+  flowRiders(fvSvg());
+  if(fv.walk) flowWalkPaint();
+}
 function fvApply(){
   const s = fvSvg(); if(!s) return;
   s.style.transform = `translate(${fv.x}px,${fv.y}px) scale(${fv.k})`;
@@ -15295,6 +15349,7 @@ function wireFlowView(){
   el("fvIn").onclick = ()=>fvZoom(1.35);
   el("fvOut").onclick = ()=>fvZoom(1 / 1.35);
   el("fvWalk").onclick = ()=>fv.walk ? flowWalkStop() : flowWalkStart();
+  el("fvDark").onclick = fvToggleDark;
   el("fvWalkEnd").onclick = flowWalkStop;
   el("fvBack").onclick = ()=>{
     const w = fv.walk; if(!w || !w.trail.length) return;
@@ -15350,6 +15405,7 @@ function wireFlowView(){
     if(ev.key === "+" || ev.key === "="){ ev.preventDefault(); fvZoom(1.35); }
     else if(ev.key === "-" || ev.key === "_"){ ev.preventDefault(); fvZoom(1 / 1.35); }
     else if(ev.key === "0"){ ev.preventDefault(); fvFit(); }
+    else if(ev.key === "d" || ev.key === "D"){ ev.preventDefault(); fvToggleDark(); }
     else if(fv.walk && /^[1-9]$/.test(ev.key)){
       const b = el("fvWalkGo").querySelectorAll("button")[+ev.key - 1]; if(b){ ev.preventDefault(); b.click(); }
     }
@@ -15357,6 +15413,10 @@ function wireFlowView(){
   window.addEventListener("resize", ()=>{ if(d.open) fvFit(); });
   /* the thumbnail on the wall opens it */
   el("rvFlow").addEventListener("click", ()=>{ if(S.sel) openFlowView(S.sel); });
+  new MutationObserver(()=>{
+    if(inRoom() && S.sel && S.nodes.has(S.sel) && !el("rvFlow").hidden) paintRoomFlow(S.nodes.get(S.sel));
+    if(el("flowEdit").open) feRender();
+  }).observe(document.documentElement, {attributes:true, attributeFilter:["data-theme"]});
 }
 
 
@@ -15450,7 +15510,7 @@ function feNode(id){ return fe.d.nodes.find(n=>n.id === id); }
 function feEdge(id){ return fe.d.edges.find(e=>e.id === id); }
 function feRender(){
   const stage = el("feStage");
-  const svgHtml = flowSVG(fe.d, {sel:fe.sel, bounds:{x:-5000, y:-5000, w:10000, h:10000}, size:false, flowing:true, cls:"fe-svg"});
+  const svgHtml = flowSVG(fe.d, {sel:fe.sel, bounds:{x:-5000, y:-5000, w:10000, h:10000}, size:false, flowing:true, cls:"fe-svg", paper:false});
   stage.querySelector(".fe-world").innerHTML = svgHtml.replace("<svg ", '<svg x="-5000" y="-5000" width="10000" height="10000" overflow="visible" ');
   /* the travellers come back once things stop moving */
   clearTimeout(fe.riderTimer);
@@ -19750,7 +19810,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-10-04d";
+const APP_BUILD = "2026-10-04f";
 
 /* Reading that line back out of a copy of this file.
 
@@ -24385,6 +24445,7 @@ const SHORTCUTS = [
     ["Esc", "Close it"]]],
   ["Walking through a flowchart", [
     ["1, 2, 3…", "Pick the first, second, third answer"],
+    ["D", "Light or dark, for the chart"],
     ["+  −  0", "Bigger, smaller, fit the screen"]]],
   ["In Go to", [
     ["Type", "Filter by name across the whole map"],
@@ -24450,7 +24511,7 @@ const HELP_TOPICS = [
   {id:"room", title:"Inside a room", body:`
     <h3>Inside a room</h3>
     <ul>
-      <li><b>Flowcharts</b>: some rooms have a flowchart on the wall. Tap it to open it full screen. <b>Walk me through it</b> starts at the beginning and asks each question in turn; tap the answer (or the next shape) and it takes you along that arrow. <b>Back</b> goes one step back. Scroll or pinch to zoom, drag to move around.</li>
+      <li><b>Flowcharts</b>: some rooms have a flowchart on the wall. It starts out light or dark to match the room; the <b>Dark / Light</b> button (or the D key) flips just the chart. Tap it to open it full screen. <b>Walk me through it</b> starts at the beginning and asks each question in turn; tap the answer (or the next shape) and it takes you along that arrow. <b>Back</b> goes one step back. Scroll or pinch to zoom, drag to move around.</li>
       <li><b>&#9734;</b> beside the name bookmarks the room. It turns gold.</li>
       <li><b>The copy button</b> beside it copies the whole note. Holding the room's name does the same.</li>
       <li><b>Answers</b> under the name are the questions this room answers.</li>
