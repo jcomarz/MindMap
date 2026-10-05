@@ -3729,6 +3729,8 @@ html[data-theme="dark"] .lab-status.clash{color:#F08A80}
 .lab-sugbox{position:absolute;left:0;right:0;top:100%;z-index:5;background:var(--paper);border:1px solid var(--rule);
   border-radius:3px;box-shadow:0 6px 18px rgba(0,0,0,.18);max-height:220px;overflow-y:auto}
 .lab-sugbox[hidden]{display:none}
+.lab-sugbox.wide{right:auto;min-width:300px}
+.lab-me .lab-sug{position:relative}
 .lab-sugbox div{padding:6px 9px;cursor:pointer;font-size:13px;display:flex;justify-content:space-between;gap:8px}
 .lab-sugbox div.at,.lab-sugbox div:hover{background:var(--blueprint-soft)}
 .lab-sugbox div i{font-style:normal;font-family:var(--mono);font-size:11.5px;color:var(--graphite-60)}
@@ -20486,7 +20488,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-10-05c";
+const APP_BUILD = "2026-10-05d";
 
 /* Reading that line back out of a copy of this file.
 
@@ -25253,7 +25255,7 @@ function labBlankReview(){
 }
 function labBlank(){
   return {tab:"review", initials:"", review:labBlankReview(), issue:labBlankIssue(),
-    snitch:{target:"", text:"", scan:"", entries:[], phrases:null, day:"", editing:""}};
+    snitch:{target:"", text:"", scan:"", phrases:null}};
 }
 let LAB = null, labKey = "", labSaveT = 0, labDirty = false;
 
@@ -25277,7 +25279,8 @@ async function labLoad(){
     if(!Array.isArray(sec.sm) || !sec.sm.length) sec.sm = [{value:""}];
   });
   if(!Array.isArray(LAB.review.extra)) LAB.review.extra = [];
-  if(!Array.isArray(LAB.snitch.entries)) LAB.snitch.entries = [];
+  /* an older build kept a list of sent #snitches here; nothing is kept now */
+  ["entries", "day", "editing"].forEach(k=>{ delete LAB.snitch[k]; });
 }
 let labSayT = 0;
 /* a toast would sit under the open dialog, so the dialog says it itself */
@@ -25336,22 +25339,41 @@ function labMyInitials(){
   const me = S.who && S.who !== "anonymous" ? S.who : "";
   return me ? (labInitialsMap().get(me) || "") : "";
 }
-function labPeopleFor(q){
+/* everyone on the roster with the initials nobody else has and the first
+   name a sentence wants: "Aaron-AEdusei211947-AKE" is Aaron, AKE */
+function labRoster(){
   const map = labInitialsMap();
-  const all = [...map.entries()].map(([name, ini])=>({name, ini}));
+  return (S.people || []).filter(p=>p && p.name && map.has(p.name)).map(p=>({
+    name:p.name, ini:map.get(p.name),
+    first:String(p.first || "").trim() || String(p.name).trim().split(/[-\s(]+/)[0]
+  }));
+}
+function labPeopleFor(q, meFirst){
+  const all = labRoster();
   const want = String(q || "").trim().toLowerCase();
-  if(!want) return all.slice(0, 8);
+  const me = S.who && S.who !== "anonymous" ? S.who : "";
+  if(!want){
+    const sorted = all.slice().sort((a, b)=>a.name.localeCompare(b.name, undefined, {sensitivity:"base"}));
+    if(meFirst && me){ const i = sorted.findIndex(x=>x.name === me); if(i > 0) sorted.unshift(sorted.splice(i, 1)[0]); }
+    return sorted.slice(0, 8);
+  }
   const score = x=>{
-    const n = x.name.toLowerCase(), i = x.ini.toLowerCase();
+    const n = x.name.toLowerCase(), i = x.ini.toLowerCase(), f = x.first.toLowerCase();
     if(i === want) return 0;
-    if(n.startsWith(want)) return 1;
-    if(n.split(/\s+/).some(w=>w.startsWith(want))) return 2;
+    if(f.startsWith(want) || n.startsWith(want)) return 1;
+    if(n.split(/[-\s]+/).some(w=>w.startsWith(want))) return 2;
     if(i.startsWith(want)) return 3;
     if(n.includes(want)) return 4;
     return 9;
   };
   return all.map(x=>({x, s:score(x)})).filter(o=>o.s < 9)
     .sort((a, b)=>a.s - b.s || a.x.name.localeCompare(b.x.name)).slice(0, 8).map(o=>o.x);
+}
+/* whose initials these are, so a typo shows before it is pasted anywhere */
+function labWhoseInitials(ini){
+  const want = String(ini || "").trim().toUpperCase();
+  if(!want) return null;
+  return labRoster().find(x=>x.ini === want) || null;
 }
 
 /* ---------- dates typed the quick way: 812 -> 08/12/this year ---------- */
@@ -25608,18 +25630,16 @@ function labSnitchLine(){
 }
 function labSnitchHTML(){
   const s = LAB.snitch, phrases = s.phrases || LAB_PHRASES;
-  const mine = labMyInitials();
-  const list = s.entries.filter(e=>!s.day || isoLocal(new Date(e.at)) === s.day);
+  const owner = labWhoseInitials(LAB.initials);
   return `<section class="lab-sec" style="border-left-color:var(--flag)">
     <div class="lab-me"><span>Your initials</span>
-      <input type="text" data-lab="initials" value="${esc(LAB.initials || "")}" maxlength="5" placeholder="${esc(mine || "ABC")}">
-      <span class="lab-hint" style="margin:0">${mine ? (LAB.initials && LAB.initials.toUpperCase() !== mine
-        ? `The roster has you as <b>${esc(mine)}</b> <button class="lab-add" data-labdo="useMine">Use ${esc(mine)}</button>`
-        : "From the roster") : "Pick your name when the map opens and these fill in"}</span></div>
+      <div class="lab-sug"><input type="text" id="labMe" data-lab="initials" value="${esc(LAB.initials || "")}" maxlength="5" placeholder="ABC"
+        autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="labMeSug">
+        <div class="lab-sugbox wide" id="labMeSug" role="listbox" hidden></div></div>
+      <span class="lab-hint" id="labMeWho" style="margin:0">${labMeWhoText(owner)}</span></div>
   </section>
   <section class="lab-sec" style="border-left-color:var(--flag)">
-    <h3><span class="grow">${s.editing ? "Change a #snitch" : "New #snitch"}</span>
-      ${s.editing ? `<button class="btn small" data-labdo="cancelEdit">Cancel</button>` : ""}</h3>
+    <h3><span class="grow">#snitch sentence</span></h3>
     <label class="field lab-sug"><span>Who it is about</span>
       <input type="text" id="labTarget" data-lab="snitch.target" value="${esc(s.target)}" placeholder="Start typing a name or initials" autocomplete="off"
         role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="labTargetSug">
@@ -25635,27 +25655,16 @@ function labSnitchHTML(){
     <div class="lab-sub"><span>Quick phrases</span><button class="lab-add" data-labdo="editPhrases">Edit phrases</button></div>
     <div class="lab-phr">${phrases.map((p, i)=>`<button data-labdo="phrase" data-i="${i}" title="${esc(p.text)}">${esc(p.label)}</button>`).join("")}</div>
     <div class="lab-prev" id="labSnPrev">${esc(labSnitchLine())}</div>
-    <button class="btn primary" data-labdo="addSnitch" style="width:100%">${s.editing ? "Save the change and copy it" : "Add to my list and copy it"}</button>
-  </section>
-  <section class="lab-sec" style="border-left-color:var(--rule)">
-    <div class="lab-listhead"><h3>My #snitch list (${s.day ? list.length + " of " + s.entries.length : s.entries.length})</h3>
-      <input type="date" data-lab="snitch.day" value="${esc(s.day)}" title="Only one day">
-      ${s.day ? `<button class="btn small" data-labdo="allDays">All days</button>` : ""}
-      <button class="btn small" data-labdo="copyAll"${list.length ? "" : " disabled"}>Copy ${s.day ? "these" : "all"}</button>
-      <button class="btn small" data-labdo="clearList"${s.entries.length ? "" : " disabled"}>Clear list</button></div>
-    ${list.length ? list.map(e=>{
-      const d = new Date(e.at);
-      return `<div class="lab-entry"><div class="when"><span>${esc(d.toLocaleDateString("en-US", {month:"short", day:"numeric"}))}
-        ${esc(d.toLocaleTimeString("en-US", {hour:"numeric", minute:"2-digit"}))}</span></div>
-        <div class="txt">${esc(labSnitchOf(e))}</div>
-        ${labLinksHTML(e.text)}
-        <div class="acts"><button class="btn small" data-labdo="copyOne" data-id="${esc(e.id)}">Copy</button>
-          <button class="btn small" data-labdo="editOne" data-id="${esc(e.id)}">Change</button>
-          <button class="btn small" data-labdo="dropOne" data-id="${esc(e.id)}">Remove</button></div></div>`;
-    }).join("") : `<p class="fineprint" style="text-align:center">${s.day ? "Nothing on that day." : "Nothing yet."}</p>`}
+    <div style="display:flex;gap:8px">
+      <button class="btn primary" data-labdo="copySnitch" style="flex:1">Copy the sentence</button>
+      <button class="btn" data-labdo="newSnitch" title="Empty who and what happened; your initials stay">Start a new one</button></div>
+    <p class="lab-hint">Paste it where #snitches go. Nothing is listed or kept here once you start a new one.</p>
   </section>`;
 }
-function labSnitchOf(e){ return `#snitch [[${e.target}]] ${e.text} #${e.initials}`; }
+function labMeWhoText(owner){
+  if(!String(LAB.initials || "").trim()) return "Type yours or pick your name";
+  return owner ? esc(owner.name) : "Nobody on the roster has these";
+}
 
 function labRender(){
   const body = el("labBody");
@@ -25739,7 +25748,6 @@ async function labAction(b){
     case "addSm": iss.secs[s].sm.push({value:""}); break;
     case "dropSm": iss.secs[s].sm.splice(i, 1); break;
     case "fold": iss.shut = iss.shut || {}; iss.shut[s] = !iss.shut[s]; break;
-    case "useMine": LAB.initials = labMyInitials(); break;
     case "scan": {
       const v = labScanTidy(el("labScan") ? el("labScan").value : sn.scan);
       sn.scan = "";
@@ -25759,52 +25767,15 @@ async function labAction(b){
       sn.phrases = list.length ? list : null;
       break;
     }
-    case "addSnitch": {
+    case "copySnitch": {
       const target = sn.target.trim(), text = sn.text.trim(), ini = (LAB.initials || "").trim().toUpperCase();
       if(!target){ labSay("Say who it is about first."); el("labTarget") && el("labTarget").focus(); return; }
       if(!text){ labSay("Write what happened first."); el("labSnText") && el("labSnText").focus(); return; }
-      if(!ini){ labSay("Put your initials in first."); return; }
-      let entry;
-      if(sn.editing){
-        entry = sn.entries.find(e=>e.id === sn.editing);
-        if(entry) Object.assign(entry, {target, text, initials:ini});
-      }
-      if(!entry){
-        entry = {id:Date.now().toString(36) + Math.random().toString(36).slice(2, 6), target, text, initials:ini, at:Date.now()};
-        sn.entries.unshift(entry);
-      }
-      sn.target = ""; sn.text = ""; sn.editing = "";
-      const ok = await copyPlain(labSnitchOf(entry));
-      labSay(ok ? "Added and copied — paste it where it goes." : "Added. Copy it from the list.");
-      break;
-    }
-    case "cancelEdit": sn.editing = ""; sn.target = ""; sn.text = ""; break;
-    case "copyOne": {
-      const e = sn.entries.find(x=>x.id === b.dataset.id);
-      if(e) labSay(await copyPlain(labSnitchOf(e)) ? "Copied" : "The browser would not copy it");
+      if(!ini){ labSay("Put your initials in first."); el("labMe") && el("labMe").focus(); return; }
+      labSay(await copyPlain(labSnitchLine()) ? "Copied — paste it where it goes" : "The browser would not copy it");
       return;
     }
-    case "copyAll": {
-      const list = sn.entries.filter(e=>!sn.day || isoLocal(new Date(e.at)) === sn.day);
-      if(list.length) labSay(await copyPlain(list.map(labSnitchOf).join("\n")) ? `Copied ${list.length}` : "The browser would not copy it");
-      return;
-    }
-    case "editOne": {
-      const e = sn.entries.find(x=>x.id === b.dataset.id);
-      if(!e) return;
-      sn.editing = e.id; sn.target = e.target; sn.text = e.text;
-      if(e.initials) LAB.initials = e.initials;
-      break;
-    }
-    case "dropOne":
-      if(!confirm("Remove this one from your list?")) return;
-      sn.entries = sn.entries.filter(x=>x.id !== b.dataset.id);
-      if(sn.editing === b.dataset.id) sn.editing = "";
-      break;
-    case "allDays": sn.day = ""; break;
-    case "clearList":
-      if(!confirm("Clear your whole #snitch list on this computer?")) return;
-      sn.entries = []; sn.editing = ""; break;
+    case "newSnitch": sn.target = ""; sn.text = ""; sn.scan = ""; break;
     default: return;
   }
   labSave();
@@ -25812,34 +25783,48 @@ async function labAction(b){
     const body = el("labBody"), top = body ? body.scrollTop : 0;
     labRender();
     if(body) body.scrollTop = top;
-    if(k === "editOne" && el("labSnText")){ el("labBody").scrollTop = 0; el("labSnText").focus(); }
+    if(k === "newSnitch" && el("labTarget")) el("labTarget").focus();
   }
 }
 
 /* ---------- the name box: the roster, by name or by initials ---------- */
-const labSug = {items:[], at:0};
-function labSugShow(){
-  const inp = el("labTarget"), box = el("labTargetSug");
+const labSug = {items:[], at:0, which:""};
+const LAB_SUG = {target:["labTarget", "labTargetSug"], me:["labMe", "labMeSug"]};
+function labSugShow(which){
+  const [iid, bid] = LAB_SUG[which] || [];
+  const inp = el(iid), box = el(bid);
   if(!inp || !box) return;
-  labSug.items = labPeopleFor(inp.value);
-  if(labSug.items.length === 1 && labSug.items[0].name === inp.value.trim()) labSug.items = [];
+  if(labSug.which && labSug.which !== which) labSugShut();
+  labSug.which = which;
+  labSug.items = labPeopleFor(inp.value, which === "me");
+  const v = inp.value.trim();
+  if(labSug.items.length === 1 && (which === "me" ? labSug.items[0].ini === v.toUpperCase() : labSug.items[0].first === v)) labSug.items = [];
   labSug.at = 0;
   box.innerHTML = labSug.items.map((x, i)=>`<div role="option" data-i="${i}" class="${i ? "" : "at"}"><span>${esc(x.name)}</span><i>${esc(x.ini)}</i></div>`).join("");
   box.hidden = !labSug.items.length;
   inp.setAttribute("aria-expanded", box.hidden ? "false" : "true");
 }
 function labSugShut(){
-  const box = el("labTargetSug"), inp = el("labTarget");
-  if(box) box.hidden = true;
-  if(inp) inp.setAttribute("aria-expanded", "false");
+  Object.values(LAB_SUG).forEach(([iid, bid])=>{
+    const box = el(bid), inp = el(iid);
+    if(box) box.hidden = true;
+    if(inp) inp.setAttribute("aria-expanded", "false");
+  });
 }
+/* picking from the list puts in only what the sentence needs: the first
+   name for who it is about, just the initials for yours */
 function labSugTake(i){
-  const x = labSug.items[i], inp = el("labTarget");
+  const x = labSug.items[i], which = labSug.which;
+  const [iid] = LAB_SUG[which] || [];
+  const inp = el(iid);
   if(!x || !inp) return;
-  inp.value = x.name; LAB.snitch.target = x.name;
+  if(which === "me"){ LAB.initials = x.ini; inp.value = x.ini; labMeWho(); }
+  else { LAB.snitch.target = x.first; inp.value = x.first; }
   labSugShut(); labSnitchPreview(); labSave();
-  if(el("labSnText")) el("labSnText").focus();
+  const next = which === "me" ? el("labTarget") : el("labSnText");
+  if(next) next.focus();
 }
+function labMeWho(){ const w = el("labMeWho"); if(w) w.innerHTML = labMeWhoText(labWhoseInitials(LAB.initials)); }
 
 function wireLab(){
   const dlg = el("labDlg"), body = el("labBody");
@@ -25874,7 +25859,8 @@ function wireLab(){
     if(path === "initials") inp.value = inp.value.toUpperCase();
     if(path.startsWith("issue.") && path !== "issue.acc") labPaintSection(path.split(".")[1]);
     if(path.startsWith("snitch.") || path === "initials") labSnitchPreview();
-    if(path === "snitch.target") labSugShow();
+    if(path === "snitch.target") labSugShow("target");
+    if(path === "initials"){ labSugShow("me"); labMeWho(); }
     if(path === "snitch.day"){ labRender(); }
     labRefreshOut();
     labLinksPaint();
@@ -25891,27 +25877,34 @@ function wireLab(){
       if(sec === "dob") labMarkNear(inp);
       labPaintSection(sec);
     }
-    if(path === "snitch.target") setTimeout(labSugShut, 150);
+    if(path === "snitch.target" || path === "initials") setTimeout(()=>{
+      const a = document.activeElement;
+      if(a !== el("labTarget") && a !== el("labMe")) labSugShut();
+    }, 150);
   });
-  body.addEventListener("focusin", ev=>{ if(ev.target.id === "labTarget") labSugShow(); });
+  body.addEventListener("focusin", ev=>{
+    if(ev.target.id === "labTarget") labSugShow("target");
+    else if(ev.target.id === "labMe") labSugShow("me");
+    else labSugShut();
+  });
   body.addEventListener("click", ev=>{
     const go = ev.target.closest("[data-laburl]");
     if(go){ ev.preventDefault(); window.open(go.dataset.laburl, "_blank", "noopener"); return; }
-    const opt = ev.target.closest("#labTargetSug [data-i]");
+    const opt = ev.target.closest("#labTargetSug [data-i], #labMeSug [data-i]");
     if(opt){ labSugTake(+opt.dataset.i); return; }
     const b = ev.target.closest("[data-labdo]");
     if(b){ ev.preventDefault(); labAction(b); }
   });
-  body.addEventListener("mousedown", ev=>{ if(ev.target.closest("#labTargetSug")) ev.preventDefault(); });
+  body.addEventListener("mousedown", ev=>{ if(ev.target.closest(".lab-sugbox")) ev.preventDefault(); });
   body.addEventListener("keydown", ev=>{
-    if(ev.target.id === "labTarget"){
-      const box = el("labTargetSug");
+    if(ev.target.id === "labTarget" || ev.target.id === "labMe"){
+      const box = el(ev.target.id === "labMe" ? "labMeSug" : "labTargetSug");
       const open = box && !box.hidden && labSug.items.length;
       if(open && (ev.key === "ArrowDown" || ev.key === "ArrowUp")){
         ev.preventDefault();
         labSug.at = (labSug.at + (ev.key === "ArrowDown" ? 1 : -1) + labSug.items.length) % labSug.items.length;
         box.querySelectorAll("[data-i]").forEach((d, i)=>d.classList.toggle("at", i === labSug.at));
-      } else if(open && (ev.key === "Enter" || ev.key === "Tab") && ev.target.value.trim()){
+      } else if(open && (ev.key === "Enter" || ev.key === "Tab") && (ev.target.value.trim() || ev.target.id === "labMe")){
         ev.preventDefault(); labSugTake(labSug.at);
       } else if(open && ev.key === "Escape"){ ev.preventDefault(); ev.stopPropagation(); labSugShut(); }
     }
@@ -25929,7 +25922,6 @@ async function openLab(tab){
   if(!dlg) return;
   await labLoad();
   if(tab) LAB.tab = tab;
-  if(!LAB.initials) LAB.initials = labMyInitials();
   labSavedNote(Store.mode === "idb" || Store.mode === "ls" ? "Kept on this computer" : "Not being kept on this computer");
   labRender();
   if(!dlg.open) dlg.showModal();
@@ -25990,15 +25982,16 @@ const HELP_TOPICS = [
     </ul>
     <h4>Snitch</h4>
     <ul>
-      <li>Your initials fill in from the roster. Start typing a name or someone's initials in <b>Who it is about</b> and pick them from the list.</li>
+      <li><b>Your initials</b>: type yours or start typing your name, and pick yourself from the list. The list shows whose initials are whose; only the initials go in. Under the box it says whose initials you have typed, so a slip shows before you paste.</li>
+      <li><b>Who it is about</b>: start typing a name or someone's initials and pick them. The list shows their full roster name; only their first name goes in the sentence.</li>
       <li><b>Quick scan</b> tidies a tube (3633853A01 &rarr; 3633853) or a long FedEx barcode (its last 12 digits) and adds it.</li>
       <li>Quick phrases add the usual wording; <b>Edit phrases</b> makes them your own.</li>
-      <li><b>Add to my list and copy it</b> writes <i>#snitch [[Name]] what happened #ABC</i> and copies it. Your list can be copied, changed, removed, or narrowed to one day.</li>
+      <li><b>Copy the sentence</b> copies <i>#snitch [[Name]] what happened #ABC</i> to paste where #snitches go. Nothing is listed or kept here &mdash; <b>Start a new one</b> empties it for the next.</li>
     </ul>
     <h4>Opening a number</h4>
-    <p>Any accession you type or scan (7 digits &mdash; 3633853A01 counts as 3633853) gets buttons for <b>LIMS</b>, <b>PDM</b>, <b>Spade</b>, <b>DocViewer</b> and <b>Nucleus</b>; a tracking number gets <b>DNA Tracker</b>; a number in <b>New portal #</b> on Review gets <b>Portal requisition</b>, which opens it in the admin portal. They show under the accession boxes on Review, under the accession box at the top of Issue, under <b>What happened</b> on Snitch, and on each entry in your #snitch list. Each opens in a new tab, signed in as you.</p>
+    <p>Any accession you type or scan (7 digits &mdash; 3633853A01 counts as 3633853) gets buttons for <b>LIMS</b>, <b>PDM</b>, <b>Spade</b>, <b>DocViewer</b> and <b>Nucleus</b>; a tracking number gets <b>DNA Tracker</b>; a number in <b>New portal #</b> on Review gets <b>Portal requisition</b>, which opens it in the admin portal. They show under the accession boxes on Review, under the accession box at the top of Issue, and under <b>What happened</b> on Snitch. Each opens in a new tab, signed in as you.</p>
     <h4>Where it is kept</h4>
-    <p>On this computer only, under your name, saved as you type &mdash; so if the computer shuts down or the page closes, open Lab tools again and carry on. It never goes into the map, the workbook or anywhere else. Use <b>Clear the review</b>, <b>Clear the issue</b> or <b>Clear list</b> when you are done.</p>`},
+    <p>On this computer only, under your name, saved as you type &mdash; so if the computer shuts down or the page closes, open Lab tools again and carry on. It never goes into the map, the workbook or anywhere else. Use <b>Clear the review</b>, <b>Clear the issue</b> or <b>Start a new one</b> when you are done.</p>`},
   {id:"room", title:"Inside a room", body:`
     <h3>Inside a room</h3>
     <ul>
