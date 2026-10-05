@@ -3690,6 +3690,25 @@ html[data-theme="dark"] .lab-said{color:#6FD1A0}
 .lab-chip.k-fedex,.lab-chip.k-ups,.lab-chip.k-usps,.lab-chip.k-track{border-color:#C98A12}
 .lab-chip.k-kit,.lab-chip.k-ocb{border-color:#1E8C5A} .lab-chip.k-portal{border-color:var(--flag)}
 .lab-flip{border:0;background:none;color:var(--blueprint);cursor:pointer;font-size:14px;padding:0 5px;line-height:1}
+.lab-list:empty{display:none}
+.lab-list{margin-top:8px;max-height:min(34vh,260px);overflow-y:auto;border:1px solid var(--rule);border-radius:3px}
+.lab-listtop{display:flex;align-items:center;gap:6px;padding:4px 8px;font-size:12px;font-weight:600;background:var(--paper-2);
+  position:sticky;top:0;z-index:1;border-bottom:1px solid var(--rule)}
+.lab-listtop span{flex:1}
+.lab-row2{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;padding:5px 8px;border-bottom:1px solid var(--rule-soft);border-left:3px solid var(--rule)}
+.lab-row2:last-child{border-bottom:0}
+.lab-row2.k-acc{border-left-color:var(--blueprint)} .lab-row2.k-date{border-left-color:#7B5BC9}
+.lab-row2.k-fedex,.lab-row2.k-ups,.lab-row2.k-usps,.lab-row2.k-track{border-left-color:#C98A12}
+.lab-row2.k-kit,.lab-row2.k-ocb{border-left-color:#1E8C5A} .lab-row2.k-portal{border-left-color:var(--flag)}
+.lab-kind{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--graphite-60);min-width:64px}
+.lab-val{font-family:var(--mono);font-size:13px;font-weight:600;user-select:all}
+.lab-note{font-style:normal;font-size:11px;color:var(--graphite-60)}
+.lab-fmt{border:1px solid #7B5BC9;background:none;color:#7B5BC9;border-radius:10px;font-family:var(--mono);font-size:10.5px;padding:1px 7px;cursor:pointer}
+.lab-rowlinks{display:inline-flex;flex-wrap:wrap;gap:3px}
+.lab-rowlinks:empty{display:none}
+.lab-rowacts{margin-left:auto;display:inline-flex;gap:4px;align-items:center}
+.lab-rowacts .lab-x{height:24px;width:24px;font-size:13px}
+dialog#labDlg.small .lab-totab{display:none}
 #labBarLinks:empty{display:none}
 #labBarLinks{margin-top:4px}
 .lab-pinned{display:flex;align-items:flex-start;gap:6px}
@@ -5358,14 +5377,14 @@ body.viewing.panelaway #panelHide{display:none}
       <input type="text" id="labBar" autocomplete="off" spellcheck="false" aria-label="Scan or paste"
         placeholder="Scan or paste: tubes, FedEx, UPS, kits, portals, dates&hellip;">
       <button class="btn small" id="labDateFmt" title="How dates are written: tap to switch between 10/05/2026 and 2026-10-05" aria-pressed="false">MM/DD/YYYY</button>
-      <button class="btn small primary" id="labBarAdd" disabled>Add</button>
+      <button class="btn small primary" id="labBarAdd" disabled title="Put what it read on the output list below (Enter)">Add &#8629;</button>
     </div>
     <div class="lab-chips" id="labChips"></div>
-    <div class="lab-linkbox" id="labBarLinks"></div>
+    <div class="lab-list" id="labList"></div>
     <div class="lab-padhead"><span>Pad</span>
       <button class="btn small" id="labPadCopy">Copy</button>
       <button class="btn small" id="labPadClear">Clear</button></div>
-    <textarea id="labPad" spellcheck="false" placeholder="Anything you want to jot down. Drag the corner to make it bigger. When Lab tools is shrunk, Add puts the scan bar here."></textarea>
+    <textarea id="labPad" spellcheck="false" placeholder="Anything you want to jot down. Drag the corner to make it bigger. Rows from the output list land here with &rarr; Pad."></textarea>
   </div>
   <div class="lab-more" id="labMore">
   <div class="lab-tabs" role="tablist">
@@ -20539,7 +20558,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-10-05f";
+const APP_BUILD = "2026-10-05g";
 
 /* Reading that line back out of a copy of this file.
 
@@ -25304,7 +25323,7 @@ function labBlankReview(){
   return r;
 }
 function labBlank(){
-  return {tab:"review", initials:"", bar:"", barPick:{}, pins:null, dateIso:false, pad:"", padH:0, small:false, review:labBlankReview(), issue:labBlankIssue(),
+  return {tab:"review", initials:"", bar:"", barPick:{}, outs:[], dateIso:false, pad:"", padH:0, small:false, review:labBlankReview(), issue:labBlankIssue(),
     snitch:{target:"", text:"", scan:"", phrases:null}};
 }
 let LAB = null, labKey = "", labSaveT = 0, labDirty = false;
@@ -25332,7 +25351,13 @@ async function labLoad(){
   /* an older build kept a list of sent #snitches here; nothing is kept now */
   ["entries", "day", "editing", "scan"].forEach(k=>{ delete LAB.snitch[k]; });
   /* the issue tab's own accession box became the scan bar's links */
-  if(LAB.issue.acc){ if(!LAB.pins) LAB.pins = {text:LAB.issue.acc, portal:""}; delete LAB.issue.acc; }
+  if(!Array.isArray(LAB.outs)) LAB.outs = [];
+  if(LAB.issue.acc){
+    const a = String(LAB.issue.acc).match(/\d{7}/);
+    if(a && !LAB.outs.some(o=>o.value === a[0])) LAB.outs.unshift({id:"m" + Date.now().toString(36), type:"acc", value:a[0], note:"", date:null, iso:false});
+    delete LAB.issue.acc;
+  }
+  delete LAB.pins;
 }
 let labSayT = 0;
 /* a toast would sit under the open dialog, so the dialog says it itself */
@@ -25553,10 +25578,7 @@ function labBarLinksHTML(items){
   });
   return labLinksHTML(acc.join(" ") + " " + trk.join(" "), por.join(" "));
 }
-function labBarWhere(){
-  if(LAB.small) return "the pad";
-  return LAB.tab === "review" ? "the review" : LAB.tab === "issue" ? "the issue" : "the note";
-}
+function labTabName(){ return LAB.tab === "review" ? "Review" : LAB.tab === "issue" ? "Issue" : "Note"; }
 function labBarPaint(){
   if(!LAB) return;
   const items = labBarRead();
@@ -25564,34 +25586,81 @@ function labBarPaint(){
   if(chips) chips.innerHTML = items.map(it=>`<span class="lab-chip k-${it.type}${it.dup ? " dup" : ""}">
       <b>${LAB_KIND[it.type]}</b> ${esc(it.value)}${it.note ? ` <i>${esc(it.note)}</i>` : ""}${it.dup ? " <i>already in</i>" : ""}
       ${it.alts.length > 1 ? `<button type="button" class="lab-flip" data-flip="${it.i}" title="Read it as ${esc(LAB_KIND[it.alts[(it.at + 1) % it.alts.length].type])} instead">&#8644;</button>` : ""}</span>`).join("");
-  /* links for what is in the bar, or for what was last added once it is empty */
-  const live = labBarLinksHTML(items);
-  const links = el("labBarLinks");
-  if(links) links.innerHTML = live || (LAB.pins ? `<div class="lab-pinned"><div>${labLinksHTML(LAB.pins.text || "", LAB.pins.portal || "")}</div>
-      <button type="button" class="lab-x lab-unpin" data-unpin="1" title="Put these links away">&times;</button></div>` : "");
   const add = el("labBarAdd");
-  if(add){ add.innerHTML = `Add<span class="lab-where"> to ${labBarWhere()}</span>`; add.title = "Add to " + labBarWhere() + " (Enter)"; add.disabled = !items.length; }
+  if(add){ add.disabled = !items.length; }
   const f = el("labDateFmt");
   if(f){ f.textContent = labDateIso() ? "YYYY-MM-DD" : "MM/DD/YYYY"; f.setAttribute("aria-pressed", labDateIso() ? "true" : "false"); }
+  labListPaint();
 }
-/* Add puts each piece where it belongs on the tab you are on */
-function labBarAdd(){
+
+/* ---------- the output list: what Enter keeps, one row a piece ---------- */
+function labOutVal(o){
+  if(o.type === "date" && o.date) return o.iso ? `${o.date.y}-${String(o.date.m).padStart(2, "0")}-${String(o.date.d).padStart(2, "0")}`
+    : `${String(o.date.m).padStart(2, "0")}/${String(o.date.d).padStart(2, "0")}/${o.date.y}`;
+  return o.value;
+}
+function labRowLinks(o){
+  const b = (url, label, title)=>`<button type="button" class="lab-link" data-laburl="${esc(url)}" title="${esc(title)}">${label}</button>`;
+  if(o.type === "acc") return LAB_LINKS.map(L=>b(L.url(o.value), L.label, "Open " + o.value + ": " + L.title)).join("");
+  if(["fedex", "ups", "usps", "track"].includes(o.type)) return b(LAB_DNA(o.value), "DNA Tracker", "Look up " + o.value + " in DNA Tracker");
+  if(o.type === "portal") return b(LAB_PORTAL(o.value), "Portal requisition", "Open the requisition for portal " + o.value);
+  return "";
+}
+function labListPaint(){
+  const box = el("labList");
+  if(!box || !LAB) return;
+  const outs = LAB.outs || [];
+  if(!outs.length){ box.innerHTML = ""; return; }
+  const tab = labTabName();
+  box.innerHTML = `<div class="lab-listtop"><span>Output (${outs.length})</span>
+      <button class="btn small" data-outall="pad" title="Every row onto the pad, one line each">All to pad</button>
+      <button class="btn small" data-outall="clear">Clear list</button></div>
+    ${outs.map(o=>`<div class="lab-row2 k-${o.type}" data-out="${esc(o.id)}">
+      <span class="lab-kind">${LAB_KIND[o.type]}</span>
+      <span class="lab-val">${esc(labOutVal(o))}</span>
+      ${o.type === "date" ? `<button type="button" class="lab-fmt" data-outdo="fmt" title="Write this date the other way">${o.iso ? "YYYY-MM-DD" : "MM/DD/YYYY"}</button>` : ""}
+      ${o.note ? `<i class="lab-note">${esc(o.note)}</i>` : ""}
+      <span class="lab-rowlinks">${labRowLinks(o)}</span>
+      <span class="lab-rowacts">
+        <button type="button" class="btn small" data-outdo="copy" title="Copy just this">Copy</button>
+        <button type="button" class="btn small lab-totab" data-outdo="tab" title="Put it where it belongs on the ${tab} tab">&rarr; ${tab}</button>
+        <button type="button" class="btn small primary" data-outdo="pad" title="Onto the pad, as written here">&rarr; Pad</button>
+        <button type="button" class="lab-x" data-outdo="drop" title="Take it off the list">&times;</button>
+      </span></div>`).join("")}`;
+}
+/* Enter: what the bar read goes onto the output list, and the bar empties */
+function labBarCommit(){
   const items = labBarRead().filter(it=>!it.dup);
   if(!items.length) return;
+  LAB.outs = LAB.outs || [];
+  items.slice().reverse().forEach(it=>{
+    const date = it.type === "date" ? labParseDate(it.raw, "doc") : null;
+    const was = LAB.outs.findIndex(o=>o.type === it.type && (date && o.date ? o.date.y === date.y && o.date.m === date.m && o.date.d === date.d : o.value === it.value));
+    if(was >= 0){ LAB.outs.unshift(LAB.outs.splice(was, 1)[0]); return; }
+    LAB.outs.unshift({id:Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      type:it.type, value:it.value, note:it.note || "", date, iso:labDateIso()});
+  });
+  LAB.outs = LAB.outs.slice(0, 40);
+  LAB.bar = ""; LAB.barPick = {};
+  const bar = el("labBar"); if(bar){ bar.value = ""; bar.focus(); }
+  labSave(); labBarPaint();
+}
+function labToPad(lines){
+  if(!lines.length) return;
+  LAB.pad = String(LAB.pad || "").replace(/\s+$/, "");
+  LAB.pad = LAB.pad ? LAB.pad + "\n" + lines.join("\n") : lines.join("\n");
+  const pad = el("labPad"); if(pad){ pad.value = LAB.pad; pad.scrollTop = pad.scrollHeight; }
+  labSave();
+}
+/* one row put where it belongs on the tab you are on */
+function labRoute(items){
   const said = [];
   const join = (cur, v)=>{
     const have = String(cur || "").split(/[,\s]+/).filter(Boolean);
     return have.includes(v) ? cur : (String(cur || "").trim() ? String(cur).trim() + ", " + v : v);
   };
   const label = it=>it.type === "text" || it.type === "date" || it.type === "number" ? it.value : LAB_KIND[it.type] + " " + it.value;
-  if(LAB.small){
-    /* shrunk, the pad is all there is: one tidy line per Add */
-    const line = items.map(it=>it.value).join(" ");
-    LAB.pad = String(LAB.pad || "").replace(/\s+$/, "");
-    LAB.pad = LAB.pad ? LAB.pad + "\n" + line : line;
-    const pad = el("labPad"); if(pad){ pad.value = LAB.pad; pad.scrollTop = pad.scrollHeight; }
-    said.push("onto the pad");
-  } else if(LAB.tab === "snitch"){
+  if(LAB.tab === "snitch"){
     labAppendText(items.map(it=>it.value).join(" "));
     said.push("into what happened");
   } else if(LAB.tab === "review"){
@@ -25608,20 +25677,31 @@ function labBarAdd(){
       if(it.type === "date"){ said.push(labIssuePutDate(it) || "date"); }
       else if(it.type === "text"){ const w = labIssuePutText(it.value); if(w) said.push(w); }
     });
-    if(!said.length) said.push("links only — the issue line takes names and dates");
+    if(!said.length){ labSay("The issue takes names and dates — click the box it belongs in first."); return; }
   }
-  /* keep the links for what was just added, for when the bar is empty */
-  const linkable = items.filter(it=>["acc", "fedex", "ups", "usps", "track", "portal"].includes(it.type));
-  if(linkable.length) LAB.pins = {
-    text:linkable.filter(it=>it.type !== "portal").map(it=>it.value).join(" "),
-    portal:linkable.filter(it=>it.type === "portal").map(it=>it.value).join(" ")
-  };
-  LAB.bar = ""; LAB.barPick = {};
-  const bar = el("labBar"); if(bar){ bar.value = ""; bar.focus(); }
   labSay("Added — " + [...new Set(said)].join(", "));
   labSave();
-  if(LAB.tab === "snitch" || LAB.small) labBarPaint();
+  if(LAB.tab === "snitch") labBarPaint();
   else { const body = el("labBody"), top = body ? body.scrollTop : 0; labRender(); if(body) body.scrollTop = top; }
+}
+async function labOutAction(b){
+  const all = b.dataset.outall;
+  if(all === "pad"){ labToPad((LAB.outs || []).slice().reverse().map(labOutVal)); labSay("Every row is on the pad"); return; }
+  if(all === "clear"){
+    if(!confirm("Clear the output list?")) return;
+    LAB.outs = []; labSave(); labListPaint(); return;
+  }
+  const row = b.closest("[data-out]"), o = row && (LAB.outs || []).find(x=>x.id === row.dataset.out);
+  if(!o) return;
+  const k = b.dataset.outdo;
+  if(k === "fmt"){ o.iso = !o.iso; labSave(); labListPaint(); return; }
+  if(k === "copy"){ labSay(await copyPlain(labOutVal(o)) ? "Copied " + labOutVal(o) : "The browser would not copy it"); return; }
+  if(k === "pad"){ labToPad([labOutVal(o)]); labSay("On the pad"); return; }
+  if(k === "drop"){ LAB.outs = LAB.outs.filter(x=>x !== o); labSave(); labListPaint(); return; }
+  if(k === "tab"){
+    if(LAB.small) labToggleSize(false);
+    labRoute([{type:o.type, value:labOutVal(o)}]);
+  }
 }
 /* the issue tab: a date goes in the box you were last in, if that is a date
    box and empty; otherwise near today is a collection date, older is a birth
@@ -26108,8 +26188,8 @@ function wireLab(){
   window.addEventListener("resize", ()=>{ if(dlg.open) labPlace(); });
   const bar = el("labBar");
   bar.addEventListener("input", ()=>{ if(!LAB) return; LAB.bar = bar.value; LAB.barPick = {}; labBarPaint(); labSave(); });
-  bar.addEventListener("keydown", ev=>{ if(ev.key === "Enter"){ ev.preventDefault(); labBarAdd(); } });
-  el("labBarAdd").onclick = ()=>labBarAdd();
+  bar.addEventListener("keydown", ev=>{ if(ev.key === "Enter"){ ev.preventDefault(); labBarCommit(); } });
+  el("labBarAdd").onclick = ()=>labBarCommit();
   el("labDateFmt").onclick = ()=>{
     if(!LAB) return;
     LAB.dateIso = !LAB.dateIso;
@@ -26128,7 +26208,8 @@ function wireLab(){
       LAB.barPick[i] = it ? (it.at + 1) % it.alts.length : 0;
       labBarPaint(); labSave(); return;
     }
-    if(ev.target.closest("[data-unpin]")){ LAB.pins = null; labBarPaint(); labSave(); return; }
+    const ob = ev.target.closest("[data-outdo], [data-outall]");
+    if(ob){ ev.preventDefault(); labOutAction(ob); return; }
     const go = ev.target.closest("[data-laburl]");
     if(go){ ev.preventDefault(); window.open(go.dataset.laburl, "_blank", "noopener"); }
   });
@@ -26266,7 +26347,7 @@ const HELP_TOPICS = [
     <h3>Lab tools</h3>
     <p class="lead"><b>&#9879; Lab tools</b> on the bar at the bottom writes your review lines, issue lines and #snitch entries for you.</p>
     <h4>Shrink it down</h4>
-    <p><b>&#9662; Shrink</b> (or Esc, or tapping the title) folds Lab tools down to just the scan bar and the <b>pad</b>, docked above the bottom bar so the map stays usable. <b>&#9652; Expand</b> brings Review, Issue and Snitch back. The pad is a free notepad under the scan bar &mdash; drag its corner to make it as big as you like, and it stays that size. While shrunk, <b>Add</b> puts the cleaned-up scan onto the pad, one line each time. Esc on the shrunk panel closes it; nothing is lost.</p>
+    <p><b>&#9662; Shrink</b> (or Esc, or tapping the title) folds Lab tools down to the scan bar, the output list and the <b>pad</b>, docked above the bottom bar so the map stays usable. <b>&#9652; Expand</b> brings Review, Issue and Snitch back. The pad is a free notepad &mdash; drag its corner to make it as big as you like, and it stays that size. Esc on the shrunk panel closes it; nothing is lost.</p>
     <h4>The scan bar</h4>
     <p>The line at the top of every tab reads whatever you scan or paste, as many pieces at once as you like:</p>
     <ul>
@@ -26275,9 +26356,17 @@ const HELP_TOPICS = [
       <li><b>Portals</b> (8 digits), <b>kits</b> (anything with dashes), <b>OCB</b> numbers and lots.</li>
       <li><b>Dates</b> in any short form: 14, 10/4, 1004, 100426, 10042026, 2026-10-04. A collection date is never in the future, so 14 typed on the 5th is last month's 14th. <b>MM/DD/YYYY</b> beside the bar switches every date to <b>YYYY-MM-DD</b> and back.</li>
       <li>Each piece shows as a chip saying what it was read as. If it could be two things (an 8-digit number that is also a date), <b>&#8644;</b> flips it.</li>
-      <li>Accessions, tracking numbers and portals get their link buttons right away; after you add them the links stay until you put them away with &times;.</li>
+      <li>Accessions, tracking numbers and portals get their link buttons on their row in the output list.</li>
     </ul>
-    <p><b>Add</b> (or Enter) puts it where it belongs on the tab you are on (or onto the pad when shrunk). <b>Review</b>: accessions, portals and kits into their boxes, anything else into Additional notes. <b>Issue</b>: a date into the date box you were last in, or DOC if it is recent and DOB if not; a name into the name box you were last in. <b>Snitch</b>: everything into What happened. Nothing opens LIMS by itself.</p>
+    <h4>The output list</h4>
+    <p><b>Enter</b> (or <b>Add &#8629;</b>) puts what the bar read onto the <b>output list</b> under it, newest first, and empties the bar. Each row keeps its link buttons and has:</p>
+    <ul>
+      <li><b>&rarr; Pad</b> &mdash; onto the pad, exactly as the row shows it. <b>All to pad</b> does every row.</li>
+      <li>A date row's <b>MM/DD/YYYY</b> button switches just that date to <b>YYYY-MM-DD</b> and back, so you choose per date what goes on the pad.</li>
+      <li><b>&rarr; Review / Issue / Note</b> &mdash; where it belongs on the tab you are on. Review: accessions, portals and kits into their boxes, anything else into Additional notes. Issue: a date into the date box you were last in, or DOC if it is recent and DOB if not; a name into the name box you were last in. Snitch: into What happened.</li>
+      <li><b>Copy</b> just that one, or <b>&times;</b> to take it off. The list is kept with the rest until you clear it.</li>
+    </ul>
+    <p>Nothing opens LIMS by itself. The <b>MM/DD/YYYY</b> button beside the bar sets how new dates are written, and how the Issue boxes write theirs.</p>
     <h4>Review</h4>
     <ul>
       <li>Fill in what you have: accession, portal, account, provider, samples, paperwork, test code, kit ID, notes.</li>
