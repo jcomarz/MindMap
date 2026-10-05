@@ -3644,6 +3644,94 @@ dialog#bulkDlg{border:1px solid var(--graphite);border-radius:3px;padding:0;back
 dialog#bulkDlg::backdrop{background:rgba(35,40,45,.42)}
 dialog#bulkDlg .dlg-body{flex:1;max-height:none}
 @media (max-width:820px){ dialog#bulkDlg{width:100vw;height:100dvh;max-height:none;border:0;border-radius:0} }
+/* ---------- lab tools: review, issue and snitch builders ---------- */
+dialog#labDlg{border:1px solid var(--graphite);border-radius:3px;padding:0;background:var(--paper);
+  width:min(760px,96vw);height:min(900px,92dvh);color:var(--graphite);display:flex;flex-direction:column}
+dialog#labDlg:not([open]){display:none}
+dialog#labDlg::backdrop{background:rgba(35,40,45,.42)}
+dialog#labDlg .dlg-body{flex:1;max-height:none;padding:12px 16px 16px}
+@media (max-width:820px){ dialog#labDlg{width:100vw;height:100dvh;max-height:none;border:0;border-radius:0} }
+.lab-linkbox:empty{display:none}
+.lab-linkbox{margin-top:8px}
+.lab-links{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin:4px 0}
+.lab-links .num{font-family:var(--mono);font-size:12px;margin-right:4px;color:var(--graphite-60)}
+.lab-link{border:1px solid var(--blueprint);background:var(--blueprint-soft);color:var(--blueprint);border-radius:11px;
+  padding:2px 9px;font:inherit;font-size:11.5px;font-weight:600;cursor:pointer}
+.lab-link:hover{background:var(--blueprint);color:#fff}
+.lab-said{flex:1;text-align:right;font-size:12.5px;color:#1C7A4E;padding:0 10px;font-weight:600}
+html[data-theme="dark"] .lab-said{color:#6FD1A0}
+.lab-scan{display:flex;gap:6px;align-items:center}
+.lab-scan input{flex:1;min-width:0}
+.lab-tabs{display:flex;gap:4px;padding:8px 16px 0;border-bottom:1px solid var(--rule)}
+.lab-tab{flex:1;border:1px solid var(--rule);border-bottom:0;background:var(--paper-2);color:var(--graphite);
+  padding:8px 6px;font:inherit;font-size:13px;font-weight:600;border-radius:3px 3px 0 0;cursor:pointer}
+.lab-tab.on{background:var(--paper);color:var(--blueprint);box-shadow:inset 0 3px 0 var(--blueprint)}
+.lab-out{padding:8px 16px 10px;border-bottom:1px solid var(--rule);background:var(--paper-2)}
+.lab-outhead{display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:12px;font-weight:600}
+.lab-outhead>span:first-child{flex:1}
+.lab-saved{font-weight:400;color:var(--graphite-60);font-size:11px}
+.btn.small{padding:3px 9px;font-size:12px;min-height:0}
+#labOut{font-family:var(--mono);font-size:12px;min-height:58px;height:72px;background:var(--paper)}
+.lab-foot{margin:0;padding:6px 16px 10px;border-top:1px solid var(--rule)}
+.lab-sec{border:1px solid var(--rule);border-left:3px solid var(--blueprint);border-radius:3px;
+  padding:10px 12px;margin-bottom:10px;background:var(--paper)}
+.lab-sec>h3{margin:0 0 8px;font-size:13px;display:flex;align-items:center;gap:8px}
+.lab-sec>h3 .grow{flex:1}
+.lab-sec.fold>h3{cursor:pointer;margin:0}
+.lab-sec.fold.shut>.lab-in{display:none}
+.lab-sec.fold>.lab-in{margin-top:8px}
+.lab-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px 12px}
+.lab-grid .wide{grid-column:1 / -1}
+@media (max-width:560px){ .lab-grid{grid-template-columns:minmax(0,1fr)} .lab-foot .long{display:none} }
+@media (min-width:561px){ .lab-foot .short{display:none} }
+.lab-grid label.field{margin:0}
+.lab-row{display:grid;grid-template-columns:var(--lab-a,minmax(0,1fr)) minmax(0,1fr) 28px;gap:6px;margin-bottom:6px;align-items:center}
+.lab-row .lab-tag{font-family:var(--mono);font-size:11px;color:var(--blueprint)}
+.lab-x{border:1px solid var(--rule);background:var(--paper-2);color:var(--graphite);border-radius:3px;
+  height:28px;cursor:pointer;font-size:15px;line-height:1}
+.lab-x[hidden]{visibility:hidden;display:block}
+.lab-add{border:1px dashed var(--rule);background:none;color:var(--blueprint);border-radius:3px;
+  padding:3px 9px;font:inherit;font-size:12px;cursor:pointer}
+.lab-sub{display:flex;align-items:center;justify-content:space-between;font-size:11.5px;
+  color:var(--graphite-60);margin:6px 0 4px}
+.lab-pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
+@media (max-width:560px){ .lab-pair{grid-template-columns:minmax(0,1fr)} }
+.lab-pair>div>b{display:block;font-size:12.5px;color:var(--blueprint);margin-bottom:2px}
+.lab-status{margin-top:6px;padding:5px 8px;border-radius:3px;font-size:12px;background:var(--paper-2);color:var(--graphite-60)}
+.lab-status.one{background:rgba(214,160,20,.14);color:#8A6200}
+.lab-status.match{background:rgba(30,140,90,.12);color:#1C7A4E}
+.lab-status.clash{background:rgba(190,50,40,.12);color:#A9322A}
+html[data-theme="dark"] .lab-status.one{color:#F2C55C}
+html[data-theme="dark"] .lab-status.match{color:#6FD1A0}
+html[data-theme="dark"] .lab-status.clash{color:#F08A80}
+#labDlg input.ok{border-color:#1E8C5A;box-shadow:0 0 0 1px #1E8C5A inset}
+#labDlg input.bad{border-color:#C0392B;box-shadow:0 0 0 1px #C0392B inset}
+#labDlg input.one{border-color:#D6A014;box-shadow:0 0 0 1px #D6A014 inset}
+#labDlg input.near{background:rgba(214,160,20,.18)}
+.lab-tools{display:flex;justify-content:flex-end;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+.lab-phr{display:flex;flex-wrap:wrap;gap:5px;margin:6px 0 2px}
+.lab-phr button{border:1px solid var(--rule);background:var(--paper-2);color:var(--graphite);
+  border-radius:12px;padding:2px 9px;font:inherit;font-size:11.5px;cursor:pointer}
+.lab-prev{font-family:var(--mono);font-size:12px;background:var(--paper-2);border-radius:3px;
+  padding:7px 9px;margin:8px 0;word-break:break-word;white-space:pre-wrap}
+.lab-entry{border:1px solid var(--rule);border-left:3px solid var(--flag);border-radius:3px;
+  padding:7px 9px;margin-bottom:6px}
+.lab-entry .when{font-size:11px;color:var(--graphite-60);display:flex;justify-content:space-between;gap:6px}
+.lab-entry .txt{font-family:var(--mono);font-size:12px;word-break:break-word;margin:3px 0 5px}
+.lab-entry .acts{display:flex;justify-content:flex-end;gap:5px}
+.lab-listhead{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.lab-listhead h3{margin:0;font-size:13px;flex:1}
+.lab-listhead input[type=date]{width:auto;padding:3px 6px;font-size:12px}
+.lab-hint{font-size:11.5px;color:var(--graphite-60);margin-top:3px}
+.lab-me{display:flex;align-items:center;gap:8px;font-size:12.5px}
+.lab-me input{width:80px;text-transform:uppercase;text-align:center;font-family:var(--mono)}
+.lab-sug{position:relative}
+.lab-sugbox{position:absolute;left:0;right:0;top:100%;z-index:5;background:var(--paper);border:1px solid var(--rule);
+  border-radius:3px;box-shadow:0 6px 18px rgba(0,0,0,.18);max-height:220px;overflow-y:auto}
+.lab-sugbox[hidden]{display:none}
+.lab-sugbox div{padding:6px 9px;cursor:pointer;font-size:13px;display:flex;justify-content:space-between;gap:8px}
+.lab-sugbox div.at,.lab-sugbox div:hover{background:var(--blueprint-soft)}
+.lab-sugbox div i{font-style:normal;font-family:var(--mono);font-size:11.5px;color:var(--graphite-60)}
 dialog#tagDlg{border:1px solid var(--graphite);border-radius:3px;padding:0;background:var(--paper);
   width:min(420px,94vw);max-height:86dvh;color:var(--graphite);display:flex;flex-direction:column}
 dialog#tagDlg::backdrop{background:rgba(35,40,45,.42)}
@@ -4481,6 +4569,8 @@ body.viewing.panelaway #panelHide{display:none}
           <div class="rv-bar-right">
             <button class="rvb" id="rvHelp" title="How this works, every shortcut, and a guided tour">
               <span class="ic">?</span><span class="lb">Help</span></button>
+            <button class="rvb" id="rvLab" title="Review, issue and #snitch builders — kept on this computer only">
+              <span class="ic">&#9879;</span><span class="lb">Lab tools</span></button>
             <button class="rvb" id="rvMood" title="Plain, or the whole cast">
               <span class="ic">&#9788;</span><span class="lb">Liven it up</span></button>
             <button class="rvb" id="rvDark" title="Light or dark">
@@ -5220,6 +5310,31 @@ body.viewing.panelaway #panelHide{display:none}
     <p class="fineprint" id="bulkDateNote" style="margin:7px 0 0"></p>
   </div>
 </dialog>
+<dialog id="labDlg" aria-label="Lab tools">
+  <div class="dlg-head">
+    <h2>Lab tools</h2>
+    <span class="lab-said" id="labSaid" role="status" aria-live="polite"></span>
+    <button class="btn" id="labClose">Done</button>
+  </div>
+  <div class="lab-tabs" role="tablist">
+    <button class="lab-tab" data-labtab="review" role="tab">Review</button>
+    <button class="lab-tab" data-labtab="issue" role="tab">Issue</button>
+    <button class="lab-tab" data-labtab="snitch" role="tab">Snitch</button>
+  </div>
+  <div class="lab-out" id="labOutWrap">
+    <div class="lab-outhead">
+      <span>Live output</span>
+      <span class="lab-saved" id="labSaved"></span>
+      <button class="btn small primary" id="labCopy">Copy</button>
+      <button class="btn small" id="labOutClear" title="Empty the output box; your fields stay">Clear output</button>
+    </div>
+    <textarea id="labOut" spellcheck="false" placeholder="Fills in as you type below. You can add to the end of it yourself."></textarea>
+  </div>
+  <div class="dlg-body lab-body" id="labBody"></div>
+  <p class="lab-foot fineprint"><span class="long">Kept on this computer only, under your name, so a crash or a closed tab loses nothing.
+    It never goes into the map or the workbook. Clear it when you are done.</span><span class="short">Kept on this computer only &mdash; never in the map. Clear it when done.</span></p>
+</dialog>
+
 
 <dialog id="tagDlg">
   <div class="dlg-head">
@@ -20371,7 +20486,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-10-04p";
+const APP_BUILD = "2026-10-05c";
 
 /* Reading that line back out of a copy of this file.
 
@@ -25042,6 +25157,784 @@ const EDITOR_SHORTCUTS = [
     ["Scroll / drag the paper", "Zoom / move around"],
     ["Ctrl+S", "Save the flowchart"]]]
 ];
+/* =====================================================================
+   LAB TOOLS — the review, issue and snitch builders
+   Everything typed here stays on this computer, filed under the person
+   signed in, so a crash or a closed tab costs nothing. None of it goes
+   into the map, the workbook or anywhere else: patient details stay on
+   the screen that is using them until that person clears them.
+   ===================================================================== */
+const LAB_SECTIONS = [
+  ["firstName", "First name", "FN"], ["lastName", "Last name", "LN"],
+  ["dob", "DOB (date of birth)", "DOB"], ["doc", "DOC (date of collection)", "DOC"]
+];
+const LAB_REVIEW = [
+  ["oldAccession", "Existing accession #", "e.g. 3430197, 3430262"],
+  ["newPortal", "New portal #", "e.g. 12126735"],
+  ["account", "Account #", "e.g. ZA300"],
+  ["provider", "Ordering provider", "e.g. Dr. Smith"]
+];
+const LAB_DOCS = [
+  ["physicalPpw", "Physical paperwork", "e.g. patient card, consent form, printed portal", true],
+  ["testingPpwk", "Testing code", "e.g. 561a/561m"],
+  ["kitId", "Kit ID", "e.g. B-VKXB-ICNE"],
+  ["additionalNotes", "Additional notes", "e.g. pregnancy note, leaky sample", true],
+  ["proposedAction", "Proposed action", "e.g. resubmit sample, contact provider (optional)", true]
+];
+const LAB_PHRASES = [
+  {label:"MCC green bin", text:"MCC in regular green bin"},
+  {label:"rapid TRF blue", text:"rapid TRF in regular blue"},
+  {label:"no link child+partner", text:"no link to child and partner"},
+  {label:"no link parent+sibling", text:"no link to parent and sibling"},
+  {label:"wrong kit barcode", text:"wrong kit id barcode cut out"},
+  {label:"no PNR note", text:"no patient not received note on unrelated patient"},
+  {label:"secret blue", text:"secret blue"}
+];
+/* The same addresses the Diamond script opens, so a number typed or scanned
+   here is one click from the system that holds it. */
+const LAB_LINKS = [
+  {k:"lims", label:"LIMS", title:"the sample in LIMS", url:a=>`https://lims.genedx.com/?P=sample&a=${a}`},
+  {k:"pdm", label:"PDM", title:"the scanned documents in PDM", url:a=>`https://scan.genedx.com/document-viewing?accessionId=${a}`},
+  {k:"spade", label:"Spade", title:"the sample image in Spade", url:a=>`https://spade.cx.oci.genedx.net/new-accession/${a}/sample-image`},
+  {k:"docviewer", label:"DocViewer", title:"the paperwork in Nucleus DocViewer", url:a=>`https://nucleus.app.genedx.net/document-viewer/?aId=${a}`},
+  {k:"nucleus", label:"Nucleus", title:"the scan page in Nucleus", url:a=>`https://nucleus.cx.oci.genedx.net/accession/${a}/scan/`}
+];
+const LAB_PORTAL = p=>`https://adminportal.genedx.com/static/GetEOrderedSliceRequisition/${encodeURIComponent(p)}`;
+/* the portal box holds portal numbers, which are never 7 digits */
+function labPortalsIn(text){
+  const out = [];
+  (String(text || "").match(/\d+/g) || []).forEach(d=>{ if(d.length !== 7 && d.length >= 5 && d.length <= 11 && !out.includes(d)) out.push(d); });
+  return out.slice(0, 4);
+}
+const LAB_DNA = t=>`https://dna-tracker.genedx.com/packages?utf8=%E2%9C%93&tracking_num=${encodeURIComponent(t)}&comment=&comment_presence=&user=&start_date=&end_date=&commit=Filter`;
+/* accessions are 7 digits (a tube label's A01 is dropped); tracking numbers are
+   12 or more digits, or a UPS 1Z, and a 30+ digit FedEx barcode is its last 12 */
+function labNumbersIn(text){
+  const t = String(text || "");
+  const acc = [], trk = [];
+  (t.match(/\b\d{7}(?:[A-Z]\d{2})?\b/gi) || []).forEach(m=>{ const a = m.slice(0, 7); if(!acc.includes(a)) acc.push(a); });
+  (t.match(/\b\d{12,40}\b/g) || []).forEach(m=>{ const x = m.length >= 30 ? m.slice(-12) : m; if(!trk.includes(x)) trk.push(x); });
+  (t.match(/\b1Z[A-Z0-9]{16}\b/gi) || []).forEach(m=>{ const x = m.toUpperCase(); if(!trk.includes(x)) trk.push(x); });
+  return {acc:acc.slice(0, 6), trk:trk.slice(0, 4)};
+}
+function labLinksHTML(text, portalText){
+  const {acc, trk} = labNumbersIn(text);
+  const portals = labPortalsIn(portalText);
+  if(!acc.length && !trk.length && !portals.length) return "";
+  return portals.map(x=>`<div class="lab-links"><span class="num">${esc(x)}</span><button type="button" class="lab-link" data-laburl="${esc(LAB_PORTAL(x))}"
+      title="Open the requisition for portal ${esc(x)} in the admin portal">Portal requisition</button></div>`).join("")
+    + acc.map(a=>`<div class="lab-links"><span class="num">${esc(a)}</span>${LAB_LINKS.map(L=>
+      `<button type="button" class="lab-link" data-laburl="${esc(L.url(a))}" title="Open ${esc(a)}: ${esc(L.title)}">${L.label}</button>`).join("")}</div>`).join("")
+    + trk.map(x=>`<div class="lab-links"><span class="num">${esc(x)}</span><button type="button" class="lab-link" data-laburl="${esc(LAB_DNA(x))}"
+      title="Look up ${esc(x)} in DNA Tracker">DNA Tracker</button></div>`).join("");
+}
+/* every links strip says what its own boxes currently hold */
+function labLinksPaint(){
+  const body = el("labBody");
+  if(!body || !LAB) return;
+  body.querySelectorAll("[data-lablinks]").forEach(box=>{
+    const k = box.dataset.lablinks;
+    const text = k === "review" ? [LAB.review.oldAccession, LAB.review.newPortal, LAB.review.additionalNotes].join(" ")
+      : k === "issue" ? LAB.issue.acc || ""
+      : k === "snitch" ? [LAB.snitch.text, LAB.snitch.scan].join(" ") : "";
+    const html = labLinksHTML(text, k === "review" ? LAB.review.newPortal : "");
+    if(box.innerHTML !== html) box.innerHTML = html;
+  });
+}
+function labBlankIssue(){
+  const secs = {};
+  LAB_SECTIONS.forEach(([k])=>{ secs[k] = {pw:[{inst:"", desc:""}], sm:[{value:""}]}; });
+  return {secs, shut:{}, acc:"", auto:"", manual:"", shown:null};
+}
+function labBlankReview(){
+  const r = {samples:"", sampleType:"", extra:[], auto:"", manual:"", shown:null};
+  LAB_REVIEW.concat(LAB_DOCS).forEach(([k])=>{ r[k] = ""; });
+  return r;
+}
+function labBlank(){
+  return {tab:"review", initials:"", review:labBlankReview(), issue:labBlankIssue(),
+    snitch:{target:"", text:"", scan:"", entries:[], phrases:null, day:"", editing:""}};
+}
+let LAB = null, labKey = "", labSaveT = 0, labDirty = false;
+
+function labKeyNow(){ return "labtools:" + String(S.whoKey || S.who || "anonymous").toLowerCase(); }
+async function labLoad(){
+  const k = labKeyNow();
+  if(LAB && labKey === k) return;
+  labKey = k;
+  let got = null;
+  try{ got = await Store.getKey(k); }catch(e){}
+  const b = labBlank();
+  got = got || {};
+  LAB = Object.assign(b, got, {
+    review:Object.assign(b.review, got.review || {}),
+    issue:Object.assign(b.issue, got.issue || {}),
+    snitch:Object.assign(b.snitch, got.snitch || {})
+  });
+  LAB_SECTIONS.forEach(([s])=>{
+    const sec = LAB.issue.secs[s] = LAB.issue.secs[s] || {};
+    if(!Array.isArray(sec.pw) || !sec.pw.length) sec.pw = [{inst:"", desc:""}];
+    if(!Array.isArray(sec.sm) || !sec.sm.length) sec.sm = [{value:""}];
+  });
+  if(!Array.isArray(LAB.review.extra)) LAB.review.extra = [];
+  if(!Array.isArray(LAB.snitch.entries)) LAB.snitch.entries = [];
+}
+let labSayT = 0;
+/* a toast would sit under the open dialog, so the dialog says it itself */
+function labSay(t){
+  const n = el("labSaid");
+  if(!n) return toast(t);
+  n.textContent = t;
+  clearTimeout(labSayT);
+  labSayT = setTimeout(()=>{ n.textContent = ""; }, 3200);
+}
+function labSavedNote(t){ const n = el("labSaved"); if(n) n.textContent = t; }
+function labSave(now){
+  labDirty = true;
+  clearTimeout(labSaveT);
+  const go = async()=>{
+    if(!LAB) return;
+    if(Store.mode !== "idb" && Store.mode !== "ls"){ labSavedNote("Not being kept on this computer"); return; }
+    try{ await Store.putKey(labKey, LAB); labDirty = false; labSavedNote("Kept on this computer"); }
+    catch(e){ labSavedNote("Could not keep it — copy what you need"); }
+  };
+  if(now) return go();
+  labSavedNote("Keeping…");
+  labSaveT = setTimeout(go, 350);
+}
+
+/* ---------- roster: names and initials nobody else has ---------- */
+function labInitialsMap(){
+  const people = (S.people || []).filter(p=>p && p.name && p.active !== false)
+    .slice().sort((a, b)=>a.name.localeCompare(b.name, undefined, {sensitivity:"base"}));
+  const used = new Set(), out = new Map();
+  people.forEach(p=>{
+    const i = String(p.initials || "").trim().toUpperCase();
+    if(i){ out.set(p.name, i); used.add(i); }
+  });
+  /* names written "First-login-ABC" or "First (ABC)" already carry them */
+  people.filter(p=>!out.has(p.name)).forEach(p=>{
+    const m = /[-\s(]([A-Z]{2,4})\)?$/.exec(String(p.name).trim());
+    if(m && !used.has(m[1])){ out.set(p.name, m[1]); used.add(m[1]); }
+  });
+  people.filter(p=>!out.has(p.name)).forEach(p=>{
+    const words = String(p.name).replace(/[^A-Za-z\s'-]/g, " ").replace(/'/g, "").split(/[\s-]+/).filter(Boolean);
+    if(!words.length) return;
+    const first = words[0], last = words.length > 1 ? words[words.length - 1] : "";
+    const cands = [words.map(w=>w[0]).join("")];
+    if(last){
+      for(let n = 2; n <= last.length; n++) cands.push(first[0] + last.slice(0, n));
+      for(let n = 2; n <= first.length; n++) cands.push(first.slice(0, n) + last[0]);
+    } else { cands.length = 0; for(let n = 2; n <= first.length; n++) cands.push(first.slice(0, n)); if(!cands.length) cands.push(first); }
+    let pick = cands.map(c=>c.toUpperCase()).find(c=>!used.has(c));
+    if(!pick){ let k = 2; const base = cands[0].toUpperCase(); while(used.has(base + k)) k++; pick = base + k; }
+    used.add(pick); out.set(p.name, pick);
+  });
+  return out;
+}
+function labMyInitials(){
+  const me = S.who && S.who !== "anonymous" ? S.who : "";
+  return me ? (labInitialsMap().get(me) || "") : "";
+}
+function labPeopleFor(q){
+  const map = labInitialsMap();
+  const all = [...map.entries()].map(([name, ini])=>({name, ini}));
+  const want = String(q || "").trim().toLowerCase();
+  if(!want) return all.slice(0, 8);
+  const score = x=>{
+    const n = x.name.toLowerCase(), i = x.ini.toLowerCase();
+    if(i === want) return 0;
+    if(n.startsWith(want)) return 1;
+    if(n.split(/\s+/).some(w=>w.startsWith(want))) return 2;
+    if(i.startsWith(want)) return 3;
+    if(n.includes(want)) return 4;
+    return 9;
+  };
+  return all.map(x=>({x, s:score(x)})).filter(o=>o.s < 9)
+    .sort((a, b)=>a.s - b.s || a.x.name.localeCompare(b.x.name)).slice(0, 8).map(o=>o.x);
+}
+
+/* ---------- dates typed the quick way: 812 -> 08/12/this year ---------- */
+function labFixDate(raw){
+  const value = String(raw || "").trim();
+  if(!value) return value;
+  const now = new Date();
+  const cm = String(now.getMonth() + 1).padStart(2, "0"), cy = String(now.getFullYear());
+  const real = (m, d, y)=>{
+    const M = +m, D = +d, Y = +y;
+    if(M < 1 || M > 12 || D < 1 || D > 31) return false;
+    const t = new Date(Y, M - 1, D);
+    return t.getFullYear() === Y && t.getMonth() === M - 1 && t.getDate() === D;
+  };
+  const yy = s=>(+s <= 30 ? "20" : "19") + String(s).padStart(2, "0");
+  const fmt = (m, d, y)=>String(m).padStart(2, "0") + "/" + String(d).padStart(2, "0") + "/" + y;
+  const digits = value.replace(/\D/g, "");
+  if(/[\/\-]/.test(value)){
+    const parts = value.split(/[\/\-]/);
+    if(parts.length >= 2){
+      let m = parts[0].replace(/\D/g, ""), d = parts[1].replace(/\D/g, ""), y = (parts[2] || "").replace(/\D/g, "");
+      if(m && d){
+        m = m.padStart(2, "0").slice(0, 2); d = d.padStart(2, "0").slice(0, 2);
+        y = !y ? cy : y.length === 2 ? yy(y) : y.slice(0, 4);
+        if(y.length === 4 && real(m, d, y)) return fmt(m, d, y);
+      }
+    }
+  }
+  if(/^\d+$/.test(value)){
+    const L = digits.length;
+    if(L <= 2 && real(cm, digits, cy)) return fmt(cm, digits, cy);
+    if(L === 3 && real(digits[0], digits.slice(1), cy)) return fmt(digits[0], digits.slice(1), cy);
+    if(L === 4 && real(digits.slice(0, 2), digits.slice(2), cy)) return fmt(digits.slice(0, 2), digits.slice(2), cy);
+    if(L === 6 && real(digits.slice(0, 2), digits.slice(2, 4), yy(digits.slice(4)))) return fmt(digits.slice(0, 2), digits.slice(2, 4), yy(digits.slice(4)));
+    if(L === 8 && real(digits.slice(0, 2), digits.slice(2, 4), digits.slice(4))) return fmt(digits.slice(0, 2), digits.slice(2, 4), digits.slice(4));
+  }
+  if(digits.length >= 2){
+    let f = digits.slice(0, 2);
+    if(digits.length >= 4) f += "/" + digits.slice(2, 4);
+    if(digits.length >= 8) f += "/" + digits.slice(4, 8);
+    else if(digits.length >= 6) f += "/" + yy(digits.slice(4, 6));
+    return f;
+  }
+  return value;
+}
+/* a date of birth within a month of today is usually a collection date
+   typed into the wrong box */
+function labNearToday(v){
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(v || "").trim());
+  if(!m) return false;
+  const t = new Date(+m[3], +m[1] - 1, +m[2]), now = new Date(); now.setHours(0, 0, 0, 0);
+  return Math.abs(now - t) / 864e5 <= 30;
+}
+
+/* ---------- the review line ---------- */
+function labReviewValid(field, value){
+  const v = String(value || "").trim();
+  if(!v) return null;
+  switch(field){
+    case "oldAccession": { const a = v.split(/[,\s]+/).filter(Boolean); return a.length > 0 && a.every(n=>/^\d{7}$/.test(n)); }
+    case "newPortal": { const d = v.replace(/\D/g, ""); return d.length > 0 && d.length !== 7; }
+    case "account": return /^[A-Za-z0-9]{2,20}$/.test(v);
+    case "samples": return /^[1-9]\d?$/.test(v);
+    case "kitId": return v.includes("-") || v.length >= 6;
+    default: return true;
+  }
+}
+function labReviewText(){
+  const r = LAB.review, parts = [];
+  if(r.oldAccession) parts.push("Existing Accession #: " + r.oldAccession);
+  if(r.newPortal) parts.push("Pending Portals: " + r.newPortal);
+  if(r.account) parts.push("Account: " + r.account);
+  if(r.provider) parts.push("Ordering Provider: " + r.provider);
+  else if(!r.newPortal && r.physicalPpw) parts.push("No Ordering Provider Mentioned");
+  else if(r.newPortal && !(parseInt(r.newPortal, 10) > 10000000)) parts.push("No OP mentioned");
+  let sample = "";
+  if(r.samples) sample += r.samples + " ";
+  if(r.sampleType) sample += r.sampleType;
+  r.extra.forEach(s=>{
+    if(s.count || s.type){
+      if(sample) sample += ", ";
+      if(s.count) sample += s.count + " ";
+      if(s.type) sample += s.type;
+    }
+  });
+  parts.push(sample.trim() || "No Samples Received");
+  parts.push(r.physicalPpw || "no physical paperwork included");
+  if(r.testingPpwk) parts.push("Test Code: " + r.testingPpwk);
+  if(r.kitId) parts.push("Kit ID: " + r.kitId);
+  if(r.additionalNotes) parts.push("Additional Notes: " + r.additionalNotes);
+  let out = parts.join(" | ");
+  if(r.proposedAction) out += "\nProposed Action: " + r.proposedAction;
+  return out;
+}
+
+/* ---------- the issue lines: where the paperwork and the tubes disagree ---------- */
+function labNorm(v, isName){
+  let n = String(v || "").trim().toLowerCase();
+  if(isName) n = n.replace(/[\s\-]/g, "");
+  return n;
+}
+function labSampleLabel(i){ return "A" + String(i + 1).padStart(2, "0"); }
+function labEntries(section){
+  if(!LAB.issue.secs[section]) return [];
+  const sec = LAB.issue.secs[section], isName = section === "firstName" || section === "lastName";
+  const out = [];
+  sec.pw.forEach((p, i)=>{
+    if(String(p.inst || "").trim()) out.push({value:labNorm(p.inst, isName), original:p.inst.trim(),
+      source:String(p.desc || "").trim() || "paperwork", isSample:false, sel:`[data-lab="issue.${section}.pw.${i}.inst"]`});
+  });
+  sec.sm.forEach((s, i)=>{
+    if(String(s.value || "").trim()) out.push({value:labNorm(s.value, isName), original:s.value.trim(),
+      source:labSampleLabel(i) + " sample", isSample:true, sel:`[data-lab="issue.${section}.sm.${i}.value"]`});
+  });
+  return out;
+}
+function labGroups(entries){
+  const groups = {};
+  entries.forEach(e=>{ (groups[e.value] = groups[e.value] || []).push(e); });
+  const keys = Object.keys(groups);
+  let major = null, max = 0;
+  keys.forEach(k=>{ if(groups[k].length > max){ max = groups[k].length; major = k; } });
+  return {groups, keys, major};
+}
+function labSectionIssue(section, abbrev){
+  const entries = labEntries(section);
+  if(entries.length < 2) return null;
+  const {groups, keys, major} = labGroups(entries);
+  if(keys.length === 1) return null;
+  const sources = g=>{
+    const smp = g.filter(e=>e.isSample), other = g.filter(e=>!e.isSample);
+    const parts = other.map(e=>e.source);
+    let plural = false;
+    if(smp.length >= 2){ parts.push("samples"); plural = true; }
+    else smp.forEach(e=>parts.push(e.source));
+    return {text:parts.join(" and "), verb:plural ? "are" : "is"};
+  };
+  const odd = keys.filter(k=>k !== major).map(k=>{
+    const s = sources(groups[k]);
+    return `${abbrev} on ${s.text} ${s.verb} "${groups[k][0].original}"`;
+  });
+  const m = sources(groups[major]);
+  return `${odd.join(", ")} but ${abbrev} on ${m.text} ${m.verb} "${groups[major][0].original}"`;
+}
+function labIssueText(){
+  const names = [], others = [];
+  LAB_SECTIONS.forEach(([s, , ab])=>{
+    const t = labSectionIssue(s, ab);
+    if(!t) return;
+    (s === "firstName" || s === "lastName" ? names : others).push(t);
+  });
+  const lines = [];
+  if(names.length) lines.push("ISSUE: " + names.join(" | ") + " Please verify.");
+  others.forEach(t=>lines.push("ISSUE: " + t + " Please verify."));
+  return lines.join("\n");
+}
+/* colours and the status line for one section, without redrawing the inputs
+   (redrawing would take the cursor out from under the person typing) */
+function labPaintSection(section){
+  const body = el("labBody");
+  if(!body) return;
+  body.querySelectorAll(`[data-labsec="${section}"]`).forEach(i=>i.classList.remove("ok", "bad", "one"));
+  const st = body.querySelector(`[data-labstatus="${section}"]`);
+  const entries = labEntries(section);
+  const say = (cls, text)=>{ if(st){ st.className = "lab-status" + (cls ? " " + cls : ""); st.textContent = text; } };
+  if(!entries.length) return say("", "Nothing entered yet");
+  if(entries.length === 1){
+    const i = body.querySelector(entries[0].sel); if(i) i.classList.add("one");
+    return say("one", "Only one so far — needs something to check it against");
+  }
+  const {keys, major} = labGroups(entries);
+  entries.forEach(e=>{
+    const i = body.querySelector(e.sel);
+    if(i) i.classList.add(keys.length === 1 || e.value === major ? "ok" : "bad");
+  });
+  if(keys.length === 1) say("match", "All of them match ✓");
+  else say("clash", `⚠ They disagree — ${keys.length} different values`);
+}
+
+/* ---------- the output box ---------- */
+function labOutFor(kind){ return kind === "review" ? labReviewText() : kind === "issue" ? labIssueText() : ""; }
+function labRefreshOut(){
+  const kind = LAB.tab, box = el("labOut");
+  if(kind !== "review" && kind !== "issue") return;
+  const t = LAB[kind], auto = labOutFor(kind);
+  if(auto !== t.auto){ t.auto = auto; t.shown = auto + (t.manual || ""); }
+  const want = t.shown == null ? auto + (t.manual || "") : t.shown;
+  if(box && box.value !== want) box.value = want;
+}
+
+/* ---------- drawing each tab ---------- */
+function labField(path, label, value, ph, wide, extra){
+  return `<label class="field${wide ? " wide" : ""}"><span>${esc(label)}</span>
+    <input type="text" data-lab="${path}" value="${esc(value || "")}" placeholder="${esc(ph || "")}"${extra || ""}></label>`;
+}
+function labReviewHTML(){
+  const r = LAB.review;
+  return `<div class="lab-tools"><button class="btn small" data-labdo="clearReview">Clear the review</button></div>
+  <section class="lab-sec"><h3>Accession and account</h3><div class="lab-grid">
+    ${LAB_REVIEW.map(([k, l, p])=>labField("review." + k, l, r[k], p)).join("")}
+  </div><div class="lab-linkbox" data-lablinks="review"></div></section>
+  <section class="lab-sec" style="border-left-color:#1E8C5A"><h3>Samples</h3>
+    <div class="lab-row" style="--lab-a:84px">
+      <input type="text" data-lab="review.samples" value="${esc(r.samples)}" placeholder="# of" maxlength="3" aria-label="How many">
+      <input type="text" data-lab="review.sampleType" value="${esc(r.sampleType)}" placeholder="Sample type, e.g. OCB, EDTA" aria-label="Sample type">
+      <span></span>
+    </div>
+    ${r.extra.map((s, i)=>`<div class="lab-row" style="--lab-a:84px">
+      <input type="text" data-lab="review.extra.${i}.count" value="${esc(s.count || "")}" placeholder="#" aria-label="How many">
+      <input type="text" data-lab="review.extra.${i}.type" value="${esc(s.type || "")}" placeholder="Sample type" aria-label="Sample type">
+      <button class="lab-x" data-labdo="dropExtra" data-i="${i}" title="Remove this row">&times;</button></div>`).join("")}
+    <button class="lab-add" data-labdo="addExtra">+ Another sample type</button>
+  </section>
+  <section class="lab-sec" style="border-left-color:#C98A12"><h3>Paperwork and testing</h3><div class="lab-grid">
+    ${LAB_DOCS.map(([k, l, p, w])=>labField("review." + k, l, r[k], p, w)).join("")}
+  </div></section>`;
+}
+function labIssueSecHTML(section, title){
+  const sec = LAB.issue.secs[section], isDate = section === "dob" || section === "doc";
+  const rows = `<div class="lab-sub"><span>Paperwork</span><button class="lab-add" data-labdo="addPw" data-s="${section}">+ Add</button></div>
+    ${sec.pw.map((p, i)=>`<div class="lab-row" style="--lab-a:${isDate ? "118px" : "minmax(0,1fr)"}">
+      <input type="text" data-lab="issue.${section}.pw.${i}.inst" data-labsec="${section}" value="${esc(p.inst || "")}"
+        placeholder="${isDate ? "mm/dd/yyyy" : "What it says"}"${isDate ? ' data-labdate="1"' : ""}>
+      <input type="text" data-lab="issue.${section}.pw.${i}.desc" value="${esc(p.desc || "")}" placeholder="Which paperwork, e.g. TRF">
+      <button class="lab-x" data-labdo="dropPw" data-s="${section}" data-i="${i}" title="Remove"${i ? "" : " hidden"}>&times;</button></div>`).join("")}
+    <div class="lab-sub"><span>Samples</span><button class="lab-add" data-labdo="addSm" data-s="${section}">+ Add</button></div>
+    ${sec.sm.map((s, i)=>`<div class="lab-row" style="--lab-a:40px">
+      <span class="lab-tag">${labSampleLabel(i)}</span>
+      <input type="text" data-lab="issue.${section}.sm.${i}.value" data-labsec="${section}" value="${esc(s.value || "")}"
+        placeholder="${isDate ? "mm/dd/yyyy" : "What " + labSampleLabel(i) + " says"}"${isDate ? ' data-labdate="1"' : ""}>
+      <button class="lab-x" data-labdo="dropSm" data-s="${section}" data-i="${i}" title="Remove"${i ? "" : " hidden"}>&times;</button></div>`).join("")}
+    <div class="lab-status" data-labstatus="${section}">Nothing entered yet</div>`;
+  return title ? `<div><b>${esc(title)}</b>${rows}</div>` : rows;
+}
+function labIssueHTML(){
+  const shut = LAB.issue.shut || {};
+  const fold = (key, title, colour, inner)=>`<section class="lab-sec fold${shut[key] ? " shut" : ""}" style="border-left-color:${colour}">
+    <h3 data-labdo="fold" data-s="${key}"><span class="grow">${esc(title)}</span><span aria-hidden="true">${shut[key] ? "+" : "−"}</span></h3>
+    <div class="lab-in">${inner}</div></section>`;
+  return `<div class="lab-tools"><button class="btn small" data-labdo="clearIssue">Clear the issue</button></div>
+    <p class="lab-hint" style="margin:0 0 8px">Type what each piece of paperwork and each tube says. Anything that disagrees turns red,
+      and the issue line writes itself above. Dates can be typed short: <b>812</b> is 08/12 this year, <b>081290</b> is 08/12/1990.</p>
+    <section class="lab-sec" style="border-left-color:var(--rule)">
+      <label class="field" style="margin:0"><span>Accession you are looking at &mdash; just for the links, it is not put in the issue line</span>
+        <input type="text" data-lab="issue.acc" value="${esc(LAB.issue.acc || "")}" placeholder="e.g. 3430197" style="font-family:var(--mono)"></label>
+      <div class="lab-linkbox" data-lablinks="issue"></div></section>
+    ${fold("name", "Patient name", "var(--blueprint)", `<div class="lab-pair">${labIssueSecHTML("firstName", "First name")}${labIssueSecHTML("lastName", "Last name")}</div>`)}
+    ${fold("dob", "DOB (date of birth)", "#1E8C5A", labIssueSecHTML("dob"))}
+    ${fold("doc", "DOC (date of collection)", "#7B5BC9", labIssueSecHTML("doc"))}`;
+}
+function labSnitchLine(){
+  const s = LAB.snitch;
+  return `#snitch [[${s.target.trim() || "Name"}]] ${s.text.trim() || "details"} #${(LAB.initials || "").trim().toUpperCase() || "XXX"}`;
+}
+function labSnitchHTML(){
+  const s = LAB.snitch, phrases = s.phrases || LAB_PHRASES;
+  const mine = labMyInitials();
+  const list = s.entries.filter(e=>!s.day || isoLocal(new Date(e.at)) === s.day);
+  return `<section class="lab-sec" style="border-left-color:var(--flag)">
+    <div class="lab-me"><span>Your initials</span>
+      <input type="text" data-lab="initials" value="${esc(LAB.initials || "")}" maxlength="5" placeholder="${esc(mine || "ABC")}">
+      <span class="lab-hint" style="margin:0">${mine ? (LAB.initials && LAB.initials.toUpperCase() !== mine
+        ? `The roster has you as <b>${esc(mine)}</b> <button class="lab-add" data-labdo="useMine">Use ${esc(mine)}</button>`
+        : "From the roster") : "Pick your name when the map opens and these fill in"}</span></div>
+  </section>
+  <section class="lab-sec" style="border-left-color:var(--flag)">
+    <h3><span class="grow">${s.editing ? "Change a #snitch" : "New #snitch"}</span>
+      ${s.editing ? `<button class="btn small" data-labdo="cancelEdit">Cancel</button>` : ""}</h3>
+    <label class="field lab-sug"><span>Who it is about</span>
+      <input type="text" id="labTarget" data-lab="snitch.target" value="${esc(s.target)}" placeholder="Start typing a name or initials" autocomplete="off"
+        role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="labTargetSug">
+      <div class="lab-sugbox" id="labTargetSug" role="listbox" hidden></div></label>
+    <label class="field"><span>Quick scan &mdash; a tube or a FedEx number, tidied as it goes in</span>
+      <div class="lab-scan">
+        <input type="text" id="labScan" data-lab="snitch.scan" value="${esc(s.scan)}" placeholder="3633853A01 or a long FedEx number" style="font-family:var(--mono)">
+        <button class="btn small" data-labdo="scan">Add</button></div>
+      <div class="lab-hint">3633853A01 &rarr; 3633853 &middot; a 30+ digit FedEx barcode &rarr; its last 12 digits</div></label>
+    <label class="field"><span>What happened</span>
+      <textarea data-lab="snitch.text" id="labSnText" rows="3" placeholder="MCC in regular green bin&hellip;">${esc(s.text)}</textarea></label>
+    <div class="lab-linkbox" data-lablinks="snitch"></div>
+    <div class="lab-sub"><span>Quick phrases</span><button class="lab-add" data-labdo="editPhrases">Edit phrases</button></div>
+    <div class="lab-phr">${phrases.map((p, i)=>`<button data-labdo="phrase" data-i="${i}" title="${esc(p.text)}">${esc(p.label)}</button>`).join("")}</div>
+    <div class="lab-prev" id="labSnPrev">${esc(labSnitchLine())}</div>
+    <button class="btn primary" data-labdo="addSnitch" style="width:100%">${s.editing ? "Save the change and copy it" : "Add to my list and copy it"}</button>
+  </section>
+  <section class="lab-sec" style="border-left-color:var(--rule)">
+    <div class="lab-listhead"><h3>My #snitch list (${s.day ? list.length + " of " + s.entries.length : s.entries.length})</h3>
+      <input type="date" data-lab="snitch.day" value="${esc(s.day)}" title="Only one day">
+      ${s.day ? `<button class="btn small" data-labdo="allDays">All days</button>` : ""}
+      <button class="btn small" data-labdo="copyAll"${list.length ? "" : " disabled"}>Copy ${s.day ? "these" : "all"}</button>
+      <button class="btn small" data-labdo="clearList"${s.entries.length ? "" : " disabled"}>Clear list</button></div>
+    ${list.length ? list.map(e=>{
+      const d = new Date(e.at);
+      return `<div class="lab-entry"><div class="when"><span>${esc(d.toLocaleDateString("en-US", {month:"short", day:"numeric"}))}
+        ${esc(d.toLocaleTimeString("en-US", {hour:"numeric", minute:"2-digit"}))}</span></div>
+        <div class="txt">${esc(labSnitchOf(e))}</div>
+        ${labLinksHTML(e.text)}
+        <div class="acts"><button class="btn small" data-labdo="copyOne" data-id="${esc(e.id)}">Copy</button>
+          <button class="btn small" data-labdo="editOne" data-id="${esc(e.id)}">Change</button>
+          <button class="btn small" data-labdo="dropOne" data-id="${esc(e.id)}">Remove</button></div></div>`;
+    }).join("") : `<p class="fineprint" style="text-align:center">${s.day ? "Nothing on that day." : "Nothing yet."}</p>`}
+  </section>`;
+}
+function labSnitchOf(e){ return `#snitch [[${e.target}]] ${e.text} #${e.initials}`; }
+
+function labRender(){
+  const body = el("labBody");
+  if(!body || !LAB) return;
+  const t = LAB.tab;
+  document.querySelectorAll("#labDlg [data-labtab]").forEach(b=>{
+    b.classList.toggle("on", b.dataset.labtab === t);
+    b.setAttribute("aria-selected", b.dataset.labtab === t ? "true" : "false");
+  });
+  el("labOutWrap").hidden = t === "snitch";
+  body.innerHTML = t === "review" ? labReviewHTML() : t === "issue" ? labIssueHTML() : labSnitchHTML();
+  if(t === "review") body.querySelectorAll('[data-lab^="review."]').forEach(i=>labMarkReview(i));
+  if(t === "issue"){
+    LAB_SECTIONS.forEach(([s])=>labPaintSection(s));
+    body.querySelectorAll('[data-labsec="dob"]').forEach(i=>labMarkNear(i));
+  }
+  labRefreshOut();
+  labLinksPaint();
+}
+function labMarkReview(inp){
+  const field = inp.dataset.lab.split(".")[1];
+  if(field === "extra") return;
+  inp.classList.remove("ok", "bad");
+  const v = labReviewValid(field, inp.value);
+  if(v === true) inp.classList.add("ok"); else if(v === false) inp.classList.add("bad");
+}
+function labMarkNear(inp){
+  const near = labNearToday(inp.value);
+  inp.classList.toggle("near", near);
+  inp.title = near ? "This is within 30 days of today — did you mean the DOC section?" : "";
+}
+
+/* ---------- writing what was typed back into the record ---------- */
+function labSet(path, value){
+  const p = path.split(".");
+  if(p[0] === "initials"){ LAB.initials = value.toUpperCase(); return; }
+  if(p[0] === "review"){
+    if(p[1] === "extra"){ const row = LAB.review.extra[+p[2]]; if(row) row[p[3]] = value; }
+    else LAB.review[p[1]] = value;
+    return;
+  }
+  if(path === "issue.acc"){ LAB.issue.acc = value; return; }
+  if(p[0] === "issue"){
+    const sec = LAB.issue.secs[p[1]];
+    const row = sec && sec[p[2]] && sec[p[2]][+p[3]];
+    if(row) row[p[4]] = value;
+    return;
+  }
+  if(p[0] === "snitch") LAB.snitch[p[1]] = value;
+}
+function labScanTidy(v){
+  let s = String(v || "").trim();
+  if(/^\d{7}[A-Z]\d{2}$/i.test(s)) s = s.slice(0, 7);
+  if(/^\d{30,}$/.test(s)) s = s.slice(-12);
+  return s;
+}
+function labAppendText(bit){
+  const s = LAB.snitch;
+  if(!bit) return;
+  s.text = s.text && !/\s$/.test(s.text) ? s.text + " " + bit : s.text + bit;
+  const ta = el("labSnText"); if(ta) ta.value = s.text;
+  labSnitchPreview();
+}
+function labSnitchPreview(){ const p = el("labSnPrev"); if(p) p.textContent = labSnitchLine(); labLinksPaint(); }
+
+async function labAction(b){
+  const k = b.dataset.labdo, s = b.dataset.s, i = +b.dataset.i;
+  const iss = LAB.issue, sn = LAB.snitch;
+  let redraw = true;
+  switch(k){
+    case "addExtra": LAB.review.extra.push({count:"", type:""}); break;
+    case "dropExtra": LAB.review.extra.splice(i, 1); break;
+    case "clearReview":
+      if(!confirm("Clear everything in the review?")) return;
+      LAB.review = labBlankReview(); break;
+    case "clearIssue":
+      if(!confirm("Clear everything in the issue?")) return;
+      LAB.issue = labBlankIssue(); break;
+    case "addPw": iss.secs[s].pw.push({inst:"", desc:""}); break;
+    case "dropPw": iss.secs[s].pw.splice(i, 1); break;
+    case "addSm": iss.secs[s].sm.push({value:""}); break;
+    case "dropSm": iss.secs[s].sm.splice(i, 1); break;
+    case "fold": iss.shut = iss.shut || {}; iss.shut[s] = !iss.shut[s]; break;
+    case "useMine": LAB.initials = labMyInitials(); break;
+    case "scan": {
+      const v = labScanTidy(el("labScan") ? el("labScan").value : sn.scan);
+      sn.scan = "";
+      if(el("labScan")){ el("labScan").value = ""; el("labScan").focus(); }
+      labAppendText(v); redraw = false; break;
+    }
+    case "phrase": labAppendText(((sn.phrases || LAB_PHRASES)[i] || {}).text); redraw = false; break;
+    case "editPhrases": {
+      const now = (sn.phrases || LAB_PHRASES).map(p=>p.label === p.text ? p.text : p.label + " | " + p.text).join("\n");
+      const got = prompt("One phrase per line. To give one a short button name, write   button name | the words it adds\nLeave it empty to go back to the usual ones.", now);
+      if(got == null) return;
+      const list = got.split("\n").map(l=>l.trim()).filter(Boolean).map(l=>{
+        const [a, ...rest] = l.split("|");
+        const text = (rest.join("|") || a).trim();
+        return {label:a.trim() || text, text};
+      });
+      sn.phrases = list.length ? list : null;
+      break;
+    }
+    case "addSnitch": {
+      const target = sn.target.trim(), text = sn.text.trim(), ini = (LAB.initials || "").trim().toUpperCase();
+      if(!target){ labSay("Say who it is about first."); el("labTarget") && el("labTarget").focus(); return; }
+      if(!text){ labSay("Write what happened first."); el("labSnText") && el("labSnText").focus(); return; }
+      if(!ini){ labSay("Put your initials in first."); return; }
+      let entry;
+      if(sn.editing){
+        entry = sn.entries.find(e=>e.id === sn.editing);
+        if(entry) Object.assign(entry, {target, text, initials:ini});
+      }
+      if(!entry){
+        entry = {id:Date.now().toString(36) + Math.random().toString(36).slice(2, 6), target, text, initials:ini, at:Date.now()};
+        sn.entries.unshift(entry);
+      }
+      sn.target = ""; sn.text = ""; sn.editing = "";
+      const ok = await copyPlain(labSnitchOf(entry));
+      labSay(ok ? "Added and copied — paste it where it goes." : "Added. Copy it from the list.");
+      break;
+    }
+    case "cancelEdit": sn.editing = ""; sn.target = ""; sn.text = ""; break;
+    case "copyOne": {
+      const e = sn.entries.find(x=>x.id === b.dataset.id);
+      if(e) labSay(await copyPlain(labSnitchOf(e)) ? "Copied" : "The browser would not copy it");
+      return;
+    }
+    case "copyAll": {
+      const list = sn.entries.filter(e=>!sn.day || isoLocal(new Date(e.at)) === sn.day);
+      if(list.length) labSay(await copyPlain(list.map(labSnitchOf).join("\n")) ? `Copied ${list.length}` : "The browser would not copy it");
+      return;
+    }
+    case "editOne": {
+      const e = sn.entries.find(x=>x.id === b.dataset.id);
+      if(!e) return;
+      sn.editing = e.id; sn.target = e.target; sn.text = e.text;
+      if(e.initials) LAB.initials = e.initials;
+      break;
+    }
+    case "dropOne":
+      if(!confirm("Remove this one from your list?")) return;
+      sn.entries = sn.entries.filter(x=>x.id !== b.dataset.id);
+      if(sn.editing === b.dataset.id) sn.editing = "";
+      break;
+    case "allDays": sn.day = ""; break;
+    case "clearList":
+      if(!confirm("Clear your whole #snitch list on this computer?")) return;
+      sn.entries = []; sn.editing = ""; break;
+    default: return;
+  }
+  labSave();
+  if(redraw){
+    const body = el("labBody"), top = body ? body.scrollTop : 0;
+    labRender();
+    if(body) body.scrollTop = top;
+    if(k === "editOne" && el("labSnText")){ el("labBody").scrollTop = 0; el("labSnText").focus(); }
+  }
+}
+
+/* ---------- the name box: the roster, by name or by initials ---------- */
+const labSug = {items:[], at:0};
+function labSugShow(){
+  const inp = el("labTarget"), box = el("labTargetSug");
+  if(!inp || !box) return;
+  labSug.items = labPeopleFor(inp.value);
+  if(labSug.items.length === 1 && labSug.items[0].name === inp.value.trim()) labSug.items = [];
+  labSug.at = 0;
+  box.innerHTML = labSug.items.map((x, i)=>`<div role="option" data-i="${i}" class="${i ? "" : "at"}"><span>${esc(x.name)}</span><i>${esc(x.ini)}</i></div>`).join("");
+  box.hidden = !labSug.items.length;
+  inp.setAttribute("aria-expanded", box.hidden ? "false" : "true");
+}
+function labSugShut(){
+  const box = el("labTargetSug"), inp = el("labTarget");
+  if(box) box.hidden = true;
+  if(inp) inp.setAttribute("aria-expanded", "false");
+}
+function labSugTake(i){
+  const x = labSug.items[i], inp = el("labTarget");
+  if(!x || !inp) return;
+  inp.value = x.name; LAB.snitch.target = x.name;
+  labSugShut(); labSnitchPreview(); labSave();
+  if(el("labSnText")) el("labSnText").focus();
+}
+
+function wireLab(){
+  const dlg = el("labDlg"), body = el("labBody");
+  if(!dlg || !body) return;
+  el("labClose").onclick = ()=>dlg.close();
+  dlg.addEventListener("close", ()=>{ labSugShut(); if(labDirty) labSave(true); });
+  dlg.querySelectorAll("[data-labtab]").forEach(b=>b.onclick = ()=>{
+    if(!LAB) return;
+    LAB.tab = b.dataset.labtab; labSave(); labRender();
+  });
+  el("labCopy").onclick = async()=>{
+    const v = el("labOut").value.trim();
+    if(!v){ labSay("Nothing to copy yet."); return; }
+    labSay(await copyPlain(v) ? "Copied" : "The browser would not copy it");
+  };
+  el("labOutClear").onclick = ()=>{
+    const t = LAB[LAB.tab]; if(!t) return;
+    t.manual = ""; t.shown = ""; el("labOut").value = ""; labSave();
+  };
+  el("labOut").addEventListener("input", ()=>{
+    const t = LAB[LAB.tab]; if(!t) return;
+    const v = el("labOut").value;
+    t.shown = v;
+    if(t.auto && v.startsWith(t.auto)) t.manual = v.slice(t.auto.length);
+    else if(!t.auto) t.manual = v;
+    labSave();
+  });
+  body.addEventListener("input", ev=>{
+    const inp = ev.target, path = inp.dataset && inp.dataset.lab;
+    if(!path) return;
+    labSet(path, inp.value);
+    if(path === "initials") inp.value = inp.value.toUpperCase();
+    if(path.startsWith("issue.") && path !== "issue.acc") labPaintSection(path.split(".")[1]);
+    if(path.startsWith("snitch.") || path === "initials") labSnitchPreview();
+    if(path === "snitch.target") labSugShow();
+    if(path === "snitch.day"){ labRender(); }
+    labRefreshOut();
+    labLinksPaint();
+    labSave();
+  });
+  body.addEventListener("focusout", ev=>{
+    const inp = ev.target, path = inp.dataset && inp.dataset.lab;
+    if(!path) return;
+    if(path.startsWith("review.")) labMarkReview(inp);
+    if(inp.dataset.labdate && inp.value.trim()){
+      const fixed = labFixDate(inp.value);
+      if(fixed !== inp.value){ inp.value = fixed; labSet(path, fixed); labRefreshOut(); labSave(); }
+      const sec = path.split(".")[1];
+      if(sec === "dob") labMarkNear(inp);
+      labPaintSection(sec);
+    }
+    if(path === "snitch.target") setTimeout(labSugShut, 150);
+  });
+  body.addEventListener("focusin", ev=>{ if(ev.target.id === "labTarget") labSugShow(); });
+  body.addEventListener("click", ev=>{
+    const go = ev.target.closest("[data-laburl]");
+    if(go){ ev.preventDefault(); window.open(go.dataset.laburl, "_blank", "noopener"); return; }
+    const opt = ev.target.closest("#labTargetSug [data-i]");
+    if(opt){ labSugTake(+opt.dataset.i); return; }
+    const b = ev.target.closest("[data-labdo]");
+    if(b){ ev.preventDefault(); labAction(b); }
+  });
+  body.addEventListener("mousedown", ev=>{ if(ev.target.closest("#labTargetSug")) ev.preventDefault(); });
+  body.addEventListener("keydown", ev=>{
+    if(ev.target.id === "labTarget"){
+      const box = el("labTargetSug");
+      const open = box && !box.hidden && labSug.items.length;
+      if(open && (ev.key === "ArrowDown" || ev.key === "ArrowUp")){
+        ev.preventDefault();
+        labSug.at = (labSug.at + (ev.key === "ArrowDown" ? 1 : -1) + labSug.items.length) % labSug.items.length;
+        box.querySelectorAll("[data-i]").forEach((d, i)=>d.classList.toggle("at", i === labSug.at));
+      } else if(open && (ev.key === "Enter" || ev.key === "Tab") && ev.target.value.trim()){
+        ev.preventDefault(); labSugTake(labSug.at);
+      } else if(open && ev.key === "Escape"){ ev.preventDefault(); ev.stopPropagation(); labSugShut(); }
+    }
+    if(ev.target.id === "labScan" && ev.key === "Enter"){
+      ev.preventDefault(); labAction({dataset:{labdo:"scan"}});
+    }
+  });
+  /* a closed laptop lid or a pulled plug should not cost the last few words */
+  const flush = ()=>{ if(labDirty && LAB) labSave(true); };
+  window.addEventListener("pagehide", flush);
+  document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState === "hidden") flush(); });
+}
+async function openLab(tab){
+  const dlg = el("labDlg");
+  if(!dlg) return;
+  await labLoad();
+  if(tab) LAB.tab = tab;
+  if(!LAB.initials) LAB.initials = labMyInitials();
+  labSavedNote(Store.mode === "idb" || Store.mode === "ls" ? "Kept on this computer" : "Not being kept on this computer");
+  labRender();
+  if(!dlg.open) dlg.showModal();
+}
+
 const HELP_TOPICS = [
   {id:"start", title:"The basics", body:`
     <h3>The basics</h3>
@@ -25078,6 +25971,34 @@ const HELP_TOPICS = [
     <h4>Found nothing?</h4>
     <p>Press <b>Ask this as a question</b>. It goes to whoever looks after the map, so the gap gets filled.</p>
     {{shot:search|The search list, with why each one matched}}`},
+  {id:"lab", title:"Lab tools", body:`
+    <h3>Lab tools</h3>
+    <p class="lead"><b>&#9879; Lab tools</b> on the bar at the bottom writes your review lines, issue lines and #snitch entries for you.</p>
+    <h4>Review</h4>
+    <ul>
+      <li>Fill in what you have: accession, portal, account, provider, samples, paperwork, test code, kit ID, notes.</li>
+      <li>The <b>Live output</b> box at the top writes the review line as you type. Anything you add to the end of it yourself is kept.</li>
+      <li>A box turns green when it looks right and red when it does not (an accession is 7 digits; a portal is not).</li>
+      <li><b>+ Another sample type</b> adds more tubes. <b>Copy</b> puts the line on the clipboard.</li>
+    </ul>
+    <h4>Issue</h4>
+    <ul>
+      <li>For first name, last name, DOB and DOC, type what each piece of paperwork says and what each tube (A01, A02&hellip;) says.</li>
+      <li>Anything that disagrees turns <b>red</b>, the ones that agree turn <b>green</b>, and the ISSUE line writes itself.</li>
+      <li>Dates can be typed short: <b>812</b> becomes 08/12 this year, <b>081290</b> becomes 08/12/1990.</li>
+      <li>A DOB within a month of today turns yellow &mdash; it is probably a collection date in the wrong box.</li>
+    </ul>
+    <h4>Snitch</h4>
+    <ul>
+      <li>Your initials fill in from the roster. Start typing a name or someone's initials in <b>Who it is about</b> and pick them from the list.</li>
+      <li><b>Quick scan</b> tidies a tube (3633853A01 &rarr; 3633853) or a long FedEx barcode (its last 12 digits) and adds it.</li>
+      <li>Quick phrases add the usual wording; <b>Edit phrases</b> makes them your own.</li>
+      <li><b>Add to my list and copy it</b> writes <i>#snitch [[Name]] what happened #ABC</i> and copies it. Your list can be copied, changed, removed, or narrowed to one day.</li>
+    </ul>
+    <h4>Opening a number</h4>
+    <p>Any accession you type or scan (7 digits &mdash; 3633853A01 counts as 3633853) gets buttons for <b>LIMS</b>, <b>PDM</b>, <b>Spade</b>, <b>DocViewer</b> and <b>Nucleus</b>; a tracking number gets <b>DNA Tracker</b>; a number in <b>New portal #</b> on Review gets <b>Portal requisition</b>, which opens it in the admin portal. They show under the accession boxes on Review, under the accession box at the top of Issue, under <b>What happened</b> on Snitch, and on each entry in your #snitch list. Each opens in a new tab, signed in as you.</p>
+    <h4>Where it is kept</h4>
+    <p>On this computer only, under your name, saved as you type &mdash; so if the computer shuts down or the page closes, open Lab tools again and carry on. It never goes into the map, the workbook or anywhere else. Use <b>Clear the review</b>, <b>Clear the issue</b> or <b>Clear list</b> when you are done.</p>`},
   {id:"room", title:"Inside a room", body:`
     <h3>Inside a room</h3>
     <ul>
@@ -25261,6 +26182,8 @@ function tourSteps(){
       },
       done:()=>el("respondDlg").open, after:()=>{ if(el("respondDlg").open) el("respondDlg").close(); }} : {title:"Your panel", text:"In editing mode, the panel on the right is where a room's note, questions, keywords and confirm items are changed.",
       target:()=>el("inspector")},
+    {title:"Lab tools", text:"Lab tools writes your review lines, issue lines and #snitch entries as you fill in the boxes. What you type is kept on this computer only, so a closed page loses nothing.",
+      target:()=>el("rvLab"), skipIf:()=>!el("rvLab") || el("rvLab").hidden},
     {title:"Help any time", text:"That's it. The ? Help button has all of this, every shortcut, and this tour.",
       target:()=>el("rvHelp")}
   ];
@@ -28104,6 +29027,8 @@ async function boot(){
   el("staleHide").onclick = ()=>{ staleHidden = true; el("staleBar").hidden = true; };
   el("helpTour").onclick = ()=>startTour();
   el("rvHelp").onclick = ()=>openHelp();
+  el("rvLab").onclick = ()=>openLab();
+  wireLab();
   el("btnHelp").onclick = ()=>openHelp();
   el("tourStop").onclick = ()=>{ if(tourOffering){ tourOfferDone(); return; } endTour(false); };
   el("tourBack").onclick = ()=>{ if(tour && tour.i > 0){ tour.i--; tourShow(); } };
