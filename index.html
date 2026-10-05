@@ -20597,7 +20597,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-10-05h";
+const APP_BUILD = "2026-10-05i";
 
 /* Reading that line back out of a copy of this file.
 
@@ -25721,6 +25721,7 @@ function labRoute(items){
     if(!said.length){ labSay("The issue takes names and dates — click the box it belongs in first."); return; }
   }
   labSay("Added — " + [...new Set(said)].join(", "));
+  if(LAB.tab !== "snitch"){ const t = LAB[LAB.tab]; if(t) t.shown = null; }
   labSave();
   if(LAB.tab === "snitch") labBarPaint();
   else { const body = el("labBody"), top = body ? body.scrollTop : 0; labRender(); if(body) body.scrollTop = top; }
@@ -25900,13 +25901,28 @@ function labPaintSection(section){
 
 /* ---------- the output box ---------- */
 function labOutFor(kind){ return kind === "review" ? labReviewText() : kind === "issue" ? labIssueText() : ""; }
-function labRefreshOut(){
+/* force: a box was just changed, so the generated part is written fresh even
+   if it reads the same as before (a cleared output box used to stay empty) */
+function labRefreshOut(force){
   const kind = LAB.tab, box = el("labOut");
   if(kind !== "review" && kind !== "issue") return;
   const t = LAB[kind], auto = labOutFor(kind);
-  if(auto !== t.auto){ t.auto = auto; t.shown = auto + (t.manual || ""); }
+  if(auto !== t.auto || (force && auto)){ t.auto = auto; t.shown = auto + (t.manual || ""); }
   const want = t.shown == null ? auto + (t.manual || "") : t.shown;
   if(box && box.value !== want) box.value = want;
+  if(box) box.placeholder = kind === "issue" ? labIssueWaiting() : "Fills in as you type below. You can add to the end of it yourself.";
+}
+/* The issue line is only written where two things disagree, so an empty box
+   says why: what each section has so far. */
+function labIssueWaiting(){
+  const bits = LAB_SECTIONS.map(([s, , ab])=>{
+    const e = labEntries(s);
+    if(!e.length) return "";
+    if(e.length === 1) return ab + ": 1 so far, needs another to compare";
+    return ab + ": " + e.length + " match";
+  }).filter(Boolean);
+  return bits.length ? "No disagreements yet \u2014 " + bits.join(" \u00b7 ")
+    : "Writes itself when the paperwork and the tubes disagree. Fill in at least two for a name or date.";
 }
 
 /* ---------- drawing each tab ---------- */
@@ -26290,7 +26306,7 @@ function wireLab(){
     if(path === "snitch.target") labSugShow("target");
     if(path === "initials"){ labSugShow("me"); labMeWho(); }
     if(path === "snitch.day"){ labRender(); }
-    labRefreshOut();
+    labRefreshOut(true);
     labLinksPaint();
     labSave();
   });
@@ -26300,7 +26316,7 @@ function wireLab(){
     if(path.startsWith("review.")) labMarkReview(inp);
     if(inp.dataset.labdate && inp.value.trim()){
       const fixed = labFixDate(inp.value, path.split(".")[1] === "doc" ? "doc" : "dob");
-      if(fixed !== inp.value){ inp.value = fixed; labSet(path, fixed); labRefreshOut(); labSave(); }
+      if(fixed !== inp.value){ inp.value = fixed; labSet(path, fixed); labRefreshOut(true); labSave(); }
       const sec = path.split(".")[1];
       if(sec === "dob") labMarkNear(inp);
       labPaintSection(sec);
