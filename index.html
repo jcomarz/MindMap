@@ -3645,12 +3645,24 @@ dialog#bulkDlg::backdrop{background:rgba(35,40,45,.42)}
 dialog#bulkDlg .dlg-body{flex:1;max-height:none}
 @media (max-width:820px){ dialog#bulkDlg{width:100vw;height:100dvh;max-height:none;border:0;border-radius:0} }
 /* ---------- lab tools: review, issue and snitch builders ---------- */
-dialog#labDlg{border:1px solid var(--graphite);border-radius:3px;padding:0;background:var(--paper);
-  width:min(760px,96vw);height:min(900px,92dvh);color:var(--graphite);display:flex;flex-direction:column}
+/* docked at the bottom right rather than over everything, so the map stays
+   usable behind it; shrunk it is just the scan bar and the pad */
+dialog#labDlg{position:fixed;inset:auto 14px var(--lab-bottom,14px) auto;margin:0;z-index:950;
+  border:1px solid var(--graphite);border-radius:4px;padding:0;background:var(--paper);
+  width:min(760px,calc(100vw - 28px));height:min(900px,calc(100dvh - var(--lab-bottom,14px) - 14px));
+  color:var(--graphite);display:flex;flex-direction:column;box-shadow:0 10px 34px rgba(0,0,0,.28)}
 dialog#labDlg:not([open]){display:none}
-dialog#labDlg::backdrop{background:rgba(35,40,45,.42)}
-dialog#labDlg .dlg-body{flex:1;max-height:none;padding:12px 16px 16px}
-@media (max-width:820px){ dialog#labDlg{width:100vw;height:100dvh;max-height:none;border:0;border-radius:0} }
+dialog#labDlg.small{height:auto;max-height:calc(100dvh - var(--lab-bottom,14px) - 14px)}
+dialog#labDlg.small .lab-more{display:none}
+dialog#labDlg .dlg-head{padding-top:8px;padding-bottom:8px}
+#labTitle{cursor:pointer;user-select:none}
+.lab-more{flex:1;min-height:0;display:flex;flex-direction:column}
+dialog#labDlg .dlg-body{flex:1;max-height:none;padding:12px 16px 16px;min-height:0}
+.lab-padhead{display:flex;align-items:center;gap:6px;margin:8px 0 4px;font-size:12px;font-weight:600}
+.lab-padhead span{flex:1}
+#labPad{min-height:52px;height:var(--lab-pad,76px);resize:vertical;font-family:var(--mono);font-size:12.5px;line-height:1.45}
+dialog#labDlg.small #labPad{max-height:calc(100dvh - var(--lab-bottom,14px) - 200px)}
+@media (max-width:820px){ dialog#labDlg{inset:auto 0 var(--lab-bottom,0px) 0;width:100vw;border-left:0;border-right:0;border-radius:10px 10px 0 0} }
 .lab-linkbox:empty{display:none}
 .lab-linkbox{margin-top:8px}
 .lab-links{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin:4px 0}
@@ -3662,6 +3674,28 @@ dialog#labDlg .dlg-body{flex:1;max-height:none;padding:12px 16px 16px}
 html[data-theme="dark"] .lab-said{color:#6FD1A0}
 .lab-scan{display:flex;gap:6px;align-items:center}
 .lab-scan input{flex:1;min-width:0}
+.lab-bar{padding:8px 16px;border-bottom:1px solid var(--rule);background:var(--paper)}
+.lab-barrow{display:flex;gap:6px;align-items:center}
+.lab-barrow input{flex:1;min-width:0;font-family:var(--mono);font-size:13px}
+.lab-barrow .btn{flex:0 0 auto;white-space:nowrap}
+#labDateFmt{font-family:var(--mono);font-size:11px}
+.lab-chips{display:flex;flex-wrap:wrap;gap:5px}
+.lab-chips:not(:empty){margin-top:6px}
+.lab-chip{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--rule);border-radius:12px;padding:2px 4px 2px 9px;
+  font-size:12px;font-family:var(--mono);background:var(--paper-2)}
+.lab-chip b{font-family:var(--sans);font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--graphite-60)}
+.lab-chip i{font-style:normal;font-family:var(--sans);font-size:11px;color:var(--graphite-60)}
+.lab-chip.dup{opacity:.55}
+.lab-chip.k-acc{border-color:var(--blueprint)} .lab-chip.k-date{border-color:#7B5BC9}
+.lab-chip.k-fedex,.lab-chip.k-ups,.lab-chip.k-usps,.lab-chip.k-track{border-color:#C98A12}
+.lab-chip.k-kit,.lab-chip.k-ocb{border-color:#1E8C5A} .lab-chip.k-portal{border-color:var(--flag)}
+.lab-flip{border:0;background:none;color:var(--blueprint);cursor:pointer;font-size:14px;padding:0 5px;line-height:1}
+#labBarLinks:empty{display:none}
+#labBarLinks{margin-top:4px}
+.lab-pinned{display:flex;align-items:flex-start;gap:6px}
+.lab-pinned>div{flex:1}
+.lab-unpin{width:24px;height:24px;flex:0 0 auto;font-size:13px}
+@media (max-width:560px){ #labDateFmt{font-size:10px;padding:3px 5px} .lab-where{display:none} }
 .lab-tabs{display:flex;gap:4px;padding:8px 16px 0;border-bottom:1px solid var(--rule)}
 .lab-tab{flex:1;border:1px solid var(--rule);border-bottom:0;background:var(--paper-2);color:var(--graphite);
   padding:8px 6px;font:inherit;font-size:13px;font-weight:600;border-radius:3px 3px 0 0;cursor:pointer}
@@ -5314,10 +5348,26 @@ body.viewing.panelaway #panelHide{display:none}
 </dialog>
 <dialog id="labDlg" aria-label="Lab tools">
   <div class="dlg-head">
-    <h2>Lab tools</h2>
+    <h2 id="labTitle" title="Shrink or expand">Lab tools</h2>
     <span class="lab-said" id="labSaid" role="status" aria-live="polite"></span>
+    <button class="btn" id="labSize" aria-expanded="true" title="Shrink to just the scan bar and the pad">&#9662; Shrink</button>
     <button class="btn" id="labClose">Done</button>
   </div>
+  <div class="lab-bar">
+    <div class="lab-barrow">
+      <input type="text" id="labBar" autocomplete="off" spellcheck="false" aria-label="Scan or paste"
+        placeholder="Scan or paste: tubes, FedEx, UPS, kits, portals, dates&hellip;">
+      <button class="btn small" id="labDateFmt" title="How dates are written: tap to switch between 10/05/2026 and 2026-10-05" aria-pressed="false">MM/DD/YYYY</button>
+      <button class="btn small primary" id="labBarAdd" disabled>Add</button>
+    </div>
+    <div class="lab-chips" id="labChips"></div>
+    <div class="lab-linkbox" id="labBarLinks"></div>
+    <div class="lab-padhead"><span>Pad</span>
+      <button class="btn small" id="labPadCopy">Copy</button>
+      <button class="btn small" id="labPadClear">Clear</button></div>
+    <textarea id="labPad" spellcheck="false" placeholder="Anything you want to jot down. Drag the corner to make it bigger. When Lab tools is shrunk, Add puts the scan bar here."></textarea>
+  </div>
+  <div class="lab-more" id="labMore">
   <div class="lab-tabs" role="tablist">
     <button class="lab-tab" data-labtab="review" role="tab">Review</button>
     <button class="lab-tab" data-labtab="issue" role="tab">Issue</button>
@@ -5335,6 +5385,7 @@ body.viewing.panelaway #panelHide{display:none}
   <div class="dlg-body lab-body" id="labBody"></div>
   <p class="lab-foot fineprint"><span class="long">Kept on this computer only, under your name, so a crash or a closed tab loses nothing.
     It never goes into the map or the workbook. Clear it when you are done.</span><span class="short">Kept on this computer only &mdash; never in the map. Clear it when done.</span></p>
+  </div>
 </dialog>
 
 
@@ -20488,7 +20539,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-10-05d";
+const APP_BUILD = "2026-10-05f";
 
 /* Reading that line back out of a copy of this file.
 
@@ -25237,8 +25288,7 @@ function labLinksPaint(){
   body.querySelectorAll("[data-lablinks]").forEach(box=>{
     const k = box.dataset.lablinks;
     const text = k === "review" ? [LAB.review.oldAccession, LAB.review.newPortal, LAB.review.additionalNotes].join(" ")
-      : k === "issue" ? LAB.issue.acc || ""
-      : k === "snitch" ? [LAB.snitch.text, LAB.snitch.scan].join(" ") : "";
+      : k === "snitch" ? LAB.snitch.text : "";
     const html = labLinksHTML(text, k === "review" ? LAB.review.newPortal : "");
     if(box.innerHTML !== html) box.innerHTML = html;
   });
@@ -25246,7 +25296,7 @@ function labLinksPaint(){
 function labBlankIssue(){
   const secs = {};
   LAB_SECTIONS.forEach(([k])=>{ secs[k] = {pw:[{inst:"", desc:""}], sm:[{value:""}]}; });
-  return {secs, shut:{}, acc:"", auto:"", manual:"", shown:null};
+  return {secs, shut:{}, auto:"", manual:"", shown:null};
 }
 function labBlankReview(){
   const r = {samples:"", sampleType:"", extra:[], auto:"", manual:"", shown:null};
@@ -25254,7 +25304,7 @@ function labBlankReview(){
   return r;
 }
 function labBlank(){
-  return {tab:"review", initials:"", review:labBlankReview(), issue:labBlankIssue(),
+  return {tab:"review", initials:"", bar:"", barPick:{}, pins:null, dateIso:false, pad:"", padH:0, small:false, review:labBlankReview(), issue:labBlankIssue(),
     snitch:{target:"", text:"", scan:"", phrases:null}};
 }
 let LAB = null, labKey = "", labSaveT = 0, labDirty = false;
@@ -25280,7 +25330,9 @@ async function labLoad(){
   });
   if(!Array.isArray(LAB.review.extra)) LAB.review.extra = [];
   /* an older build kept a list of sent #snitches here; nothing is kept now */
-  ["entries", "day", "editing"].forEach(k=>{ delete LAB.snitch[k]; });
+  ["entries", "day", "editing", "scan"].forEach(k=>{ delete LAB.snitch[k]; });
+  /* the issue tab's own accession box became the scan bar's links */
+  if(LAB.issue.acc){ if(!LAB.pins) LAB.pins = {text:LAB.issue.acc, portal:""}; delete LAB.issue.acc; }
 }
 let labSayT = 0;
 /* a toast would sit under the open dialog, so the dialog says it itself */
@@ -25377,55 +25429,225 @@ function labWhoseInitials(ini){
 }
 
 /* ---------- dates typed the quick way: 812 -> 08/12/this year ---------- */
-function labFixDate(raw){
+/* Every short way of writing a date the floor uses, read the way Diamond reads
+   them. A collection date with no year, or no month, is never in the future:
+   "14" typed on the 5th is the 14th of last month. A calendar check throws out
+   anything that only looks like a date (06/35/2016, 02/30). */
+function labParseDate(raw, kind){
+  const v = String(raw || "").trim();
+  if(!v) return null;
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  const yy = s=>+((+s <= 30 ? "20" : "19") + String(s).padStart(2, "0"));
+  const ok = (y, m, d)=>{
+    if(y < 1900 || y > 2100 || m < 1 || m > 12 || d < 1 || d > 31) return null;
+    const t = new Date(y, m - 1, d);
+    return t.getFullYear() === y && t.getMonth() === m - 1 && t.getDate() === d ? {y, m, d} : null;
+  };
+  const past = (y, m, d)=>{
+    /* no year given: this year, unless that is still to come for a collection */
+    let r = ok(y, m, d);
+    if(r && kind === "doc" && new Date(r.y, r.m - 1, r.d) > now) r = ok(y - 1, m, d);
+    return r;
+  };
+  let m;
+  if((m = /^(\d{4})[\/.-](\d{1,2})[\/.-](\d{1,2})$/.exec(v))) return ok(+m[1], +m[2], +m[3]);
+  if((m = /^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2}|\d{4})$/.exec(v))) return ok(m[3].length === 2 ? yy(m[3]) : +m[3], +m[1], +m[2]);
+  if((m = /^(\d{1,2})[\/.-](\d{1,2})$/.exec(v))) return past(now.getFullYear(), +m[1], +m[2]);
+  if((m = /^(\d{2})(\d{2})(\d{4})$/.exec(v))) return ok(+m[3], +m[1], +m[2]);
+  if((m = /^(\d{2})(\d{2})(\d{2})$/.exec(v))) return ok(yy(m[3]), +m[1], +m[2]);
+  if((m = /^(\d{1,2})(\d{2})$/.exec(v)) && v.length >= 3) return past(now.getFullYear(), +m[1], +m[2]);
+  if((m = /^(\d{1,2})$/.exec(v))){
+    const d = +m[1];
+    let y = now.getFullYear(), mo = now.getMonth() + 1;
+    let r = ok(y, mo, d);
+    if(r && kind === "doc" && new Date(y, mo - 1, d) > now){ mo--; if(mo < 1){ mo = 12; y--; } r = ok(y, mo, d); }
+    return r;
+  }
+  return null;
+}
+function labDateIso(){ return !!(LAB && LAB.dateIso); }
+function labShowDate(r){
+  if(!r) return "";
+  const M = String(r.m).padStart(2, "0"), D = String(r.d).padStart(2, "0");
+  return labDateIso() ? `${r.y}-${M}-${D}` : `${M}/${D}/${r.y}`;
+}
+function labFixDate(raw, kind){
   const value = String(raw || "").trim();
   if(!value) return value;
-  const now = new Date();
-  const cm = String(now.getMonth() + 1).padStart(2, "0"), cy = String(now.getFullYear());
-  const real = (m, d, y)=>{
-    const M = +m, D = +d, Y = +y;
-    if(M < 1 || M > 12 || D < 1 || D > 31) return false;
-    const t = new Date(Y, M - 1, D);
-    return t.getFullYear() === Y && t.getMonth() === M - 1 && t.getDate() === D;
-  };
-  const yy = s=>(+s <= 30 ? "20" : "19") + String(s).padStart(2, "0");
-  const fmt = (m, d, y)=>String(m).padStart(2, "0") + "/" + String(d).padStart(2, "0") + "/" + y;
-  const digits = value.replace(/\D/g, "");
-  if(/[\/\-]/.test(value)){
-    const parts = value.split(/[\/\-]/);
-    if(parts.length >= 2){
-      let m = parts[0].replace(/\D/g, ""), d = parts[1].replace(/\D/g, ""), y = (parts[2] || "").replace(/\D/g, "");
-      if(m && d){
-        m = m.padStart(2, "0").slice(0, 2); d = d.padStart(2, "0").slice(0, 2);
-        y = !y ? cy : y.length === 2 ? yy(y) : y.slice(0, 4);
-        if(y.length === 4 && real(m, d, y)) return fmt(m, d, y);
-      }
-    }
-  }
-  if(/^\d+$/.test(value)){
-    const L = digits.length;
-    if(L <= 2 && real(cm, digits, cy)) return fmt(cm, digits, cy);
-    if(L === 3 && real(digits[0], digits.slice(1), cy)) return fmt(digits[0], digits.slice(1), cy);
-    if(L === 4 && real(digits.slice(0, 2), digits.slice(2), cy)) return fmt(digits.slice(0, 2), digits.slice(2), cy);
-    if(L === 6 && real(digits.slice(0, 2), digits.slice(2, 4), yy(digits.slice(4)))) return fmt(digits.slice(0, 2), digits.slice(2, 4), yy(digits.slice(4)));
-    if(L === 8 && real(digits.slice(0, 2), digits.slice(2, 4), digits.slice(4))) return fmt(digits.slice(0, 2), digits.slice(2, 4), digits.slice(4));
-  }
-  if(digits.length >= 2){
-    let f = digits.slice(0, 2);
-    if(digits.length >= 4) f += "/" + digits.slice(2, 4);
-    if(digits.length >= 8) f += "/" + digits.slice(4, 8);
-    else if(digits.length >= 6) f += "/" + yy(digits.slice(4, 6));
-    return f;
-  }
-  return value;
+  const r = labParseDate(value, kind);
+  return r ? labShowDate(r) : value;
 }
 /* a date of birth within a month of today is usually a collection date
    typed into the wrong box */
 function labNearToday(v){
-  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(v || "").trim());
-  if(!m) return false;
-  const t = new Date(+m[3], +m[1] - 1, +m[2]), now = new Date(); now.setHours(0, 0, 0, 0);
-  return Math.abs(now - t) / 864e5 <= 30;
+  const r = labParseDate(v, "dob");
+  if(!r || !/\d{4}/.test(String(v))) return false;
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  return Math.abs(now - new Date(r.y, r.m - 1, r.d)) / 864e5 <= 30;
+}
+
+/* ---------- the scan bar: one line that reads whatever is scanned or pasted ---------- */
+/* What one scanned or typed piece is. Several readings are kept when it could
+   honestly be either (an 8-digit number that is also a real date), and the
+   first is the best guess; the chip lets you flip it. */
+function labClassify(tok){
+  const v = String(tok || "").trim();
+  if(!v) return [];
+  const out = [];
+  const add = (type, value, note)=>out.push({type, value, note:note || "", raw:v});
+  let m;
+  if(/^1Z[A-Z0-9]{16}$/i.test(v)){ add("ups", v.toUpperCase()); return out; }
+  if(/^IB[AB]\d{6}$/i.test(v)){ add("ocb", v.toUpperCase()); return out; }
+  if(/^[A-Z]{2}\d{9}[A-Z]{2}$/i.test(v)){ add("usps", v.toUpperCase()); return out; }
+  if((m = /^99(\d{7})$/.exec(v))){ add("acc", m[1], "dropped the 99"); add("number", v); return out; }
+  if((m = /^(\d{7})(?:[ _-]*([A-Za-z]\d{1,3}))?$/.exec(v))){ add("acc", m[1], m[2] ? "dropped " + m[2].toUpperCase() : ""); return out; }
+  const date = labParseDate(v, "doc");
+  if(/^\d{8}$/.test(v)){
+    if(date){ add("date", labShowDate(date), "or a portal"); add("portal", v); }
+    else add("portal", v);
+    return out;
+  }
+  if(date && !/^\d{9,}$/.test(v)){ add("date", labShowDate(date)); if(/^\d+$/.test(v)) add("number", v); return out; }
+  /* a kit label is letters and numbers in dashed groups: B-VKXB-ICNE,
+     2582111925-2137-042327 — a hyphenated word in lower case is just a word */
+  if(/^[A-Z0-9]+(?:-[A-Z0-9]+)+$/i.test(v) && (/\d/.test(v) || v === v.toUpperCase())){ add("kit", v.toUpperCase()); return out; }
+  if(/^\d+$/.test(v)){
+    const L = v.length;
+    if(L >= 30){ add("fedex", v.slice(-12), "last 12 of the barcode"); return out; }
+    if(L >= 20 && L <= 22){ add("usps", v); add("track", v); return out; }
+    if(L >= 17){ add("track", v); return out; }
+    if(L >= 13){ add("ocb", v); add("track", v); return out; }
+    if(L === 12){ add("fedex", v); add("ocb", v); return out; }
+    add("number", v); return out;
+  }
+  add("text", v);
+  return out;
+}
+const LAB_KIND = {acc:"Accession", portal:"Portal", fedex:"FedEx", ups:"UPS", usps:"USPS", track:"Tracking",
+  kit:"Kit", ocb:"OCB", date:"Date", number:"Number", text:"Text"};
+/* the bar, read: one entry per piece, accessions said once however many tubes */
+function labBarRead(){
+  const text = String(LAB.bar || "");
+  const pick = LAB.barPick || {};
+  const toks = text.split(/[\s,;]+/).filter(Boolean);
+  const seen = new Set(), items = [];
+  toks.forEach((t, i)=>{
+    const alts = labClassify(t);
+    if(!alts.length) return;
+    const at = Math.min(pick[i] || 0, alts.length - 1);
+    const it = Object.assign({}, alts[at], {i, alts, at});
+    const key = it.type + ":" + it.value;
+    if(it.type !== "text" && seen.has(key)){ it.dup = true; }
+    seen.add(key);
+    items.push(it);
+  });
+  return items;
+}
+function labBarLinksHTML(items){
+  const acc = [], trk = [], por = [];
+  items.forEach(it=>{
+    if(it.dup) return;
+    if(it.type === "acc") acc.push(it.value);
+    else if(["fedex", "ups", "usps", "track"].includes(it.type)) trk.push(it.value);
+    else if(it.type === "portal") por.push(it.value);
+  });
+  return labLinksHTML(acc.join(" ") + " " + trk.join(" "), por.join(" "));
+}
+function labBarWhere(){
+  if(LAB.small) return "the pad";
+  return LAB.tab === "review" ? "the review" : LAB.tab === "issue" ? "the issue" : "the note";
+}
+function labBarPaint(){
+  if(!LAB) return;
+  const items = labBarRead();
+  const chips = el("labChips");
+  if(chips) chips.innerHTML = items.map(it=>`<span class="lab-chip k-${it.type}${it.dup ? " dup" : ""}">
+      <b>${LAB_KIND[it.type]}</b> ${esc(it.value)}${it.note ? ` <i>${esc(it.note)}</i>` : ""}${it.dup ? " <i>already in</i>" : ""}
+      ${it.alts.length > 1 ? `<button type="button" class="lab-flip" data-flip="${it.i}" title="Read it as ${esc(LAB_KIND[it.alts[(it.at + 1) % it.alts.length].type])} instead">&#8644;</button>` : ""}</span>`).join("");
+  /* links for what is in the bar, or for what was last added once it is empty */
+  const live = labBarLinksHTML(items);
+  const links = el("labBarLinks");
+  if(links) links.innerHTML = live || (LAB.pins ? `<div class="lab-pinned"><div>${labLinksHTML(LAB.pins.text || "", LAB.pins.portal || "")}</div>
+      <button type="button" class="lab-x lab-unpin" data-unpin="1" title="Put these links away">&times;</button></div>` : "");
+  const add = el("labBarAdd");
+  if(add){ add.innerHTML = `Add<span class="lab-where"> to ${labBarWhere()}</span>`; add.title = "Add to " + labBarWhere() + " (Enter)"; add.disabled = !items.length; }
+  const f = el("labDateFmt");
+  if(f){ f.textContent = labDateIso() ? "YYYY-MM-DD" : "MM/DD/YYYY"; f.setAttribute("aria-pressed", labDateIso() ? "true" : "false"); }
+}
+/* Add puts each piece where it belongs on the tab you are on */
+function labBarAdd(){
+  const items = labBarRead().filter(it=>!it.dup);
+  if(!items.length) return;
+  const said = [];
+  const join = (cur, v)=>{
+    const have = String(cur || "").split(/[,\s]+/).filter(Boolean);
+    return have.includes(v) ? cur : (String(cur || "").trim() ? String(cur).trim() + ", " + v : v);
+  };
+  const label = it=>it.type === "text" || it.type === "date" || it.type === "number" ? it.value : LAB_KIND[it.type] + " " + it.value;
+  if(LAB.small){
+    /* shrunk, the pad is all there is: one tidy line per Add */
+    const line = items.map(it=>it.value).join(" ");
+    LAB.pad = String(LAB.pad || "").replace(/\s+$/, "");
+    LAB.pad = LAB.pad ? LAB.pad + "\n" + line : line;
+    const pad = el("labPad"); if(pad){ pad.value = LAB.pad; pad.scrollTop = pad.scrollHeight; }
+    said.push("onto the pad");
+  } else if(LAB.tab === "snitch"){
+    labAppendText(items.map(it=>it.value).join(" "));
+    said.push("into what happened");
+  } else if(LAB.tab === "review"){
+    const r = LAB.review, notes = [];
+    items.forEach(it=>{
+      if(it.type === "acc"){ r.oldAccession = join(r.oldAccession, it.value); said.push("accession"); }
+      else if(it.type === "portal"){ r.newPortal = join(r.newPortal, it.value); said.push("portal"); }
+      else if(it.type === "kit"){ r.kitId = join(r.kitId, it.value); said.push("kit ID"); }
+      else notes.push(label(it));
+    });
+    if(notes.length){ r.additionalNotes = [String(r.additionalNotes || "").trim(), notes.join(", ")].filter(Boolean).join(", "); said.push("notes"); }
+  } else {
+    items.forEach(it=>{
+      if(it.type === "date"){ said.push(labIssuePutDate(it) || "date"); }
+      else if(it.type === "text"){ const w = labIssuePutText(it.value); if(w) said.push(w); }
+    });
+    if(!said.length) said.push("links only — the issue line takes names and dates");
+  }
+  /* keep the links for what was just added, for when the bar is empty */
+  const linkable = items.filter(it=>["acc", "fedex", "ups", "usps", "track", "portal"].includes(it.type));
+  if(linkable.length) LAB.pins = {
+    text:linkable.filter(it=>it.type !== "portal").map(it=>it.value).join(" "),
+    portal:linkable.filter(it=>it.type === "portal").map(it=>it.value).join(" ")
+  };
+  LAB.bar = ""; LAB.barPick = {};
+  const bar = el("labBar"); if(bar){ bar.value = ""; bar.focus(); }
+  labSay("Added — " + [...new Set(said)].join(", "));
+  labSave();
+  if(LAB.tab === "snitch" || LAB.small) labBarPaint();
+  else { const body = el("labBody"), top = body ? body.scrollTop : 0; labRender(); if(body) body.scrollTop = top; }
+}
+/* the issue tab: a date goes in the box you were last in, if that is a date
+   box and empty; otherwise near today is a collection date, older is a birth
+   date, into the first empty box of that section (a new tube row if none) */
+let labLastIssue = "";
+function labIssuePutDate(it){
+  const iss = LAB.issue;
+  const get = path=>{ const p = path.split("."); const row = iss.secs[p[1]] && iss.secs[p[1]][p[2]] && iss.secs[p[1]][p[2]][+p[3]]; return row ? row[p[4]] : null; };
+  if(labLastIssue && /^issue\.(dob|doc)\.(pw\.\d+\.inst|sm\.\d+\.value)$/.test(labLastIssue) && !String(get(labLastIssue) || "").trim()){
+    labSet(labLastIssue, it.value);
+    return labLastIssue.split(".")[1].toUpperCase();
+  }
+  const r = labParseDate(it.value, "doc");
+  const near = r && Math.abs(Date.now() - new Date(r.y, r.m - 1, r.d)) / 864e5 <= 60;
+  const sec = near ? "doc" : "dob", S2 = iss.secs[sec];
+  const pw = S2.pw.find(x=>!String(x.inst || "").trim());
+  if(pw) pw.inst = it.value;
+  else { const sm = S2.sm.find(x=>!String(x.value || "").trim()); if(sm) sm.value = it.value; else S2.sm.push({value:it.value}); }
+  return sec.toUpperCase();
+}
+function labIssuePutText(v){
+  if(labLastIssue && /^issue\.(firstName|lastName)\.(pw\.\d+\.inst|sm\.\d+\.value)$/.test(labLastIssue)){
+    labSet(labLastIssue, v);
+    return labLastIssue.split(".")[1] === "firstName" ? "first name" : "last name";
+  }
+  return "";
 }
 
 /* ---------- the review line ---------- */
@@ -25470,7 +25692,8 @@ function labReviewText(){
 }
 
 /* ---------- the issue lines: where the paperwork and the tubes disagree ---------- */
-function labNorm(v, isName){
+function labNorm(v, isName, isDate){
+  if(isDate){ const r = labParseDate(v, "dob"); if(r) return r.y + "-" + r.m + "-" + r.d; }
   let n = String(v || "").trim().toLowerCase();
   if(isName) n = n.replace(/[\s\-]/g, "");
   return n;
@@ -25479,13 +25702,14 @@ function labSampleLabel(i){ return "A" + String(i + 1).padStart(2, "0"); }
 function labEntries(section){
   if(!LAB.issue.secs[section]) return [];
   const sec = LAB.issue.secs[section], isName = section === "firstName" || section === "lastName";
+  const isDate = section === "dob" || section === "doc";
   const out = [];
   sec.pw.forEach((p, i)=>{
-    if(String(p.inst || "").trim()) out.push({value:labNorm(p.inst, isName), original:p.inst.trim(),
+    if(String(p.inst || "").trim()) out.push({value:labNorm(p.inst, isName, isDate), original:p.inst.trim(),
       source:String(p.desc || "").trim() || "paperwork", isSample:false, sel:`[data-lab="issue.${section}.pw.${i}.inst"]`});
   });
   sec.sm.forEach((s, i)=>{
-    if(String(s.value || "").trim()) out.push({value:labNorm(s.value, isName), original:s.value.trim(),
+    if(String(s.value || "").trim()) out.push({value:labNorm(s.value, isName, isDate), original:s.value.trim(),
       source:labSampleLabel(i) + " sample", isSample:true, sel:`[data-lab="issue.${section}.sm.${i}.value"]`});
   });
   return out;
@@ -25596,14 +25820,14 @@ function labIssueSecHTML(section, title){
   const rows = `<div class="lab-sub"><span>Paperwork</span><button class="lab-add" data-labdo="addPw" data-s="${section}">+ Add</button></div>
     ${sec.pw.map((p, i)=>`<div class="lab-row" style="--lab-a:${isDate ? "118px" : "minmax(0,1fr)"}">
       <input type="text" data-lab="issue.${section}.pw.${i}.inst" data-labsec="${section}" value="${esc(p.inst || "")}"
-        placeholder="${isDate ? "mm/dd/yyyy" : "What it says"}"${isDate ? ' data-labdate="1"' : ""}>
+        placeholder="${isDate ? (labDateIso() ? "yyyy-mm-dd" : "mm/dd/yyyy") : "What it says"}"${isDate ? ' data-labdate="1"' : ""}>
       <input type="text" data-lab="issue.${section}.pw.${i}.desc" value="${esc(p.desc || "")}" placeholder="Which paperwork, e.g. TRF">
       <button class="lab-x" data-labdo="dropPw" data-s="${section}" data-i="${i}" title="Remove"${i ? "" : " hidden"}>&times;</button></div>`).join("")}
     <div class="lab-sub"><span>Samples</span><button class="lab-add" data-labdo="addSm" data-s="${section}">+ Add</button></div>
     ${sec.sm.map((s, i)=>`<div class="lab-row" style="--lab-a:40px">
       <span class="lab-tag">${labSampleLabel(i)}</span>
       <input type="text" data-lab="issue.${section}.sm.${i}.value" data-labsec="${section}" value="${esc(s.value || "")}"
-        placeholder="${isDate ? "mm/dd/yyyy" : "What " + labSampleLabel(i) + " says"}"${isDate ? ' data-labdate="1"' : ""}>
+        placeholder="${isDate ? (labDateIso() ? "yyyy-mm-dd" : "mm/dd/yyyy") : "What " + labSampleLabel(i) + " says"}"${isDate ? ' data-labdate="1"' : ""}>
       <button class="lab-x" data-labdo="dropSm" data-s="${section}" data-i="${i}" title="Remove"${i ? "" : " hidden"}>&times;</button></div>`).join("")}
     <div class="lab-status" data-labstatus="${section}">Nothing entered yet</div>`;
   return title ? `<div><b>${esc(title)}</b>${rows}</div>` : rows;
@@ -25615,11 +25839,7 @@ function labIssueHTML(){
     <div class="lab-in">${inner}</div></section>`;
   return `<div class="lab-tools"><button class="btn small" data-labdo="clearIssue">Clear the issue</button></div>
     <p class="lab-hint" style="margin:0 0 8px">Type what each piece of paperwork and each tube says. Anything that disagrees turns red,
-      and the issue line writes itself above. Dates can be typed short: <b>812</b> is 08/12 this year, <b>081290</b> is 08/12/1990.</p>
-    <section class="lab-sec" style="border-left-color:var(--rule)">
-      <label class="field" style="margin:0"><span>Accession you are looking at &mdash; just for the links, it is not put in the issue line</span>
-        <input type="text" data-lab="issue.acc" value="${esc(LAB.issue.acc || "")}" placeholder="e.g. 3430197" style="font-family:var(--mono)"></label>
-      <div class="lab-linkbox" data-lablinks="issue"></div></section>
+      and the issue line writes itself above. Dates can be typed short: <b>812</b> is 08/12 this year, <b>081290</b> is 08/12/1990. A date added from the scan bar goes in the box you were last in, or to DOC if it is recent and DOB if not.</p>
     ${fold("name", "Patient name", "var(--blueprint)", `<div class="lab-pair">${labIssueSecHTML("firstName", "First name")}${labIssueSecHTML("lastName", "Last name")}</div>`)}
     ${fold("dob", "DOB (date of birth)", "#1E8C5A", labIssueSecHTML("dob"))}
     ${fold("doc", "DOC (date of collection)", "#7B5BC9", labIssueSecHTML("doc"))}`;
@@ -25644,11 +25864,6 @@ function labSnitchHTML(){
       <input type="text" id="labTarget" data-lab="snitch.target" value="${esc(s.target)}" placeholder="Start typing a name or initials" autocomplete="off"
         role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="labTargetSug">
       <div class="lab-sugbox" id="labTargetSug" role="listbox" hidden></div></label>
-    <label class="field"><span>Quick scan &mdash; a tube or a FedEx number, tidied as it goes in</span>
-      <div class="lab-scan">
-        <input type="text" id="labScan" data-lab="snitch.scan" value="${esc(s.scan)}" placeholder="3633853A01 or a long FedEx number" style="font-family:var(--mono)">
-        <button class="btn small" data-labdo="scan">Add</button></div>
-      <div class="lab-hint">3633853A01 &rarr; 3633853 &middot; a 30+ digit FedEx barcode &rarr; its last 12 digits</div></label>
     <label class="field"><span>What happened</span>
       <textarea data-lab="snitch.text" id="labSnText" rows="3" placeholder="MCC in regular green bin&hellip;">${esc(s.text)}</textarea></label>
     <div class="lab-linkbox" data-lablinks="snitch"></div>
@@ -25683,6 +25898,44 @@ function labRender(){
   }
   labRefreshOut();
   labLinksPaint();
+  labSizeApply();
+  const bar = el("labBar"); if(bar && bar.value !== (LAB.bar || "")) bar.value = LAB.bar || "";
+}
+/* sits just above the room's bottom bar, so the search and buttons stay reachable */
+function labPlace(){
+  const dlg = el("labDlg");
+  if(!dlg) return;
+  let bottom = 14;
+  const bar = el("rvBar");
+  if(bar && bar.getClientRects().length){
+    const r = bar.getBoundingClientRect();
+    if(r.height && r.top > innerHeight * .5) bottom = Math.max(14, Math.round(innerHeight - r.top + 8));
+  }
+  dlg.style.setProperty("--lab-bottom", bottom + "px");
+}
+function labSizeApply(){
+  const dlg = el("labDlg"), b = el("labSize");
+  if(!dlg || !LAB) return;
+  dlg.classList.toggle("small", !!LAB.small);
+  if(b){
+    b.innerHTML = LAB.small ? "&#9652; Expand" : "&#9662; Shrink";
+    b.title = LAB.small ? "Bring back Review, Issue and Snitch" : "Shrink to just the scan bar and the pad";
+    b.setAttribute("aria-expanded", LAB.small ? "false" : "true");
+  }
+  const pad = el("labPad");
+  if(pad){
+    if(pad.value !== (LAB.pad || "")) pad.value = LAB.pad || "";
+    if(LAB.padH) pad.style.height = LAB.padH + "px";
+  }
+  labBarPaint();
+}
+function labToggleSize(want){
+  if(!LAB) return;
+  LAB.small = want == null ? !LAB.small : !!want;
+  labSave();
+  labSizeApply();
+  labPlace();
+  if(!LAB.small) labRender();
 }
 function labMarkReview(inp){
   const field = inp.dataset.lab.split(".")[1];
@@ -25706,7 +25959,6 @@ function labSet(path, value){
     else LAB.review[p[1]] = value;
     return;
   }
-  if(path === "issue.acc"){ LAB.issue.acc = value; return; }
   if(p[0] === "issue"){
     const sec = LAB.issue.secs[p[1]];
     const row = sec && sec[p[2]] && sec[p[2]][+p[3]];
@@ -25714,12 +25966,6 @@ function labSet(path, value){
     return;
   }
   if(p[0] === "snitch") LAB.snitch[p[1]] = value;
-}
-function labScanTidy(v){
-  let s = String(v || "").trim();
-  if(/^\d{7}[A-Z]\d{2}$/i.test(s)) s = s.slice(0, 7);
-  if(/^\d{30,}$/.test(s)) s = s.slice(-12);
-  return s;
 }
 function labAppendText(bit){
   const s = LAB.snitch;
@@ -25748,12 +25994,6 @@ async function labAction(b){
     case "addSm": iss.secs[s].sm.push({value:""}); break;
     case "dropSm": iss.secs[s].sm.splice(i, 1); break;
     case "fold": iss.shut = iss.shut || {}; iss.shut[s] = !iss.shut[s]; break;
-    case "scan": {
-      const v = labScanTidy(el("labScan") ? el("labScan").value : sn.scan);
-      sn.scan = "";
-      if(el("labScan")){ el("labScan").value = ""; el("labScan").focus(); }
-      labAppendText(v); redraw = false; break;
-    }
     case "phrase": labAppendText(((sn.phrases || LAB_PHRASES)[i] || {}).text); redraw = false; break;
     case "editPhrases": {
       const now = (sn.phrases || LAB_PHRASES).map(p=>p.label === p.text ? p.text : p.label + " | " + p.text).join("\n");
@@ -25833,7 +26073,64 @@ function wireLab(){
   dlg.addEventListener("close", ()=>{ labSugShut(); if(labDirty) labSave(true); });
   dlg.querySelectorAll("[data-labtab]").forEach(b=>b.onclick = ()=>{
     if(!LAB) return;
-    LAB.tab = b.dataset.labtab; labSave(); labRender();
+    LAB.tab = b.dataset.labtab; LAB.small = false; labSave(); labRender();
+  });
+  el("labSize").onclick = ()=>labToggleSize();
+  el("labTitle").onclick = ()=>labToggleSize();
+  const pad = el("labPad");
+  pad.addEventListener("input", ()=>{ if(!LAB) return; LAB.pad = pad.value; labSave(); });
+  el("labPadCopy").onclick = async()=>{
+    const v = pad.value.trim();
+    if(!v){ labSay("The pad is empty."); return; }
+    labSay(await copyPlain(v) ? "Copied the pad" : "The browser would not copy it");
+  };
+  el("labPadClear").onclick = ()=>{
+    if(!pad.value.trim() || !confirm("Clear the pad?")) return;
+    pad.value = ""; LAB.pad = ""; labSave(); pad.focus();
+  };
+  /* the height you drag it to is the height it comes back at */
+  if(window.ResizeObserver){
+    let t = 0;
+    new ResizeObserver(()=>{
+      if(!LAB || !dlg.open) return;
+      const h = Math.round(pad.getBoundingClientRect().height);
+      if(h > 0 && Math.abs(h - (LAB.padH || 0)) > 2){
+        clearTimeout(t); t = setTimeout(()=>{ LAB.padH = h; labSave(); }, 300);
+      }
+    }).observe(pad);
+  }
+  /* not a blocking dialog any more, so Esc is handled here: it shrinks first */
+  dlg.addEventListener("keydown", ev=>{
+    if(ev.key !== "Escape" || ev.defaultPrevented) return;
+    ev.preventDefault(); ev.stopPropagation();
+    if(LAB && !LAB.small) labToggleSize(true); else dlg.close();
+  });
+  window.addEventListener("resize", ()=>{ if(dlg.open) labPlace(); });
+  const bar = el("labBar");
+  bar.addEventListener("input", ()=>{ if(!LAB) return; LAB.bar = bar.value; LAB.barPick = {}; labBarPaint(); labSave(); });
+  bar.addEventListener("keydown", ev=>{ if(ev.key === "Enter"){ ev.preventDefault(); labBarAdd(); } });
+  el("labBarAdd").onclick = ()=>labBarAdd();
+  el("labDateFmt").onclick = ()=>{
+    if(!LAB) return;
+    LAB.dateIso = !LAB.dateIso;
+    /* every date already written in the issue boxes follows */
+    Object.values(LAB.issue.secs).forEach(sec=>{
+      sec.pw.forEach(p=>{ const r = labParseDate(p.inst, "dob"); if(r && /\d{4}/.test(p.inst)) p.inst = labShowDate(r); });
+      sec.sm.forEach(x=>{ const r = labParseDate(x.value, "dob"); if(r && /\d{4}/.test(x.value)) x.value = labShowDate(r); });
+    });
+    labSave(); labRender();
+  };
+  dlg.querySelector(".lab-bar").addEventListener("click", ev=>{
+    const f = ev.target.closest("[data-flip]");
+    if(f){
+      const i = +f.dataset.flip, it = labBarRead().find(x=>x.i === i);
+      LAB.barPick = LAB.barPick || {};
+      LAB.barPick[i] = it ? (it.at + 1) % it.alts.length : 0;
+      labBarPaint(); labSave(); return;
+    }
+    if(ev.target.closest("[data-unpin]")){ LAB.pins = null; labBarPaint(); labSave(); return; }
+    const go = ev.target.closest("[data-laburl]");
+    if(go){ ev.preventDefault(); window.open(go.dataset.laburl, "_blank", "noopener"); }
   });
   el("labCopy").onclick = async()=>{
     const v = el("labOut").value.trim();
@@ -25871,7 +26168,7 @@ function wireLab(){
     if(!path) return;
     if(path.startsWith("review.")) labMarkReview(inp);
     if(inp.dataset.labdate && inp.value.trim()){
-      const fixed = labFixDate(inp.value);
+      const fixed = labFixDate(inp.value, path.split(".")[1] === "doc" ? "doc" : "dob");
       if(fixed !== inp.value){ inp.value = fixed; labSet(path, fixed); labRefreshOut(); labSave(); }
       const sec = path.split(".")[1];
       if(sec === "dob") labMarkNear(inp);
@@ -25883,6 +26180,8 @@ function wireLab(){
     }, 150);
   });
   body.addEventListener("focusin", ev=>{
+    const lp = ev.target.dataset && ev.target.dataset.lab;
+    if(lp && lp.startsWith("issue.")) labLastIssue = lp;
     if(ev.target.id === "labTarget") labSugShow("target");
     else if(ev.target.id === "labMe") labSugShow("me");
     else labSugShut();
@@ -25908,9 +26207,6 @@ function wireLab(){
         ev.preventDefault(); labSugTake(labSug.at);
       } else if(open && ev.key === "Escape"){ ev.preventDefault(); ev.stopPropagation(); labSugShut(); }
     }
-    if(ev.target.id === "labScan" && ev.key === "Enter"){
-      ev.preventDefault(); labAction({dataset:{labdo:"scan"}});
-    }
   });
   /* a closed laptop lid or a pulled plug should not cost the last few words */
   const flush = ()=>{ if(labDirty && LAB) labSave(true); };
@@ -25923,8 +26219,11 @@ async function openLab(tab){
   await labLoad();
   if(tab) LAB.tab = tab;
   labSavedNote(Store.mode === "idb" || Store.mode === "ls" ? "Kept on this computer" : "Not being kept on this computer");
+  if(tab) LAB.small = false;
   labRender();
-  if(!dlg.open) dlg.showModal();
+  labPlace();
+  if(!dlg.open) dlg.show();
+  const bar = el("labBar"); if(bar) bar.focus();
 }
 
 const HELP_TOPICS = [
@@ -25966,6 +26265,19 @@ const HELP_TOPICS = [
   {id:"lab", title:"Lab tools", body:`
     <h3>Lab tools</h3>
     <p class="lead"><b>&#9879; Lab tools</b> on the bar at the bottom writes your review lines, issue lines and #snitch entries for you.</p>
+    <h4>Shrink it down</h4>
+    <p><b>&#9662; Shrink</b> (or Esc, or tapping the title) folds Lab tools down to just the scan bar and the <b>pad</b>, docked above the bottom bar so the map stays usable. <b>&#9652; Expand</b> brings Review, Issue and Snitch back. The pad is a free notepad under the scan bar &mdash; drag its corner to make it as big as you like, and it stays that size. While shrunk, <b>Add</b> puts the cleaned-up scan onto the pad, one line each time. Esc on the shrunk panel closes it; nothing is lost.</p>
+    <h4>The scan bar</h4>
+    <p>The line at the top of every tab reads whatever you scan or paste, as many pieces at once as you like:</p>
+    <ul>
+      <li><b>Tubes</b>: 3633853A01 and 3633853-A02 both become 3633853, said once; a 99 in front of a 9-digit one is dropped.</li>
+      <li><b>FedEx</b>: a long barcode becomes its last 12 digits. <b>UPS</b> (1Z&hellip;) and <b>USPS</b> are recognised too.</li>
+      <li><b>Portals</b> (8 digits), <b>kits</b> (anything with dashes), <b>OCB</b> numbers and lots.</li>
+      <li><b>Dates</b> in any short form: 14, 10/4, 1004, 100426, 10042026, 2026-10-04. A collection date is never in the future, so 14 typed on the 5th is last month's 14th. <b>MM/DD/YYYY</b> beside the bar switches every date to <b>YYYY-MM-DD</b> and back.</li>
+      <li>Each piece shows as a chip saying what it was read as. If it could be two things (an 8-digit number that is also a date), <b>&#8644;</b> flips it.</li>
+      <li>Accessions, tracking numbers and portals get their link buttons right away; after you add them the links stay until you put them away with &times;.</li>
+    </ul>
+    <p><b>Add</b> (or Enter) puts it where it belongs on the tab you are on (or onto the pad when shrunk). <b>Review</b>: accessions, portals and kits into their boxes, anything else into Additional notes. <b>Issue</b>: a date into the date box you were last in, or DOC if it is recent and DOB if not; a name into the name box you were last in. <b>Snitch</b>: everything into What happened. Nothing opens LIMS by itself.</p>
     <h4>Review</h4>
     <ul>
       <li>Fill in what you have: accession, portal, account, provider, samples, paperwork, test code, kit ID, notes.</li>
@@ -25984,12 +26296,11 @@ const HELP_TOPICS = [
     <ul>
       <li><b>Your initials</b>: type yours or start typing your name, and pick yourself from the list. The list shows whose initials are whose; only the initials go in. Under the box it says whose initials you have typed, so a slip shows before you paste.</li>
       <li><b>Who it is about</b>: start typing a name or someone's initials and pick them. The list shows their full roster name; only their first name goes in the sentence.</li>
-      <li><b>Quick scan</b> tidies a tube (3633853A01 &rarr; 3633853) or a long FedEx barcode (its last 12 digits) and adds it.</li>
       <li>Quick phrases add the usual wording; <b>Edit phrases</b> makes them your own.</li>
       <li><b>Copy the sentence</b> copies <i>#snitch [[Name]] what happened #ABC</i> to paste where #snitches go. Nothing is listed or kept here &mdash; <b>Start a new one</b> empties it for the next.</li>
     </ul>
     <h4>Opening a number</h4>
-    <p>Any accession you type or scan (7 digits &mdash; 3633853A01 counts as 3633853) gets buttons for <b>LIMS</b>, <b>PDM</b>, <b>Spade</b>, <b>DocViewer</b> and <b>Nucleus</b>; a tracking number gets <b>DNA Tracker</b>; a number in <b>New portal #</b> on Review gets <b>Portal requisition</b>, which opens it in the admin portal. They show under the accession boxes on Review, under the accession box at the top of Issue, and under <b>What happened</b> on Snitch. Each opens in a new tab, signed in as you.</p>
+    <p>Any accession in the scan bar or typed into the boxes (7 digits &mdash; 3633853A01 counts as 3633853) gets buttons for <b>LIMS</b>, <b>PDM</b>, <b>Spade</b>, <b>DocViewer</b> and <b>Nucleus</b>; a tracking number gets <b>DNA Tracker</b>; a number in <b>New portal #</b> on Review gets <b>Portal requisition</b>, which opens it in the admin portal. They show under the scan bar, under the accession boxes on Review, and under <b>What happened</b> on Snitch. Each opens in a new tab, signed in as you.</p>
     <h4>Where it is kept</h4>
     <p>On this computer only, under your name, saved as you type &mdash; so if the computer shuts down or the page closes, open Lab tools again and carry on. It never goes into the map, the workbook or anywhere else. Use <b>Clear the review</b>, <b>Clear the issue</b> or <b>Start a new one</b> when you are done.</p>`},
   {id:"room", title:"Inside a room", body:`
@@ -28258,7 +28569,7 @@ function wireRoom(){
     if(!inRoom()) return;
     const tag = (ev.target && ev.target.tagName) || "";
     if(/INPUT|TEXTAREA|SELECT/.test(tag) || ev.target.isContentEditable) return;
-    if(document.querySelector("dialog[open]")) return;
+    if(document.querySelector("dialog[open]:not(#labDlg)")) return;
     const things = [...el("rvField").querySelectorAll(".rv-thing")];
     if(ev.key === "Escape"){
       if(listOpen){ showList(false); ev.preventDefault(); return; }
@@ -29456,7 +29767,7 @@ async function boot(){
     const typing = /INPUT|TEXTAREA|SELECT/.test(ae.tagName) || !!(ae && ae.isContentEditable);
     if(ev.key === "Escape" && tour){ endTour(false); return; }
     if(ev.key === "/" && !typing && !ev.ctrlKey && !ev.metaKey && !ev.altKey
-       && !document.querySelector("dialog[open]")){
+       && !document.querySelector("dialog[open]:not(#labDlg)")){
       ev.preventDefault();
       const box = (typeof inRoom === "function" && inRoom()) || S.viewerBuild ? el("mq") : el("q");
       (box && box.getClientRects().length ? box : el("mq") || el("q")).focus();
@@ -29464,7 +29775,7 @@ async function boot(){
     if(ev.key === "Escape" && S.selectMode){ setSelectMode(false); clearPair(); return; }
     /* Escape means "show me everything again" before it means anything else:
        clearing the filter closes the results panel with it */
-    if(ev.key === "Escape" && anyFilterOn() && !document.querySelector("dialog[open]")){
+    if(ev.key === "Escape" && anyFilterOn() && !document.querySelector("dialog[open]:not(#labDlg)")){
       ev.preventDefault(); clearTheSearch(); return; }
     if(ev.key === "Escape" && el("resultsPop") && !el("resultsPop").hidden){
       closeResults(); return; }
