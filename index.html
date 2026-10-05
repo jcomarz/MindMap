@@ -3714,7 +3714,7 @@ dialog#labDlg.small .lab-totab{display:none}
 .lab-pinned{display:flex;align-items:flex-start;gap:6px}
 .lab-pinned>div{flex:1}
 .lab-unpin{width:24px;height:24px;flex:0 0 auto;font-size:13px}
-@media (max-width:560px){ #labDateFmt{font-size:10px;padding:3px 5px} .lab-where{display:none} }
+@media (max-width:560px){ #labDateFmt{font-size:10px;padding:3px 5px} .lab-where{display:none} .lab-saved{display:none} }
 .lab-tabs{display:flex;gap:4px;padding:8px 16px 0;border-bottom:1px solid var(--rule)}
 .lab-tab{flex:1;border:1px solid var(--rule);border-bottom:0;background:var(--paper-2);color:var(--graphite);
   padding:8px 6px;font:inherit;font-size:13px;font-weight:600;border-radius:3px 3px 0 0;cursor:pointer}
@@ -3722,6 +3722,7 @@ dialog#labDlg.small .lab-totab{display:none}
 .lab-out{padding:8px 16px 10px;border-bottom:1px solid var(--rule);background:var(--paper-2)}
 .lab-outhead{display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:12px;font-weight:600}
 .lab-outhead>span:first-child{flex:1}
+.lab-outhead{flex-wrap:wrap}
 .lab-saved{font-weight:400;color:var(--graphite-60);font-size:11px}
 .btn.small{padding:3px 9px;font-size:12px;min-height:0}
 #labOut{font-family:var(--mono);font-size:12px;min-height:58px;height:72px;background:var(--paper)}
@@ -3787,6 +3788,40 @@ html[data-theme="dark"] .lab-status.clash{color:#F08A80}
 .lab-sugbox div{padding:6px 9px;cursor:pointer;font-size:13px;display:flex;justify-content:space-between;gap:8px}
 .lab-sugbox div.at,.lab-sugbox div:hover{background:var(--blueprint-soft)}
 .lab-sugbox div i{font-style:normal;font-family:var(--mono);font-size:11.5px;color:var(--graphite-60)}
+/* ---- lab tools layout: the scan bar, list and pad down the left, the tools
+   taking everything else; one column on a narrow screen ---- */
+dialog#labDlg{width:min(1320px,calc(100vw - 28px));height:calc(100dvh - var(--lab-bottom,14px) - 14px)}
+dialog#labDlg.small{width:min(460px,calc(100vw - 28px));height:auto}
+dialog#labDlg .dlg-head{gap:8px}
+dialog#labDlg .dlg-head h2{margin-right:auto}
+.lab-said{flex:0 1 auto;text-align:right}
+.lab-saved{font-size:11px;color:var(--graphite-60);white-space:nowrap;cursor:help}
+.lab-main{flex:1;min-height:0;display:flex}
+.lab-bar{flex:0 0 clamp(330px,31%,430px);display:flex;flex-direction:column;min-height:0;overflow-y:auto;
+  padding:12px 14px;border-bottom:0;border-right:1px solid var(--rule);background:var(--paper-2)}
+.lab-dockbody{flex:1;min-height:0;display:flex;flex-direction:column}
+.lab-bar .lab-list{flex:0 1 auto;min-height:0;max-height:none;overflow-y:auto;background:var(--paper)}
+.lab-bar #labPad{flex:0 0 auto;background:var(--paper)}
+.lab-more{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column}
+.lab-more .lab-tabs{padding-top:10px}
+.lab-more .lab-out{background:var(--paper)}
+#labOut{height:64px}
+.lab-docktog{display:none}
+.lab-row2 .lab-rowacts{margin-left:auto}
+dialog#labDlg.small .lab-main{display:block}
+dialog#labDlg.small .lab-bar{border-right:0;overflow:visible}
+dialog#labDlg.small .lab-list{max-height:34vh}
+@media (max-width:900px){
+  .lab-main{flex-direction:column}
+  .lab-bar{flex:0 0 auto;overflow:visible;border-right:0;border-bottom:1px solid var(--rule);padding:8px 12px}
+  .lab-docktog{display:flex;align-items:center;gap:6px;margin-top:6px;border:1px solid var(--rule);border-radius:3px;
+    background:var(--paper);color:var(--graphite);font:inherit;font-size:12.5px;font-weight:600;padding:5px 9px;cursor:pointer}
+  .lab-docktog::after{content:"\25B8";margin-left:auto;color:var(--graphite-60)}
+  .lab-docktog[aria-expanded="true"]::after{content:"\25BE"}
+  dialog#labDlg:not(.small).dockshut .lab-dockbody{display:none}
+  dialog#labDlg.small .lab-docktog{display:none}
+  .lab-bar .lab-list{max-height:30vh}
+}
 dialog#tagDlg{border:1px solid var(--graphite);border-radius:3px;padding:0;background:var(--paper);
   width:min(420px,94vw);max-height:86dvh;color:var(--graphite);display:flex;flex-direction:column}
 dialog#tagDlg::backdrop{background:rgba(35,40,45,.42)}
@@ -5369,41 +5404,45 @@ body.viewing.panelaway #panelHide{display:none}
   <div class="dlg-head">
     <h2 id="labTitle" title="Shrink or expand">Lab tools</h2>
     <span class="lab-said" id="labSaid" role="status" aria-live="polite"></span>
-    <button class="btn" id="labSize" aria-expanded="true" title="Shrink to just the scan bar and the pad">&#9662; Shrink</button>
+    <span class="lab-saved" id="labSaved" title="Kept on this computer only, under your name, so a crash or a closed tab loses nothing. It never goes into the map or the workbook. Clear it when you are done."></span>
+    <button class="btn" id="labSize" aria-expanded="true" title="Shrink to just the scan bar, the list and the pad">&#9662; Shrink</button>
     <button class="btn" id="labClose">Done</button>
   </div>
-  <div class="lab-bar">
-    <div class="lab-barrow">
-      <input type="text" id="labBar" autocomplete="off" spellcheck="false" aria-label="Scan or paste"
-        placeholder="Scan or paste: tubes, FedEx, UPS, kits, portals, dates&hellip;">
-      <button class="btn small" id="labDateFmt" title="How dates are written: tap to switch between 10/05/2026 and 2026-10-05" aria-pressed="false">MM/DD/YYYY</button>
-      <button class="btn small primary" id="labBarAdd" disabled title="Put what it read on the output list below (Enter)">Add &#8629;</button>
-    </div>
-    <div class="lab-chips" id="labChips"></div>
-    <div class="lab-list" id="labList"></div>
-    <div class="lab-padhead"><span>Pad</span>
-      <button class="btn small" id="labPadCopy">Copy</button>
-      <button class="btn small" id="labPadClear">Clear</button></div>
-    <textarea id="labPad" spellcheck="false" placeholder="Anything you want to jot down. Drag the corner to make it bigger. Rows from the output list land here with &rarr; Pad."></textarea>
-  </div>
-  <div class="lab-more" id="labMore">
-  <div class="lab-tabs" role="tablist">
-    <button class="lab-tab" data-labtab="review" role="tab">Review</button>
-    <button class="lab-tab" data-labtab="issue" role="tab">Issue</button>
-    <button class="lab-tab" data-labtab="snitch" role="tab">Snitch</button>
-  </div>
-  <div class="lab-out" id="labOutWrap">
-    <div class="lab-outhead">
-      <span>Live output</span>
-      <span class="lab-saved" id="labSaved"></span>
-      <button class="btn small primary" id="labCopy">Copy</button>
-      <button class="btn small" id="labOutClear" title="Empty the output box; your fields stay">Clear output</button>
-    </div>
-    <textarea id="labOut" spellcheck="false" placeholder="Fills in as you type below. You can add to the end of it yourself."></textarea>
-  </div>
-  <div class="dlg-body lab-body" id="labBody"></div>
-  <p class="lab-foot fineprint"><span class="long">Kept on this computer only, under your name, so a crash or a closed tab loses nothing.
-    It never goes into the map or the workbook. Clear it when you are done.</span><span class="short">Kept on this computer only &mdash; never in the map. Clear it when done.</span></p>
+  <div class="lab-main">
+    <aside class="lab-bar" aria-label="Scan bar, output list and pad">
+      <div class="lab-barrow">
+        <input type="text" id="labBar" autocomplete="off" spellcheck="false" aria-label="Scan or paste"
+          placeholder="Scan or paste: tubes, FedEx, kits, portals, dates&hellip;">
+        <button class="btn small" id="labDateFmt" title="How new dates are written: tap to switch between 10/05/2026 and 2026-10-05" aria-pressed="false">MM/DD/YYYY</button>
+        <button class="btn small primary" id="labBarAdd" disabled title="Put what it read on the output list (Enter)">Add &#8629;</button>
+      </div>
+      <div class="lab-chips" id="labChips"></div>
+      <button type="button" class="lab-docktog" id="labDockTog" aria-expanded="false">Output list &amp; pad</button>
+      <div class="lab-dockbody" id="labDockBody">
+        <div class="lab-list" id="labList"></div>
+        <div class="lab-padhead"><span>Pad</span>
+          <button class="btn small" id="labPadCopy">Copy</button>
+          <button class="btn small" id="labPadClear">Clear</button></div>
+        <textarea id="labPad" spellcheck="false" placeholder="Anything you want to jot down. Drag the corner to make it bigger. Rows from the output list land here with &rarr; Pad."></textarea>
+      </div>
+    </aside>
+    <section class="lab-more" id="labMore">
+      <div class="lab-tabs" role="tablist">
+        <button class="lab-tab" data-labtab="review" role="tab">Review</button>
+        <button class="lab-tab" data-labtab="issue" role="tab">Issue</button>
+        <button class="lab-tab" data-labtab="snitch" role="tab">Snitch</button>
+      </div>
+      <div class="lab-out" id="labOutWrap">
+        <div class="lab-outhead">
+          <span>Live output</span>
+          <button class="btn small primary" id="labCopy">Copy</button>
+          <button class="btn small" id="labOutClear" title="Empty the output box; your fields stay">Clear output</button>
+          <button class="btn small" id="labTabClear" title="Empty every box on this tab">Clear the review</button>
+        </div>
+        <textarea id="labOut" spellcheck="false" placeholder="Fills in as you type below. You can add to the end of it yourself."></textarea>
+      </div>
+      <div class="dlg-body lab-body" id="labBody"></div>
+    </section>
   </div>
 </dialog>
 
@@ -20558,7 +20597,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-10-05g";
+const APP_BUILD = "2026-10-05h";
 
 /* Reading that line back out of a copy of this file.
 
@@ -25323,7 +25362,7 @@ function labBlankReview(){
   return r;
 }
 function labBlank(){
-  return {tab:"review", initials:"", bar:"", barPick:{}, outs:[], dateIso:false, pad:"", padH:0, small:false, review:labBlankReview(), issue:labBlankIssue(),
+  return {tab:"review", initials:"", bar:"", barPick:{}, outs:[], dateIso:false, pad:"", padH:0, small:false, dockOpen:false, review:labBlankReview(), issue:labBlankIssue(),
     snitch:{target:"", text:"", scan:"", phrases:null}};
 }
 let LAB = null, labKey = "", labSaveT = 0, labDirty = false;
@@ -25609,6 +25648,8 @@ function labRowLinks(o){
 function labListPaint(){
   const box = el("labList");
   if(!box || !LAB) return;
+  const tog = el("labDockTog");
+  if(tog){ const n = (LAB.outs || []).length; tog.textContent = "Output list" + (n ? " (" + n + ")" : "") + " & pad" + (String(LAB.pad || "").trim() ? " \u00b7 pad has notes" : ""); }
   const outs = LAB.outs || [];
   if(!outs.length){ box.innerHTML = ""; return; }
   const tab = labTabName();
@@ -25875,8 +25916,7 @@ function labField(path, label, value, ph, wide, extra){
 }
 function labReviewHTML(){
   const r = LAB.review;
-  return `<div class="lab-tools"><button class="btn small" data-labdo="clearReview">Clear the review</button></div>
-  <section class="lab-sec"><h3>Accession and account</h3><div class="lab-grid">
+  return `<section class="lab-sec"><h3>Accession and account</h3><div class="lab-grid">
     ${LAB_REVIEW.map(([k, l, p])=>labField("review." + k, l, r[k], p)).join("")}
   </div><div class="lab-linkbox" data-lablinks="review"></div></section>
   <section class="lab-sec" style="border-left-color:#1E8C5A"><h3>Samples</h3>
@@ -25917,9 +25957,8 @@ function labIssueHTML(){
   const fold = (key, title, colour, inner)=>`<section class="lab-sec fold${shut[key] ? " shut" : ""}" style="border-left-color:${colour}">
     <h3 data-labdo="fold" data-s="${key}"><span class="grow">${esc(title)}</span><span aria-hidden="true">${shut[key] ? "+" : "−"}</span></h3>
     <div class="lab-in">${inner}</div></section>`;
-  return `<div class="lab-tools"><button class="btn small" data-labdo="clearIssue">Clear the issue</button></div>
-    <p class="lab-hint" style="margin:0 0 8px">Type what each piece of paperwork and each tube says. Anything that disagrees turns red,
-      and the issue line writes itself above. Dates can be typed short: <b>812</b> is 08/12 this year, <b>081290</b> is 08/12/1990. A date added from the scan bar goes in the box you were last in, or to DOC if it is recent and DOB if not.</p>
+  return `<p class="lab-hint" style="margin:0 0 8px">Type what each piece of paperwork and each tube says &mdash; anything that disagrees turns red and the issue line writes itself.
+      Short dates work: <b>812</b>, <b>081290</b>.</p>
     ${fold("name", "Patient name", "var(--blueprint)", `<div class="lab-pair">${labIssueSecHTML("firstName", "First name")}${labIssueSecHTML("lastName", "Last name")}</div>`)}
     ${fold("dob", "DOB (date of birth)", "#1E8C5A", labIssueSecHTML("dob"))}
     ${fold("doc", "DOC (date of collection)", "#7B5BC9", labIssueSecHTML("doc"))}`;
@@ -25970,6 +26009,7 @@ function labRender(){
     b.setAttribute("aria-selected", b.dataset.labtab === t ? "true" : "false");
   });
   el("labOutWrap").hidden = t === "snitch";
+  if(el("labTabClear")) el("labTabClear").textContent = t === "issue" ? "Clear the issue" : "Clear the review";
   body.innerHTML = t === "review" ? labReviewHTML() : t === "issue" ? labIssueHTML() : labSnitchHTML();
   if(t === "review") body.querySelectorAll('[data-lab^="review."]').forEach(i=>labMarkReview(i));
   if(t === "issue"){
@@ -25997,6 +26037,13 @@ function labSizeApply(){
   const dlg = el("labDlg"), b = el("labSize");
   if(!dlg || !LAB) return;
   dlg.classList.toggle("small", !!LAB.small);
+  dlg.classList.toggle("dockshut", !LAB.dockOpen);
+  const tog = el("labDockTog");
+  if(tog){
+    const n = (LAB.outs || []).length, padded = String(LAB.pad || "").trim() ? " \u00b7 pad has notes" : "";
+    tog.textContent = "Output list" + (n ? " (" + n + ")" : "") + " & pad" + padded;
+    tog.setAttribute("aria-expanded", LAB.dockOpen ? "true" : "false");
+  }
   if(b){
     b.innerHTML = LAB.small ? "&#9652; Expand" : "&#9662; Shrink";
     b.title = LAB.small ? "Bring back Review, Issue and Snitch" : "Shrink to just the scan bar and the pad";
@@ -26156,6 +26203,8 @@ function wireLab(){
     LAB.tab = b.dataset.labtab; LAB.small = false; labSave(); labRender();
   });
   el("labSize").onclick = ()=>labToggleSize();
+  /* on a narrow screen the list and pad fold away so the tools get the room */
+  el("labDockTog").onclick = ()=>{ if(!LAB) return; LAB.dockOpen = !LAB.dockOpen; labSave(); labSizeApply(); };
   el("labTitle").onclick = ()=>labToggleSize();
   const pad = el("labPad");
   pad.addEventListener("input", ()=>{ if(!LAB) return; LAB.pad = pad.value; labSave(); });
@@ -26218,6 +26267,7 @@ function wireLab(){
     if(!v){ labSay("Nothing to copy yet."); return; }
     labSay(await copyPlain(v) ? "Copied" : "The browser would not copy it");
   };
+  el("labTabClear").onclick = ()=>labAction({dataset:{labdo:LAB && LAB.tab === "issue" ? "clearIssue" : "clearReview"}});
   el("labOutClear").onclick = ()=>{
     const t = LAB[LAB.tab]; if(!t) return;
     t.manual = ""; t.shown = ""; el("labOut").value = ""; labSave();
@@ -26347,7 +26397,7 @@ const HELP_TOPICS = [
     <h3>Lab tools</h3>
     <p class="lead"><b>&#9879; Lab tools</b> on the bar at the bottom writes your review lines, issue lines and #snitch entries for you.</p>
     <h4>Shrink it down</h4>
-    <p><b>&#9662; Shrink</b> (or Esc, or tapping the title) folds Lab tools down to the scan bar, the output list and the <b>pad</b>, docked above the bottom bar so the map stays usable. <b>&#9652; Expand</b> brings Review, Issue and Snitch back. The pad is a free notepad &mdash; drag its corner to make it as big as you like, and it stays that size. Esc on the shrunk panel closes it; nothing is lost.</p>
+    <p>On a wide screen the scan bar, output list and pad run down the left and Review, Issue and Snitch get the rest; on a narrow one, <b>Output list &amp; pad</b> under the scan bar opens and closes them so the tools keep the room. <b>&#9662; Shrink</b> (or Esc, or tapping the title) folds Lab tools down to the scan bar, the output list and the <b>pad</b>, docked above the bottom bar so the map stays usable. <b>&#9652; Expand</b> brings Review, Issue and Snitch back. The pad is a free notepad &mdash; drag its corner to make it as big as you like, and it stays that size. Esc on the shrunk panel closes it; nothing is lost.</p>
     <h4>The scan bar</h4>
     <p>The line at the top of every tab reads whatever you scan or paste, as many pieces at once as you like:</p>
     <ul>
