@@ -1630,6 +1630,32 @@ dialog#flowView::backdrop{background:rgba(0,0,0,.6)}
 .fv-walkgo{display:flex;flex-wrap:wrap;gap:8px}
 .fv-walkgo .btn{font-weight:700;padding:9px 16px}
 .fv-walkctl{display:flex;gap:8px;justify-content:flex-end}
+.fv-walkscan{display:flex;gap:8px;flex-wrap:wrap}
+.fv-walkscan[hidden]{display:none}
+.fv-walkscan input{flex:2 1 200px;min-width:0;font-family:var(--mono);font-size:14px;padding:8px 10px;border:1.5px solid #2D6CDF;border-radius:8px;background:#fff;color:#1f2328}
+.fv-walkscan select{flex:1 1 160px;min-width:0;padding:8px;border:1px solid #cfd3cc;border-radius:8px;background:#fff;color:#1f2328}
+.fv-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:8px;max-height:min(42vh,340px);overflow-y:auto;padding:2px}
+.fv-cards[hidden]{display:none}
+.fv-card{position:relative;display:flex;flex-direction:column;border:1.5px solid #d6dad3;border-top:4px solid var(--c,#2D6CDF);border-radius:9px;
+  background:#fff;cursor:pointer;overflow:hidden;transition:transform .12s,box-shadow .12s}
+.fv-card:hover,.fv-card:focus-visible{transform:translateY(-2px);box-shadow:0 6px 16px rgba(0,0,0,.16);outline:none}
+.fv-card img{width:100%;height:86px;object-fit:cover;background:#eef0ec;display:block}
+.fv-card.nopic img{display:none}
+.fv-cardph{height:46px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;color:var(--c,#2D6CDF);background:#f3f5f2}
+.fv-card b{font-size:12.5px;line-height:1.3;padding:6px 8px;color:#1f2328}
+.fv-zoom{position:absolute;top:6px;right:6px;border:0;border-radius:6px;background:rgba(255,255,255,.88);cursor:pointer;font-size:12px;padding:2px 5px}
+.fv-none{margin:0;font-size:12.5px;color:#6b7280}
+dialog#flowView.fv-dark .fv-card{background:#232930;border-color:#3d454e}
+dialog#flowView.fv-dark .fv-card b{color:#eef1f4}
+dialog#flowView.fv-dark .fv-cardph{background:#2a3038}
+.fv-said:empty{display:none}
+.fv-said{font-size:12.5px;color:#4b5563}
+.fv-said.hit{color:#1C7A4E;font-weight:600}
+.fv-said.miss{color:#A9322A;font-weight:600}
+dialog#flowView.fv-dark .fv-walkscan input,dialog#flowView.fv-dark .fv-walkscan select{background:#2a3038;color:#eef1f4;border-color:#3d454e}
+dialog#flowView.fv-dark .fv-walkscan input{border-color:#5B95F0}
+dialog#flowView.fv-dark .fv-said{color:#9aa4ae}
+dialog#flowView.fv-dark .fv-said.hit{color:#6FD1A0} dialog#flowView.fv-dark .fv-said.miss{color:#F08A80}
 #flowView .pv-bar .btn{background:#2a2e33;color:#f2f2f2;border-color:#4a5058}
 #flowView .pv-bar .btn.primary{background:#2D6CDF;border-color:#2D6CDF}
 #flowView .pv-bar{background:#23272c}
@@ -5049,6 +5075,12 @@ body.viewing.panelaway #panelHide{display:none}
   <div class="fv-walkbar" id="fvWalkBar" hidden>
     <div class="fv-walktext"><small id="fvWalkKind"></small><b id="fvWalkText"></b></div>
     <div class="fv-walkgo" id="fvWalkGo"></div>
+    <div class="fv-walkscan" id="fvWalkScan" hidden>
+      <input type="text" id="fvWalkInput" autocomplete="off" spellcheck="false" aria-label="Scan or type an answer">
+      <select id="fvWalkPick" aria-label="Pick an answer from the list"></select>
+    </div>
+    <div class="fv-cards" id="fvWalkCards" hidden></div>
+    <div class="fv-said" id="fvWalkSaid" role="status" aria-live="polite"></div>
     <div class="fv-walkctl"><button class="btn" id="fvBack">&larr; Back</button><button class="btn" id="fvWalkEnd">Stop walking</button></div>
   </div>
   <div class="pv-bar">
@@ -5129,9 +5161,12 @@ body.viewing.panelaway #panelHide{display:none}
     </div>
     <div id="fePanelEdge" class="fe-row" hidden>
       <input type="text" id="feEdgeText" placeholder="Words on the arrow">
+      <input type="text" id="feEdgeMatch" placeholder="Scans that pick it: ExtrDNA 08, EXTR* &middot; * = anything else"
+        title="When someone walks the chart and scans or types something, this arrow is taken if it matches one of these. Separate them with commas. A * stands for any characters (EXTR* matches EXTRDNA08); * on its own means anything nothing else matched. Spaces and dashes are ignored, so ExtrDNA 08 matches EXTRDNA-08.">
       <button class="btn" data-fesay="YES">YES</button><button class="btn" data-fesay="NO">NO</button><button class="btn" data-fesay="">(none)</button>
       <label class="fe-mini"><span>Line</span><select id="feEdgeKind">
         <option value="">Elbows</option><option value="straight">Straight</option><option value="curve">Curved</option></select></label>
+      <button class="btn" id="fePic" title="A picture shown with this answer while someone walks the chart, so they can see which one they have">Picture&hellip;</button>
       <button class="btn" id="feFlip" title="Point it the other way">Flip</button>
       <button class="btn danger" id="feDelEdge">Delete</button>
     </div>
@@ -16023,6 +16058,102 @@ function fvShow(id){
   fv.x += dx; fv.y += dy; fvApply();
   setTimeout(()=>{ if(s) s.style.transition = ""; }, 380);
 }
+/* ---------- walking by scanning ----------------------------------
+   An arrow can carry the scans that choose it (e.m): "ExtrDNA 08, EXTR*".
+   Matching ignores case, spaces, dashes and dots, * stands for anything,
+   and an arrow whose list is just * is taken when nothing else matches. */
+function flowSquash(v){ return String(v || "").toLowerCase().replace(/[\s._\-\/]+/g, ""); }
+function flowPatterns(e){ return String(e.m || "").split(/[,;\n]+/).map(x=>x.trim()).filter(Boolean); }
+function flowPatHits(pat, typed){
+  const t = flowSquash(typed), p = flowSquash(pat);
+  if(!p || !t) return false;
+  if(p === "*") return false;
+  if(p.includes("*")){
+    const re = new RegExp("^" + p.split("*").map(x=>x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join(".*") + "$");
+    return re.test(t);
+  }
+  return t === p || t.includes(p);
+}
+/* which arrow out of here this scan picks: an exact label first, then the
+   arrows' own lists (the longest match wins), then the "anything else" one */
+function flowPick(outs, typed){
+  const t = flowSquash(typed);
+  if(!t) return null;
+  const byLabel = outs.find(e=>flowSquash(e.t) && flowSquash(e.t) === t);
+  if(byLabel) return {edge:byLabel, how:"label"};
+  let best = null, bestLen = -1;
+  outs.forEach(e=>flowPatterns(e).forEach(p=>{
+    if(flowPatHits(p, typed) && flowSquash(p).length > bestLen){ best = e; bestLen = flowSquash(p).length; }
+  }));
+  if(best) return {edge:best, how:"match"};
+  const other = outs.find(e=>flowPatterns(e).some(p=>p.trim() === "*") || /^\s*(else|other(wise)?|anything else)\s*$/i.test(e.t || ""));
+  if(other) return {edge:other, how:"else"};
+  return null;
+}
+/* ---------- answers as picture cards ----------------------------
+   While someone types, the answers that fit show as cards; an answer with a
+   picture shows it. With nothing typed, a question whose answers have
+   pictures shows them all. */
+function flowCardHits(outs, typed){
+  const q = flowSquash(typed);
+  if(!q) return outs;
+  return outs.filter(e=>{
+    const d = fv.d, to = d.nodes.find(x=>x.id === e.b);
+    const hay = [e.t, to && to.t].map(flowSquash);
+    if(hay.some(h=>h && h.includes(q))) return true;
+    return flowPatterns(e).some(p=>{ const sp = flowSquash(p); return sp !== "*" && (sp.replace(/\*/g, "").includes(q) || flowPatHits(p, typed)); });
+  });
+}
+function flowPicSrc(p, img){
+  if(!p) return;
+  if(typeof isFolderPath === "function" && isFolderPath(p)){
+    const now = picCache.get(p);
+    if(now){ img.src = now; return; }
+    picRead(p).then(u=>{ if(u) img.src = u; else img.closest(".fv-card") && img.closest(".fv-card").classList.add("nopic"); });
+  } else img.src = p;
+}
+function flowCardsPaint(){
+  const w = fv.walk, box = el("fvWalkCards");
+  if(!w || !box) return;
+  const outs = flowOutsOf(w.at);
+  const typed = el("fvWalkInput").value;
+  const pics = outs.some(e=>e.p);
+  const ask = !el("fvWalkScan").hidden;
+  const hits = ask ? flowCardHits(outs, typed) : [];
+  const show = ask && (String(typed).trim() ? true : pics);
+  box.hidden = !show;
+  if(!show){ box.innerHTML = ""; return; }
+  if(!hits.length){ box.innerHTML = `<p class="fv-none">No answer here fits \u201c${esc(typed.trim())}\u201d.</p>`; return; }
+  box.innerHTML = hits.map(e=>{
+    const to = fv.d.nodes.find(x=>x.id === e.b);
+    const say = String(e.t || "").trim() || (to && to.t ? to.t.slice(0, 50) : "This way");
+    const c = flowEdgeColor(e);
+    return `<div class="fv-card${e.p ? "" : " nopic"}" style="--c:${c}" data-fwcard="${esc(e.id)}" role="button" tabindex="0" title="${esc(say)}">
+      ${e.p ? `<img alt="" data-fwpic="${esc(e.p)}">` : `<span class="fv-cardph">${esc(say.slice(0, 2).toUpperCase())}</span>`}
+      <b>${esc(say)}</b>
+      ${e.p ? `<button type="button" class="fv-zoom" data-fwzoom="${esc(e.id)}" title="See it bigger">&#128269;</button>` : ""}</div>`;
+  }).join("");
+  box.querySelectorAll("img[data-fwpic]").forEach(img=>flowPicSrc(img.dataset.fwpic, img));
+}
+function flowOutsOf(at){
+  const d = fv.d;
+  const rank = e=>/^\s*(yes|y)\s*$/i.test(e.t || "") ? 0 : /^\s*(no|n)\s*$/i.test(e.t || "") ? 1 : 2;
+  return d.edges.filter(e=>e.a === at).sort((a, b)=>rank(a) - rank(b));
+}
+function flowWalkScan(typed){
+  const w = fv.walk; if(!w) return;
+  const v = String(typed || "").trim(); if(!v) return;
+  const outs = flowOutsOf(w.at);
+  const hit = flowPick(outs, v);
+  const say = el("fvWalkSaid");
+  if(!hit){
+    if(say){ say.textContent = "Nothing here matches \u201c" + v + "\u201d \u2014 pick one below."; say.className = "fv-said miss"; }
+    return;
+  }
+  /* the scan is remembered, so later questions it answers too are passed straight through */
+  w.scan = v;
+  flowWalkTake(hit.edge.id, true);
+}
 function flowWalkStart(){
   const d = fv.d; if(!d) return;
   const starts = flowStarts(d);
@@ -16036,7 +16167,7 @@ function flowWalkStart(){
     /* nothing points in: a START sticker sitting beside the first step */
     first = d.nodes[0];
   }
-  fv.walk = {at:first.id, trail:[]};
+  fv.walk = {at:first.id, trail:[], scan:""};
   el("fvWalkBar").hidden = false;
   el("fvStage").classList.add("walking");
   flowWalkPaint();
@@ -16058,8 +16189,7 @@ function flowWalkPaint(){
   });
   stage.querySelectorAll(".fe").forEach(g=>g.classList.toggle("been", w.trail.some(t=>t.edge === g.dataset.fe)));
   const n = d.nodes.find(x=>x.id === w.at);
-  const rank = e=>/^\s*(yes|y)\s*$/i.test(e.t || "") ? 0 : /^\s*(no|n)\s*$/i.test(e.t || "") ? 1 : 2;
-  const outs = d.edges.filter(e=>e.a === w.at).sort((a, b)=>rank(a) - rank(b));
+  const outs = flowOutsOf(w.at);
   el("fvWalkText").textContent = n ? (n.t || "(no words)") : "";
   const kind = !outs.length ? "end" : (n && n.s === "diamond") || outs.length > 1 ? "ask" : "step";
   el("fvWalkKind").textContent = kind === "end" ? "That's the end of this path." : kind === "ask" ? "Which is it?" : "";
@@ -16069,14 +16199,52 @@ function flowWalkPaint(){
     const c = flowEdgeColor(e);
     return `<button class="btn" data-fwgo="${esc(e.id)}" style="border-color:${c};box-shadow:inset 0 -3px 0 ${c}">${esc(say)}</button>`;
   }).join("") + (kind === "end" ? `<button class="btn primary" data-fwrestart="1">Start again</button>` : "");
+  /* a question can be answered by scanning or from a list as well as by buttons */
+  const scanBox = el("fvWalkScan");
+  const scannable = kind === "ask";
+  scanBox.hidden = !scannable;
+  if(scannable){
+    const sel = el("fvWalkPick");
+    sel.innerHTML = `<option value="">Pick from the list&hellip;</option>` + outs.map(e=>{
+      const to = d.nodes.find(x=>x.id === e.b);
+      const say = String(e.t || "").trim() || (to && to.t ? to.t.slice(0, 50) : "This way");
+      const hint = flowPatterns(e).filter(p=>p !== "*").join(", ");
+      return `<option value="${esc(e.id)}">${esc(say)}${hint ? " \u2014 " + esc(hint) : ""}</option>`;
+    }).join("");
+    sel.value = "";
+    const inp = el("fvWalkInput"); inp.value = "";
+    const any = outs.some(e=>flowPatterns(e).length);
+    inp.placeholder = any ? "Scan or type it here" : "Type an answer, or scan";
+    /* ready for the scanner without a click, except on touch where it would pop the keyboard */
+    if(any && !matchMedia("(pointer:coarse)").matches) setTimeout(()=>{ if(fv.walk && !el("fvWalkScan").hidden) inp.focus(); }, 30);
+  }
+  flowCardsPaint();
+  const said = el("fvWalkSaid");
+  if(said && !w.justMatched){ said.textContent = ""; said.className = "fv-said"; }
+  w.justMatched = "";
   el("fvBack").disabled = !w.trail.length;
   fvShow(w.at);
 }
-function flowWalkTake(edgeId){
+function flowWalkTake(edgeId, byScan){
   const w = fv.walk, d = fv.d; if(!w) return;
   const e = d.edges.find(x=>x.id === edgeId); if(!e) return;
+  if(!byScan) w.scan = "";
   const g = el("fvStage").querySelector(`.fe[data-fe="${CSS.escape(edgeId)}"] .fe-line`);
-  const go = ()=>{ w.trail.push({from:w.at, edge:e.id}); w.at = e.b; flowWalkPaint(); };
+  const go = ()=>{
+    w.trail.push({from:w.at, edge:e.id}); w.at = e.b;
+    if(byScan && w.scan){
+      const said = el("fvWalkSaid");
+      if(said){ said.textContent = "\u201c" + w.scan + "\u201d \u2192 " + (String(e.t || "").trim() || "this way"); said.className = "fv-said hit"; }
+      w.justMatched = "1";
+    }
+    flowWalkPaint();
+    /* the same scan answers the next question too? keep going */
+    if(byScan && w.scan){
+      const next = flowOutsOf(w.at);
+      const hit = next.length > 1 ? flowPick(next, w.scan) : null;
+      if(hit && hit.how !== "else") setTimeout(()=>{ if(fv.walk === w) flowWalkTake(hit.edge.id, true); }, 350);
+    }
+  };
   const calm = document.documentElement.dataset.motion === "off";
   if(!g || calm || !g.getTotalLength){ go(); return; }
   /* a bead runs down the arrow to the next step */
@@ -16111,6 +16279,38 @@ function wireFlowView(){
     w.at = w.trail.pop().from; flowWalkPaint();
   };
   el("fvEdit").onclick = ()=>{ const id = fv.nodeId; d.close(); openFlowEditor(id); };
+  el("fvWalkInput").addEventListener("keydown", ev=>{
+    if(ev.key !== "Enter") return;
+    ev.preventDefault();
+    const v = ev.target.value;
+    /* a scan that names one answer exactly goes by the scan rules; typing that
+       leaves a single card standing takes that card */
+    const w = fv.walk;
+    const hit = w ? flowPick(flowOutsOf(w.at), v) : null;
+    if(w && (!hit || hit.how === "else")){
+      const one = flowCardHits(flowOutsOf(w.at), v);
+      if(one.length === 1 && String(v).trim()){ flowWalkTake(one[0].id); return; }
+    }
+    flowWalkScan(v);
+  });
+  el("fvWalkInput").addEventListener("input", flowCardsPaint);
+  el("fvWalkCards").addEventListener("click", ev=>{
+    const z = ev.target.closest("[data-fwzoom]");
+    if(z){
+      ev.stopPropagation();
+      const e = fv.d.edges.find(x=>x.id === z.dataset.fwzoom);
+      const img = z.closest(".fv-card").querySelector("img");
+      if(e && img && img.src) openPicView(img.src, String(e.t || "").trim() || "Answer");
+      return;
+    }
+    const c = ev.target.closest("[data-fwcard]");
+    if(c) flowWalkTake(c.dataset.fwcard);
+  });
+  el("fvWalkCards").addEventListener("keydown", ev=>{
+    const c = ev.target.closest && ev.target.closest("[data-fwcard]");
+    if(c && (ev.key === "Enter" || ev.key === " ")){ ev.preventDefault(); flowWalkTake(c.dataset.fwcard); }
+  });
+  el("fvWalkPick").addEventListener("change", ev=>{ if(ev.target.value) flowWalkTake(ev.target.value); });
   el("fvWalkGo").addEventListener("click", ev=>{
     const b = ev.target.closest("button"); if(!b) return;
     if(b.dataset.fwrestart){ flowWalkStart(); return; }
@@ -16157,6 +16357,7 @@ function wireFlowView(){
   stage.addEventListener("pointerup", lift);
   stage.addEventListener("pointercancel", lift);
   d.addEventListener("keydown", ev=>{
+    if(ev.target && /INPUT|SELECT|TEXTAREA/.test(ev.target.tagName)) return;
     if(ev.key === "+" || ev.key === "="){ ev.preventDefault(); fvZoom(1.35); }
     else if(ev.key === "-" || ev.key === "_"){ ev.preventDefault(); fvZoom(1 / 1.35); }
     else if(ev.key === "0"){ ev.preventDefault(); fvFit(); }
@@ -16181,7 +16382,7 @@ function flowToText(d){
   return JSON.stringify({kind:"mindmap-flowchart", v:1, th:d.th || undefined,
     nodes:d.nodes.map(x=>{ const o = {id:x.id, s:x.s, x:Math.round(x.x), y:Math.round(x.y), w:Math.round(x.w), h:Math.round(x.h), t:x.t};
       ["c", "b", "a", "fs", "wt", "al", "ic"].forEach(k=>{ if(x[k]) o[k] = x[k]; }); return o; }),
-    edges:d.edges.map(e=>{ const o = {id:e.id, a:e.a, b:e.b}; ["t", "c", "k", "as", "bs"].forEach(k=>{ if(e[k]) o[k] = e[k]; }); return o; })}, null, 1);
+    edges:d.edges.map(e=>{ const o = {id:e.id, a:e.a, b:e.b}; ["t", "c", "k", "as", "bs", "m", "p"].forEach(k=>{ if(e[k]) o[k] = e[k]; }); return o; })}, null, 1);
 }
 function fioCheck(){
   const raw = el("fioText").value.trim(), says = el("fioSays");
@@ -16367,6 +16568,10 @@ function fePanel(){
   if(edges.length && !nodes.length){
     const e = edges[0], t = el("feEdgeText");
     if(document.activeElement !== t) t.value = e.t || "";
+    const m = el("feEdgeMatch");
+    if(m && document.activeElement !== m) m.value = e.m || "";
+    const pb = el("fePic");
+    if(pb){ pb.innerHTML = e.p ? "Picture &#10003;" : "Picture&hellip;"; pb.classList.toggle("on", !!e.p); }
     el("feEdgeKind").value = e.k || "";
   }
   document.querySelectorAll("[data-fecolor]").forEach(b=>{
@@ -16400,7 +16605,7 @@ function feSave(){
       const o = {id:x.id, s:x.s, x:Math.round(x.x), y:Math.round(x.y), w:Math.round(x.w), h:Math.round(x.h), t:x.t};
       ["c", "b", "a", "fs", "wt", "al", "ic"].forEach(k=>{ if(x[k]) o[k] = x[k]; });
       return o; }),
-    edges:d.edges.map(e=>{ const o = {id:e.id, a:e.a, b:e.b}; ["t", "c", "k", "as", "bs"].forEach(k=>{ if(e[k]) o[k] = e[k]; }); return o; })}) : "";
+    edges:d.edges.map(e=>{ const o = {id:e.id, a:e.a, b:e.b}; ["t", "c", "k", "as", "bs", "m", "p"].forEach(k=>{ if(e[k]) o[k] = e[k]; }); return o; })}) : "";
   if(json.length > CELL_LIMIT * 0.95){ toast("That flowchart is too big to keep in one cell. Take a few shapes out."); return; }
   const was = flowOf(n);
   if((n.flow || "") !== json){
@@ -16461,6 +16666,25 @@ function wireFlowEditor(){
   };
   el("feText").addEventListener("input", typed("t", ()=>[...fe.sel].map(feNode).filter(Boolean)));
   el("feEdgeText").addEventListener("input", typed("t", ()=>[...fe.sel].map(feEdge).filter(Boolean)));
+  el("feEdgeMatch").addEventListener("input", typed("m", ()=>[...fe.sel].map(feEdge).filter(Boolean)));
+  /* a picture for an answer: filed in the shared folder by the naming rule, so
+     the chart itself stays small enough for its one cell */
+  el("fePic").onclick = ()=>{
+    const e = [...fe.sel].map(feEdge).filter(Boolean)[0];
+    const n = S.nodes.get(fe.nodeId);
+    if(!e || !n) return;
+    const label = String(e.t || "").trim() || "answer";
+    pickImage("Picture for the answer \u201c" + label + "\u201d", e.p || "", v=>{
+      if(String(v).startsWith("data:")){
+        toast("Link the shared folder first (Link a folder, in the picture box) so the picture is saved as a file \u2014 a chart cannot carry a picture inside it.");
+        return;
+      }
+      feSnapshot(); e.p = v; feRender(); toast("Picture set. Save the chart to keep it.");
+    }, ()=>{ feSnapshot(); delete e.p; feRender(); });
+    imgPick.folder = NODE_PICS;
+    imgPick.base = pictureFileFor(n, "flow-" + pictureSlug(label).slice(0, 30));
+    imgPick.structured = true;
+  };
   el("feAnim").onchange = ev=>{ feSnapshot(); [...fe.sel].map(feNode).filter(Boolean).forEach(n=>n.a = ev.target.value); feRender(); };
   el("feFs").onchange = ev=>{ feSnapshot(); [...fe.sel].map(feNode).filter(Boolean).forEach(n=>n.fs = +ev.target.value); feRender(); };
   el("feEdgeKind").onchange = ev=>{ feSnapshot(); [...fe.sel].map(feEdge).filter(Boolean).forEach(e=>e.k = ev.target.value); feRender(); };
@@ -20597,7 +20821,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-10-05i";
+const APP_BUILD = "2026-10-07e";
 
 /* Reading that line back out of a copy of this file.
 
@@ -25306,7 +25530,6 @@ const LAB_PHRASES = [
 const LAB_LINKS = [
   {k:"lims", label:"LIMS", title:"the sample in LIMS", url:a=>`https://lims.genedx.com/?P=sample&a=${a}`},
   {k:"pdm", label:"PDM", title:"the scanned documents in PDM", url:a=>`https://scan.genedx.com/document-viewing?accessionId=${a}`},
-  {k:"spade", label:"Spade", title:"the sample image in Spade", url:a=>`https://spade.cx.oci.genedx.net/new-accession/${a}/sample-image`},
   {k:"docviewer", label:"DocViewer", title:"the paperwork in Nucleus DocViewer", url:a=>`https://nucleus.app.genedx.net/document-viewer/?aId=${a}`},
   {k:"nucleus", label:"Nucleus", title:"the scan page in Nucleus", url:a=>`https://nucleus.cx.oci.genedx.net/accession/${a}/scan/`}
 ];
@@ -26455,13 +26678,13 @@ const HELP_TOPICS = [
       <li><b>Copy the sentence</b> copies <i>#snitch [[Name]] what happened #ABC</i> to paste where #snitches go. Nothing is listed or kept here &mdash; <b>Start a new one</b> empties it for the next.</li>
     </ul>
     <h4>Opening a number</h4>
-    <p>Any accession in the scan bar or typed into the boxes (7 digits &mdash; 3633853A01 counts as 3633853) gets buttons for <b>LIMS</b>, <b>PDM</b>, <b>Spade</b>, <b>DocViewer</b> and <b>Nucleus</b>; a tracking number gets <b>DNA Tracker</b>; a number in <b>New portal #</b> on Review gets <b>Portal requisition</b>, which opens it in the admin portal. They show under the scan bar, under the accession boxes on Review, and under <b>What happened</b> on Snitch. Each opens in a new tab, signed in as you.</p>
+    <p>Any accession in the scan bar or typed into the boxes (7 digits &mdash; 3633853A01 counts as 3633853) gets buttons for <b>LIMS</b>, <b>PDM</b>, <b>DocViewer</b> and <b>Nucleus</b>; a tracking number gets <b>DNA Tracker</b>; a number in <b>New portal #</b> on Review gets <b>Portal requisition</b>, which opens it in the admin portal. They show under the scan bar, under the accession boxes on Review, and under <b>What happened</b> on Snitch. Each opens in a new tab, signed in as you.</p>
     <h4>Where it is kept</h4>
     <p>On this computer only, under your name, saved as you type &mdash; so if the computer shuts down or the page closes, open Lab tools again and carry on. It never goes into the map, the workbook or anywhere else. Use <b>Clear the review</b>, <b>Clear the issue</b> or <b>Start a new one</b> when you are done.</p>`},
   {id:"room", title:"Inside a room", body:`
     <h3>Inside a room</h3>
     <ul>
-      <li><b>Flowcharts</b>: some rooms have a flowchart on the wall. It starts out light or dark to match the room; the <b>Dark / Light</b> button (or the D key) flips just the chart. Tap it to open it full screen. <b>Walk me through it</b> starts at the beginning and asks each question in turn; tap the answer (or the next shape) and it takes you along that arrow. <b>Back</b> goes one step back. Scroll or pinch to zoom, drag to move around.</li>
+      <li><b>Flowcharts</b>: some rooms have a flowchart on the wall. It starts out light or dark to match the room; the <b>Dark / Light</b> button (or the D key) flips just the chart. Tap it to open it full screen. <b>Walk me through it</b> starts at the beginning and asks each question in turn; tap the answer (or the next shape) and it takes you along that arrow. On a question you can also <b>scan or type</b> into the box (a tube, a label like ExtrDNA 08) and press Enter, or <b>pick from the list</b>: it takes the arrow that scan belongs to, and if the same scan answers the next question too it keeps going on its own. As you type, the answers that fit show as cards &mdash; with a picture of each when the chart has one &mdash; so typing <i>Xome</i> shows every Xome answer side by side; tap a card (or press Enter when only one is left) to take it, and the magnifier shows a picture full size. <b>Back</b> goes one step back. Scroll or pinch to zoom, drag to move around.</li>
       <li><b>&#9734;</b> beside the name bookmarks the room. It turns gold.</li>
       <li><b>The copy button</b> beside it copies the whole note. Holding the room's name does the same.</li>
       <li><b>Answers</b> under the name are the questions this room answers.</li>
@@ -26520,7 +26743,7 @@ const HELP_TOPICS = [
       <li><b>Waiting for you</b> lists feedback, questions with no answering room, and who still has to confirm what.</li>
       <li><b>Paste many</b> (room console): paste a block of text and it becomes one room per line, paragraph, bullet or mark you choose. Names are made from the start of each, or taken from its first line. <b>Huddle today</b> puts them inside a new "Huddle MM/DD/YYYY" room, tagged Huddles/YYYY-MM-DD and dated.</li>
       <li><b>Sort</b> (room console): goes through each room in here with <b>Move to&hellip;</b>, plus one-tap buttons for the places you moved to lately. <b>Undo</b> on any of them.</li>
-      <li><b>Flowcharts in a room</b>: <b>Import / Export</b> on the drawing page copies a chart out as text or saves it as a <i>.flowchart.json</i> file, and brings one back in by pasting or loading the file. That is how to copy a chart to another room or send it to another editor. Press <b>&#9671; Flowchart</b> on the room console, or <b>+ Flowchart</b> in a room's bubble, or <b>Draw a flowchart in this room</b> in the Edit panel. Pick shapes and colours from the top bar. To draw an arrow, drag one of a shape's blue dots onto another shape; let go on empty paper and a new step appears there, already joined. Double-click a shape (or press Enter) to type in it; double-click the paper for a new box. With a shape chosen, <b>+ YES &rarr;</b> and <b>+ NO &darr;</b> add the next step with a labelled arrow (Tab and Shift+Tab do the same). Click an arrow to label it, curve it or flip it. <b>Motion</b> makes a shape pulse, bob, glow, wiggle or spin in. <b>Look</b> (top bar) dresses the whole chart in one of the map's themes: Islands (sand islands, palms, fish along the arrows), Ant farm (burrows, tunnels, ants), City (blocks with buildings, roads, traffic), Blueprint, Foolscap, Terminal, Dusk or Boardroom. Your colours still show through, so YES and NO stay green and orange. Ctrl+Z undoes, Ctrl+D copies, arrow keys nudge, Delete removes, Ctrl+S saves. The words in a flowchart are not searched; put what people search for in the note or keywords.</li>
+      <li><b>Flowcharts in a room</b>: <b>Import / Export</b> on the drawing page copies a chart out as text or saves it as a <i>.flowchart.json</i> file, and brings one back in by pasting or loading the file. That is how to copy a chart to another room or send it to another editor. Press <b>&#9671; Flowchart</b> on the room console, or <b>+ Flowchart</b> in a room's bubble, or <b>Draw a flowchart in this room</b> in the Edit panel. Pick shapes and colours from the top bar. To draw an arrow, drag one of a shape's blue dots onto another shape; let go on empty paper and a new step appears there, already joined. Double-click a shape (or press Enter) to type in it; double-click the paper for a new box. With a shape chosen, <b>+ YES &rarr;</b> and <b>+ NO &darr;</b> add the next step with a labelled arrow (Tab and Shift+Tab do the same). Click an arrow to label it, curve it or flip it. <b>Scans that pick it</b> (beside the arrow's words) turns a question into one people can answer by scanning: list what chooses that arrow, separated by commas &mdash; <i>ExtrDNA 08, ExtrDNA 09</i>. Case, spaces and dashes do not matter, <b>*</b> stands for anything (<i>EXTR*</i>), and an arrow with just <b>*</b> is the one taken when nothing else matches (an arrow labelled <i>Else</i> works the same way). The longest match wins, so a specific code beats a broad one. <b>Picture&hellip;</b> on an arrow gives that answer a picture (the paperwork, the tube, the label) that shows on its card while people walk the chart; it is saved into the shared folder by the naming rule, so link the folder first. <b>Motion</b> makes a shape pulse, bob, glow, wiggle or spin in. <b>Look</b> (top bar) dresses the whole chart in one of the map's themes: Islands (sand islands, palms, fish along the arrows), Ant farm (burrows, tunnels, ants), City (blocks with buildings, roads, traffic), Blueprint, Foolscap, Terminal, Dusk or Boardroom. Your colours still show through, so YES and NO stay green and orange. Ctrl+Z undoes, Ctrl+D copies, arrow keys nudge, Delete removes, Ctrl+S saves. The words in a flowchart are not searched; put what people search for in the note or keywords.</li>
       <li><b>Picture file names</b>: a picture, badge or backdrop you add to a room is saved by a fixed rule. It goes in a folder that follows the breadcrumb two deep, and the name is the room plus its id, for example <i>images/03-the-accession/issues/opv-flowchart_n-s3l6yo39.png</i>. Nothing is ever overwritten; a second one gets <i>-2</i>. To bring older pictures in line, use <b>File all pictures by the naming rule</b> under <b>Badges and pictures</b>. Old files go to <i>images/_old-names</i>, and once you are happy you can delete that folder. Save afterwards.</li>
       <li><b>Changes written into the workbook from outside</b> (a script, another editor, Excel): open it once with <b>Open .xlsx</b> and MindMap remembers it. <b>&#8635; Reload</b> under Workbook reads it again without picking it. It also checks every few seconds and when you come back to the tab: if you have not changed anything here, the new version comes in by itself and the view stays where it was; if you have, a bar asks whether to <b>bring the changes in</b> (keeping yours) or <b>use the file as it is</b>. Untick <i>Bring in outside changes by themselves</i> to always be asked. Saving to a live file brings in outside changes first, so it never writes over them.</li>
       <li><b>Edit all</b> (room console) changes everything in the room at once: add tags, <b>take tags off</b> (each tag shows how many carry it, with a Remove button; or type several to take off; or take every tag off), set or clear dates, print, or put them on a shelf. <b>Undo</b> appears after taking tags off.</li>
