@@ -4238,6 +4238,14 @@ body.viewing.panelaway #panelHide{display:none}
 .rv-role button{border:1px solid var(--rule);background:var(--paper);color:var(--graphite);border-radius:12px;
   padding:3px 10px;font:inherit;font-size:12px;cursor:pointer}
 .rv-role[hidden]{display:none}
+
+.rv-lwrap{display:inline-flex;align-items:stretch;max-width:100%;gap:0}
+.rv-lwrap .rv-line{min-width:0}
+.rv-lwrap:has(.rv-lopen) .rv-line{border-top-right-radius:0;border-bottom-right-radius:0}
+.rv-lopen{border:1px solid var(--blueprint);border-left:0;border-radius:0 14px 14px 0;background:transparent;
+  color:var(--blueprint);padding:0 11px;font-size:14px;cursor:pointer;flex:0 0 auto}
+.rv-lopen:hover{background:var(--blueprint);color:#fff}
+.rv-line{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 </style>
 </head>
 <body>
@@ -21082,7 +21090,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-10-11f";
+const APP_BUILD = "2026-10-11g";
 
 /* Reading that line back out of a copy of this file.
 
@@ -24805,9 +24813,11 @@ function paintRoomLines(id){
   box.innerHTML = lines.map(k=>{
     const n = S.nodes.get(k), t = copyLineText(n);
     const blank = COPY_BLANK.test(t); COPY_BLANK.lastIndex = 0;
-    return `<button class="rv-line" data-line="${esc(k)}" title="${esc(t)}${canEdit() ? "\n(right-click or hold to open it)" : ""}">
-      <span class="ic" aria-hidden="true">&#10697;</span><span class="tx">${esc(n.label && n.body ? n.label : t)}</span>${blank ? '<i class="blank">fill in</i>' : ""}</button>`;
+    return `<span class="rv-lwrap"><button class="rv-line" data-line="${esc(k)}" title="${esc(t)}${canEdit() ? "\n(right-click or hold to open it)" : ""}">
+      <span class="ic" aria-hidden="true">&#10697;</span><span class="tx">${esc(n.label && n.body ? n.label : t)}</span>${blank ? '<i class="blank">fill in</i>' : ""}</button>${canEdit()
+      ? `<button class="rv-lopen" data-lopen="${esc(k)}" title="Open this copy line to edit, move or change it" aria-label="Open this copy line">&#9998;</button>` : ""}</span>`;
   }).join("");
+  box.querySelectorAll("[data-lopen]").forEach(b=>b.onclick = ()=>roomGo(b.dataset.lopen, "in"));
   box.querySelectorAll("[data-line]").forEach(b=>{
     let held = 0, timer = 0;
     const open = ()=>{ if(canEdit()) select(b.dataset.line); };
@@ -27675,7 +27685,7 @@ const HELP_TOPICS = [
     <p>It also works on a search or tag filter: step into what you found (&#9678; Found) and press &#10022; to go through just those notes. Each stays in the room it lives in &mdash; a copy line lands in its own room, and the draft on the left switches to whichever room the card belongs to. <b>The rest are copy lines</b> turns everything still waiting into copy lines in one tap.</p>
     <h4>Changing your mind later</h4>
     <ul>
-      <li>A copy line or a distilled note is still a room you can stand in: <b>hold</b> a copy-line chip (or right-click it), tap a row in <b>History</b>, pick it from <b>Go to</b>, or search for it. Edit, Move, tags and everything else work as for any room.</li>
+      <li>A copy line or a distilled note is still a room you can stand in: tap the <b>&#9998;</b> at the end of a copy-line chip (or hold the chip), tap a row in <b>History</b>, pick it from <b>Go to</b>, or search for it. Edit, Move, tags and everything else work as for any room.</li>
       <li>Inside, a strip under the name says what it is, with the way back: <b>Make it a room</b>, <b>Make it a copy line</b>, <b>Make it loose again</b> (back into Distill) or <b>Bring it back</b> (for a retired one).</li>
       <li><b>Moving</b> a copy line makes it a copy line in the new room. Moving a note that was folded into, covered by or retired by its old room makes it loose in the new one, ready to distill there. Undo puts both back.</li>
     </ul>
@@ -27757,7 +27767,7 @@ const HELP_TOPICS = [
     <ul>
       <li><b>Not sure what a button does?</b> On a phone or tablet, press and hold it: a little note says what it is, and letting go doesn't press it. With a mouse, rest the pointer on it. (Lab tools isn't on phones, since the work sites it opens can't be reached there.)</li>
       <li><b>Flowcharts</b>: some rooms have a flowchart on the wall. It starts out light or dark to match the room; the <b>Dark / Light</b> button (or the D key) flips just the chart. Tap it to open it full screen. <b>Walk me through it</b> starts at the beginning and asks each question in turn; tap the answer (or the next shape) and it takes you along that arrow. On a question you can also <b>scan or type</b> into the box (a tube, a label like ExtrDNA 08) and press Enter, or <b>pick from the list</b>: it takes the arrow that scan belongs to, and if the same scan answers the next question too it keeps going on its own. As you type, the answers that fit show as cards &mdash; with a picture of each when the chart has one &mdash; so typing <i>Xome</i> shows every Xome answer side by side; tap a card (or press Enter when only one is left) to take it, and the magnifier shows a picture full size. <b>Back</b> goes one step back. Scroll or pinch to zoom, drag to move around.</li>
-      <li><b>&#10697; Copy lines</b> under the name are ready-made sentences (an issue note, a sample note). Tap one to copy it. One with a blank (<i>######</i>) asks you for the number first, offering the last accession from Lab tools.</li>
+      <li><b>&#10697; Copy lines</b> under the name are ready-made sentences (an issue note, a sample note). Tap one to copy it. One with a blank (<i>######</i>) asks you for the number first, offering the last accession from Lab tools. In editing mode, the <b>&#9998;</b> at the end of a chip opens it as a room, to edit, move or change it.</li>
       <li><b>&#128344; History</b> under the note holds the notes that have been folded into this room, covered by it, or retired, oldest first. Each keeps its own words, date and tags; tap one to open it.</li>
       <li><b>&#9734;</b> beside the name bookmarks the room. It turns gold.</li>
       <li><b>The copy button</b> beside it copies the whole note. Holding the room's name does the same.</li>
