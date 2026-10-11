@@ -382,6 +382,17 @@ input[type=range],input[type=color],input[type=checkbox],input[type=file]{cursor
 .rp-chips{display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px;border-bottom:1px solid var(--rule);flex:0 0 auto}
 .rp-chips[hidden]{display:none}
 .rp-chips .rp-tag.on{background:var(--blueprint);color:#fff;border-color:var(--blueprint)}
+.rp-when{display:flex;gap:0;margin:0 12px 6px;border:1px solid var(--rule);border-radius:7px;overflow:hidden}
+.rp-when[hidden]{display:none}
+.rp-when button{flex:1;border:0;background:var(--paper);color:var(--graphite);font:inherit;font-size:12px;padding:5px 6px;cursor:pointer}
+.rp-when button+button{border-left:1px solid var(--rule)}
+.rp-when button.on{background:var(--blueprint);color:#fff;font-weight:600}
+.reskind{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11px;color:var(--graphite-60);margin-top:2px}
+.reskind i{font-style:normal;font-family:var(--mono);font-size:11px;color:var(--graphite);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.reskind.k-absorbed,.reskind.k-covered{text-transform:none}
+.rescopy,.resgo{border:1px solid var(--blueprint);background:var(--blueprint-soft);color:var(--blueprint);border-radius:10px;
+  font:inherit;font-size:11px;font-weight:600;padding:1px 8px;cursor:pointer}
+.rescopy:hover,.resgo:hover{background:var(--blueprint);color:#fff}
 .resrow .toclabel .fold{display:inline-block;margin-left:6px;padding:0 6px;border:1px solid var(--line, #ccc);border-radius:9px;font-size:10.5px;line-height:16px;opacity:.75;vertical-align:1px;font-weight:400}
 .rp-chips .rp-dates{flex:1 1 100%;display:flex;flex-direction:column;gap:6px;padding-top:4px}
 .rp-chips .rp-daterow{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}
@@ -1524,6 +1535,32 @@ html[data-theme="dark"] #roomView[data-skin="plain"]{
 .rv-tags{display:flex;gap:4px;flex-wrap:wrap;padding:0 14px 8px;flex:0 0 auto}
 .rv-tags[hidden]{display:none}
 .rv-qs{display:flex;gap:5px;flex-wrap:wrap;align-items:center;padding:0 14px 8px;flex:0 0 auto}
+.rv-lines{display:flex;gap:6px;flex-wrap:wrap;padding:0 14px 8px;flex:0 0 auto}
+.rv-lines[hidden]{display:none}
+.rv-line{display:inline-flex;align-items:center;gap:6px;max-width:100%;border:1px solid var(--blueprint);border-radius:14px;
+  background:var(--blueprint-soft);color:var(--blueprint);font:inherit;font-size:12.5px;font-weight:600;padding:4px 11px 4px 8px;cursor:copy;
+  -webkit-touch-callout:none;user-select:none}
+.rv-line .tx{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:min(52ch,70vw)}
+.rv-line .ic{font-size:13px;opacity:.8}
+.rv-line .blank{font-style:normal;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;opacity:.7}
+.rv-line:hover{background:var(--blueprint);color:#fff}
+.rv-line:active{transform:scale(.97)}
+.rv-hist{padding:0 14px 8px;flex:0 0 auto}
+.rv-hist[hidden]{display:none}
+.rv-histbtn{display:flex;align-items:center;gap:8px;width:100%;border:1px dashed var(--rv-dim, var(--rule));border-radius:6px;background:transparent;
+  color:var(--rv-ink, var(--graphite));font:inherit;font-size:12.5px;font-weight:600;padding:5px 10px;cursor:pointer;text-align:left}
+.rv-histbtn span{flex:1}
+.rv-histbtn i{font-style:normal;font-weight:400;font-size:11px;opacity:.75}
+.rv-histlist{max-height:min(38vh,320px);overflow-y:auto;margin-top:6px;border-left:2px solid var(--rv-dim, var(--rule));padding-left:6px}
+.rv-histrow{display:flex;gap:8px;align-items:flex-start;width:100%;border:0;background:transparent;color:var(--rv-ink, var(--graphite));
+  font:inherit;text-align:left;padding:5px 4px;cursor:pointer;border-radius:4px}
+.rv-histrow:hover{background:rgba(127,127,127,.12)}
+.rv-histrow .when{font-family:var(--mono);font-size:10.5px;opacity:.7;min-width:52px;padding-top:2px}
+.rv-histrow .what{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.rv-histrow .what b{font-size:12.5px}
+.rv-histrow .what s{text-decoration:none;font-size:11.5px;opacity:.75;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.rv-histrow.gone .what b{text-decoration:line-through;opacity:.7}
+.rv-histrow .tag{font-style:normal;font-size:10px;white-space:nowrap;border:1px solid currentColor;border-radius:9px;padding:0 6px;opacity:.75}
 .rv-qs[hidden]{display:none}
 .rv-qlab{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--graphite-60)}
 .rv-q{border:1px solid var(--rule);background:var(--paper);border-radius:12px;font:inherit;font-size:12px;
@@ -2551,6 +2588,7 @@ html[data-theme="dark"] .rvb{
 html[data-theme="dark"] .rvb:hover{background:linear-gradient(180deg,#44505A 0%,#2C353D 100%)}
 .rvb .ic{font-size:14px;line-height:1}
 .rvb.on{background:linear-gradient(180deg,#F5CE55 0%,#E0A526 100%);color:#2A1D05}
+.rvb .tick:empty{display:none}
 .rvb .tick{position:absolute;top:-7px;right:-6px;min-width:19px;height:19px;padding:0 4px;
   border-radius:10px;border:2px solid var(--rv-ink);
   background:#D8452E;color:#fff;font-family:var(--mono);font-size:10px;font-weight:600;
@@ -3848,6 +3886,87 @@ dialog#labDlg.small .lab-list{max-height:34vh}
   dialog#labDlg.small .lab-docktog{display:none}
   .lab-bar .lab-list{max-height:30vh}
 }
+/* ---------- distill ---------- */
+dialog#distillDlg{border:1px solid var(--graphite);border-radius:6px;padding:0;background:var(--paper);color:var(--graphite);
+  width:min(1200px,96vw);height:min(860px,94dvh);display:flex;flex-direction:column;overflow:hidden}
+dialog#distillDlg:not([open]){display:none}
+dialog#distillDlg::backdrop{background:rgba(35,40,45,.5)}
+@media (max-width:820px){ dialog#distillDlg{width:100vw;height:100dvh;max-height:none;max-width:none;border:0;border-radius:0;margin:0} }
+.ds-head{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--rule)}
+.ds-ttl{flex:1;min-width:0;display:flex;flex-direction:column}
+.ds-ttl small{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--graphite-60)}
+.ds-ttl b{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ds-prog{position:relative;width:110px;height:22px;border-radius:11px;background:var(--paper-2);border:1px solid var(--rule);overflow:hidden}
+.ds-prog i{position:absolute;inset:0 auto 0 0;width:var(--p,0%);background:linear-gradient(90deg,#1E8C5A,#5CC48F);transition:width .3s}
+.ds-prog span{position:relative;display:block;text-align:center;font:600 11.5px/22px var(--mono)}
+.ds-main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr)}
+.ds-draft{display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--rule);background:var(--paper-2)}
+.ds-dhead{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;font-size:12px;font-weight:600}
+.ds-blocks{flex:1;overflow-y:auto;padding:0 12px 8px;display:flex;flex-direction:column;gap:8px}
+.ds-block{background:var(--paper);border:1px solid var(--rule);border-left:4px solid var(--blueprint);border-radius:6px;padding:8px 10px;cursor:pointer}
+.ds-block.sel{outline:2px solid var(--blueprint);box-shadow:0 0 0 4px var(--blueprint-soft)}
+.ds-btext{white-space:pre-wrap;font-size:13px;line-height:1.45;max-height:9.5em;overflow:hidden}
+.ds-bbar{display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:6px}
+.ds-bbar button{border:1px solid var(--rule);background:var(--paper-2);color:var(--graphite);border-radius:5px;min-width:30px;height:28px;cursor:pointer;font-size:13px}
+.ds-bbar button:disabled{opacity:.35}
+.ds-hits{margin-right:auto;font-size:11px;font-weight:700;color:#1E8C5A}
+.ds-tip{margin:0;padding:6px 12px 10px;font-size:11.5px;color:var(--graphite-60)}
+.ds-empty{color:var(--graphite-60);font-size:12.5px;font-style:italic}
+.ds-play{display:flex;flex-direction:column;min-height:0}
+.ds-deck{flex:1;min-height:0;position:relative;padding:14px;overflow:hidden;display:flex}
+.ds-card{flex:1;display:flex;flex-direction:column;gap:6px;background:var(--paper);border:1px solid var(--rule);border-radius:12px;
+  box-shadow:0 8px 24px rgba(0,0,0,.12);padding:14px 16px;overflow-y:auto;touch-action:none;user-select:none;cursor:grab;
+  animation:dsIn .2s ease-out}
+@keyframes dsIn{from{transform:translateY(14px) scale(.98);opacity:0}}
+.ds-card h3{margin:0;font-size:16px}
+.ds-meta{display:flex;flex-wrap:wrap;gap:6px;font-size:11px;color:var(--graphite-60);align-items:center}
+.ds-meta .tg{font-family:var(--mono);background:var(--paper-2);border-radius:3px;padding:0 5px}
+.ds-left{margin-left:auto;font-weight:600}
+.ds-body{font-size:13.5px;line-height:1.5}
+.ds-body p{margin:0 0 6px}
+.ds-chips{display:flex;flex-wrap:wrap;gap:6px}
+.ds-chip{border:1px solid var(--rule);background:var(--paper-2);color:var(--graphite);border-radius:8px;padding:6px 9px;font:inherit;font-size:13px;text-align:left;cursor:pointer}
+.ds-chip.on{background:var(--blueprint);border-color:var(--blueprint);color:#fff}
+.ds-pickbtn{align-self:flex-start;border:1px dashed var(--blueprint);background:none;color:var(--blueprint);border-radius:6px;font:inherit;font-size:12px;padding:3px 9px;cursor:pointer}
+.ds-target{margin:4px 0 0;font-size:11.5px;color:var(--graphite-60)}
+.ds-target i{font-style:normal;color:var(--graphite)}
+.ds-conflict{border:1px solid #D6A014;background:rgba(214,160,20,.12);border-radius:8px;padding:8px 10px;font-size:12.5px}
+.ds-conflict code{font-family:var(--mono);background:var(--paper);border-radius:3px;padding:0 4px}
+.ds-cbtns{display:flex;gap:6px;margin-top:6px}
+.ds-hint{margin:0;font-size:12px;font-weight:600;color:#B7791F}
+.ds-rest{margin:0 14px 8px;border:1px dashed var(--rule);background:none;color:var(--graphite-60);border-radius:8px;font:inherit;font-size:12px;padding:5px 8px;cursor:pointer}
+.ds-rest[hidden]{display:none}
+.ds-acts{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;padding:0 14px 14px}
+.ds-acts[hidden]{display:none}
+.ds-acts button{display:flex;flex-direction:column;align-items:center;gap:2px;border:1px solid var(--rule);background:var(--paper);color:var(--graphite);
+  border-radius:10px;padding:8px 2px;font:inherit;font-size:11.5px;font-weight:600;cursor:pointer;transition:transform .1s,background .1s}
+.ds-acts button b{font-size:18px;line-height:1}
+.ds-acts button:active,.ds-acts button.lit{transform:scale(1.06);background:var(--blueprint);color:#fff;border-color:var(--blueprint)}
+.ds-acts button.hint{border-color:#D6A014;box-shadow:0 0 0 2px rgba(214,160,20,.3)}
+.ds-acts [data-dsact="pull"] b{color:#1E8C5A} .ds-acts [data-dsact="outdated"] b{color:#C0392B}
+.ds-acts [data-dsact="covered"] b{color:var(--blueprint)}
+.ds-finish{margin:auto;text-align:center;max-width:420px}
+.ds-finish h3{margin:4px 0}
+.ds-finish p{font-size:13px;color:var(--graphite-60)}
+.ds-finish h4{margin:14px 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--graphite-60)}
+.ds-burst{font-size:40px;animation:dsPop .6s ease-out}
+@keyframes dsPop{0%{transform:scale(.2) rotate(-30deg);opacity:0}70%{transform:scale(1.25)}100%{transform:none;opacity:1}}
+.ds-next{display:flex;justify-content:space-between;width:100%;border:1px solid var(--rule);background:var(--paper);color:var(--graphite);
+  border-radius:8px;padding:7px 10px;margin-bottom:5px;font:inherit;font-size:13px;cursor:pointer}
+.ds-next b{background:var(--blueprint);color:#fff;border-radius:9px;padding:0 7px;font-size:11px}
+.ds-edit{position:absolute;inset:0;background:var(--paper);display:flex;flex-direction:column;padding:12px;gap:8px;z-index:3}
+.ds-edit[hidden]{display:none}
+.ds-edit textarea{flex:1;font-size:15px;line-height:1.5;resize:none}
+.ds-editbar{display:flex;justify-content:flex-end;gap:8px}
+@media (max-width:820px){
+  .ds-main{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,.8fr) minmax(0,1.2fr)}
+  .ds-draft{border-right:0;border-bottom:1px solid var(--rule)}
+  .ds-prog{width:76px}
+  .ds-head .btn{padding:6px 9px}
+  .ds-acts{grid-template-columns:repeat(3,minmax(0,1fr));padding:0 10px 10px}
+  .ds-deck{padding:10px}
+  .ds-tip{display:none}
+}
 dialog#tagDlg{border:1px solid var(--graphite);border-radius:3px;padding:0;background:var(--paper);
   width:min(420px,94vw);max-height:86dvh;color:var(--graphite);display:flex;flex-direction:column}
 dialog#tagDlg::backdrop{background:rgba(35,40,45,.42)}
@@ -4638,6 +4757,7 @@ body.viewing.panelaway #panelHide{display:none}
             </div>
             <div class="rv-tags" id="rvTags" hidden></div>
             <div class="rv-qs" id="rvQs" hidden></div>
+            <div class="rv-lines" id="rvLines" hidden aria-label="Copy lines: tap one to copy it"></div>
             <button class="rv-past" id="rvPast" hidden title="How this came to be">
               <span class="rv-past-ic">&#127963;</span><span>Remember the Past</span><s id="rvPastN"></s></button>
             <div class="rv-wallrow">
@@ -4645,6 +4765,7 @@ body.viewing.panelaway #panelHide{display:none}
               <figure class="rv-flow" id="rvFlow" hidden></figure>
               <div class="rv-note" id="rvNote"></div>
             </div>
+            <div class="rv-hist" id="rvHist" hidden></div>
             <div class="rv-count" id="rvCount"></div>
           </div>
           <div class="rv-exits" id="rvArches"></div>
@@ -4714,6 +4835,8 @@ body.viewing.panelaway #panelHide{display:none}
               <span class="ic">&#8631;</span><span class="lb">Sort</span></button>
             <button class="rvb" id="rvMove" hidden title="Move this room, and everything inside it, somewhere else">
               <span class="ic">&#8644;</span><span class="lb">Move</span></button>
+            <button class="rvb" id="rvDistill" hidden title="Deal with this room's loose notes one card at a time">
+              <span class="ic">&#10022;</span><span class="lb">Distill</span><span class="tick"></span></button>
             <button class="rvb" id="rvFlowBtn" hidden title="Draw a flowchart of shapes and arrows inside this room">
               <span class="ic">&#9671;</span><span class="lb">Flowchart</span></button>
           </div>
@@ -4884,6 +5007,10 @@ body.viewing.panelaway #panelHide{display:none}
   </div>
   <div class="rp-chips" id="resChips" hidden></div>
   <div class="rp-body" id="tocResults"></div>
+  <div class="rp-when" id="resWhen" hidden role="group" aria-label="Show notes as they were said, or as they read now">
+    <button type="button" data-when="then" title="Each note in its own words, with where it ended up">As said then</button>
+    <button type="button" data-when="now" title="Folded-in notes swapped for the room they went into; retired ones left out">As it reads now</button>
+  </div>
   <div class="rp-foot">
     <button class="btn" id="resPrint">Print these notes</button>
     <button class="btn wide" id="resClear">Clear the filter</button>
@@ -5480,6 +5607,40 @@ body.viewing.panelaway #panelHide{display:none}
     </section>
   </div>
 </dialog>
+<dialog id="distillDlg" aria-label="Distill a room">
+  <div class="ds-head">
+    <div class="ds-ttl"><small>Distill</small><b id="dsTitle"></b></div>
+    <div class="ds-prog" id="dsProg"><i></i><span id="dsCount"></span></div>
+    <button class="btn" id="dsUndo" title="Undo (Ctrl+Z)">&#8630; Undo</button>
+    <button class="btn primary" id="dsSave" title="Write the note and file the cards (Ctrl+S)">Save</button>
+    <button class="btn" id="dsClose">Close</button>
+  </div>
+  <div class="ds-main">
+    <section class="ds-draft" aria-label="The room's note, in blocks">
+      <div class="ds-dhead"><span>The note, block by block</span>
+        <button class="btn small" id="dsAdd">+ Block</button></div>
+      <div class="ds-blocks" id="dsBlocks"></div>
+      <p class="ds-tip">Tap a block to aim the next card at it. &#9998; edits it (dictation works).</p>
+    </section>
+    <section class="ds-play" aria-label="Notes waiting">
+      <div class="ds-deck" id="dsDeck"></div>
+      <button type="button" class="ds-rest" id="dsRest" hidden title="Every card still waiting is a subtopic: keep them all as rooms (Undo brings them back)">The rest are all subtopics &rarr; keep them as rooms</button>
+      <div class="ds-acts" id="dsActs">
+        <button type="button" data-dsact="pull" title="Pull it into the note (swipe up, or &#8593;)"><b>&#8593;</b>Pull in</button>
+        <button type="button" data-dsact="covered" title="The note already says this (swipe right, or &#8594;)"><b>&#8594;</b>Covered</button>
+        <button type="button" data-dsact="outdated" title="No longer true: retire it (swipe down, or &#8595;)"><b>&#8595;</b>Outdated</button>
+        <button type="button" data-dsact="later" title="Skip it for now (swipe left, or &#8592;)"><b>&#8592;</b>Later</button>
+        <button type="button" data-dsact="copy" title="Keep it as a copy line chip at the top of the room (C)"><b>&#11088;</b>Copy line</button>
+        <button type="button" data-dsact="room" title="It is a subtopic: keep it on the floor as a room (R)"><b>&#128682;</b>Own room</button>
+      </div>
+    </section>
+  </div>
+  <div class="ds-edit" id="dsEdit" hidden>
+    <textarea id="dsEditText" aria-label="Block text"></textarea>
+    <div class="ds-editbar"><button class="btn" id="dsEditCancel">Cancel</button><button class="btn primary" id="dsEditOk">Done</button></div>
+  </div>
+</dialog>
+
 
 
 <dialog id="tagDlg">
@@ -5900,6 +6061,9 @@ function newNode(o={}){
     collect:"", collectGoal:"", noSearch:"", keywords:"", bodyFile:"",
     trailIntro:"", trailAdd:"", trailHide:"", trailDate:"", trailCaption:"",
     flow:"", source:"",
+    /* role: "copy" (a copy line) or "room" (kept as a subtopic); absorb: "absorbed"
+       or "covered" once Distill has folded it into its parent */
+    role:"", absorb:"", absorbTo:"", absorbAt:"", absorbQuote:"", distilledAt:"",
     created:nowISO(), modified:nowISO(),
     rev:1, author:S.meta.author, x:null, y:null, pinned:false, collapsed:false
   }, o);
@@ -7844,7 +8008,7 @@ function seed(){
    Kept human-readable so the workbook stands on its own.
    ===================================================================== */
 const HDR = {
-  Nodes:["node_id","label","body","type","tags","status","flag","image","image_h","created","modified","rev","edit","author","badge","badge_at","badge_image","superseded_by","table_sort","order","date","collect","collect_goal","backdrop","backdrop_floor","backdrop_salt","spots","x","y","pinned","parent_id","depth","path","no_search","keywords","body_file","trail_intro","trail_add","trail_hide","trail_date","trail_caption","flow","source"],
+  Nodes:["node_id","label","body","type","tags","status","flag","image","image_h","created","modified","rev","edit","author","badge","badge_at","badge_image","superseded_by","table_sort","order","date","collect","collect_goal","backdrop","backdrop_floor","backdrop_salt","spots","x","y","pinned","parent_id","depth","path","no_search","keywords","body_file","trail_intro","trail_add","trail_hide","trail_date","trail_caption","flow","source","role","absorb","absorb_to","absorb_at","absorb_quote","distilled_at"],
   Links:["edge_id","from_id","to_id","link_type","tag","label","condition","route","from_side","to_side","bow","color","line_style","width","arrow"],
   Revisions:["rev_id","node_id","timestamp","author","field","class","note","folded","old_value","new_value"],
   TagStyles:["tag","color","line_style","width","arrow","applies_to"],
@@ -7882,6 +8046,8 @@ function toSheets(){
     trail_intro:n.trailIntro || "", trail_add:n.trailAdd || "", trail_hide:n.trailHide || "",
     trail_date:n.trailDate || "", trail_caption:n.trailCaption || "",
     flow:n.flow || "", source:n.source || "",
+    role:n.role || "", absorb:n.absorb || "", absorb_to:n.absorbTo || "", absorb_at:n.absorbAt || "",
+    absorb_quote:n.absorbQuote || "", distilled_at:n.distilledAt || "",
     tags:(n.tags||[]).join(", "), status:n.status, flag:n.flag||"",
     image:n.image||"", image_h:n.image?(n.imageH||120):"",
     backdrop:n.backdrop||"", backdrop_floor:n.backdropFloor === "" || n.backdropFloor == null
@@ -8048,6 +8214,8 @@ function tablesToModel(t){
       trailHide:String(r.trail_hide||"").trim(), trailDate:String(r.trail_date||"").trim(),
       trailCaption:String(r.trail_caption||""),
       flow:String(r.flow||""), source:String(r.source||""),
+      role:String(r.role||""), absorb:String(r.absorb||""), absorbTo:String(r.absorb_to||""),
+      absorbAt:String(r.absorb_at||""), absorbQuote:String(r.absorb_quote||""), distilledAt:String(r.distilled_at||""),
       type:String(r.type||"step"),
       tags:String(r.tags||"").split(",").map(x=>x.trim()).filter(Boolean),
       status:String(r.status||"active").toLowerCase(), flag:String(r.flag||""),
@@ -11277,7 +11445,7 @@ function renderResultsCore(){
     /* a narrowed scope is a filter in its own right, so Needs attention and
        the rest get the same temporary list */
     const scoped = S.searchScope && S.searchScope !== "all";
-    const showing = hasQuery || S.tagPick.size || scoped || datesOn() || S.flowOnly;
+    const showing = hasQuery || S.tagPick.size || scoped || datesOn() || S.flowOnly || S.hideHist;
     const pop = el("resultsPop");
     pop.classList.toggle("starter", !showing && starterOn);
     paintChips();
@@ -11298,7 +11466,11 @@ function renderResultsCore(){
         : S.tagPick.size
           ? `${n} node${n===1?"":"s"} tagged ` + esc([...S.tagPick].map(tagLeaf).join(", "))
           : `${n} ${scopeName || ("node" + (n===1?"":"s"))}`;
-      const labelDated = (S.flowOnly ? label + " · with a flowchart" : label)
+      const labelBase = S.copyOnly
+        ? (String(S.hitQuery).replace(/^!+/, "").trim() ? `${n} copy line${n === 1 ? "" : "s"} matching \u201c${esc(String(S.hitQuery).replace(/^!+/, "").trim())}\u201d` : `Every copy line (${n})`)
+        : label;
+      const labelDated = (S.flowOnly ? labelBase + " · with a flowchart" : labelBase)
+        + (S.hideHist ? " · history hidden" : "")
         + (datesOn() ? " · dated " + esc(dateRangeText()) : "");
       const qTerms = String(S.hitQuery || "").replace(/^\?+/, "").replace(/(^|\s)#[^\s#]*/g, " ").trim()
         .split(/\s+/).filter(Boolean);
@@ -11337,9 +11509,18 @@ function renderResultsCore(){
                exHit(t.id).person ? " \u00b7 " + esc(exHit(t.id).person) : ""}</span>` : ""}
           ${newer ? `<span class="restrail">replaced by ${esc(nodeName(newer))}</span>`
                : trail.length ? `<span class="restrail">${esc(trail.slice(-2).join(" › "))}</span>` : ""}
+          ${resKindHTML(n)}
         </div>`;
       };
       el("resultsLabel").textContent = labelDated.replace(/<[^>]+>/g, "");
+      {
+        const hasPast = targets.some(t=>t.kind === "node" && (()=>{ const x = S.nodes.get(t.id); return x && (x.absorb || x.status === "retired"); })());
+        const w = el("resWhen");
+        if(w){
+          w.hidden = !hasPast && !S.readNow;
+          w.querySelectorAll("[data-when]").forEach(b=>b.classList.toggle("on", (b.dataset.when === "now") === !!S.readNow));
+        }
+      }
       const hashes = hashResolved(S.hitQuery);
       const chip = (h, t, c, label)=>'<button class="rp-tag" data-hash="' + esc(h) + '" data-tag="'
         + esc(t) + '" title="Only ' + esc(t) + '">' + esc(label)
@@ -11569,11 +11750,13 @@ function paintChips(){
   const asking = typed.startsWith("?");
   const names = S.searchScope === "labels";
   const tagged = /(^|\s)#/.test(typed);
-  box.innerHTML = `<button class="rp-tag${!asking && !names && !tagged && !S.flowOnly ? " on" : ""}" data-chip="all">Everything</button>
+  box.innerHTML = `<button class="rp-tag${!asking && !names && !tagged && !S.flowOnly && !typed.startsWith("!") ? " on" : ""}" data-chip="all">Everything</button>
     <button class="rp-tag${asking ? " on" : ""}" data-chip="q" title="Same as starting with ?">Questions</button>
     <button class="rp-tag${tagged || chipTags ? " on" : ""}" data-chip="tag" title="Same as typing #">Tags&hellip;</button>
     <button class="rp-tag${names ? " on" : ""}" data-chip="names">Names only</button>
     <button class="rp-tag${S.flowOnly ? " on" : ""}" data-chip="flows" title="Only rooms with a flowchart">Flowcharts</button>
+    <button class="rp-tag${typed.startsWith("!") ? " on" : ""}" data-chip="copy" title="Only copy lines, each with a Copy button. Same as starting with !">Copy lines</button>
+    <button class="rp-tag${S.hideHist ? " on" : ""}" data-chip="hidehist" title="Leave out notes already folded into their room, and retired ones">Hide history</button>
     <button class="rp-tag${datesOn() || chipDates ? " on" : ""}" data-chip="dates" title="Only rooms dated within a range">${datesOn() ? "Dates: " + esc(dateRangeText()) : "Dates&hellip;"}</button>
     ${chipDates ? `<div class="rp-dates">
         <div class="rp-daterow">
@@ -11608,11 +11791,14 @@ function paintChips(){
       if(k === "tag"){ chipTags = !chipTags; chipDates = false; paintChips(); placeResults(); return; }
       if(k === "dates"){ chipDates = !chipDates; chipTags = false; paintChips(); placeResults(); return; }
       if(k === "flows"){ S.flowOnly = !S.flowOnly; runSearch(); el("mq").focus(); return; }
+      if(k === "hidehist"){ S.hideHist = !S.hideHist; runSearch(); el("mq").focus(); return; }
+      if(k === "copy"){ chipTags = false; chipDates = false;
+        put(now.startsWith("!") ? now.replace(/^!+\s*/, "") : "!" + now.replace(/^\?+\s*/, "")); return; }
       chipTags = false; chipDates = false;
       if(k === "all"){
         S.flowOnly = false;
         if(S.searchScope !== "all"){ S.searchScope = "all"; if(el("searchScope")) el("searchScope").value = "all"; savePrefs(); }
-        put(now.replace(/^\?+\s*/, "").replace(/(^|\s)#\S*/g, " ").trim());
+        put(now.replace(/^[?!]+\s*/, "").replace(/(^|\s)#\S*/g, " ").trim());
       } else if(k === "q"){
         put(now.startsWith("?") ? now.replace(/^\?+\s*/, "") : "?" + now);
       } else if(k === "names"){
@@ -11729,9 +11915,35 @@ function wireRowHold(row, id){
   row.addEventListener("click", ev=>{ if(fired){ fired = false; ev.stopImmediatePropagation(); ev.preventDefault(); } }, true);
 }
 
+/* where a result stands now: a copy line to copy right here, or a drop that
+   has been folded into its room (tap to go to the room it went into) */
+function resKindHTML(n){
+  if(!n) return "";
+  if(isCopyLine(n)) return `<span class="reskind k-copy"><button type="button" class="rescopy" data-rescopy="${esc(n.id)}"
+      title="Copy it without opening the room">&#10697; Copy</button><i>${esc(copyLineText(n).slice(0, 90))}</i></span>`;
+  const to = n.absorbTo && S.nodes.has(n.absorbTo) ? n.absorbTo : parentOf(n.id);
+  if(n.absorb && to){
+    const b = S.readNow ? absorbBlock(n) : null;
+    return `<span class="reskind k-${esc(n.absorb)}">${n.absorb === "covered" ? "covered" : "absorbed"}
+      <button type="button" class="resgo" data-resgo="${esc(to)}" title="Go to the room it is part of now">&rarr; ${esc(nodeName(to))}</button>
+      ${b && b.text ? `<i title="How it reads now">now: ${esc(b.text.replace(/\s+/g, " ").slice(0, 120))}</i>` : ""}</span>`;
+  }
+  return "";
+}
 function bindResultRows(){
   const root = el("resultsPop");
   if(!root) return;
+  root.querySelectorAll("[data-rescopy]").forEach(b=>{
+    b.onclick = ev=>{ ev.stopPropagation(); copyLine(S.nodes.get(b.dataset.rescopy)); };
+  });
+  root.querySelectorAll("[data-resgo]").forEach(b=>{
+    b.onclick = ev=>{
+      ev.stopPropagation();
+      const id = b.dataset.resgo;
+      if(!S.nodes.has(id)) return;
+      if(inRoom()) arriveAt(id); else pickNode(id);
+    };
+  });
   root.querySelectorAll("[data-res]").forEach(e=>{
     const [k0, id0] = e.dataset.res.split(/:(.+)/);
     if(k0 === "node" && !e._held){ e._held = true; wireRowHold(e, id0); }
@@ -13451,7 +13663,7 @@ function findMoreShown(want){
   pruneTagPick();
   const q = el("mq");
   const typed = !!(q && q.value.trim());
-  const narrowed = S.tagPick.size || (S.searchScope && S.searchScope !== "all") || datesOn() || S.flowOnly;
+  const narrowed = S.tagPick.size || (S.searchScope && S.searchScope !== "all") || datesOn() || S.flowOnly || S.hideHist;
   const busy = want != null ? want : (typed || narrowed);
   more.hidden = !busy;
   fitWall();
@@ -16126,7 +16338,7 @@ function flowCardsPaint(){
   if(!hits.length){ box.innerHTML = `<p class="fv-none">No answer here fits \u201c${esc(typed.trim())}\u201d.</p>`; return; }
   box.innerHTML = hits.map(e=>{
     const to = fv.d.nodes.find(x=>x.id === e.b);
-    const say = String(e.t || "").trim() || (to && to.t ? to.t.slice(0, 50) : "This way");
+    const say = String(e.t || "").trim() || (to && to.t ? flowFirstLine(to.t) : "This way");
     const c = flowEdgeColor(e);
     return `<div class="fv-card${e.p ? "" : " nopic"}" style="--c:${c}" data-fwcard="${esc(e.id)}" role="button" tabindex="0" title="${esc(say)}">
       ${e.p ? `<img alt="" data-fwpic="${esc(e.p)}">` : `<span class="fv-cardph">${esc(say.slice(0, 2).toUpperCase())}</span>`}
@@ -16135,6 +16347,8 @@ function flowCardsPaint(){
   }).join("");
   box.querySelectorAll("img[data-fwpic]").forEach(img=>flowPicSrc(img.dataset.fwpic, img));
 }
+/* an unlabelled arrow is named by where it goes: the first line of that shape */
+function flowFirstLine(t){ const l = String(t || "").split("\n").map(x=>x.trim()).find(Boolean) || ""; return l.length > 60 ? l.slice(0, 58) + "\u2026" : l; }
 function flowOutsOf(at){
   const d = fv.d;
   const rank = e=>/^\s*(yes|y)\s*$/i.test(e.t || "") ? 0 : /^\s*(no|n)\s*$/i.test(e.t || "") ? 1 : 2;
@@ -16195,7 +16409,7 @@ function flowWalkPaint(){
   el("fvWalkKind").textContent = kind === "end" ? "That's the end of this path." : kind === "ask" ? "Which is it?" : "";
   el("fvWalkGo").innerHTML = outs.map(e=>{
     const to = d.nodes.find(x=>x.id === e.b);
-    const say = String(e.t || "").trim() || (outs.length > 1 ? (to && to.t ? to.t.slice(0, 40) : "This way") : "Next");
+    const say = String(e.t || "").trim() || (outs.length > 1 ? (to && to.t ? flowFirstLine(to.t) : "This way") : "Next");
     const c = flowEdgeColor(e);
     return `<button class="btn" data-fwgo="${esc(e.id)}" style="border-color:${c};box-shadow:inset 0 -3px 0 ${c}">${esc(say)}</button>`;
   }).join("") + (kind === "end" ? `<button class="btn primary" data-fwrestart="1">Start again</button>` : "");
@@ -16207,7 +16421,7 @@ function flowWalkPaint(){
     const sel = el("fvWalkPick");
     sel.innerHTML = `<option value="">Pick from the list&hellip;</option>` + outs.map(e=>{
       const to = d.nodes.find(x=>x.id === e.b);
-      const say = String(e.t || "").trim() || (to && to.t ? to.t.slice(0, 50) : "This way");
+      const say = String(e.t || "").trim() || (to && to.t ? flowFirstLine(to.t) : "This way");
       const hint = flowPatterns(e).filter(p=>p !== "*").join(", ");
       return `<option value="${esc(e.id)}">${esc(say)}${hint ? " \u2014 " + esc(hint) : ""}</option>`;
     }).join("");
@@ -17836,7 +18050,7 @@ function clearTheSearch(){
   if(el("mq")) el("mq").value = "";
   S.tagPick.clear();
   S.tagOnly = false;
-  S.dateFrom = ""; S.dateTo = ""; S.flowOnly = false;
+  S.dateFrom = ""; S.dateTo = ""; S.flowOnly = false; S.hideHist = false;
   S.searchScope = "all";
   const sel = el("searchScope"); if(sel) sel.value = "all";
   updateTagCount();
@@ -17849,7 +18063,7 @@ function clearTheSearch(){
 
 function anyFilterOn(){
   return !!((el("q") && el("q").value.trim()) || S.tagPick.size
-    || (S.searchScope && S.searchScope !== "all") || datesOn() || S.flowOnly);
+    || (S.searchScope && S.searchScope !== "all") || datesOn() || S.flowOnly || S.hideHist);
 }
 
 function syncClearButton(){
@@ -17867,6 +18081,7 @@ function syncClearButton(){
       if(S.tagPick.size) bits.push([...S.tagPick].map(tagLeaf).join(", "));
       if(S.searchScope && S.searchScope !== "all") bits.push(S.searchScope);
       if(S.flowOnly) bits.push("flowcharts");
+      if(S.hideHist) bits.push("no history");
       if(datesOn()) bits.push(dateRangeText());
       chip.textContent = "Filtered: " + shorten(bits.join(" · "), 34) + "  ✕";
       chip.title = "Clear the filter (Esc)";
@@ -18196,13 +18411,16 @@ function runSearchCore(){
      find the question somebody has already asked, and the rooms that answer it. */
   const qOnly = typedAll.startsWith("?");
   S.qOnly = qOnly;
-  const typed = qOnly ? typedAll.replace(/^\?+/, "").trim() : typedAll;
+  /* a leading ! searches the copy lines and nothing else: the phrasebook */
+  const copyOnly = !qOnly && typedAll.startsWith("!");
+  S.copyOnly = copyOnly;
+  const typed = qOnly ? typedAll.replace(/^\?+/, "").trim() : copyOnly ? typedAll.replace(/^!+/, "").trim() : typedAll;
   const hashTags = hashTagsIn(typed);
   const q = typed.replace(/(^|\s)#[^\s#]*/g, " ").trim();
   S.hitQuery = typedAll;
   S.hits = []; S.qHits = []; S.areaHits = []; S.bmHits = [];
   const scope = S.searchScope;
-  const filtering = S.tagPick.size > 0 || scope !== "all" || hashTags.length > 0 || qOnly || datesOn() || !!S.flowOnly;
+  const filtering = S.tagPick.size > 0 || scope !== "all" || hashTags.length > 0 || qOnly || copyOnly || datesOn() || !!S.flowOnly || !!S.hideHist;
 
   /* One letter matches almost everything and costs the most to draw, so it is
      treated as nothing typed yet — the search starts on the second letter. */
@@ -18257,6 +18475,9 @@ function runSearchCore(){
       /* questions only: the rooms that answer them, and nothing else */
       if(!datePass(n)) return false;
       if(!flowPass(n)) return false;
+      if(copyOnly && !isCopyLine(n)) return false;
+      if(S.hideHist && inHistory(n)) return false;
+      if(S.readNow && n.status === "retired") return false;
       if(qOnly) return viaQuestions.has(n.id) && tagsPass(n) && hashPass(n, hashTags);
       if(scope === "parents" && !childrenOf(n.id).length) return false;
       if(scope === "flagged" && !severityOf(n)) return false;
@@ -18276,6 +18497,8 @@ function runSearchCore(){
       return !!ex && terms.every(t=>termMatches(ex.toLowerCase(), t) || String(hay).toLowerCase().includes(t));
     }).map(n=>n.id);
     if(terms.length) S.hits = rankHits(S.hits, terms);
+    /* the room a drop was folded into leads; the drops follow it */
+    if(terms.length) S.hits = S.hits.filter(k=>!inHistory(S.nodes.get(k))).concat(S.hits.filter(k=>inHistory(S.nodes.get(k))));
     else if(datesOn()) S.hits.sort((a, b)=>{
       /* a range on its own reads like a diary: newest first */
       const da = roomDay(S.nodes.get(a)), db = roomDay(S.nodes.get(b));
@@ -20821,7 +21044,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-10-07e";
+const APP_BUILD = "2026-10-11a";
 
 /* Reading that line back out of a copy of this file.
 
@@ -24221,7 +24444,8 @@ function worldSet(){
       return {ids:[], what:shelfOf(S.roomWorld.slice(6)).name, empty:true};
     return null;
   }
-  return {ids:roomOrder(ids), what};
+  if(S.readNow && !S.roomWorld.startsWith("shelf:")) ids = readNowIds(ids);
+  return {ids:roomOrder(ids), what:what + (S.readNow && (S.roomWorld === "hits" || S.roomWorld === "tags") ? " \u00b7 as it reads now" : "")};
 }
 
 function standOnShelf(id){
@@ -24255,8 +24479,11 @@ let worldMuted = "\u0000";   /* a search they said no to, left alone until it ch
    at a huddle. This is the other one: the words, in order, with enough
    of the trail above each to know where it came from.
    --------------------------------------------------------------- */
-function printNotes(ids, what){
-  const list = (ids || []).filter(id=>S.nodes.has(id));
+function printNotes(ids, what, opts){
+  opts = opts || {};
+  if(opts.copy) return printPhrasebook(ids, what);
+  let list = (ids || []).filter(id=>S.nodes.has(id));
+  if(opts.now) list = readNowIds(list);
   if(!list.length){ toast("Nothing to print."); return; }
   const trailOf = id=>{
     const up = [];
@@ -24276,7 +24503,8 @@ function printNotes(ids, what){
       + '<p class="meta">'
       +   (n.date ? '<span>' + esc(prettyDay(n.date)) + '</span>' : "")
       +   tags.map(t=>'<span class="tag">' + esc(t) + '</span>').join("")
-      +   (n.status === "retired" ? '<span class="gone">retired</span>' : "")
+      +   (n.status === "retired" ? '<span class="gone">retired' + (n.supersededBy && S.nodes.has(n.supersededBy) ? " \u2192 replaced by " + esc(nodeName(n.supersededBy)) : "") + '</span>' : "")
+      +   (n.absorb ? '<span class="stamp">' + esc(n.absorb) + " \u2192 " + esc(nodeName((absorbBlock(n) || {}).parent || parentOf(id) || "")) + (n.absorbAt ? " \u00b7 " + esc(prettyDay(String(n.absorbAt).slice(0, 10))) : "") + '</span>' : "")
       + '</p>'
       + (words ? '<div class="note">' + noteToHtml(n.body, n) + '</div>'
                : '<p class="empty">No note written on this one.</p>')
@@ -24301,7 +24529,7 @@ function printNotes(ids, what){
     + '.meta span{display:inline-block;margin-right:7px}'
     + '.tag{background:#eef1f4;border-radius:2px;padding:1px 6px;'
     +   'font-family:ui-monospace,Menlo,Consolas,monospace}'
-    + '.gone{color:#a33;font-weight:600}'
+    + '.gone{color:#a33;font-weight:600} .stamp{color:#14549B;font-weight:600;border:1px solid #14549B;border-radius:9px;padding:0 6px}'
     + '.note{font-size:12.5px} .note p{margin:0 0 7px} .note ul,.note ol{margin:0 0 7px 18px}'
     + '.note img{max-width:60%;height:auto}'
     + '.empty{margin:0;color:#8a9199;font-style:italic;font-size:12px}'
@@ -24310,7 +24538,7 @@ function printNotes(ids, what){
     + '@page{margin:14mm}'
     + '@media print{.noprint{display:none}}'
     + '</style></head><body>'
-    + '<h1>' + esc(what || "Notes") + '</h1>'
+    + '<h1>' + esc((what || "Notes") + (opts.now && !/as it reads now/.test(what || "") ? " \u2014 as it reads now" : "")) + '</h1>'
     + '<p class="sub">' + esc((S.meta.title || S.bookName || "MindMap"))
     +   " \u00b7 " + list.length + (list.length === 1 ? " note" : " notes")
     +   " \u00b7 " + new Date().toISOString().slice(0, 10) + '</p>'
@@ -24328,6 +24556,25 @@ function printNotes(ids, what){
 }
 
 /* The same set, named, for anywhere that wants to list or print it. */
+/* A copy-line search prints as a phrasebook: the lines, grouped by room, no prose. */
+function printPhrasebook(ids, what){
+  const lines = (ids || []).map(id=>S.nodes.get(id)).filter(n=>n && isCopyLine(n));
+  if(!lines.length){ toast("No copy lines to print."); return; }
+  const groups = new Map();
+  lines.forEach(n=>{ const up = parentOf(n.id) || ""; if(!groups.has(up)) groups.set(up, []); groups.get(up).push(n); });
+  const body = [...groups.entries()].map(([up, ns])=>'<section><h2>' + esc(up ? nodeName(up) : "Elsewhere") + '</h2><ul>'
+    + ns.map(n=>'<li><b>' + esc(n.label || "") + '</b><code>' + esc(copyLineText(n)) + '</code></li>').join("") + '</ul></section>').join("");
+  const html = '<!doctype html><html><head><meta charset="utf-8"><title>' + esc(what || "Copy lines") + '</title><style>'
+    + 'body{font:13px/1.5 "Segoe UI",system-ui,sans-serif;color:#1c2024;margin:0;padding:24px 28px}'
+    + 'h1{font-size:18px;margin:0 0 14px} h2{font-size:13px;margin:14px 0 6px;color:#14549B;border-bottom:1px solid #d7dbe0;padding-bottom:3px}'
+    + 'section{break-inside:avoid} ul{list-style:none;margin:0;padding:0} li{margin:0 0 7px}'
+    + 'li b{display:block;font-size:11px;color:#667} code{display:block;font:12.5px/1.45 ui-monospace,Consolas,monospace;background:#f2f4f6;border-radius:4px;padding:4px 7px;white-space:pre-wrap}'
+    + '@page{margin:14mm}</style></head><body><h1>' + esc(what || "Copy lines") + '</h1>' + body + '</body></html>';
+  const w = window.open("", "_blank");
+  if(!w){ toast("The browser blocked the print window."); return; }
+  w.document.write(html); w.document.close();
+  setTimeout(()=>{ try{ w.focus(); w.print(); }catch(e){} }, 300);
+}
 function foundSet(){
   const was = S.roomWorld;
   let got = null;
@@ -24419,6 +24666,140 @@ function roomThings(id){
   const ok = roomAllowed();
   return childrenOf(id).filter(k=>S.nodes.has(k) && (!ok || ok.has(k)));
 }
+/* ---------------------------------------------------------------
+   COPY LINES AND HISTORY
+   A room's children are of two sorts. Subtopics are places of their own and
+   stay on the floor. Drops — a huddle reminder, a Teams post — come in to add
+   to this room; once Distill has folded one in (absorbed, covered) or put it
+   away (retired) it leaves the floor for the History drawer, and a copy line
+   becomes a chip at the top of the wall. Nothing is deleted: each keeps its
+   words, date, tags and author, and searching still finds every one.
+   --------------------------------------------------------------- */
+function isCopyLine(n){ return !!n && n.role === "copy" && n.status !== "retired"; }
+/* a drop that has been dealt with; a child with children of its own is a
+   subtopic and never leaves the floor */
+function inHistory(n){
+  if(!n || n.role === "copy") return false;
+  if(childrenOf(n.id).length) return false;
+  return !!n.absorb || n.status === "retired";
+}
+function leavesFloor(n){ return !!n && (isCopyLine(n) || inHistory(n) || (n.role === "copy" && n.status === "retired" && !childrenOf(n.id).length)); }
+function roomFloor(id){ return roomThings(id).filter(k=>!leavesFloor(S.nodes.get(k))); }
+function copyLinesOf(id){
+  return roomOrder(roomThings(id).filter(k=>isCopyLine(S.nodes.get(k))));
+}
+function historyOf(id){
+  return roomThings(id).filter(k=>{ const n = S.nodes.get(k); return inHistory(n) || (n && n.role === "copy" && n.status === "retired" && !childrenOf(k).length); })
+    .sort((a, b)=>{ const da = roomDay(S.nodes.get(a)) || "", db = roomDay(S.nodes.get(b)) || "";
+      return da < db ? -1 : da > db ? 1 : 0; });
+}
+/* the words a copy line copies: its note if it has one, else its name */
+function copyLineText(n){
+  const b = String(n.body || "").trim();
+  return b || String(n.label || "").trim();
+}
+/* blanks to fill in when copying: ######, ____, or [something] */
+const COPY_BLANK = /#{3,}|_{3,}|\[[^\]\n]{1,40}\]/g;
+function copyLineDefault(){
+  try{
+    const outs = (typeof LAB !== "undefined" && LAB && LAB.outs) || [];
+    const o = outs.find(x=>x.type === "acc" || x.type === "portal");
+    return o ? o.value : "";
+  }catch(e){ return ""; }
+}
+async function copyLine(n){
+  if(!n) return;
+  let text = copyLineText(n);
+  const blanks = text.match(COPY_BLANK) || [];
+  if(blanks.length){
+    const guess = copyLineDefault();
+    for(const b of blanks){
+      const v = prompt("Fill in " + (b.startsWith("[") ? b : "the blank") + " for:\n" + text, guess);
+      if(v == null) return;
+      text = text.replace(b, v.trim() || b);
+    }
+  }
+  toast(await copyPlain(text) ? "Copied: " + (text.length > 60 ? text.slice(0, 58) + "\u2026" : text) : "The browser would not copy it");
+}
+/* The paragraph of the room a drop was folded into that says what it said:
+   the one sharing the most words with it. Edits to the room since are fine;
+   it is found again by its words, not by a position. */
+function absorbBlock(n){
+  if(!n) return null;
+  const pid = n.absorbTo && S.nodes.has(n.absorbTo) ? n.absorbTo : parentOf(n.id);
+  const p = pid && S.nodes.get(pid);
+  if(!p) return null;
+  const blocks = String(p.body || "").split(/\n\s*\n/).map(x=>x.trim()).filter(Boolean);
+  if(!blocks.length) return {parent:pid, text:""};
+  const words = t=>new Set(String(t || "").toLowerCase().match(/[a-z0-9]{3,}/g) || []);
+  const want = words(n.absorbQuote || n.body || n.label);
+  let best = blocks[0], score = -1;
+  blocks.forEach(b=>{ const w = words(b); let k = 0; want.forEach(x=>{ if(w.has(x)) k++; }); if(k > score){ score = k; best = b; } });
+  return {parent:pid, text:best};
+}
+/* "as it reads now": a folded-in drop stands for the room it went into, once,
+   and a retired one is left out */
+function readNowIds(ids){
+  const out = [], seen = new Set();
+  ids.forEach(id=>{
+    const n = S.nodes.get(id);
+    if(!n) return;
+    if(n.status === "retired") return;
+    let k = id;
+    if(n.absorb){ const b = absorbBlock(n); if(b && b.parent) k = b.parent; }
+    if(!seen.has(k)){ seen.add(k); out.push(k); }
+  });
+  return out;
+}
+function historyBadge(n){
+  if(!n) return "";
+  if(n.status === "retired") return "retired" + (n.supersededBy && S.nodes.has(n.supersededBy) ? " \u2192 " + nodeName(n.supersededBy) : "");
+  if(n.absorb === "absorbed") return "absorbed" + (n.absorbAt ? " " + shortDay(String(n.absorbAt).slice(0, 10)) : "");
+  if(n.absorb === "covered") return "covered" + (n.absorbAt ? " " + shortDay(String(n.absorbAt).slice(0, 10)) : "");
+  return "";
+}
+function paintRoomLines(id){
+  const box = el("rvLines");
+  if(!box) return;
+  const lines = id ? copyLinesOf(id) : [];
+  box.hidden = !lines.length;
+  if(!lines.length){ box.innerHTML = ""; return; }
+  box.innerHTML = lines.map(k=>{
+    const n = S.nodes.get(k), t = copyLineText(n);
+    const blank = COPY_BLANK.test(t); COPY_BLANK.lastIndex = 0;
+    return `<button class="rv-line" data-line="${esc(k)}" title="${esc(t)}${canEdit() ? "\n(right-click or hold to open it)" : ""}">
+      <span class="ic" aria-hidden="true">&#10697;</span><span class="tx">${esc(n.label && n.body ? n.label : t)}</span>${blank ? '<i class="blank">fill in</i>' : ""}</button>`;
+  }).join("");
+  box.querySelectorAll("[data-line]").forEach(b=>{
+    let held = 0, timer = 0;
+    const open = ()=>{ if(canEdit()) select(b.dataset.line); };
+    b.onclick = ev=>{ if(held){ held = 0; return; } copyLine(S.nodes.get(b.dataset.line)); };
+    b.oncontextmenu = ev=>{ if(!canEdit()) return; ev.preventDefault(); open(); };
+    b.addEventListener("pointerdown", ()=>{ held = 0; clearTimeout(timer); timer = setTimeout(()=>{ held = 1; open(); }, 650); });
+    ["pointerup", "pointerleave", "pointercancel"].forEach(t=>b.addEventListener(t, ()=>clearTimeout(timer)));
+  });
+}
+let histOpen = false;
+function paintRoomHistory(id){
+  const box = el("rvHist");
+  if(!box) return;
+  const ids = id ? historyOf(id) : [];
+  box.hidden = !ids.length;
+  if(!ids.length){ box.innerHTML = ""; return; }
+  const n = S.nodes.get(id);
+  box.innerHTML = `<button class="rv-histbtn" data-histtoggle="1" aria-expanded="${histOpen}">
+      <span>&#128344; History (${ids.length})</span>${n && n.distilledAt ? `<i>distilled ${esc(shortDay(String(n.distilledAt).slice(0, 10)))}</i>` : ""}
+      <b>${histOpen ? "&#9662;" : "&#9656;"}</b></button>
+    ${histOpen ? `<div class="rv-histlist">${ids.map(k=>{
+      const c = S.nodes.get(k), d = roomDay(c);
+      return `<button class="rv-histrow${c.status === "retired" ? " gone" : ""}" data-room="${esc(k)}">
+        <span class="when">${esc(d ? shortDay(d) : "")}</span>
+        <span class="what"><b>${esc(c.label || c.id)}</b>${c.body ? `<s>${esc(String(c.body).replace(/\s+/g, " ").slice(0, 140))}</s>` : ""}</span>
+        <i class="tag">${esc(historyBadge(c))}</i></button>`;
+    }).join("")}</div>` : ""}`;
+  box.querySelector("[data-histtoggle]").onclick = ()=>{ histOpen = !histOpen; paintRoomHistory(id); fitWall(); };
+  box.querySelectorAll(".rv-histrow[data-room]").forEach(b=>b.onclick = ()=>roomGo(b.dataset.room, "in"));
+}
 
 /* A room dressed as a street has brick walls and a parchment board, so the
    quiet greys that read well on drafting paper stop reading. Rather than guess
@@ -24502,7 +24883,9 @@ function renderRoom(){
   if(wipeTags){ wipeTags.hidden = true; wipeTags.innerHTML = ""; }
   const wipeQs = el("rvQs");
   if(wipeQs){ wipeQs.hidden = true; wipeQs.innerHTML = ""; }
+  ["rvLines", "rvHist"].forEach(k=>{ const w = el(k); if(w){ w.hidden = true; w.innerHTML = ""; } });
   if(el("rvPast")) el("rvPast").hidden = true;
+  if(el("rvDistill")) el("rvDistill").hidden = true;
   paintStar("");
   if(el("rvBulk")) el("rvBulk").hidden = true;
   /* Only a room that asks for examples offers the button, and the hall and a
@@ -24666,6 +25049,8 @@ function renderRoom(){
   /* tags, as they are drawn on the map */
   /* the questions this room answers, so a reader knows they are in the right place */
   paintRoomQuestions(id);
+  paintRoomLines(id);
+  paintRoomHistory(id);
   const tags = (n.tags || []).filter(Boolean);
   const tw = el("rvTags");
   tw.hidden = !tags.length;
@@ -24676,15 +25061,19 @@ function renderRoom(){
   }).join("");
 
   /* what is in here, in words */
-  const kids = roomOrder(roomThings(id));
+  const kids = roomOrder(roomFloor(id));
   const allow = roomAllowed();
   const cross = crossOf(id).filter(c=>!allow || allow.has(c.id));
-  const hiddenHere = childrenOf(id).length + crossOf(id).length - kids.length - cross.length;
+  const tucked = roomThings(id).length - kids.length;
+  const hiddenHere = childrenOf(id).length + crossOf(id).length - kids.length - cross.length - tucked;
   const bits = [];
   if(kids.length) bits.push(kids.length + (kids.length === 1 ? " thing here" : " things here"));
   if(!words && !art) bits.unshift(kidsAhead(id)
     ? "nothing written here — the detail is below" : "nothing written here yet");
   if(cross.length) bits.push(cross.length + (cross.length === 1 ? " archway" : " archways"));
+  const lineN = copyLinesOf(id).length, histN = historyOf(id).length;
+  if(lineN) bits.push(lineN + (lineN === 1 ? " copy line" : " copy lines"));
+  if(histN) bits.push(histN + " in history");
   const items = itemsFor(id);
   /* A viewing copy counts only what this person still owes — nobody else's
      standing is their business. The editor sees the whole picture. */
@@ -24774,6 +25163,7 @@ function renderRoom(){
   el("rvBatch").hidden = !canEdit();
   el("rvMove").hidden = !canEdit();
   el("rvFlowBtn").hidden = !canEdit();
+  paintDistillButton(id);
   el("rvFlowBtn").querySelector(".lb").textContent = S.sel && (S.nodes.get(S.sel) || {}).flow ? "Edit flowchart" : "Flowchart";
   el("rvSort").hidden = !canEdit() || !childrenOf(S.sel).length;
   /* the same for a real parent: everything standing in here, together */
@@ -26596,6 +26986,396 @@ async function openLab(tab){
   const bar = el("labBar"); if(bar) bar.focus();
 }
 
+/* =====================================================================
+   DISTILL
+   One room at a time: its loose notes come up as cards, oldest first, and
+   each is dealt with in a swipe — pulled into the room's note, marked as
+   already covered, retired, kept as a copy line, or kept as a room of its
+   own. Nothing is deleted and nothing is written until Save; a session in
+   progress is kept on this computer so a reload loses nothing.
+   ===================================================================== */
+const DS_ACTS = {
+  pull:{label:"Pull in", key:"ArrowUp", icon:"&#8593;", say:"pulled in"},
+  covered:{label:"Covered", key:"ArrowRight", icon:"&#8594;", say:"already covered"},
+  outdated:{label:"Outdated", key:"ArrowDown", icon:"&#8595;", say:"retired"},
+  later:{label:"Later", key:"ArrowLeft", icon:"&#8592;", say:"left for later"},
+  copy:{label:"Copy line", key:"c", icon:"&#11088;", say:"kept as a copy line"},
+  room:{label:"Own room", key:"r", icon:"&#128682;", say:"kept as its own room"}
+};
+let ds = null;
+
+/* the loose notes of a room: children with nothing under them that have not
+   been dealt with yet */
+function distillDrops(pid){
+  return childrenOf(pid).filter(k=>{
+    const n = S.nodes.get(k);
+    if(!n || childrenOf(k).length) return false;
+    if(n.role || n.absorb || n.status === "retired") return false;
+    return true;
+  }).sort((a, b)=>{
+    const da = roomDay(S.nodes.get(a)) || "", db = roomDay(S.nodes.get(b)) || "";
+    return da < db ? -1 : da > db ? 1 : 0;
+  });
+}
+/* a note that came in from a huddle or Teams, rather than a room someone built */
+function dsLikelyDrop(n){
+  return !!n && (!!n.source || (n.tags || []).some(t=>/huddle|teams|scratch|inbox/i.test(t)));
+}
+/* every room with notes waiting: the ones holding huddle and Teams drops first */
+function needsDistilling(){
+  const out = [];
+  S.nodes.forEach((n, id)=>{
+    const ds_ = distillDrops(id);
+    if(!ds_.length) return;
+    out.push({id, k:ds_.length, likely:ds_.filter(k=>dsLikelyDrop(S.nodes.get(k))).length});
+  });
+  return out.sort((a, b)=>b.likely - a.likely || b.k - a.k);
+}
+function dsBlocksOf(text){ return String(text || "").split(/\n\s*\n/).map(x=>x.trim()).filter(Boolean); }
+function dsWords(t){ return new Set(String(t || "").toLowerCase().match(/[a-z0-9]{3,}/g) || []); }
+function dsBestBlock(text){
+  if(!ds.blocks.length) return -1;
+  const want = dsWords(text);
+  let best = 0, score = -1;
+  ds.blocks.forEach((b, i)=>{ const w = dsWords(b.text); let k = 0; want.forEach(x=>{ if(w.has(x)) k++; }); if(k > score){ score = k; best = i; } });
+  return score > 0 ? best : -1;
+}
+/* times, durations and counts that say something different from the draft */
+const DS_KINDS = [
+  ["time", /\b\d{1,2}(?::\d{2})?\s?(?:am|pm)\b/gi],
+  ["span", /\b\d+(?:\.\d+)?\s?(?:days?|weeks?|hours?|hrs?|minutes?|mins?|months?|years?)\b/gi],
+  ["count", /\b(?:max(?:imum)?|at most|up to|only|limit(?: yourself)? to)\s+\d+\b/gi]
+];
+function dsConflicts(cardText, blockText){
+  const out = [];
+  DS_KINDS.forEach(([kind, re])=>{
+    const norm = x=>x.toLowerCase().replace(/\s+/g, " ");
+    const a = String(cardText).match(re) || [], b = String(blockText).match(re) || [];
+    if(!a.length || !b.length) return;
+    const an = a.map(norm), bn = b.map(norm);
+    const fresh = a.filter((x, i)=>!bn.includes(an[i])), old = b.filter((x, i)=>!an.includes(bn[i]));
+    if(fresh.length && old.length) out.push({kind, card:fresh[0], draft:old[0]});
+  });
+  return out;
+}
+function dsLooksCopy(n){
+  const t = String(n.body || n.label || "").trim();
+  if(!t || t.length > 200) return false;
+  return /^(issue|dnu|stat:|sample note|note:|witness|pictures? taken)/i.test(t)
+    || /^["\u201c].+["\u201d]$/.test(t) || /#{3,}|_{3,}/.test(t);
+}
+function dsKey(pid){ return "distill:" + pid; }
+async function openDistill(pid){
+  if(!canEdit()){ toast("Switch to editing mode first."); return; }
+  const p = S.nodes.get(pid); if(!p) return;
+  let saved = null;
+  try{ saved = await Store.getKey(dsKey(pid)); }catch(e){}
+  const drops = distillDrops(pid);
+  ds = {pid, total:drops.length, queue:drops.slice(), done:[], later:[], quiet:"", undo:[], sel:-1, picking:false, pick:new Set(),
+    blocks:dsBlocksOf(p.body).map(t=>({id:"b" + Math.random().toString(36).slice(2, 7), text:t, hits:0})), edit:-1, conflict:null};
+  if(saved && saved.pid === pid && Array.isArray(saved.blocks)){
+    ds.blocks = saved.blocks; ds.done = saved.done || [];
+    const decided = new Set(ds.done.map(d=>d.id));
+    ds.queue = drops.filter(k=>!decided.has(k));
+    ds.total = Math.max(ds.total, ds.queue.length + ds.done.length);
+    toast("Picked up where you left off.");
+  }
+  el("dsTitle").textContent = p.label || p.id;
+  const dlg = el("distillDlg");
+  if(!dlg.open) dlg.showModal();
+  dsPaint();
+}
+function dsKeep(){
+  if(!ds) return;
+  try{ Store.putKey(dsKey(ds.pid), {pid:ds.pid, blocks:ds.blocks, done:ds.done, at:nowISO()}); }catch(e){}
+}
+function dsCard(){ return ds && ds.queue.length ? S.nodes.get(ds.queue[0]) : null; }
+function dsCardText(n){
+  if(!n) return "";
+  if(ds.picking && ds.pick.size){
+    return dsSentences(n).filter((x, i)=>ds.pick.has(i)).join(" ");
+  }
+  return String(n.body || "").trim() || String(n.label || "");
+}
+function dsSentences(n){
+  return String(n.body || n.label || "").split(/(?<=[.!?])\s+(?=[A-Z0-9"\u201c(])|\n+/).map(x=>x.trim()).filter(Boolean);
+}
+function dsPaint(){
+  if(!ds) return;
+  const handled = ds.done.length, total = Math.max(ds.total, handled + ds.queue.length);
+  el("dsProg").style.setProperty("--p", total ? Math.round(handled / total * 100) + "%" : "100%");
+  el("dsCount").textContent = handled + " / " + total;
+  el("dsUndo").disabled = !ds.undo.length;
+  /* the draft */
+  const counts = new Map();
+  ds.done.forEach(d=>{ if((d.act === "pull" || d.act === "covered") && d.block) counts.set(d.block, (counts.get(d.block) || 0) + 1); });
+  el("dsBlocks").innerHTML = ds.blocks.length ? ds.blocks.map((b, i)=>`<div class="ds-block${ds.sel === i ? " sel" : ""}" data-blk="${i}" tabindex="0">
+      <div class="ds-btext">${esc(b.text)}</div>
+      <div class="ds-bbar">${counts.get(b.id) ? `<span class="ds-hits" title="Notes folded into this block this session">&#8635; ${counts.get(b.id)}</span>` : ""}
+        <button type="button" data-bact="edit" title="Edit this block">&#9998;</button>
+        <button type="button" data-bact="up" title="Move up"${i ? "" : " disabled"}>&#8593;</button>
+        <button type="button" data-bact="down" title="Move down"${i < ds.blocks.length - 1 ? "" : " disabled"}>&#8595;</button>
+        <button type="button" data-bact="del" title="Remove this block">&#10005;</button></div></div>`).join("")
+    : `<p class="ds-empty">The note is empty. Pull a card in to start it, or add a block.</p>`;
+  /* the card */
+  const n = dsCard();
+  const deck = el("dsDeck");
+  if(!n){
+    const next = needsDistilling().filter(x=>x.id !== ds.pid).slice(0, 5);
+    deck.innerHTML = `<div class="ds-finish"><div class="ds-burst" aria-hidden="true">&#10024;</div>
+      <h3>${total ? (ds.later.length ? handled + " dealt with, " + ds.later.length + " left for later" : "All " + total + " dealt with") : "Nothing waiting in this room"}</h3>
+      ${ds.later.length ? `<button type="button" class="btn small" data-dslater="1">Go through the ${ds.later.length} left for later</button>` : ""}
+      <p>Press <b>Save</b> to write the note and file the cards. ${ds.done.length ? "Every card keeps its own words, date and tags." : ""}</p>
+      ${next.length ? `<h4>Next rooms with notes waiting</h4>${next.map(x=>`<button type="button" class="ds-next" data-dsnext="${esc(x.id)}">${esc(nodeName(x.id))} <b>${x.k}</b></button>`).join("")}` : ""}</div>`;
+    el("dsActs").hidden = true;
+    el("dsRest").hidden = true;
+    return;
+  }
+  el("dsActs").hidden = false;
+  el("dsRest").hidden = ds.queue.length < 2;
+  const d = roomDay(n), tags = (n.tags || []).filter(Boolean);
+  const target = ds.sel >= 0 ? ds.sel : dsBestBlock(dsCardText(n));
+  const conflict = target >= 0 && ds.quiet !== n.id ? dsConflicts(dsCardText(n), ds.blocks[target].text) : [];
+  const sent = dsSentences(n);
+  deck.innerHTML = `<div class="ds-card" id="dsCardEl">
+      <div class="ds-meta">${d ? `<span>${esc(shortDay(d))}</span>` : ""}${n.author ? `<span>${esc(n.author)}</span>` : ""}
+        ${tags.map(t=>`<span class="tg">${esc(t)}</span>`).join("")}${dsLikelyDrop(n) ? "" : `<span class="tg" title="No huddle or Teams tag: this may be a subtopic rather than a dropped-in note">maybe a subtopic</span>`}<span class="ds-left">${ds.queue.length} left</span></div>
+      <h3>${esc(n.label || n.id)}</h3>
+      ${ds.picking
+        ? `<div class="ds-chips">${sent.map((x, i)=>`<button type="button" class="ds-chip${ds.pick.has(i) ? " on" : ""}" data-sent="${i}">${esc(x)}</button>`).join("")}</div>`
+        : `<div class="ds-body">${n.body ? noteToHtml(n.body, n) : `<p class="ds-empty">(no note, just the name)</p>`}</div>`}
+      ${sent.length > 1 ? `<button type="button" class="ds-pickbtn" data-dspick="1">${ds.picking ? "Use the whole card" : "Pick sentences"}</button>` : ""}
+      ${target >= 0 ? `<p class="ds-target">${ds.sel >= 0 ? "Goes with the block you picked" : "Closest block"}: <i>${esc(ds.blocks[target].text.slice(0, 90))}</i></p>` : ""}
+      ${conflict.length ? `<div class="ds-conflict"><b>&#9888; Says something different from the draft</b>
+        ${conflict.map(c=>`<div>Draft: <code>${esc(c.draft)}</code> &nbsp;This card: <code>${esc(c.card)}</code></div>`).join("")}
+        <div class="ds-cbtns"><button type="button" class="btn small" data-dsfix="card">Use this card's</button>
+          <button type="button" class="btn small" data-dsfix="draft">Keep the draft's</button></div></div>` : ""}
+      ${dsLooksCopy(n) ? `<p class="ds-hint">&#11088; Looks like a copy line</p>` : ""}
+    </div>`;
+  el("dsActs").querySelector('[data-dsact="copy"]').classList.toggle("hint", dsLooksCopy(n));
+  ds.conflict = conflict.length ? {block:target, list:conflict} : null;
+  dsWireSwipe();
+}
+function dsApplyConflict(useCard){
+  if(!ds || !ds.conflict) return;
+  const {block, list} = ds.conflict;
+  if(useCard){
+    ds.undo.push({type:"blocks", blocks:JSON.parse(JSON.stringify(ds.blocks))});
+    let t = ds.blocks[block].text;
+    list.forEach(c=>{ const re = new RegExp(c.draft.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/ /g, "\\s?"), "i"); t = t.replace(re, c.card); });
+    ds.blocks[block].text = t;
+    toast("The draft now says " + list.map(c=>c.card).join(", "));
+  }
+  ds.conflict = null;
+  /* the card is still waiting for its swipe; just stop asking about the clash */
+  const n = dsCard(); if(n) ds.quiet = n.id;
+  dsKeep(); dsPaint();
+}
+function dsAct(act){
+  const n = dsCard(); if(!n) return;
+  const text = dsCardText(n);
+  const snap = {type:"card", id:n.id, blocks:JSON.parse(JSON.stringify(ds.blocks)), sel:ds.sel};
+  let block = "";
+  if(act === "pull"){
+    const at = ds.sel >= 0 ? ds.sel + 1 : ds.blocks.length;
+    const b = {id:"b" + Math.random().toString(36).slice(2, 7), text, hits:0};
+    ds.blocks.splice(at, 0, b);
+    block = b.id;
+  } else if(act === "covered"){
+    const i = ds.sel >= 0 ? ds.sel : dsBestBlock(text);
+    if(i < 0){ toast("Nothing in the draft covers it yet \u2014 pull it in instead, or pick a block first."); return; }
+    block = ds.blocks[i].id;
+  }
+  snap.later = ds.later.slice();
+  ds.undo.push(snap);
+  ds.queue.shift();
+  if(act === "later") ds.later.push(n.id);
+  else ds.done.push({id:n.id, act, block, quote:block ? (ds.blocks.find(b=>b.id === block) || {}).text.slice(0, 160) : ""});
+  ds.picking = false; ds.pick = new Set(); ds.sel = -1;
+  dsFly(act);
+  dsKeep();
+  setTimeout(dsPaint, 170);
+}
+function dsFly(act){
+  const c = el("dsCardEl"); if(!c) return;
+  const v = {pull:[0, -1], covered:[1, 0], outdated:[0, 1], later:[-1, 0], copy:[0, -1], room:[1, -1]}[act] || [0, -1];
+  c.style.transition = "transform .17s ease-in, opacity .17s";
+  c.style.transform = `translate(${v[0] * 120}%, ${v[1] * 80}%) rotate(${v[0] * 12}deg)`;
+  c.style.opacity = "0";
+}
+function dsUndo(){
+  const u = ds && ds.undo.pop(); if(!u) return;
+  if(u.type === "blocks"){ ds.blocks = u.blocks; }
+  else if(u.type === "rest"){ ds.queue = u.queue; ds.done = u.done; }
+  else {
+    ds.blocks = u.blocks; ds.sel = u.sel;
+    if(u.later) ds.later = u.later;
+    const at = ds.done.findIndex(d=>d.id === u.id);
+    if(at >= 0) ds.done.splice(at, 1);
+    ds.queue = [u.id].concat(ds.queue.filter(k=>k !== u.id));
+  }
+  dsKeep(); dsPaint();
+}
+function dsWireSwipe(){
+  const c = el("dsCardEl"); if(!c) return;
+  let sx = 0, sy = 0, on = false, dx = 0, dy = 0;
+  c.addEventListener("pointerdown", ev=>{
+    if(ev.target.closest("button, a, input, textarea")) return;
+    on = true; sx = ev.clientX; sy = ev.clientY; dx = dy = 0;
+    c.setPointerCapture(ev.pointerId); c.style.transition = "none";
+  });
+  c.addEventListener("pointermove", ev=>{
+    if(!on) return;
+    dx = ev.clientX - sx; dy = ev.clientY - sy;
+    c.style.transform = `translate(${dx}px, ${dy}px) rotate(${dx / 20}deg)`;
+    const a = dsSwipeAct(dx, dy);
+    el("dsActs").querySelectorAll("[data-dsact]").forEach(b=>b.classList.toggle("lit", b.dataset.dsact === a));
+  });
+  const end = ()=>{
+    if(!on) return; on = false;
+    el("dsActs").querySelectorAll(".lit").forEach(b=>b.classList.remove("lit"));
+    const a = dsSwipeAct(dx, dy);
+    if(a) dsAct(a);
+    else { c.style.transition = "transform .18s"; c.style.transform = ""; }
+  };
+  c.addEventListener("pointerup", end);
+  c.addEventListener("pointercancel", end);
+}
+function dsSwipeAct(dx, dy){
+  const far = 90;
+  if(Math.abs(dx) < far && Math.abs(dy) < far) return "";
+  if(Math.abs(dx) > Math.abs(dy)) return dx > 0 ? "covered" : "later";
+  return dy < 0 ? "pull" : "outdated";
+}
+function dsEditBlock(i){
+  if(!ds) return;
+  ds.edit = i;
+  const ta = el("dsEditText");
+  ta.value = i >= 0 && ds.blocks[i] ? ds.blocks[i].text : "";
+  el("dsEdit").hidden = false;
+  setTimeout(()=>{ ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }, 30);
+}
+function dsEditDone(keep){
+  if(!ds) return;
+  const v = el("dsEditText").value.trim();
+  if(keep){
+    ds.undo.push({type:"blocks", blocks:JSON.parse(JSON.stringify(ds.blocks))});
+    if(ds.edit >= 0 && ds.blocks[ds.edit]){
+      if(v) ds.blocks[ds.edit].text = v; else ds.blocks.splice(ds.edit, 1);
+    } else if(v){
+      ds.blocks.push({id:"b" + Math.random().toString(36).slice(2, 7), text:v, hits:0});
+    }
+  }
+  el("dsEdit").hidden = true; ds.edit = -1;
+  dsKeep(); dsPaint();
+}
+/* write it all: the room's note, its stamp, and what became of each card */
+function dsSave(){
+  if(!ds) return;
+  const p = S.nodes.get(ds.pid); if(!p) return;
+  const body = ds.blocks.map(b=>b.text.trim()).filter(Boolean).join("\n\n");
+  const today = nowISO().slice(0, 10);
+  let did = 0;
+  if(String(p.body || "") !== body){ setField(p, "body", body); did++; }
+  ds.done.forEach(d=>{
+    const n = S.nodes.get(d.id); if(!n) return;
+    if(d.act === "pull" || d.act === "covered"){
+      setField(n, "absorb", d.act === "pull" ? "absorbed" : "covered");
+      setField(n, "absorbTo", ds.pid);
+      setField(n, "absorbAt", today);
+      setField(n, "absorbQuote", d.quote || "");
+    } else if(d.act === "outdated"){
+      setField(n, "supersededBy", ds.pid);
+      if(n.status !== "retired") setField(n, "status", "retired");
+    } else if(d.act === "copy"){
+      setField(n, "role", "copy");
+    } else if(d.act === "room"){
+      setField(n, "role", "room");
+    }
+    did++;
+  });
+  if(ds.done.length || did) setField(p, "distilledAt", today);
+  try{ Store.putKey(dsKey(ds.pid), null); }catch(e){}
+  const n = ds.done.length;
+  ds = null;
+  el("distillDlg").close();
+  markDirty(); rebuild(); renderRoomSoon();
+  toast(n ? "Distilled: " + n + " card" + (n === 1 ? "" : "s") + " filed. Save the map to share it." : "Saved.");
+}
+function wireDistill(){
+  const dlg = el("distillDlg"); if(!dlg) return;
+  el("dsClose").onclick = ()=>{
+    if(ds && (ds.done.length || ds.undo.length) && !confirm("Leave without saving? What you have done is kept on this computer, and comes back next time you distill this room.")) return;
+    dlg.close();
+  };
+  el("dsSave").onclick = dsSave;
+  el("dsRest").onclick = ()=>{
+    if(!ds || !ds.queue.length) return;
+    ds.undo.push({type:"rest", queue:ds.queue.slice(), done:ds.done.slice()});
+    ds.queue.forEach(id=>ds.done.push({id, act:"room", block:"", quote:""}));
+    ds.queue = [];
+    dsKeep(); dsPaint();
+  };
+  el("dsUndo").onclick = dsUndo;
+  el("dsAdd").onclick = ()=>dsEditBlock(-1);
+  el("dsEditOk").onclick = ()=>dsEditDone(true);
+  el("dsEditCancel").onclick = ()=>dsEditDone(false);
+  el("dsActs").addEventListener("click", ev=>{ const b = ev.target.closest("[data-dsact]"); if(b) dsAct(b.dataset.dsact); });
+  el("dsDeck").addEventListener("click", ev=>{
+    if(ev.target.closest("[data-dslater]")){ ds.queue = ds.later; ds.later = []; dsPaint(); return; }
+    const nx = ev.target.closest("[data-dsnext]");
+    if(nx){ const id = nx.dataset.dsnext; if(ds && ds.done.length){ dsSave(); } else dlg.close(); select(id); openDistill(id); return; }
+    const s = ev.target.closest("[data-sent]");
+    if(s){ const i = +s.dataset.sent; ds.pick.has(i) ? ds.pick.delete(i) : ds.pick.add(i); dsPaint(); return; }
+    if(ev.target.closest("[data-dspick]")){ ds.picking = !ds.picking; ds.pick = new Set(); dsPaint(); return; }
+    const f = ev.target.closest("[data-dsfix]");
+    if(f){ dsApplyConflict(f.dataset.dsfix === "card"); return; }
+  });
+  el("dsBlocks").addEventListener("click", ev=>{
+    const blk = ev.target.closest("[data-blk]"); if(!blk || !ds) return;
+    const i = +blk.dataset.blk;
+    const a = ev.target.closest("[data-bact]");
+    if(!a){ ds.sel = ds.sel === i ? -1 : i; dsPaint(); return; }
+    const k = a.dataset.bact;
+    if(k === "edit") return dsEditBlock(i);
+    ds.undo.push({type:"blocks", blocks:JSON.parse(JSON.stringify(ds.blocks))});
+    if(k === "up" && i > 0){ [ds.blocks[i - 1], ds.blocks[i]] = [ds.blocks[i], ds.blocks[i - 1]]; ds.sel = ds.sel === i ? i - 1 : ds.sel; }
+    if(k === "down" && i < ds.blocks.length - 1){ [ds.blocks[i + 1], ds.blocks[i]] = [ds.blocks[i], ds.blocks[i + 1]]; ds.sel = ds.sel === i ? i + 1 : ds.sel; }
+    if(k === "del"){ ds.blocks.splice(i, 1); ds.sel = -1; }
+    dsKeep(); dsPaint();
+  });
+  el("dsBlocks").addEventListener("dblclick", ev=>{ const blk = ev.target.closest("[data-blk]"); if(blk) dsEditBlock(+blk.dataset.blk); });
+  const keys = ev=>{
+    if(!el("dsEdit").hidden){
+      if(ev.key === "Escape"){ ev.preventDefault(); dsEditDone(false); }
+      else if(ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)){ ev.preventDefault(); dsEditDone(true); }
+      return;
+    }
+    if(ev.target && /INPUT|TEXTAREA|SELECT/.test(ev.target.tagName)) return;
+    if((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === "z"){ ev.preventDefault(); dsUndo(); return; }
+    if((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === "s"){ ev.preventDefault(); dsSave(); return; }
+    const hit = Object.entries(DS_ACTS).find(([, a])=>a.key === ev.key || a.key === ev.key.toLowerCase());
+    if(hit && dsCard()){ ev.preventDefault(); dsAct(hit[0]); return; }
+    if(ev.key === "e" && ds && ds.sel >= 0){ ev.preventDefault(); dsEditBlock(ds.sel); }
+    if(ev.key === "Escape"){ ev.preventDefault(); el("dsClose").click(); }
+  };
+  dlg.addEventListener("keydown", keys);
+  /* a modal opened by a tap can leave the focus on the page behind it */
+  document.addEventListener("keydown", ev=>{ if(dlg.open && !dlg.contains(ev.target)) keys(ev); });
+  dlg.addEventListener("cancel", ev=>{ ev.preventDefault(); });
+  el("rvDistill").onclick = ()=>{ if(S.sel) openDistill(S.sel); };
+}
+function paintDistillButton(id){
+  const b = el("rvDistill"); if(!b) return;
+  const drops = id && canEdit() && !S.roomWorld ? distillDrops(id) : [];
+  b.hidden = !drops.length;
+  /* the count is of the notes that clearly came in from a huddle or Teams */
+  const likely = drops.filter(k=>dsLikelyDrop(S.nodes.get(k))).length;
+  const t = b.querySelector(".tick");
+  if(t) t.textContent = likely || "";
+  b.title = drops.length + " loose note" + (drops.length === 1 ? "" : "s") + " here" + (likely ? ", " + likely + " from huddles or Teams" : "") + " \u2014 deal with them one card at a time";
+}
+
 const HELP_TOPICS = [
   {id:"start", title:"The basics", body:`
     <h3>The basics</h3>
@@ -26625,6 +27405,9 @@ const HELP_TOPICS = [
       <li><kbd>?</kbd> at the start searches the <b>questions</b> people ask, and shows the rooms that answer each one.</li>
       <li><kbd>#</kbd> and a tag shows only rooms with that tag: <kbd>#lims</kbd>.</li>
       <li>Rather click? <b>Filters &#9656;</b> at the top of the list opens buttons that do the same.</li>
+      <li><kbd>!</kbd> at the start searches only the <b>copy lines</b> &mdash; ready-made sentences like issue and sample notes &mdash; each with a <b>Copy</b> button right in the list: <kbd>!twin</kbd>. <b>Copy lines</b> in Filters does the same; printing then gives a one-page phrasebook.</li>
+      <li>A note that has been folded into its room shows <b>absorbed &rarr; Room</b> or <b>covered</b>; tap the room's name to go there. The room comes first in the list and its notes follow. <b>Hide history</b> in Filters leaves out folded-in and retired notes.</li>
+      <li>When the list has history in it, <b>As said then / As it reads now</b> appears above Print. <i>As said then</i> shows (and prints) each note in its own words with a stamp saying where it ended up &mdash; the full record of a huddle. <i>As it reads now</i> swaps each folded-in note for the room it went into and leaves retired ones out &mdash; the current rules.</li>
       <li><b>Flowcharts</b> in Filters shows only rooms that have a flowchart to walk through. It works together with words, tags and dates; tap it again to turn it off.</li>
     </ul>
     <h4>Only a stretch of dates</h4>
@@ -26632,6 +27415,33 @@ const HELP_TOPICS = [
     <h4>Found nothing?</h4>
     <p>Press <b>Ask this as a question</b>. It goes to whoever looks after the map, so the gap gets filled.</p>
     {{shot:search|The search list, with why each one matched}}`},
+  {id:"distill", title:"Distill, copy lines and history", body:`
+    <h3>Distill, copy lines and history</h3>
+    <p class="lead">New things land in a room as loose notes. <b>&#10022; Distill</b> (on the bar, in editing mode, when a room has loose notes) deals with them one card at a time and rebuilds the room's note as you go.</p>
+    <h4>The deck</h4>
+    <ul>
+      <li>The room's note is split into <b>blocks</b> (one per paragraph). The cards are its loose notes, oldest first, so you read the rule's history as a story.</li>
+      <li>Swipe the card, tap a button, or use the keys:
+        <b>&uarr; Pull in</b> adds it to the note as a new block &middot;
+        <b>&rarr; Covered</b> the note already says it &middot;
+        <b>&darr; Outdated</b> no longer true: retired &middot;
+        <b>&larr; Later</b> skip for now &middot;
+        <b>&#11088; Copy line</b> (C) keep it as a copy chip &middot;
+        <b>&#128682; Own room</b> (R) it is a subtopic: keep it on the floor.</li>
+      <li><b>Pick sentences</b> on a card lets you pull in only the lines you want.</li>
+      <li>Tap a block to aim the next card at it: Pull in goes right after it, Covered counts against it. &#9998; edits a block full screen (dictation works); &uarr; &darr; move it; &#10005; removes it; <b>+ Block</b> adds one.</li>
+      <li>If a card gives a different time, length or limit from the block it matches (11:00 AM against 11:30 AM), it says so: <b>Use this card's</b> fixes the block.</li>
+      <li><b>The rest are all subtopics</b> keeps every remaining card as a room in one go &mdash; handy the first time through a room whose children are real subtopics.</li>
+      <li><b>Undo</b> (Ctrl+Z) steps back. Nothing is written until <b>Save</b> (Ctrl+S); closing keeps the session on this computer and it picks up where you left off.</li>
+      <li>When the deck is done it suggests the next rooms with notes waiting. <b>Go to</b> also lists them under <i>Needs distilling</i>, huddle and Teams notes first.</li>
+    </ul>
+    <h4>What happens to each card</h4>
+    <ul>
+      <li>Nothing is deleted or reworded. Every card keeps its words, date, tags and author, so a search by huddle tag or date still finds every one.</li>
+      <li><b>Absorbed</b> and <b>covered</b> cards are still true, just consolidated: they leave the floor for the room's <b>History</b>, marked with the room and the day. <b>Outdated</b> ones are retired and point at the room as what replaced them, which also feeds <i>Remember the Past</i>.</li>
+      <li><b>Copy lines</b> become chips at the top of the room, searchable with <kbd>!</kbd> and copyable from the search list.</li>
+      <li>The room gets a <i>distilled</i> date of its own, separate from its notes' dates.</li>
+    </ul>`},
   {id:"lab", title:"Lab tools", body:`
     <h3>Lab tools</h3>
     <p class="lead"><b>&#9879; Lab tools</b> on the bar at the bottom writes your review lines, issue lines and #snitch entries for you.</p>
@@ -26685,6 +27495,8 @@ const HELP_TOPICS = [
     <h3>Inside a room</h3>
     <ul>
       <li><b>Flowcharts</b>: some rooms have a flowchart on the wall. It starts out light or dark to match the room; the <b>Dark / Light</b> button (or the D key) flips just the chart. Tap it to open it full screen. <b>Walk me through it</b> starts at the beginning and asks each question in turn; tap the answer (or the next shape) and it takes you along that arrow. On a question you can also <b>scan or type</b> into the box (a tube, a label like ExtrDNA 08) and press Enter, or <b>pick from the list</b>: it takes the arrow that scan belongs to, and if the same scan answers the next question too it keeps going on its own. As you type, the answers that fit show as cards &mdash; with a picture of each when the chart has one &mdash; so typing <i>Xome</i> shows every Xome answer side by side; tap a card (or press Enter when only one is left) to take it, and the magnifier shows a picture full size. <b>Back</b> goes one step back. Scroll or pinch to zoom, drag to move around.</li>
+      <li><b>&#10697; Copy lines</b> under the name are ready-made sentences (an issue note, a sample note). Tap one to copy it. One with a blank (<i>######</i>) asks you for the number first, offering the last accession from Lab tools.</li>
+      <li><b>&#128344; History</b> under the note holds the notes that have been folded into this room, covered by it, or retired, oldest first. Each keeps its own words, date and tags; tap one to open it.</li>
       <li><b>&#9734;</b> beside the name bookmarks the room. It turns gold.</li>
       <li><b>The copy button</b> beside it copies the whole note. Holding the room's name does the same.</li>
       <li><b>Answers</b> under the name are the questions this room answers.</li>
@@ -26864,6 +27676,8 @@ function tourSteps(){
       },
       done:()=>el("respondDlg").open, after:()=>{ if(el("respondDlg").open) el("respondDlg").close(); }} : {title:"Your panel", text:"In editing mode, the panel on the right is where a room's note, questions, keywords and confirm items are changed.",
       target:()=>el("inspector")},
+    {title:"Distill", text:"When a room has loose notes \u2014 huddle reminders, Teams posts \u2014 Distill deals them out as cards: pull one into the note, mark it covered or outdated, keep it as a copy line, or keep it as a room. Nothing is deleted; each keeps its date and tags.",
+      target:()=>el("rvDistill"), skipIf:()=>!el("rvDistill") || el("rvDistill").hidden},
     {title:"Lab tools", text:"Lab tools writes your review lines, issue lines and #snitch entries as you fill in the boxes. What you type is kept on this computer only, so a closed page loses nothing.",
       target:()=>el("rvLab"), skipIf:()=>!el("rvLab") || el("rvLab").hidden},
     {title:"Help any time", text:"That's it. The ? Help button has all of this, every shortcut, and this tour.",
@@ -28380,14 +29194,24 @@ function renderListCore(){
     else if(id) out.push('<h5>Back out to</h5><button data-hall="1">'
       + '<i>&#8962;</i><u>The hall</u><s>'
       + roots().filter(k=>S.nodes.has(k)).length + '</s></button>');
-    const kids = roomOrder(roomThings(id).filter(keep));
+    const kids = roomOrder(roomFloor(id).filter(keep));
     if(kids.length) out.push("<h5>In here</h5>" + kids.map(k=>listRow(k)).join(""));
+    const lines = id ? copyLinesOf(id).filter(keep) : [];
+    if(lines.length) out.push("<h5>Copy lines</h5>" + lines.map(k=>listRow(k)).join(""));
+    const past = id ? historyOf(id).filter(keep) : [];
+    if(past.length) out.push("<h5>History</h5>" + past.map(k=>listRow(k)).join(""));
     const cross = id ? crossOf(id).filter(c=>keep(c.id)) : [];
     if(cross.length) out.push("<h5>Across</h5>" + cross.map(c=>listRow(c.id)).join(""));
-    const seen = new Set([id, up, ...kids, ...cross.map(c=>c.id)]);
+    const seen = new Set([id, up, ...kids, ...lines, ...past, ...cross.map(c=>c.id)]);
     const recent = (S.personal.recent || []).map(r=>r.id)
       .filter(k=>S.nodes.has(k) && !seen.has(k)).slice(0, 6);
     if(recent.length) out.push("<h5>Lately</h5>" + recent.map(k=>listRow(k)).join(""));
+    /* for whoever looks after the map: the rooms with the most notes waiting */
+    if(canEdit()){
+      const waiting = needsDistilling().slice(0, 5);
+      if(waiting.length) out.push("<h5>Needs distilling</h5>" + waiting.map(w=>'<button data-distill="' + esc(w.id) + '"><i>&#9879;</i><u>'
+        + esc(nodeName(w.id)) + '</u><s>' + w.k + '</s></button>').join(""));
+    }
     const rs = roots().filter(k=>!seen.has(k)).slice(0, 6);
     if(rs.length) out.push("<h5>Start of a branch</h5>" + rs.map(k=>listRow(k)).join(""));
   }
@@ -28783,7 +29607,7 @@ function wireRoom(){
     if(ev.target.closest && ev.target.closest("[data-printfound]")){
       const f = foundSet();
       showList(false);
-      if(f) printNotes(f.ids, f.what);
+      if(f) printNotes(f.ids, f.what, {now:!!S.readNow, copy:!!S.copyOnly});
       return;
     }
     const bmg = ev.target.closest && ev.target.closest("[data-bmgo]");
@@ -28794,6 +29618,8 @@ function wireRoom(){
     if(sh){ showList(false); standOnShelf(sh.dataset.shelf); return; }
     const put = ev.target.closest && ev.target.closest("[data-shelfadd]");
     if(put){ showList(false); askShelf([put.dataset.shelfadd]); return; }
+    const dz = ev.target.closest && ev.target.closest("[data-distill]");
+    if(dz){ ev.stopPropagation(); showList(false); select(dz.dataset.distill); openDistill(dz.dataset.distill); return; }
   }, true);
   /* Whatever is standing on this floor — the children of a real room, or
      everything a filter gathered — handed over as a selection to work on. */
@@ -29679,6 +30505,7 @@ async function boot(){
   el("rvBatch").onclick = openBatch;
   el("rvMove").onclick = ()=>{ if(S.sel) openMove([S.sel]); };
   el("rvFlowBtn").onclick = ()=>{ if(S.sel && canEdit()) openFlowEditor(S.sel); };
+  wireDistill();
   el("rvSort").onclick = ()=>{ if(S.sel) openSort(S.sel); };
   el("bxClose").onclick = ()=>el("batchDlg").close();
   el("bxGo").onclick = batchMake;
@@ -29925,15 +30752,21 @@ async function boot(){
       if(ev.key === "Escape"){ ev.preventDefault(); ev.stopPropagation(); clearTheSearch(); }
     });
   });
+  el("resWhen").addEventListener("click", ev=>{
+    const b = ev.target.closest("[data-when]"); if(!b) return;
+    S.readNow = b.dataset.when === "now";
+    runSearch();
+    if(S.roomWorld && inRoom()) renderRoom();
+  });
   el("resPrint").onclick = ()=>{
     const f = foundSet();
-    if(f) printNotes(f.ids, f.what);
+    if(f) printNotes(f.ids, f.what, {now:!!S.readNow, copy:!!S.copyOnly});
     else toast("Search or pick a tag first.");
   };
   el("resClear").onclick = ()=>{
     el("q").value = ""; if(el("mq")) el("mq").value = "";
     S.tagPick.clear(); S.tagOnly = false;
-    S.dateFrom = ""; S.dateTo = ""; S.flowOnly = false;
+    S.dateFrom = ""; S.dateTo = ""; S.flowOnly = false; S.hideHist = false;
     S.searchScope = "all";
     const sel = el("searchScope"); if(sel) sel.value = "all";
     updateTagCount(); renderTagPicker();
