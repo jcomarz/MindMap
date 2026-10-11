@@ -4214,6 +4214,22 @@ body.viewing.panelaway #panelHide{display:none}
     border-radius:23px;font-size:23px}
 }
 #rvDistill.dim{opacity:.55}
+
+/* press-and-hold hint for a button */
+#btnHint{position:fixed;z-index:9999;background:#16202A;color:#F4F6F8;border-radius:8px;padding:7px 10px;
+  font:13px/1.35 var(--sans);box-shadow:0 6px 18px rgba(0,0,0,.3);pointer-events:none}
+#btnHint[hidden]{display:none}
+#btnHint b{display:block;font-weight:600}
+#btnHint span{display:block;font-size:12px;opacity:.85;margin-top:2px}
+.rvb,.mobile-tabs button,.whochip,.vistaswitch button{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+/* phone, standing in a room: the top strip is one short line, not two tall ones */
+@media (max-width:700px){
+  body.roomon .mobile-tabs{flex-wrap:nowrap;padding:4px 8px;gap:6px;overflow-x:auto;scrollbar-width:none}
+  body.roomon .mobile-tabs::after{display:none}
+  body.roomon .mobile-tabs .btn{padding:5px 10px;min-height:0}
+  body.roomon .mobile-tabs .iconbtn{padding:5px 8px}
+  body.roomon .mobile-tabs #mInsp{margin-left:auto}
+}
 </style>
 </head>
 <body>
@@ -4828,8 +4844,8 @@ body.viewing.panelaway #panelHide{display:none}
               <span class="ic">&#9678;</span><span class="lb">Found</span></button>
             <button class="rvb" id="rvLayout" title="Line everything up, or let it wander">
               <span class="ic"><svg class="ic-row" viewBox="0 0 20 8" aria-hidden="true"><rect x="0.5" y="1" width="5.5" height="6" rx="1.2"/><rect x="7.25" y="1" width="5.5" height="6" rx="1.2"/><rect x="14" y="1" width="5.5" height="6" rx="1.2"/></svg></span><span class="lb">Line up</span></button>
-            <button class="rvb" id="rvEdit" hidden><span class="ic">&#9998;</span><span class="lb">Edit</span></button>
-            <button class="rvb" id="rvAdd" hidden><span class="ic">+</span><span class="lb">Add</span></button>
+            <button class="rvb" id="rvEdit" hidden title="Open this room's panel to change it"><span class="ic">&#9998;</span><span class="lb">Edit</span></button>
+            <button class="rvb" id="rvAdd" hidden title="Add a room inside this one"><span class="ic">+</span><span class="lb">Add</span></button>
             <button class="rvb" id="rvBatch" hidden title="Paste a block of text and turn it into rooms inside this one">
               <span class="ic">&#9776;</span><span class="lb">Paste many</span></button>
             <button class="rvb" id="rvSort" hidden title="Send each room in here to where it belongs">
@@ -21045,7 +21061,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-10-11c";
+const APP_BUILD = "2026-10-11d";
 
 /* Reading that line back out of a copy of this file.
 
@@ -24997,8 +25013,10 @@ function renderRoom(){
       + (rs.length === 1 ? " branch" : " branches") + " from here";
     el("rvTrail").innerHTML = "";
     el("rvArches").innerHTML = "";
-    el("rvEdit").hidden = true; el("rvAdd").hidden = true;
+    el("rvEdit").hidden = true; el("rvAdd").hidden = !canEdit();
+    el("rvAdd").title = "Start a new branch here in the hall";
     el("rvBatch").hidden = !canEdit(); el("rvMove").hidden = true; el("rvSort").hidden = true;
+    paintDistillButton(null, true);
     el("rvFlowBtn").hidden = true;
     wayOut(null);
     paintStuff(null, [], 0);
@@ -25161,6 +25179,7 @@ function renderRoom(){
   el("rvEdit").classList.toggle("on",
     (!canEdit() && owed > 0) || (!panelIsAway() && !window.matchMedia("(max-width:820px)").matches));
   el("rvAdd").hidden = !canEdit();
+  el("rvAdd").title = "Add a room inside this one";
   el("rvBatch").hidden = !canEdit();
   el("rvMove").hidden = !canEdit();
   el("rvFlowBtn").hidden = !canEdit();
@@ -27365,22 +27384,21 @@ function wireDistill(){
   document.addEventListener("keydown", ev=>{ if(dlg.open && !dlg.contains(ev.target)) keys(ev); });
   dlg.addEventListener("cancel", ev=>{ ev.preventDefault(); });
   el("rvDistill").onclick = ()=>{
-    if(!S.sel) return;
-    if(distillDrops(S.sel).length) return openDistill(S.sel);
+    if(S.sel && distillDrops(S.sel).length) return openDistill(S.sel);
     const w = needsDistilling();
-    toast(w.length ? "Nothing loose in this room. Go to \u2192 Needs distilling lists the " + Math.min(w.length, 5) + " with the most waiting."
+    toast(w.length ? (S.sel ? "Nothing loose in this room." : "Pick a room to distill.") + " Go to \u2192 Needs distilling lists the " + Math.min(w.length, 5) + " with the most waiting."
       : "Nothing loose anywhere \u2014 every note has been dealt with.");
     if(w.length){ showList(true);
       setTimeout(()=>{ const h = [...document.querySelectorAll("#rvList h5")].find(x=>/distilling/i.test(x.textContent));
         if(h) h.scrollIntoView({block:"start", behavior:"smooth"}); }, 60); }
   };
 }
-function paintDistillButton(id){
+function paintDistillButton(id, hall){
   const b = el("rvDistill"); if(!b) return;
   const drops = id && canEdit() && !S.roomWorld ? distillDrops(id) : [];
   /* always there in editing mode, so it can be found; a room with nothing loose
-     sends you to the rooms that do have some */
-  b.hidden = !(id && canEdit() && !S.roomWorld);
+     (and the hall) sends you to the rooms that do have some */
+  b.hidden = !((id || hall) && canEdit() && !S.roomWorld);
   b.classList.toggle("dim", !drops.length);
   /* the count is of the notes that clearly came in from a huddle or Teams */
   const likely = drops.filter(k=>dsLikelyDrop(S.nodes.get(k))).length;
@@ -27388,6 +27406,67 @@ function paintDistillButton(id){
   if(t) t.textContent = likely || "";
   if(!drops.length){ b.title = "Nothing loose in this room \u2014 tap to see the rooms that have notes waiting"; return; }
   b.title = drops.length + " loose note" + (drops.length === 1 ? "" : "s") + " here" + (likely ? ", " + likely + " from huddles or Teams" : "") + " \u2014 deal with them one card at a time";
+}
+
+
+/* ---------- phone: no Lab tools, and press-and-hold to find out what a button is ----------
+   The work sites Lab tools links to can't be reached from a phone, so the button
+   only takes up room there. A touch screen narrower than a laptop counts as a phone. */
+const PHONE_Q = window.matchMedia("(max-width:820px) and (pointer:coarse)");
+function isPhone(){ return PHONE_Q.matches; }
+function phoneLab(){
+  const b = el("rvLab"); if(b) b.hidden = isPhone();
+  document.body.classList.toggle("phone", isPhone());
+}
+let hintTimer = 0, hintGone = 0, hintSwallow = false;
+function buttonHint(b){
+  let box = el("btnHint");
+  if(!box){ box = document.createElement("div"); box.id = "btnHint"; box.setAttribute("role", "status"); document.body.appendChild(box); }
+  const lb = b.querySelector(".lb");
+  const name = (lb && lb.textContent.trim()) || b.getAttribute("aria-label") || "";
+  const why = (b.title || "").trim();
+  if(!name && !why) return false;
+  box.innerHTML = (name ? "<b>" + esc(name) + "</b>" : "") + (why && why !== name ? "<span>" + esc(why) + "</span>" : "");
+  box.hidden = false;
+  const r = b.getBoundingClientRect(), w = Math.min(260, window.innerWidth - 16);
+  box.style.maxWidth = w + "px";
+  const bw = box.offsetWidth, bh = box.offsetHeight;
+  let x = r.left + r.width / 2 - bw / 2; x = Math.max(8, Math.min(window.innerWidth - bw - 8, x));
+  let y = r.top - bh - 10; if(y < 8) y = r.bottom + 10;
+  box.style.left = x + "px"; box.style.top = y + "px";
+  clearTimeout(hintGone); hintGone = setTimeout(()=>{ box.hidden = true; }, 2600);
+  return true;
+}
+const HINT_SEL = ".rvb, .mobile-tabs button, .whochip, .vistaswitch button, .rv-trail button, #rvStar";
+function wirePhoneBits(){
+  phoneLab();
+  if(PHONE_Q.addEventListener) PHONE_Q.addEventListener("change", phoneLab);
+  document.addEventListener("pointerdown", ev=>{
+    if(ev.pointerType === "mouse") return;
+    const b = ev.target.closest && ev.target.closest(HINT_SEL);
+    clearTimeout(hintTimer);
+    if(!b) return;
+    const x0 = ev.clientX, y0 = ev.clientY;
+    const move = e=>{ if(Math.abs(e.clientX - x0) + Math.abs(e.clientY - y0) > 12) clearTimeout(hintTimer); };
+    const stop = ()=>{ clearTimeout(hintTimer); document.removeEventListener("pointermove", move); };
+    document.addEventListener("pointermove", move);
+    document.addEventListener("pointerup", stop, {once:true});
+    document.addEventListener("pointercancel", stop, {once:true});
+    hintTimer = setTimeout(()=>{ if(buttonHint(b)){ hintSwallow = true; if(navigator.vibrate) try{ navigator.vibrate(12); }catch(e){} } }, 450);
+  }, true);
+  /* the hold showed the hint; letting go should not also press the button */
+  document.addEventListener("click", ev=>{
+    if(!hintSwallow) return;
+    hintSwallow = false;
+    if(ev.target.closest && ev.target.closest(HINT_SEL)){ ev.preventDefault(); ev.stopPropagation(); ev.stopImmediatePropagation(); }
+  }, true);
+  document.addEventListener("contextmenu", ev=>{
+    if(ev.target.closest && ev.target.closest(HINT_SEL) && hintSwallow) ev.preventDefault();
+  }, true);
+  document.addEventListener("pointerdown", ev=>{
+    const box = el("btnHint");
+    if(box && !box.hidden && !(ev.target.closest && ev.target.closest(HINT_SEL))) box.hidden = true;
+  });
 }
 
 const HELP_TOPICS = [
@@ -27508,6 +27587,7 @@ const HELP_TOPICS = [
   {id:"room", title:"Inside a room", body:`
     <h3>Inside a room</h3>
     <ul>
+      <li><b>Not sure what a button does?</b> On a phone or tablet, press and hold it: a little note says what it is, and letting go doesn't press it. With a mouse, rest the pointer on it. (Lab tools isn't on phones, since the work sites it opens can't be reached there.)</li>
       <li><b>Flowcharts</b>: some rooms have a flowchart on the wall. It starts out light or dark to match the room; the <b>Dark / Light</b> button (or the D key) flips just the chart. Tap it to open it full screen. <b>Walk me through it</b> starts at the beginning and asks each question in turn; tap the answer (or the next shape) and it takes you along that arrow. On a question you can also <b>scan or type</b> into the box (a tube, a label like ExtrDNA 08) and press Enter, or <b>pick from the list</b>: it takes the arrow that scan belongs to, and if the same scan answers the next question too it keeps going on its own. As you type, the answers that fit show as cards &mdash; with a picture of each when the chart has one &mdash; so typing <i>Xome</i> shows every Xome answer side by side; tap a card (or press Enter when only one is left) to take it, and the magnifier shows a picture full size. <b>Back</b> goes one step back. Scroll or pinch to zoom, drag to move around.</li>
       <li><b>&#10697; Copy lines</b> under the name are ready-made sentences (an issue note, a sample note). Tap one to copy it. One with a blank (<i>######</i>) asks you for the number first, offering the last accession from Lab tools.</li>
       <li><b>&#128344; History</b> under the note holds the notes that have been folded into this room, covered by it, or retired, oldest first. Each keeps its own words, date and tags; tap one to open it.</li>
@@ -29785,8 +29865,9 @@ function wireRoom(){
     }, 80);
   };
   el("rvAdd").onclick = ()=>{
-    if(!canEdit() || !S.sel) return;
-    addNode("child");
+    if(!canEdit()) return;
+    /* in the hall there is nothing to go inside, so it starts a new branch */
+    addNode(S.sel ? "child" : "root");
   };
 
   /* walking with the keyboard, for the people who never touch a mouse */
@@ -30559,6 +30640,7 @@ async function boot(){
   el("rvHelp").onclick = ()=>openHelp();
   el("rvLab").onclick = ()=>openLab();
   wireLab();
+  wirePhoneBits();
   el("btnHelp").onclick = ()=>openHelp();
   el("tourStop").onclick = ()=>{ if(tourOffering){ tourOfferDone(); return; } endTour(false); };
   el("tourBack").onclick = ()=>{ if(tour && tour.i > 0){ tour.i--; tourShow(); } };
