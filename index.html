@@ -21061,7 +21061,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-10-11d";
+const APP_BUILD = "2026-10-11e";
 
 /* Reading that line back out of a copy of this file.
 
@@ -24981,6 +24981,7 @@ function renderRoom(){
     /* A room of everything the filter found is a parent in all but name, so
        it can be worked on like one: take the lot and change them together. */
     if(el("rvBulk")) el("rvBulk").hidden = !canEdit();
+    paintDistillButton(null);
     paintStuff(null, [], 0);
     paintBoss(null); paintBanners(null);
     if(el("rvBarSays")) el("rvBarSays").textContent =
@@ -27085,6 +27086,54 @@ function dsLooksCopy(n){
     || /^["\u201c].+["\u201d]$/.test(t) || /#{3,}|_{3,}/.test(t);
 }
 function dsKey(pid){ return "distill:" + pid; }
+/* What a search or tag filter found, worked through as one deck. Each card still
+   belongs to its own room: pulling it in writes to that room's note, a copy line
+   lands in that room, and the draft on the left follows whichever room the card
+   in front of you lives in. */
+function foundDrops(ids){
+  return (ids || []).filter(k=>{
+    const n = S.nodes.get(k);
+    return n && parentOf(k) && !childrenOf(k).length && n.role !== "copy" && !n.absorb && n.status !== "retired";
+  });
+}
+async function openDistillFound(){
+  if(!canEdit()){ toast("Switch to editing mode first."); return; }
+  const w = worldSet(); if(!w) return;
+  const ids = foundDrops(w.ids);
+  if(!ids.length){ toast("Everything here has already been dealt with (or has rooms inside it)."); return; }
+  const day = k=>roomDay(S.nodes.get(k)) || "";
+  ids.sort((a, b)=>{ const pa = nodeName(parentOf(a)), pb = nodeName(parentOf(b));
+    return pa < pb ? -1 : pa > pb ? 1 : day(a) < day(b) ? -1 : day(a) > day(b) ? 1 : 0; });
+  const key = "found:" + (w.what || "");
+  let saved = null;
+  try{ saved = await Store.getKey(dsKey(key)); }catch(e){}
+  ds = {multi:true, pid:key, what:w.what || "What you found", total:ids.length, queue:ids.slice(), done:[], later:[], quiet:"", undo:[], sel:-1,
+    picking:false, pick:new Set(), drafts:{}, bp:"", blocks:[], edit:-1, conflict:null};
+  if(saved && saved.multi && saved.pid === key){
+    ds.drafts = saved.drafts || {}; ds.done = saved.done || [];
+    const decided = new Set(ds.done.map(d=>d.id));
+    ds.queue = ids.filter(k=>!decided.has(k));
+    ds.total = Math.max(ds.total, ds.queue.length + ds.done.length);
+    toast("Picked up where you left off.");
+  }
+  el("dsTitle").textContent = ds.what;
+  const dlg = el("distillDlg");
+  if(!dlg.open) dlg.showModal();
+  dsPaint();
+}
+/* point the draft at the room the card in front belongs to */
+function dsSync(){
+  if(!ds || !ds.multi) return;
+  const n = dsCard();
+  const bp = n ? parentOf(n.id) : ds.bp;
+  if(!bp) return;
+  if(!ds.drafts[bp]){
+    const p = S.nodes.get(bp);
+    ds.drafts[bp] = dsBlocksOf(p && p.body).map(t=>({id:"b" + Math.random().toString(36).slice(2, 7), text:t, hits:0}));
+  }
+  if(ds.bp !== bp) ds.sel = -1;
+  ds.bp = bp; ds.blocks = ds.drafts[bp];
+}
 async function openDistill(pid){
   if(!canEdit()){ toast("Switch to editing mode first."); return; }
   const p = S.nodes.get(pid); if(!p) return;
@@ -27107,7 +27156,8 @@ async function openDistill(pid){
 }
 function dsKeep(){
   if(!ds) return;
-  try{ Store.putKey(dsKey(ds.pid), {pid:ds.pid, blocks:ds.blocks, done:ds.done, at:nowISO()}); }catch(e){}
+  try{ Store.putKey(dsKey(ds.pid), ds.multi ? {pid:ds.pid, multi:true, drafts:ds.drafts, done:ds.done, at:nowISO()}
+    : {pid:ds.pid, blocks:ds.blocks, done:ds.done, at:nowISO()}); }catch(e){}
 }
 function dsCard(){ return ds && ds.queue.length ? S.nodes.get(ds.queue[0]) : null; }
 function dsCardText(n){
@@ -27122,6 +27172,12 @@ function dsSentences(n){
 }
 function dsPaint(){
   if(!ds) return;
+  dsSync();
+  const dh = document.querySelector("#distillDlg .ds-dhead span");
+  if(dh) dh.textContent = ds.multi ? (ds.bp ? nodeName(ds.bp) + " \u2014 its note" : "Its room's note") : "The note, block by block";
+  el("dsRest").innerHTML = ds.multi ? "The rest are copy lines &rarr; each in its own room" : "The rest are all subtopics &rarr; keep them as rooms";
+  el("dsRest").title = ds.multi ? "Every card still waiting becomes a copy line chip in the room it lives in (Undo brings them back)"
+    : "Every card still waiting is a subtopic: keep them all as rooms (Undo brings them back)";
   const handled = ds.done.length, total = Math.max(ds.total, handled + ds.queue.length);
   el("dsProg").style.setProperty("--p", total ? Math.round(handled / total * 100) + "%" : "100%");
   el("dsCount").textContent = handled + " / " + total;
@@ -27141,7 +27197,7 @@ function dsPaint(){
   const n = dsCard();
   const deck = el("dsDeck");
   if(!n){
-    const next = needsDistilling().filter(x=>x.id !== ds.pid).slice(0, 5);
+    const next = ds.multi ? [] : needsDistilling().filter(x=>x.id !== ds.pid).slice(0, 5);
     deck.innerHTML = `<div class="ds-finish"><div class="ds-burst" aria-hidden="true">&#10024;</div>
       <h3>${total ? (ds.later.length ? handled + " dealt with, " + ds.later.length + " left for later" : "All " + total + " dealt with") : "Nothing waiting in this room"}</h3>
       ${ds.later.length ? `<button type="button" class="btn small" data-dslater="1">Go through the ${ds.later.length} left for later</button>` : ""}
@@ -27159,7 +27215,8 @@ function dsPaint(){
   const sent = dsSentences(n);
   deck.innerHTML = `<div class="ds-card" id="dsCardEl">
       <div class="ds-meta">${d ? `<span>${esc(shortDay(d))}</span>` : ""}${n.author ? `<span>${esc(n.author)}</span>` : ""}
-        ${tags.map(t=>`<span class="tg">${esc(t)}</span>`).join("")}${dsLikelyDrop(n) ? "" : `<span class="tg" title="No huddle or Teams tag: this may be a subtopic rather than a dropped-in note">maybe a subtopic</span>`}<span class="ds-left">${ds.queue.length} left</span></div>
+        ${ds.multi ? `<span class="tg" title="The room this note lives in">in ${esc(nodeName(parentOf(n.id)))}</span>` : ""}
+        ${tags.map(t=>`<span class="tg">${esc(t)}</span>`).join("")}${dsLikelyDrop(n) || ds.multi ? "" : `<span class="tg" title="No huddle or Teams tag: this may be a subtopic rather than a dropped-in note">maybe a subtopic</span>`}<span class="ds-left">${ds.queue.length} left</span></div>
       <h3>${esc(n.label || n.id)}</h3>
       ${ds.picking
         ? `<div class="ds-chips">${sent.map((x, i)=>`<button type="button" class="ds-chip${ds.pick.has(i) ? " on" : ""}" data-sent="${i}">${esc(x)}</button>`).join("")}</div>`
@@ -27180,7 +27237,7 @@ function dsApplyConflict(useCard){
   if(!ds || !ds.conflict) return;
   const {block, list} = ds.conflict;
   if(useCard){
-    ds.undo.push({type:"blocks", blocks:JSON.parse(JSON.stringify(ds.blocks))});
+    ds.undo.push({type:"blocks", bp:ds.bp, blocks:JSON.parse(JSON.stringify(ds.blocks))});
     let t = ds.blocks[block].text;
     list.forEach(c=>{ const re = new RegExp(c.draft.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/ /g, "\\s?"), "i"); t = t.replace(re, c.card); });
     ds.blocks[block].text = t;
@@ -27192,9 +27249,10 @@ function dsApplyConflict(useCard){
   dsKeep(); dsPaint();
 }
 function dsAct(act){
+  dsSync();
   const n = dsCard(); if(!n) return;
   const text = dsCardText(n);
-  const snap = {type:"card", id:n.id, blocks:JSON.parse(JSON.stringify(ds.blocks)), sel:ds.sel};
+  const snap = {type:"card", id:n.id, bp:ds.bp, blocks:JSON.parse(JSON.stringify(ds.blocks)), sel:ds.sel};
   let block = "";
   if(act === "pull"){
     const at = ds.sel >= 0 ? ds.sel + 1 : ds.blocks.length;
@@ -27210,7 +27268,7 @@ function dsAct(act){
   ds.undo.push(snap);
   ds.queue.shift();
   if(act === "later") ds.later.push(n.id);
-  else ds.done.push({id:n.id, act, block, quote:block ? (ds.blocks.find(b=>b.id === block) || {}).text.slice(0, 160) : ""});
+  else ds.done.push({id:n.id, pid:parentOf(n.id), act, block, quote:block ? (ds.blocks.find(b=>b.id === block) || {}).text.slice(0, 160) : ""});
   ds.picking = false; ds.pick = new Set(); ds.sel = -1;
   dsFly(act);
   dsKeep();
@@ -27225,10 +27283,11 @@ function dsFly(act){
 }
 function dsUndo(){
   const u = ds && ds.undo.pop(); if(!u) return;
-  if(u.type === "blocks"){ ds.blocks = u.blocks; }
+  if(u.type === "blocks"){ ds.blocks = u.blocks; if(ds.multi && u.bp) ds.drafts[u.bp] = u.blocks; }
   else if(u.type === "rest"){ ds.queue = u.queue; ds.done = u.done; }
   else {
     ds.blocks = u.blocks; ds.sel = u.sel;
+    if(ds.multi && u.bp) ds.drafts[u.bp] = u.blocks;
     if(u.later) ds.later = u.later;
     const at = ds.done.findIndex(d=>d.id === u.id);
     if(at >= 0) ds.done.splice(at, 1);
@@ -27279,7 +27338,7 @@ function dsEditDone(keep){
   if(!ds) return;
   const v = el("dsEditText").value.trim();
   if(keep){
-    ds.undo.push({type:"blocks", blocks:JSON.parse(JSON.stringify(ds.blocks))});
+    ds.undo.push({type:"blocks", bp:ds.bp, blocks:JSON.parse(JSON.stringify(ds.blocks))});
     if(ds.edit >= 0 && ds.blocks[ds.edit]){
       if(v) ds.blocks[ds.edit].text = v; else ds.blocks.splice(ds.edit, 1);
     } else if(v){
@@ -27292,6 +27351,7 @@ function dsEditDone(keep){
 /* write it all: the room's note, its stamp, and what became of each card */
 function dsSave(){
   if(!ds) return;
+  if(ds.multi) return dsSaveFound();
   const p = S.nodes.get(ds.pid); if(!p) return;
   const body = ds.blocks.map(b=>b.text.trim()).filter(Boolean).join("\n\n");
   const today = nowISO().slice(0, 10);
@@ -27322,6 +27382,35 @@ function dsSave(){
   markDirty(); rebuild(); renderRoomSoon();
   toast(n ? "Distilled: " + n + " card" + (n === 1 ? "" : "s") + " filed. Save the map to share it." : "Saved.");
 }
+function dsSaveFound(){
+  const today = nowISO().slice(0, 10), touched = new Set();
+  Object.entries(ds.drafts).forEach(([pid, blocks])=>{
+    const p = S.nodes.get(pid); if(!p) return;
+    const body = blocks.map(b=>b.text.trim()).filter(Boolean).join("\n\n");
+    if(String(p.body || "") !== body){ setField(p, "body", body); touched.add(pid); }
+  });
+  ds.done.forEach(d=>{
+    const n = S.nodes.get(d.id); if(!n) return;
+    const pid = d.pid || parentOf(d.id);
+    if(d.act === "pull" || d.act === "covered"){
+      setField(n, "absorb", d.act === "pull" ? "absorbed" : "covered");
+      setField(n, "absorbTo", pid); setField(n, "absorbAt", today); setField(n, "absorbQuote", d.quote || "");
+    } else if(d.act === "outdated"){
+      setField(n, "supersededBy", pid);
+      if(n.status !== "retired") setField(n, "status", "retired");
+    } else if(d.act === "copy" || d.act === "room"){
+      setField(n, "role", d.act);
+    }
+    if(pid) touched.add(pid);
+  });
+  touched.forEach(pid=>{ const p = S.nodes.get(pid); if(p) setField(p, "distilledAt", today); });
+  try{ Store.putKey(dsKey(ds.pid), null); }catch(e){}
+  const n = ds.done.length, rooms = touched.size;
+  ds = null;
+  el("distillDlg").close();
+  markDirty(); rebuild(); renderRoomSoon();
+  toast(n ? "Distilled: " + n + " card" + (n === 1 ? "" : "s") + " across " + rooms + " room" + (rooms === 1 ? "" : "s") + ". Save the map to share it." : "Saved.");
+}
 function wireDistill(){
   const dlg = el("distillDlg"); if(!dlg) return;
   el("dsClose").onclick = ()=>{
@@ -27332,7 +27421,7 @@ function wireDistill(){
   el("dsRest").onclick = ()=>{
     if(!ds || !ds.queue.length) return;
     ds.undo.push({type:"rest", queue:ds.queue.slice(), done:ds.done.slice()});
-    ds.queue.forEach(id=>ds.done.push({id, act:"room", block:"", quote:""}));
+    ds.queue.forEach(id=>ds.done.push({id, pid:parentOf(id), act:ds.multi ? "copy" : "room", block:"", quote:""}));
     ds.queue = [];
     dsKeep(); dsPaint();
   };
@@ -27358,7 +27447,7 @@ function wireDistill(){
     if(!a){ ds.sel = ds.sel === i ? -1 : i; dsPaint(); return; }
     const k = a.dataset.bact;
     if(k === "edit") return dsEditBlock(i);
-    ds.undo.push({type:"blocks", blocks:JSON.parse(JSON.stringify(ds.blocks))});
+    ds.undo.push({type:"blocks", bp:ds.bp, blocks:JSON.parse(JSON.stringify(ds.blocks))});
     if(k === "up" && i > 0){ [ds.blocks[i - 1], ds.blocks[i]] = [ds.blocks[i], ds.blocks[i - 1]]; ds.sel = ds.sel === i ? i - 1 : ds.sel; }
     if(k === "down" && i < ds.blocks.length - 1){ [ds.blocks[i + 1], ds.blocks[i]] = [ds.blocks[i], ds.blocks[i + 1]]; ds.sel = ds.sel === i ? i + 1 : ds.sel; }
     if(k === "del"){ ds.blocks.splice(i, 1); ds.sel = -1; }
@@ -27384,6 +27473,7 @@ function wireDistill(){
   document.addEventListener("keydown", ev=>{ if(dlg.open && !dlg.contains(ev.target)) keys(ev); });
   dlg.addEventListener("cancel", ev=>{ ev.preventDefault(); });
   el("rvDistill").onclick = ()=>{
+    if(S.roomWorld) return openDistillFound();
     if(S.sel && distillDrops(S.sel).length) return openDistill(S.sel);
     const w = needsDistilling();
     toast(w.length ? (S.sel ? "Nothing loose in this room." : "Pick a room to distill.") + " Go to \u2192 Needs distilling lists the " + Math.min(w.length, 5) + " with the most waiting."
@@ -27395,6 +27485,14 @@ function wireDistill(){
 }
 function paintDistillButton(id, hall){
   const b = el("rvDistill"); if(!b) return;
+  if(S.roomWorld){
+    const w = canEdit() ? worldSet() : null;
+    const k = w ? foundDrops(w.ids).length : 0;
+    b.hidden = !w; b.classList.toggle("dim", !k);
+    const t = b.querySelector(".tick"); if(t) t.textContent = k || "";
+    b.title = k ? "Go through these " + k + " one card at a time \u2014 each stays in its own room" : "Everything here has been dealt with";
+    return;
+  }
   const drops = id && canEdit() && !S.roomWorld ? distillDrops(id) : [];
   /* always there in editing mode, so it can be found; a room with nothing loose
      (and the hall) sends you to the rooms that do have some */
@@ -27510,7 +27608,7 @@ const HELP_TOPICS = [
     {{shot:search|The search list, with why each one matched}}`},
   {id:"distill", title:"Distill, copy lines and history", body:`
     <h3>Distill, copy lines and history</h3>
-    <p class="lead">New things land in a room as loose notes. <b>&#10022; Distill</b> (on the bar in editing mode; in a room with nothing loose it points you to rooms that have some) deals with them one card at a time and rebuilds the room's note as you go.</p>
+    <p class="lead">New things land in a room as loose notes. <b>&#10022; Distill</b> (on the bar in editing mode; in a room with nothing loose it points you to rooms that have some). It also works on a search or tag filter: step into what you found (&#9678; Found) and press &#10022; to go through just those notes, each staying in the room it lives in &mdash; a copy line lands in its own room, and the draft on the left switches to whichever room the card belongs to. <b>The rest are copy lines</b> turns everything still waiting into copy lines in one tap deals with them one card at a time and rebuilds the room's note as you go.</p>
     <h4>The deck</h4>
     <ul>
       <li>The room's note is split into <b>blocks</b> (one per paragraph). The cards are its loose notes, oldest first, so you read the rule's history as a story.</li>
