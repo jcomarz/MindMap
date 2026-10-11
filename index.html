@@ -4213,6 +4213,7 @@ body.viewing.panelaway #panelHide{display:none}
   .fab{right:calc(var(--insp) + 22px);bottom:80px;width:46px;height:46px;
     border-radius:23px;font-size:23px}
 }
+#rvDistill.dim{opacity:.55}
 </style>
 </head>
 <body>
@@ -21044,7 +21045,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-10-11a";
+const APP_BUILD = "2026-10-11c";
 
 /* Reading that line back out of a copy of this file.
 
@@ -27363,16 +27364,29 @@ function wireDistill(){
   /* a modal opened by a tap can leave the focus on the page behind it */
   document.addEventListener("keydown", ev=>{ if(dlg.open && !dlg.contains(ev.target)) keys(ev); });
   dlg.addEventListener("cancel", ev=>{ ev.preventDefault(); });
-  el("rvDistill").onclick = ()=>{ if(S.sel) openDistill(S.sel); };
+  el("rvDistill").onclick = ()=>{
+    if(!S.sel) return;
+    if(distillDrops(S.sel).length) return openDistill(S.sel);
+    const w = needsDistilling();
+    toast(w.length ? "Nothing loose in this room. Go to \u2192 Needs distilling lists the " + Math.min(w.length, 5) + " with the most waiting."
+      : "Nothing loose anywhere \u2014 every note has been dealt with.");
+    if(w.length){ showList(true);
+      setTimeout(()=>{ const h = [...document.querySelectorAll("#rvList h5")].find(x=>/distilling/i.test(x.textContent));
+        if(h) h.scrollIntoView({block:"start", behavior:"smooth"}); }, 60); }
+  };
 }
 function paintDistillButton(id){
   const b = el("rvDistill"); if(!b) return;
   const drops = id && canEdit() && !S.roomWorld ? distillDrops(id) : [];
-  b.hidden = !drops.length;
+  /* always there in editing mode, so it can be found; a room with nothing loose
+     sends you to the rooms that do have some */
+  b.hidden = !(id && canEdit() && !S.roomWorld);
+  b.classList.toggle("dim", !drops.length);
   /* the count is of the notes that clearly came in from a huddle or Teams */
   const likely = drops.filter(k=>dsLikelyDrop(S.nodes.get(k))).length;
   const t = b.querySelector(".tick");
   if(t) t.textContent = likely || "";
+  if(!drops.length){ b.title = "Nothing loose in this room \u2014 tap to see the rooms that have notes waiting"; return; }
   b.title = drops.length + " loose note" + (drops.length === 1 ? "" : "s") + " here" + (likely ? ", " + likely + " from huddles or Teams" : "") + " \u2014 deal with them one card at a time";
 }
 
@@ -27417,7 +27431,7 @@ const HELP_TOPICS = [
     {{shot:search|The search list, with why each one matched}}`},
   {id:"distill", title:"Distill, copy lines and history", body:`
     <h3>Distill, copy lines and history</h3>
-    <p class="lead">New things land in a room as loose notes. <b>&#10022; Distill</b> (on the bar, in editing mode, when a room has loose notes) deals with them one card at a time and rebuilds the room's note as you go.</p>
+    <p class="lead">New things land in a room as loose notes. <b>&#10022; Distill</b> (on the bar in editing mode; in a room with nothing loose it points you to rooms that have some) deals with them one card at a time and rebuilds the room's note as you go.</p>
     <h4>The deck</h4>
     <ul>
       <li>The room's note is split into <b>blocks</b> (one per paragraph). The cards are its loose notes, oldest first, so you read the rule's history as a story.</li>
@@ -29212,8 +29226,15 @@ function renderListCore(){
       if(waiting.length) out.push("<h5>Needs distilling</h5>" + waiting.map(w=>'<button data-distill="' + esc(w.id) + '"><i>&#9879;</i><u>'
         + esc(nodeName(w.id)) + '</u><s>' + w.k + '</s></button>').join(""));
     }
-    const rs = roots().filter(k=>!seen.has(k)).slice(0, 6);
-    if(rs.length) out.push("<h5>Start of a branch</h5>" + rs.map(k=>listRow(k)).join(""));
+    /* every top-level room, always all of them and in their own order, so the
+       list reads the same from anywhere (the one you are in is included) */
+    const rs = roots().filter(k=>S.nodes.has(k));
+    const trunks = rs.filter(k=>childrenOf(k).length);
+    if(trunks.length) out.push("<h5>Start of a branch</h5>" + trunks.map(k=>listRow(k)).join(""));
+    /* loose notes with no parent yet would swamp that list, so they get their own short one */
+    const loose = rs.filter(k=>!childrenOf(k).length && !seen.has(k));
+    if(loose.length) out.push("<h5>Loose at the top</h5>" + loose.slice(0, 6).map(k=>listRow(k)).join("")
+      + (loose.length > 6 ? '<p class="none">and ' + (loose.length - 6) + ' more</p>' : ""));
   }
   box.innerHTML = out.join("") || '<p class="none">Nowhere to go from here.</p>';
 }
@@ -29260,7 +29281,7 @@ function layoutButton(){
   b.querySelector(".lb").textContent = row ? "Let them wander" : "Line up";
   /* three in a row for lining up — not the lines Go to uses, which made the
      two look like the same button */
-  b.querySelector(".ic").innerHTML = row ? "&#10022;" : LINE_UP_ICON;
+  b.querySelector(".ic").innerHTML = row ? "&#8776;" : LINE_UP_ICON;
   b.classList.toggle("on", row);
 }
 
