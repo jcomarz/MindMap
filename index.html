@@ -4230,6 +4230,14 @@ body.viewing.panelaway #panelHide{display:none}
   body.roomon .mobile-tabs .iconbtn{padding:5px 8px}
   body.roomon .mobile-tabs #mInsp{margin-left:auto}
 }
+
+.rv-role{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:6px 0 2px;padding:6px 9px;border-radius:8px;
+  background:var(--blueprint-soft, rgba(40,100,180,.1));font-size:12.5px}
+.rv-role .say{flex:1 1 100%}
+.rv-role a{color:var(--blueprint);text-decoration:underline;cursor:pointer}
+.rv-role button{border:1px solid var(--rule);background:var(--paper);color:var(--graphite);border-radius:12px;
+  padding:3px 10px;font:inherit;font-size:12px;cursor:pointer}
+.rv-role[hidden]{display:none}
 </style>
 </head>
 <body>
@@ -4773,6 +4781,7 @@ body.viewing.panelaway #panelHide{display:none}
               <button class="rv-star" id="rvStar" hidden title="Bookmark this room" aria-label="Bookmark this room">&#9734;</button>
             </div>
             <div class="rv-tags" id="rvTags" hidden></div>
+            <div class="rv-role" id="rvRole" hidden></div>
             <div class="rv-qs" id="rvQs" hidden></div>
             <div class="rv-lines" id="rvLines" hidden aria-label="Copy lines: tap one to copy it"></div>
             <button class="rv-past" id="rvPast" hidden title="How this came to be">
@@ -6992,7 +7001,15 @@ function moveTo(target){
     const n = S.nodes.get(k);
     if(n.pinned && to){ const spot = freeSpotNear(S.nodes.get(to)); if(spot){ n.x = spot.x; n.y = spot.y; } }
     logRev(k, "moved", from ? nodeName(from) : "top", to ? nodeName(to) : "top", "functional");
-    moved.push({id:k, from});
+    /* A note folded into (or retired by) its old room was settled against that
+       room's note, not the new one, so it arrives loose and waits to be distilled
+       there. A copy line stays a copy line, now in the new room. */
+    const was = {absorb:n.absorb || "", absorbTo:n.absorbTo || "", absorbAt:n.absorbAt || "", absorbQuote:n.absorbQuote || "",
+      status:n.status, supersededBy:n.supersededBy || ""};
+    let loosened = false;
+    if(n.absorb){ ["absorb", "absorbTo", "absorbAt", "absorbQuote"].forEach(f=>setField(n, f, "")); loosened = true; }
+    if(n.status === "retired" && from && n.supersededBy === from){ setField(n, "status", "active"); setField(n, "supersededBy", ""); loosened = true; }
+    moved.push({id:k, from, was:loosened ? was : null});
   });
   if(to){ S.personal.moveTo = [to].concat((S.personal.moveTo || []).filter(x=>x !== to)).slice(0, 12); savePersonal(); }
   el("moveDlg").close();
@@ -7001,7 +7018,9 @@ function moveTo(target){
   lastMove = {moved, to};
   if(moveDone) moveDone(moved, to);
   else if(inRoom()) renderRoom();
-  toast((moved.length === 1 ? nodeName(moved[0].id) : moved.length + " rooms") + " moved to " + (to ? nodeName(to) : "the top of the map"));
+  const loose = moved.filter(m=>m.was).length;
+  toast((moved.length === 1 ? nodeName(moved[0].id) : moved.length + " rooms") + " moved to " + (to ? nodeName(to) : "the top of the map")
+    + (loose ? " \u2014 " + (loose === 1 ? "it was" : loose + " were") + " settled in the old room, so " + (loose === 1 ? "it's" : "they're") + " loose here, ready to distill" : ""));
 }
 let lastMove = null;
 function undoMove(ids){
@@ -7009,6 +7028,8 @@ function undoMove(ids){
   lastMove.moved.filter(m=>!ids || ids.includes(m.id)).forEach(({id, from})=>{
     [...S.edges.values()].forEach(e=>{ if(e.link_type === "tree" && e.to === id) S.edges.delete(e.id); });
     if(from){ const e = newEdge({from, to:id, link_type:"tree"}); S.edges.set(e.id, e); }
+    const m = lastMove.moved.find(x=>x.id === id), n = S.nodes.get(id);
+    if(m && m.was && n) Object.entries(m.was).forEach(([f, v])=>{ if((n[f] || "") !== v) setField(n, f, v); });
   });
   markDirty(); rebuild();
 }
@@ -21061,7 +21082,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-10-11e";
+const APP_BUILD = "2026-10-11f";
 
 /* Reading that line back out of a copy of this file.
 
@@ -24796,6 +24817,47 @@ function paintRoomLines(id){
     ["pointerup", "pointerleave", "pointercancel"].forEach(t=>b.addEventListener(t, ()=>clearTimeout(timer)));
   });
 }
+/* Standing inside a copy line or a distilled note: say what it is, and give the
+   way back out of it. Everything else in the room (Edit, Move, tags) works as
+   for any room. */
+function paintRoomRole(id){
+  const box = el("rvRole"); if(!box) return;
+  const n = id && S.nodes.get(id);
+  const up = n && parentOf(id);
+  let say = "", acts = "";
+  if(n && n.role === "copy"){
+    say = `&#10697; A copy line in <a data-rolego="${esc(up || "")}">${esc(up ? nodeName(up) : "the top")}</a>`;
+    acts = `<button type="button" data-roleact="copyit">Copy it</button>`
+      + (canEdit() ? `<button type="button" data-roleact="room" title="Put it back on the floor of its room as an ordinary room">Make it a room</button>` : "");
+  } else if(n && n.absorb){
+    const to = n.absorbTo || up;
+    say = `${n.absorb === "covered" ? "Covered by" : "Folded into"} <a data-rolego="${esc(to || "")}">${esc(to ? nodeName(to) : "its room")}</a>${n.absorbAt ? " \u00b7 " + esc(shortDay(String(n.absorbAt).slice(0, 10))) : ""}`;
+    acts = canEdit() ? `<button type="button" data-roleact="loose" title="Undo the distilling: it goes back to being a loose note waiting in its room">Make it loose again</button>`
+      + `<button type="button" data-roleact="copy" title="Keep it as a copy line chip in its room instead">Make it a copy line</button>` : "";
+  } else if(n && n.status === "retired" && n.supersededBy && n.supersededBy === up){
+    say = `Retired as outdated by <a data-rolego="${esc(up)}">${esc(nodeName(up))}</a>`;
+    acts = canEdit() ? `<button type="button" data-roleact="loose" title="Bring it back as a loose note waiting in its room">Bring it back</button>` : "";
+  } else if(n && n.role === "room" && canEdit()){
+    say = "Kept as its own room";
+    acts = `<button type="button" data-roleact="copy" title="Turn it into a copy line chip in its room">Make it a copy line</button>`
+      + `<button type="button" data-roleact="loose" title="Send it back to Distill as a loose note">Undecide</button>`;
+  }
+  box.hidden = !say;
+  box.innerHTML = say ? `<span class="say">${say}</span>${acts}` : "";
+  box.querySelectorAll("[data-rolego]").forEach(a=>a.onclick = ()=>{ if(a.dataset.rolego) roomGo(a.dataset.rolego, "out"); });
+  box.querySelectorAll("[data-roleact]").forEach(b=>b.onclick = ()=>roleAct(id, b.dataset.roleact));
+}
+function roleAct(id, act){
+  const n = S.nodes.get(id); if(!n) return;
+  if(act === "copyit") return copyLine(n);
+  if(!canEdit()) return;
+  const clearAbsorb = ()=>["absorb", "absorbTo", "absorbAt", "absorbQuote"].forEach(f=>{ if(n[f]) setField(n, f, ""); });
+  const unretire = ()=>{ if(n.status === "retired" && n.supersededBy === parentOf(id)){ setField(n, "status", "active"); setField(n, "supersededBy", ""); } };
+  if(act === "room"){ setField(n, "role", "room"); toast("It's an ordinary room again, on the floor of " + nodeName(parentOf(id) || "") + "."); }
+  else if(act === "copy"){ clearAbsorb(); unretire(); setField(n, "role", "copy"); toast("Now a copy line in " + nodeName(parentOf(id) || "") + "."); }
+  else if(act === "loose"){ clearAbsorb(); unretire(); if(n.role) setField(n, "role", ""); toast("Loose again \u2014 it'll come up next time " + nodeName(parentOf(id) || "") + " is distilled."); }
+  markDirty(); rebuild(); renderRoomSoon();
+}
 let histOpen = false;
 function paintRoomHistory(id){
   const box = el("rvHist");
@@ -24900,7 +24962,7 @@ function renderRoom(){
   if(wipeTags){ wipeTags.hidden = true; wipeTags.innerHTML = ""; }
   const wipeQs = el("rvQs");
   if(wipeQs){ wipeQs.hidden = true; wipeQs.innerHTML = ""; }
-  ["rvLines", "rvHist"].forEach(k=>{ const w = el(k); if(w){ w.hidden = true; w.innerHTML = ""; } });
+  ["rvLines", "rvHist", "rvRole"].forEach(k=>{ const w = el(k); if(w){ w.hidden = true; w.innerHTML = ""; } });
   if(el("rvPast")) el("rvPast").hidden = true;
   if(el("rvDistill")) el("rvDistill").hidden = true;
   paintStar("");
@@ -25070,6 +25132,7 @@ function renderRoom(){
   /* the questions this room answers, so a reader knows they are in the right place */
   paintRoomQuestions(id);
   paintRoomLines(id);
+  paintRoomRole(id);
   paintRoomHistory(id);
   const tags = (n.tags || []).filter(Boolean);
   const tw = el("rvTags");
@@ -27608,7 +27671,14 @@ const HELP_TOPICS = [
     {{shot:search|The search list, with why each one matched}}`},
   {id:"distill", title:"Distill, copy lines and history", body:`
     <h3>Distill, copy lines and history</h3>
-    <p class="lead">New things land in a room as loose notes. <b>&#10022; Distill</b> (on the bar in editing mode; in a room with nothing loose it points you to rooms that have some). It also works on a search or tag filter: step into what you found (&#9678; Found) and press &#10022; to go through just those notes, each staying in the room it lives in &mdash; a copy line lands in its own room, and the draft on the left switches to whichever room the card belongs to. <b>The rest are copy lines</b> turns everything still waiting into copy lines in one tap deals with them one card at a time and rebuilds the room's note as you go.</p>
+    <p class="lead">New things land in a room as loose notes. <b>&#10022; Distill</b> (on the bar in editing mode) deals with them one card at a time and rebuilds the room's note as you go. In a room with nothing loose it points you to the rooms that have some.</p>
+    <p>It also works on a search or tag filter: step into what you found (&#9678; Found) and press &#10022; to go through just those notes. Each stays in the room it lives in &mdash; a copy line lands in its own room, and the draft on the left switches to whichever room the card belongs to. <b>The rest are copy lines</b> turns everything still waiting into copy lines in one tap.</p>
+    <h4>Changing your mind later</h4>
+    <ul>
+      <li>A copy line or a distilled note is still a room you can stand in: <b>hold</b> a copy-line chip (or right-click it), tap a row in <b>History</b>, pick it from <b>Go to</b>, or search for it. Edit, Move, tags and everything else work as for any room.</li>
+      <li>Inside, a strip under the name says what it is, with the way back: <b>Make it a room</b>, <b>Make it a copy line</b>, <b>Make it loose again</b> (back into Distill) or <b>Bring it back</b> (for a retired one).</li>
+      <li><b>Moving</b> a copy line makes it a copy line in the new room. Moving a note that was folded into, covered by or retired by its old room makes it loose in the new one, ready to distill there. Undo puts both back.</li>
+    </ul>
     <h4>The deck</h4>
     <ul>
       <li>The room's note is split into <b>blocks</b> (one per paragraph). The cards are its loose notes, oldest first, so you read the rule's history as a story.</li>
