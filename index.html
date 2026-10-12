@@ -3966,6 +3966,8 @@ dialog#distillDlg::backdrop{background:rgba(35,40,45,.5)}
   .ds-acts{grid-template-columns:repeat(3,minmax(0,1fr));padding:0 10px 10px}
   .ds-deck{padding:10px}
   .ds-tip{display:none}
+  .ds-dhead > span:first-child{font-size:11px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ds-mission{max-height:34%}
 }
 dialog#tagDlg{border:1px solid var(--graphite);border-radius:3px;padding:0;background:var(--paper);
   width:min(420px,94vw);max-height:86dvh;color:var(--graphite);display:flex;flex-direction:column}
@@ -4246,6 +4248,43 @@ body.viewing.panelaway #panelHide{display:none}
   color:var(--blueprint);padding:0 11px;font-size:14px;cursor:pointer;flex:0 0 auto}
 .rv-lopen:hover{background:var(--blueprint);color:#fff}
 .rv-line{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+
+.ds-mission{margin:8px 12px 0;border:1px solid #D6A014;border-radius:8px;background:rgba(214,160,20,.10);max-height:42%;overflow-y:auto;flex:0 0 auto}
+.ds-mhead{display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;color:var(--graphite);font:inherit;padding:7px 10px;cursor:pointer;text-align:left}
+.ds-mhead span{font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;color:#8A6200;white-space:nowrap}
+.ds-mhead b{flex:1;font-size:13px;min-width:0}
+.ds-mbody{padding:0 10px 8px;font-size:12.5px;line-height:1.45}
+.ds-mbody p{margin:0 0 6px}
+.ds-mtip{color:var(--graphite-60)}
+.ds-also{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px}
+.ds-also li{display:flex;gap:8px;align-items:flex-start;background:var(--paper);border-radius:6px;padding:5px 7px}
+.ds-also li span{flex:1}
+.ds-also li q{display:block;font-family:var(--mono);font-size:11.5px;margin-top:3px;quotes:none}
+.ds-also li.done{opacity:.55}
+.ds-also li em{font-size:11px;color:#1E8C5A;font-style:normal;font-weight:700}
+.ds-also button{border:1px solid var(--rule);background:var(--paper-2);color:var(--graphite);border-radius:12px;padding:2px 9px;font:inherit;font-size:11.5px;cursor:pointer;white-space:nowrap}
+.ds-also button.ghost{opacity:.75}
+html[data-theme="dark"] .ds-mhead span{color:#F2C55C}
+.ds-views{display:inline-flex;border:1px solid var(--rule);border-radius:12px;overflow:hidden;margin-left:auto;margin-right:6px}
+.ds-views[hidden]{display:none}
+.ds-views button{white-space:nowrap;border:0;background:var(--paper);color:var(--graphite);font:inherit;font-size:11.5px;padding:3px 9px;cursor:pointer}
+.ds-views button.on{background:#D6A014;color:#2A1D05;font-weight:700}
+.ds-suggtop{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--graphite-60)}
+.ds-suggtop span{flex:1}
+.ds-block.sugg{border-left-color:#D6A014;cursor:default}
+.ds-block.sugg .ds-btext{max-height:none}
+.ds-pnum{margin-right:auto;font-size:11px;font-weight:700;color:#8A6200}
+.ds-sugg{border:1px solid #D6A014;background:rgba(214,160,20,.10);border-radius:8px;padding:7px 9px;font-size:12.5px;display:flex;flex-direction:column;gap:5px}
+.ds-sugghead{display:flex;align-items:center;gap:6px}
+.ds-sugghead span{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;color:#8A6200}
+.ds-sugghead i{margin-left:auto;font-style:normal;font-size:11px;color:#8A6200;font-weight:700}
+.ds-sugg p{margin:0}
+.ds-sugg .ds-in{font-size:11.5px;color:#1E8C5A;font-weight:600}
+.ds-word{display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+.ds-word q{font-family:var(--mono);font-size:12px;background:var(--paper);border-radius:4px;padding:4px 6px;quotes:none}
+.ds-acts button.sugg{border-color:#D6A014;box-shadow:0 0 0 3px rgba(214,160,20,.45);background:rgba(214,160,20,.12)}
+#rvDistill.mission{box-shadow:0 0 0 3px rgba(214,160,20,.55), inset 0 2px 0 rgba(255,255,255,.9)}
+#rvDistill.mission .tick{background:#D6A014;color:#2A1D05}
 </style>
 </head>
 <body>
@@ -5651,7 +5690,9 @@ body.viewing.panelaway #panelHide{display:none}
   </div>
   <div class="ds-main">
     <section class="ds-draft" aria-label="The room's note, in blocks">
+      <div class="ds-mission" id="dsMission" hidden></div>
       <div class="ds-dhead"><span>The note, block by block</span>
+        <span class="ds-views" id="dsViews" hidden><button type="button" data-dsview="mine">Your draft</button><button type="button" data-dsview="sugg">Suggested</button></span>
         <button class="btn small" id="dsAdd">+ Block</button></div>
       <div class="ds-blocks" id="dsBlocks"></div>
       <p class="ds-tip">Tap a block to aim the next card at it. &#9998; edits it (dictation works).</p>
@@ -21090,7 +21131,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-10-11g";
+const APP_BUILD = "2026-10-11h";
 
 /* Reading that line back out of a copy of this file.
 
@@ -27158,6 +27199,129 @@ function dsLooksCopy(n){
   return /^(issue|dnu|stat:|sample note|note:|witness|pictures? taken)/i.test(t)
     || /^["\u201c].+["\u201d]$/.test(t) || /#{3,}|_{3,}/.test(t);
 }
+
+/* ---------- distill missions ----------
+   A missions file is written outside the app (Claude reads the workbook and
+   suggests, room by room, a note and what to do with each loose card). It is
+   loaded on this computer only, for editing mode only, and never goes into the
+   map or the workbook. Nothing it suggests happens until you press the button. */
+const MISS_KEY = "missions:v1";
+let MISS = null;
+const MISS_ACTS = Object.assign({move:{label:"Move it", icon:"&#10140;"}}, DS_ACTS);
+async function missLoad(){ try{ MISS = (await Store.getKey(MISS_KEY)) || null; }catch(e){ MISS = null; } }
+function missSave(){ try{ Store.putKey(MISS_KEY, MISS); }catch(e){} }
+function missFor(pid){
+  if(!MISS || !canEdit() || !pid) return null;
+  return MISS.missions.find(m=>m.room === pid) || null;
+}
+function missState(m){
+  MISS.state = MISS.state || {};
+  return MISS.state[m.id] || (MISS.state[m.id] = {done:false, also:{}, seen:false});
+}
+function missOpen(){ return MISS ? MISS.missions.filter(m=>S.nodes.has(m.room) && !missState(m).done) : []; }
+function missCard(n){ return n && ds && ds.mission && (ds.mission.cards || {})[n.id] || null; }
+function missPick(){
+  if(!canEdit()){ toast("Switch to editing mode first."); return; }
+  const inp = document.createElement("input");
+  inp.type = "file"; inp.accept = ".json,application/json";
+  inp.onchange = ()=>{ const f = inp.files && inp.files[0]; if(f) missImport(f); };
+  inp.click();
+}
+async function missImport(file){
+  let data;
+  try{ data = JSON.parse(await file.text()); }catch(e){ toast("That file isn't a missions file (it isn't JSON)."); return; }
+  if(!data || data.kind !== "mindmap-distill-missions" || !Array.isArray(data.missions)){ toast("That file isn't a missions file."); return; }
+  const byLabel = new Map(); S.nodes.forEach((n, id)=>{ const k = String(n.label || "").trim().toLowerCase(); if(k && !byLabel.has(k)) byLabel.set(k, id); });
+  let lost = 0;
+  const missions = data.missions.map((m, i)=>{
+    const room = S.nodes.has(m.room) ? m.room : byLabel.get(String(m.roomLabel || "").trim().toLowerCase()) || "";
+    if(!room) lost++;
+    return Object.assign({}, m, {id:String(m.id || "m" + i), room});
+  }).filter(m=>m.room);
+  const old = MISS && MISS.made === data.made ? MISS.state || {} : {};
+  MISS = {made:data.made || "", from:data.from || file.name, intro:data.intro || "", at:nowISO(), missions, state:old};
+  missSave();
+  toast("Loaded " + missions.length + " mission" + (missions.length === 1 ? "" : "s") + (lost ? " — " + lost + " room" + (lost === 1 ? "" : "s") + " not found in this map" : "") + ". Go to → Distill missions.");
+  if(inRoom()){ renderRoomSoon(); showList(true); setTimeout(()=>{ const h = [...document.querySelectorAll("#rvList h5")].find(x=>/missions/i.test(x.textContent)); if(h) h.scrollIntoView({block:"start"}); }, 80); }
+}
+function missMove(k, to){
+  const from = parentOf(k);
+  if(!S.nodes.has(k) || !S.nodes.has(to) || from === to) return false;
+  if(branchOf(k).has(to)) return false;
+  [...S.edges.values()].forEach(e=>{ if(e.link_type === "tree" && e.to === k) S.edges.delete(e.id); });
+  const e = newEdge({from:to, to:k, link_type:"tree"}); S.edges.set(e.id, e);
+  logRev(k, "moved", from ? nodeName(from) : "top", nodeName(to), "functional");
+  markDirty(); rebuild();
+  return true;
+}
+function missAlsoText(a){
+  const nm = k=>"“" + (S.nodes.has(k) ? nodeName(k) : "(not in this map)") + "”";
+  if(a.do === "move") return "Move " + nm(a.node) + " into " + nm(a.to);
+  if(a.do === "retire") return "Retire " + nm(a.node);
+  if(a.do === "rename") return "Rename " + nm(a.node) + " to “" + (a.label || "") + "”";
+  if(a.do === "reword") return "Reword " + nm(a.node);
+  return "";
+}
+function missPaintPanel(){
+  const box = el("dsMission"); if(!box) return;
+  const m = ds && ds.mission;
+  box.hidden = !m;
+  if(!m){ box.innerHTML = ""; return; }
+  const st = missState(m), also = m.also || [];
+  const open = ds.missOpen;
+  box.innerHTML = `<button type="button" class="ds-mhead" data-misstoggle="1" aria-expanded="${open ? "true" : "false"}">
+      <span>&#10022; Mission</span><b>${esc(m.title || "")}</b><i>${open ? "&#9662;" : "&#9656;"}</i></button>
+    ${open ? `<div class="ds-mbody">
+      ${m.why ? `<p>${esc(m.why)}</p>` : ""}
+      ${(m.draft || []).length ? `<p class="ds-mtip">Tap <b>Suggested</b> above your draft to see the note I'd write. Use any of it, then reword it your way.</p>` : ""}
+      ${also.length ? `<ul class="ds-also">${also.map((a, i)=>{
+        const done = !!(st.also || {})[i];
+        const act = missAlsoText(a);
+        const can = act && a.do !== "reword" && S.nodes.has(a.node) && (a.do !== "move" || S.nodes.has(a.to));
+        return `<li class="${done ? "done" : ""}${a.do === "check" || !a.do ? " flag" : ""}">
+          <span>${a.do === "check" || !a.do ? "&#9888; " : ""}${act ? `<b>${esc(act)}</b>${a.why ? " — " : ""}` : ""}${esc(a.why || a.text || "")}${a.wording ? `<q>${esc(a.wording)}</q>` : ""}</span>
+          ${done ? `<em>done</em>` : can ? `<button type="button" data-missalso="${i}">Do it</button>`
+            : `<button type="button" data-missalso="${i}" class="ghost">Got it</button>`}</li>`;
+      }).join("")}</ul>` : ""}
+    </div>` : ""}`;
+}
+function missDoAlso(i){
+  const m = ds.mission, a = (m.also || [])[i]; if(!a) return;
+  const st = missState(m); st.also = st.also || {};
+  if(a.do === "move" && S.nodes.has(a.node) && S.nodes.has(a.to)){
+    if(!missMove(a.node, a.to)){ toast("Couldn't move it there."); return; }
+    ds.queue = ds.queue.filter(k=>k !== a.node);
+    toast("Moved. Save the map to share it.");
+  } else if(a.do === "retire" && S.nodes.has(a.node)){
+    const n = S.nodes.get(a.node);
+    if(n.status !== "retired"){ setField(n, "status", "retired"); markDirty(); rebuild(); }
+    ds.queue = ds.queue.filter(k=>k !== a.node);
+    toast("Retired. It keeps its words and shows in History.");
+  } else if(a.do === "rename" && S.nodes.has(a.node) && a.label){
+    setField(S.nodes.get(a.node), "label", a.label); markDirty(); rebuild();
+    toast("Renamed.");
+  }
+  st.also[i] = true; missSave(); dsPaint();
+}
+function missCardHtml(n){
+  const sg = missCard(n); if(!sg) return "";
+  const a = MISS_ACTS[sg.act] || {label:sg.act, icon:""};
+  const used = ds.reword && ds.reword[n.id];
+  return `<div class="ds-sugg"><div class="ds-sugghead"><span>Suggested</span><b>${a.icon} ${esc(a.label)}${sg.act === "move" && sg.to ? " to " + esc(nodeName(sg.to)) : ""}</b>
+      ${typeof sg.block === "number" ? `<i>&para;${sg.block + 1}</i>` : ""}</div>
+    ${sg.why ? `<p>${esc(sg.why)}</p>` : ""}
+    ${sg.act === "pull" && typeof sg.block === "number" && ds.blocks.some(b=>b.sug === sg.block)
+      ? `<p class="ds-in">&#10003; Already in your draft as &para;${sg.block + 1}. Pulling it in files it there without adding the text again.</p>`
+      : sg.act === "pull" && typeof sg.block === "number" && (ds.mission.draft || []).length ? `<p class="ds-in">Not using the suggestion? Pull adds its own words to your draft as usual.</p>` : ""}
+    ${sg.wording ? `<div class="ds-word"><q>${esc(sg.wording)}</q><button type="button" class="btn small${used ? " primary" : ""}" data-dsword="1">${used ? "&#10003; Using this wording" : "Use this wording"}</button></div>` : ""}
+    ${sg.act === "move" && sg.to && S.nodes.has(sg.to) ? `<button type="button" class="btn small" data-dsmove="1">&#10140; Move it to ${esc(nodeName(sg.to))}</button>` : ""}
+  </div>`;
+}
+function missNextButton(){
+  if(!MISS || !ds) return "";
+  const next = missOpen().filter(m=>!ds.mission || m.id !== ds.mission.id)[0];
+  return next ? `<h4>Next mission</h4><button type="button" class="ds-next" data-dsmission="${esc(next.id)}">${esc(next.title || nodeName(next.room))} <b>&#10022;</b></button>` : "";
+}
 function dsKey(pid){ return "distill:" + pid; }
 /* What a search or tag filter found, worked through as one deck. Each card still
    belongs to its own room: pulling it in writes to that room's note, a copy line
@@ -27222,6 +27386,8 @@ async function openDistill(pid){
     ds.total = Math.max(ds.total, ds.queue.length + ds.done.length);
     toast("Picked up where you left off.");
   }
+  ds.mission = missFor(pid); ds.view = "mine"; ds.reword = (saved && saved.reword) || {};
+  if(ds.mission && !missState(ds.mission).seen){ missState(ds.mission).seen = true; ds.missOpen = true; missSave(); }
   el("dsTitle").textContent = p.label || p.id;
   const dlg = el("distillDlg");
   if(!dlg.open) dlg.showModal();
@@ -27230,7 +27396,7 @@ async function openDistill(pid){
 function dsKeep(){
   if(!ds) return;
   try{ Store.putKey(dsKey(ds.pid), ds.multi ? {pid:ds.pid, multi:true, drafts:ds.drafts, done:ds.done, at:nowISO()}
-    : {pid:ds.pid, blocks:ds.blocks, done:ds.done, at:nowISO()}); }catch(e){}
+    : {pid:ds.pid, blocks:ds.blocks, done:ds.done, reword:ds.reword || {}, at:nowISO()}); }catch(e){}
 }
 function dsCard(){ return ds && ds.queue.length ? S.nodes.get(ds.queue[0]) : null; }
 function dsCardText(n){
@@ -27255,6 +27421,9 @@ function dsPaint(){
   el("dsProg").style.setProperty("--p", total ? Math.round(handled / total * 100) + "%" : "100%");
   el("dsCount").textContent = handled + " / " + total;
   el("dsUndo").disabled = !ds.undo.length;
+  missPaintPanel();
+  el("dsViews").hidden = !(ds.mission && (ds.mission.draft || []).length);
+  el("dsViews").querySelectorAll("[data-dsview]").forEach(b=>b.classList.toggle("on", b.dataset.dsview === (ds.view || "mine")));
   /* the draft */
   const counts = new Map();
   ds.done.forEach(d=>{ if((d.act === "pull" || d.act === "covered") && d.block) counts.set(d.block, (counts.get(d.block) || 0) + 1); });
@@ -27266,6 +27435,13 @@ function dsPaint(){
         <button type="button" data-bact="down" title="Move down"${i < ds.blocks.length - 1 ? "" : " disabled"}>&#8595;</button>
         <button type="button" data-bact="del" title="Remove this block">&#10005;</button></div></div>`).join("")
     : `<p class="ds-empty">The note is empty. Pull a card in to start it, or add a block.</p>`;
+  if(ds.view === "sugg" && ds.mission){
+    const sg = ds.mission.draft || [];
+    el("dsBlocks").innerHTML = `<div class="ds-suggtop"><span>Claude's suggested note. Use what fits, then make it yours.</span>
+        <button type="button" class="btn small primary" data-dsuseall="1">Use all of it</button></div>`
+      + sg.map((t, i)=>`<div class="ds-block sugg"><div class="ds-btext">${esc(t)}</div>
+        <div class="ds-bbar"><span class="ds-pnum">&para;${i + 1}</span><button type="button" data-dsuse="${i}" title="Add this paragraph to your draft">+ Use</button></div></div>`).join("");
+  }
   /* the card */
   const n = dsCard();
   const deck = el("dsDeck");
@@ -27273,6 +27449,7 @@ function dsPaint(){
     const next = ds.multi ? [] : needsDistilling().filter(x=>x.id !== ds.pid).slice(0, 5);
     deck.innerHTML = `<div class="ds-finish"><div class="ds-burst" aria-hidden="true">&#10024;</div>
       <h3>${total ? (ds.later.length ? handled + " dealt with, " + ds.later.length + " left for later" : "All " + total + " dealt with") : "Nothing waiting in this room"}</h3>
+      ${missNextButton()}
       ${ds.later.length ? `<button type="button" class="btn small" data-dslater="1">Go through the ${ds.later.length} left for later</button>` : ""}
       <p>Press <b>Save</b> to write the note and file the cards. ${ds.done.length ? "Every card keeps its own words, date and tags." : ""}</p>
       ${next.length ? `<h4>Next rooms with notes waiting</h4>${next.map(x=>`<button type="button" class="ds-next" data-dsnext="${esc(x.id)}">${esc(nodeName(x.id))} <b>${x.k}</b></button>`).join("")}` : ""}</div>`;
@@ -27300,9 +27477,12 @@ function dsPaint(){
         ${conflict.map(c=>`<div>Draft: <code>${esc(c.draft)}</code> &nbsp;This card: <code>${esc(c.card)}</code></div>`).join("")}
         <div class="ds-cbtns"><button type="button" class="btn small" data-dsfix="card">Use this card's</button>
           <button type="button" class="btn small" data-dsfix="draft">Keep the draft's</button></div></div>` : ""}
-      ${dsLooksCopy(n) ? `<p class="ds-hint">&#11088; Looks like a copy line</p>` : ""}
+      ${missCardHtml(n)}
+      ${dsLooksCopy(n) && !missCard(n) ? `<p class="ds-hint">&#11088; Looks like a copy line</p>` : ""}
     </div>`;
-  el("dsActs").querySelector('[data-dsact="copy"]').classList.toggle("hint", dsLooksCopy(n));
+  el("dsActs").querySelector('[data-dsact="copy"]').classList.toggle("hint", dsLooksCopy(n) && !missCard(n));
+  const sgc = missCard(n);
+  el("dsActs").querySelectorAll("[data-dsact]").forEach(b=>b.classList.toggle("sugg", !!sgc && sgc.act === b.dataset.dsact));
   ds.conflict = conflict.length ? {block:target, list:conflict} : null;
   dsWireSwipe();
 }
@@ -27327,21 +27507,33 @@ function dsAct(act){
   const text = dsCardText(n);
   const snap = {type:"card", id:n.id, bp:ds.bp, blocks:JSON.parse(JSON.stringify(ds.blocks)), sel:ds.sel};
   let block = "";
-  if(act === "pull"){
+  /* the suggested paragraph this card was written into is already in the draft:
+     pulling it in just files the card under that paragraph */
+  const sgp = act === "pull" && missCard(n);
+  const home = sgp && typeof sgp.block === "number" && ds.sel < 0 && !ds.picking ? ds.blocks.find(b=>b.sug === sgp.block) : null;
+  if(home){
+    block = home.id;
+  } else if(act === "pull"){
     const at = ds.sel >= 0 ? ds.sel + 1 : ds.blocks.length;
     const b = {id:"b" + Math.random().toString(36).slice(2, 7), text, hits:0};
     ds.blocks.splice(at, 0, b);
     block = b.id;
   } else if(act === "covered"){
-    const i = ds.sel >= 0 ? ds.sel : dsBestBlock(text);
+    const sgc = missCard(n), sb = sgc && typeof sgc.block === "number" ? ds.blocks.findIndex(b=>b.sug === sgc.block) : -1;
+    const i = ds.sel >= 0 ? ds.sel : sb >= 0 ? sb : dsBestBlock(text);
     if(i < 0){ toast("Nothing in the draft covers it yet \u2014 pull it in instead, or pick a block first."); return; }
     block = ds.blocks[i].id;
+  }
+  let to = "";
+  if(act === "move"){
+    const sg = missCard(n); to = sg && sg.to;
+    if(!to || !S.nodes.has(to)){ toast("There's nowhere suggested to move it."); return; }
   }
   snap.later = ds.later.slice();
   ds.undo.push(snap);
   ds.queue.shift();
   if(act === "later") ds.later.push(n.id);
-  else ds.done.push({id:n.id, pid:parentOf(n.id), act, block, quote:block ? (ds.blocks.find(b=>b.id === block) || {}).text.slice(0, 160) : ""});
+  else ds.done.push({id:n.id, pid:parentOf(n.id), act, block, to, body:(ds.reword || {})[n.id] || "", quote:block ? (ds.blocks.find(b=>b.id === block) || {}).text.slice(0, 160) : ""});
   ds.picking = false; ds.pick = new Set(); ds.sel = -1;
   dsFly(act);
   dsKeep();
@@ -27349,7 +27541,7 @@ function dsAct(act){
 }
 function dsFly(act){
   const c = el("dsCardEl"); if(!c) return;
-  const v = {pull:[0, -1], covered:[1, 0], outdated:[0, 1], later:[-1, 0], copy:[0, -1], room:[1, -1]}[act] || [0, -1];
+  const v = {move:[1, -1], pull:[0, -1], covered:[1, 0], outdated:[0, 1], later:[-1, 0], copy:[0, -1], room:[1, -1]}[act] || [0, -1];
   c.style.transition = "transform .17s ease-in, opacity .17s";
   c.style.transform = `translate(${v[0] * 120}%, ${v[1] * 80}%) rotate(${v[0] * 12}deg)`;
   c.style.opacity = "0";
@@ -27444,10 +27636,17 @@ function dsSave(){
       setField(n, "role", "copy");
     } else if(d.act === "room"){
       setField(n, "role", "room");
+    } else if(d.act === "move" && d.to){
+      missMove(d.id, d.to);
     }
+    if(d.body && d.act !== "outdated" && String(n.body || "") !== d.body) setField(n, "body", d.body);
     did++;
   });
   if(ds.done.length || did) setField(p, "distilledAt", today);
+  if(ds.mission){
+    const st = missState(ds.mission);
+    st.done = !ds.queue.length && !ds.later.length; st.at = today; missSave();
+  }
   try{ Store.putKey(dsKey(ds.pid), null); }catch(e){}
   const n = ds.done.length;
   ds = null;
@@ -27473,7 +27672,10 @@ function dsSaveFound(){
       if(n.status !== "retired") setField(n, "status", "retired");
     } else if(d.act === "copy" || d.act === "room"){
       setField(n, "role", d.act);
+    } else if(d.act === "move" && d.to){
+      missMove(d.id, d.to);
     }
+    if(d.body && d.act !== "outdated" && String(n.body || "") !== d.body) setField(n, "body", d.body);
     if(pid) touched.add(pid);
   });
   touched.forEach(pid=>{ const p = S.nodes.get(pid); if(p) setField(p, "distilledAt", today); });
@@ -27486,6 +27688,7 @@ function dsSaveFound(){
 }
 function wireDistill(){
   const dlg = el("distillDlg"); if(!dlg) return;
+  missLoad().then(()=>{ if(inRoom()) renderRoomSoon(); });
   el("dsClose").onclick = ()=>{
     if(ds && (ds.done.length || ds.undo.length) && !confirm("Leave without saving? What you have done is kept on this computer, and comes back next time you distill this room.")) return;
     dlg.close();
@@ -27503,6 +27706,13 @@ function wireDistill(){
   el("dsEditOk").onclick = ()=>dsEditDone(true);
   el("dsEditCancel").onclick = ()=>dsEditDone(false);
   el("dsActs").addEventListener("click", ev=>{ const b = ev.target.closest("[data-dsact]"); if(b) dsAct(b.dataset.dsact); });
+  el("dsViews").addEventListener("click", ev=>{ const b = ev.target.closest("[data-dsview]"); if(b && ds){ ds.view = b.dataset.dsview; dsPaint(); } });
+  el("dsMission").addEventListener("click", ev=>{
+    if(!ds || !ds.mission) return;
+    if(ev.target.closest("[data-misstoggle]")){ ds.missOpen = !ds.missOpen; dsPaint(); return; }
+    const a = ev.target.closest("[data-missalso]");
+    if(a){ missDoAlso(+a.dataset.missalso); return; }
+  });
   el("dsDeck").addEventListener("click", ev=>{
     if(ev.target.closest("[data-dslater]")){ ds.queue = ds.later; ds.later = []; dsPaint(); return; }
     const nx = ev.target.closest("[data-dsnext]");
@@ -27512,9 +27722,36 @@ function wireDistill(){
     if(ev.target.closest("[data-dspick]")){ ds.picking = !ds.picking; ds.pick = new Set(); dsPaint(); return; }
     const f = ev.target.closest("[data-dsfix]");
     if(f){ dsApplyConflict(f.dataset.dsfix === "card"); return; }
+    if(ev.target.closest("[data-dsword]")){
+      const n = dsCard(), sg = n && missCard(n); if(!sg || !sg.wording) return;
+      ds.reword = ds.reword || {};
+      if(ds.reword[n.id]){ delete ds.reword[n.id]; toast("Keeping its own wording."); }
+      else { ds.reword[n.id] = sg.wording; toast("The suggested wording goes in when you save. Edit it later if you want it different."); }
+      dsKeep(); dsPaint(); return;
+    }
+    if(ev.target.closest("[data-dsmove]")){ dsAct("move"); return; }
+    const nm = ev.target.closest("[data-dsmission]");
+    if(nm){ const m = MISS && MISS.missions.find(x=>x.id === nm.dataset.dsmission); if(!m) return;
+      if(ds && ds.done.length) dsSave(); else dlg.close(); select(m.room); openDistill(m.room); return; }
   });
   el("dsBlocks").addEventListener("click", ev=>{
-    const blk = ev.target.closest("[data-blk]"); if(!blk || !ds) return;
+    if(!ds) return;
+    const use = ev.target.closest("[data-dsuse]"), all = ev.target.closest("[data-dsuseall]");
+    if((use || all) && ds.mission){
+      const sg = ds.mission.draft || [];
+      ds.undo.push({type:"blocks", bp:ds.bp, blocks:JSON.parse(JSON.stringify(ds.blocks))});
+      const mk = (t, i)=>({id:"b" + Math.random().toString(36).slice(2, 7), text:t, hits:0, sug:i});
+      if(all){
+        if(ds.blocks.length && !confirm("Replace your draft with the whole suggestion? Undo brings yours back.")){ ds.undo.pop(); return; }
+        ds.blocks.splice(0, ds.blocks.length, ...sg.map(mk));
+        ds.view = "mine"; toast("The suggestion is your draft now. Tap a block and \u270e to reword it.");
+      } else {
+        const at = ds.sel >= 0 ? ds.sel + 1 : ds.blocks.length;
+        ds.blocks.splice(at, 0, mk(sg[+use.dataset.dsuse], +use.dataset.dsuse)); toast("Added to your draft.");
+      }
+      dsKeep(); dsPaint(); return;
+    }
+    const blk = ev.target.closest("[data-blk]"); if(!blk) return;
     const i = +blk.dataset.blk;
     const a = ev.target.closest("[data-bact]");
     if(!a){ ds.sel = ds.sel === i ? -1 : i; dsPaint(); return; }
@@ -27547,6 +27784,8 @@ function wireDistill(){
   dlg.addEventListener("cancel", ev=>{ ev.preventDefault(); });
   el("rvDistill").onclick = ()=>{
     if(S.roomWorld) return openDistillFound();
+    const mm = S.sel && missFor(S.sel);
+    if(mm && !missState(mm).done) return openDistill(S.sel);
     if(S.sel && distillDrops(S.sel).length) return openDistill(S.sel);
     const w = needsDistilling();
     toast(w.length ? (S.sel ? "Nothing loose in this room." : "Pick a room to distill.") + " Go to \u2192 Needs distilling lists the " + Math.min(w.length, 5) + " with the most waiting."
@@ -27570,7 +27809,11 @@ function paintDistillButton(id, hall){
   /* always there in editing mode, so it can be found; a room with nothing loose
      (and the hall) sends you to the rooms that do have some */
   b.hidden = !((id || hall) && canEdit() && !S.roomWorld);
-  b.classList.toggle("dim", !drops.length);
+  const mm = id && missFor(id), live = mm && !missState(mm).done;
+  b.classList.toggle("dim", !drops.length && !live);
+  b.classList.toggle("mission", !!live);
+  if(live){ const t = b.querySelector(".tick"); if(t) t.textContent = "\u2726";
+    b.title = "A distill mission is waiting here: " + (mm.title || "suggested note and verdicts"); return; }
   /* the count is of the notes that clearly came in from a huddle or Teams */
   const likely = drops.filter(k=>dsLikelyDrop(S.nodes.get(k))).length;
   const t = b.querySelector(".tick");
@@ -27683,6 +27926,12 @@ const HELP_TOPICS = [
     <h3>Distill, copy lines and history</h3>
     <p class="lead">New things land in a room as loose notes. <b>&#10022; Distill</b> (on the bar in editing mode) deals with them one card at a time and rebuilds the room's note as you go. In a room with nothing loose it points you to the rooms that have some.</p>
     <p>It also works on a search or tag filter: step into what you found (&#9678; Found) and press &#10022; to go through just those notes. Each stays in the room it lives in &mdash; a copy line lands in its own room, and the draft on the left switches to whichever room the card belongs to. <b>The rest are copy lines</b> turns everything still waiting into copy lines in one tap.</p>
+    <h4>Distill missions</h4>
+    <ul>
+      <li>A <b>missions file</b> (<i>distill-missions-&hellip;.json</i>) holds suggestions written from a copy of the workbook: for a room, the note I'd write and what I'd do with each loose card, plus anything worth checking. Load it from <b>Go to &rarr; Distill missions &rarr; Load a missions file</b>. It stays on this computer, in editing mode only, and never goes into the map or the workbook.</li>
+      <li>Tap a mission (or the glowing &#10022; in its room) to open Distill with it. The yellow <b>Mission</b> box says what it's about and lists things to check, with <b>Do it</b> for a suggested move, rename or retire.</li>
+      <li><b>Suggested</b>, above your draft, shows the note paragraph by paragraph: <b>+ Use</b> one, or <b>Use all of it</b>, then reword it your way. Each card says what I'd do with it and why, and that button is ringed. Once its paragraph is in your draft, <b>Pull in</b> files the card there without adding the words twice. Nothing happens until you press the buttons and Save.</li>
+    </ul>
     <h4>Changing your mind later</h4>
     <ul>
       <li>A copy line or a distilled note is still a room you can stand in: tap the <b>&#9998;</b> at the end of a copy-line chip (or hold the chip), tap a row in <b>History</b>, pick it from <b>Go to</b>, or search for it. Edit, Move, tags and everything else work as for any room.</li>
@@ -29481,6 +29730,12 @@ function renderListCore(){
     /* for whoever looks after the map: the rooms with the most notes waiting */
     if(canEdit()){
       const waiting = needsDistilling().slice(0, 5);
+      const ms = missOpen();
+      out.push("<h5>Distill missions" + (ms.length ? " (" + ms.length + ")" : "") + "</h5>"
+        + ms.slice(0, 15).map(m=>'<button data-mission="' + esc(m.id) + '"><i>&#10022;</i><u>' + esc(m.title || nodeName(m.room)) + '</u><s>'
+          + Object.keys(m.cards || {}).length + '</s></button>').join("")
+        + (MISS && !ms.length ? '<p class="none">All missions in this file are done.</p>' : "")
+        + '<button class="lead" data-missload="1"><i>&#8679;</i><u>' + (MISS ? "Load a newer missions file" : "Load a missions file") + '</u></button>');
       if(waiting.length) out.push("<h5>Needs distilling</h5>" + waiting.map(w=>'<button data-distill="' + esc(w.id) + '"><i>&#9879;</i><u>'
         + esc(nodeName(w.id)) + '</u><s>' + w.k + '</s></button>').join(""));
     }
@@ -29897,6 +30152,10 @@ function wireRoom(){
     if(sh){ showList(false); standOnShelf(sh.dataset.shelf); return; }
     const put = ev.target.closest && ev.target.closest("[data-shelfadd]");
     if(put){ showList(false); askShelf([put.dataset.shelfadd]); return; }
+    const mz = ev.target.closest && ev.target.closest("[data-mission]");
+    if(mz){ ev.stopPropagation(); const m = MISS && MISS.missions.find(x=>x.id === mz.dataset.mission);
+      if(m){ showList(false); select(m.room); openDistill(m.room); } return; }
+    if(ev.target.closest && ev.target.closest("[data-missload]")){ ev.stopPropagation(); missPick(); return; }
     const dz = ev.target.closest && ev.target.closest("[data-distill]");
     if(dz){ ev.stopPropagation(); showList(false); select(dz.dataset.distill); openDistill(dz.dataset.distill); return; }
   }, true);
