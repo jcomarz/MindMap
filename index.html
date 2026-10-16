@@ -4285,6 +4285,28 @@ html[data-theme="dark"] .ds-mhead span{color:#F2C55C}
 .ds-acts button.sugg{border-color:#D6A014;box-shadow:0 0 0 3px rgba(214,160,20,.45);background:rgba(214,160,20,.12)}
 #rvDistill.mission{box-shadow:0 0 0 3px rgba(214,160,20,.55), inset 0 2px 0 rgba(255,255,255,.9)}
 #rvDistill.mission .tick{background:#D6A014;color:#2A1D05}
+
+.ds-src{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-top:6px}
+.ds-src>span{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;color:#8A6200}
+.ds-srcchip{border:1px solid #D6A014;background:var(--paper);color:var(--graphite);border-radius:11px;padding:2px 8px;font:inherit;font-size:11.5px;cursor:pointer}
+.ds-srcchip.on{background:#D6A014;color:#2A1D05}
+.ds-srcchip.filed{opacity:.6}
+.ds-srcbody{margin-top:6px;border-top:1px dashed #D6A014;padding-top:6px;display:flex;flex-direction:column;gap:5px}
+.ds-srcbody .ds-body{font-size:12.5px}
+.ds-srcbody .btn{align-self:flex-start}
+
+dialog#patchDlg{border:1px solid var(--graphite);border-radius:6px;padding:0;background:var(--paper);color:var(--graphite);width:min(640px,96vw);max-height:90dvh;display:flex;flex-direction:column}
+dialog#patchDlg:not([open]){display:none}
+dialog#patchDlg::backdrop{background:rgba(35,40,45,.42)}
+#pdBody{overflow-y:auto;padding:4px 16px 8px;font-size:13px}
+#pdBody h4{margin:12px 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--blueprint)}
+#pdBody ul{margin:0;padding-left:18px}
+#pdBody li{margin:3px 0}
+#pdBody li i{display:block;font-style:normal;font-size:11.5px;color:var(--graphite-60)}
+#pdBody li q{font-family:var(--mono);font-size:12px;quotes:none}
+#pdBody li.gone{opacity:.5}
+.pd-lead{color:var(--graphite-60)}
+.pd-foot{display:flex;justify-content:flex-end;gap:8px;padding:10px 16px;border-top:1px solid var(--rule)}
 </style>
 </head>
 <body>
@@ -21131,7 +21153,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-10-11h";
+const APP_BUILD = "2026-10-15a";
 
 /* Reading that line back out of a copy of this file.
 
@@ -27230,19 +27252,129 @@ function missPick(){
 async function missImport(file){
   let data;
   try{ data = JSON.parse(await file.text()); }catch(e){ toast("That file isn't a missions file (it isn't JSON)."); return; }
-  if(!data || data.kind !== "mindmap-distill-missions" || !Array.isArray(data.missions)){ toast("That file isn't a missions file."); return; }
+  if(!data || data.kind !== "mindmap-distill-missions" || !Array.isArray(data.missions || [])){ toast("That file isn't a missions file."); return; }
+  if(Array.isArray(data.changes) && data.changes.length){
+    const ok = await patchPreview(data);
+    if(!ok){ toast("Nothing was changed."); return; }
+  }
+  const refs = patchApplied || {};
+  const R = k=>typeof k === "string" && k.startsWith("@") ? (refs[k] || "") : k;
   const byLabel = new Map(); S.nodes.forEach((n, id)=>{ const k = String(n.label || "").trim().toLowerCase(); if(k && !byLabel.has(k)) byLabel.set(k, id); });
   let lost = 0;
-  const missions = data.missions.map((m, i)=>{
-    const room = S.nodes.has(m.room) ? m.room : byLabel.get(String(m.roomLabel || "").trim().toLowerCase()) || "";
+  const fresh = (data.missions || []).map((m, i)=>{
+    const room = S.nodes.has(R(m.room)) ? R(m.room) : byLabel.get(String(m.roomLabel || "").trim().toLowerCase()) || "";
     if(!room) lost++;
-    return Object.assign({}, m, {id:String(m.id || "m" + i), room});
+    const cards = {};
+    Object.entries(m.cards || {}).forEach(([k, c])=>{ const id = R(k); if(id) cards[id] = Object.assign({}, c, c.to ? {to:R(c.to)} : {}); });
+    const also = (m.also || []).map(a=>Object.assign({}, a, a.node ? {node:R(a.node)} : {}, a.to ? {to:R(a.to)} : {}));
+    return Object.assign({}, m, {id:String(m.id || "m" + i), room, cards, also});
   }).filter(m=>m.room);
-  const old = MISS && MISS.made === data.made ? MISS.state || {} : {};
-  MISS = {made:data.made || "", from:data.from || file.name, intro:data.intro || "", at:nowISO(), missions, state:old};
+  /* a newer file adds to what is loaded: its missions replace older ones for the
+     same room, and anything else still open is kept */
+  const state = MISS ? MISS.state || {} : {};
+  /* an older mission still open in the same room is extended rather than lost */
+  const older = MISS ? MISS.missions : [];
+  fresh.forEach((f, i)=>{
+    const o = older.find(m=>m.room === f.room && m.id !== f.id && !(state[m.id] || {}).done);
+    if(!o) return;
+    fresh[i] = Object.assign({}, o, {cards:Object.assign({}, o.cards, f.cards), also:(o.also || []).concat(f.also || []),
+      why:[o.why, f.why].filter(Boolean).join(" \u2014 Also: "), draft:(f.draft || []).length ? f.draft : o.draft});
+  });
+  const keep = older.filter(m=>!fresh.some(f=>f.room === m.room || f.id === m.id));
+  fresh.forEach(f=>{ if(MISS && MISS.made !== data.made && !older.some(o=>o.id === f.id)) delete state[f.id]; });
+  MISS = {made:data.made || "", from:data.from || file.name, intro:data.intro || "", at:nowISO(),
+    missions:fresh.concat(keep), state, lastPatch:(MISS && MISS.lastPatch) || null};
+  if(patchUndo) MISS.lastPatch = patchUndo;
+  patchApplied = null; patchUndo = null;
   missSave();
-  toast("Loaded " + missions.length + " mission" + (missions.length === 1 ? "" : "s") + (lost ? " — " + lost + " room" + (lost === 1 ? "" : "s") + " not found in this map" : "") + ". Go to → Distill missions.");
+  toast((patchSummary ? patchSummary + " " : "") + "Loaded " + fresh.length + " mission" + (fresh.length === 1 ? "" : "s")
+    + (lost ? " (" + lost + " room" + (lost === 1 ? "" : "s") + " not found)" : "") + ". Save the map to share it.");
+  patchSummary = "";
   if(inRoom()){ renderRoomSoon(); showList(true); setTimeout(()=>{ const h = [...document.querySelectorAll("#rvList h5")].find(x=>/missions/i.test(x.textContent)); if(h) h.scrollIntoView({block:"start"}); }, 80); }
+}
+
+/* ---- a huddle file: notes to place, old notes it retires, wording it updates ---- */
+let patchApplied = null, patchUndo = null, patchSummary = "";
+function patchRoom(c){
+  if(S.nodes.has(c.parent)) return c.parent;
+  const want = String(c.parentLabel || "").trim().toLowerCase();
+  if(want) for(const [id, n] of S.nodes) if(String(n.label || "").trim().toLowerCase() === want) return id;
+  for(const [id, n] of S.nodes) if(/^00\s*-\s*scratch$/i.test(String(n.label || "").trim())) return id;
+  return "";
+}
+function patchPreview(data){
+  return new Promise(res=>{
+    let dlg = el("patchDlg");
+    if(!dlg){
+      dlg = document.createElement("dialog"); dlg.id = "patchDlg";
+      dlg.innerHTML = `<div class="dlg-head"><h2 id="pdTitle"></h2></div><div class="dlg-body" id="pdBody"></div>
+        <div class="pd-foot"><button class="btn" id="pdNo">Not now</button><button class="btn primary" id="pdYes">Apply</button></div>`;
+      document.body.appendChild(dlg);
+    }
+    const ch = data.changes;
+    const adds = ch.filter(c=>c.do === "add"), rets = ch.filter(c=>c.do === "retire"), rews = ch.filter(c=>c.do === "rewrite");
+    const groups = new Map();
+    adds.forEach(c=>{ const r = patchRoom(c); const k = r ? nodeName(r) : "(top of the map)"; if(!groups.has(k)) groups.set(k, []); groups.get(k).push(c); });
+    const nm = k=>S.nodes.has(k) ? nodeName(k) : null;
+    el("pdTitle").textContent = data.title || "Huddle " + (data.made || "");
+    el("pdBody").innerHTML = `<p class="pd-lead">${adds.length} note${adds.length === 1 ? "" : "s"} to add${rets.length ? ", " + rets.length + " to retire" : ""}${rews.length ? ", " + rews.length + " to reword" : ""}. Each new note is tagged and dated like a huddle note, so Distill and search treat it the same. Undo is in Go to.</p>
+      ${[...groups].map(([room, list])=>`<h4>&#10140; ${esc(room)}</h4><ul>${list.map(c=>`<li><b>${esc(c.label)}</b>${c.why ? `<i>${esc(c.why)}</i>` : ""}</li>`).join("")}</ul>`).join("")}
+      ${rets.length ? `<h4>Retire</h4><ul>${rets.map(c=>`<li class="${nm(c.node) ? "" : "gone"}"><b>${esc(nm(c.node) || "(not in this map)")}</b><i>${esc(c.why || "")}</i></li>`).join("")}</ul>` : ""}
+      ${rews.length ? `<h4>Reword</h4><ul>${rews.map(c=>`<li class="${nm(c.node) ? "" : "gone"}"><b>${esc(nm(c.node) || "(not in this map)")}</b> &rarr; <q>${esc(c.body)}</q><i>${esc(c.why || "")}</i></li>`).join("")}</ul>` : ""}`;
+    el("pdNo").onclick = ()=>{ dlg.close(); res(false); };
+    el("pdYes").onclick = ()=>{ dlg.close(); patchApply(data); res(true); };
+    dlg.oncancel = ev=>{ ev.preventDefault(); dlg.close(); res(false); };
+    dlg.showModal();
+  });
+}
+function patchApply(data){
+  const refs = {}, created = [], prev = {}, skipped = [];
+  const remember = (id, f)=>{ const n = S.nodes.get(id); prev[id] = prev[id] || {}; if(!(f in prev[id])) prev[id][f] = n[f]; };
+  const day = data.made || todayISO();
+  data.changes.filter(c=>c.do === "add").forEach(c=>{
+    const parent = patchRoom(c);
+    const n = newNode({label:c.label, body:c.body || "", tags:(c.tags || []).slice(), date:c.date || day, source:c.source || ""});
+    S.nodes.set(n.id, n); created.push(n.id);
+    if(parent){ const e = newEdge({from:parent, to:n.id, link_type:"tree"}); S.edges.set(e.id, e); }
+    if(c.ref) refs[c.ref] = n.id;
+    logRev(n.id, "added", "", "from " + (data.title || "huddle"), "functional");
+  });
+  const R = k=>typeof k === "string" && k.startsWith("@") ? refs[k] || "" : k;
+  let retired = 0, reworded = 0;
+  data.changes.filter(c=>c.do === "retire").forEach(c=>{
+    const n = S.nodes.get(c.node); if(!n){ skipped.push(c); return; }
+    if(n.absorb){ skipped.push(c); return; }   /* already folded into a note: leave it, Distill will show it */
+    ["status", "supersededBy"].forEach(f=>remember(n.id, f));
+    if(n.status !== "retired") setField(n, "status", "retired");
+    const by = R(c.by); if(by) setField(n, "supersededBy", by);
+    retired++;
+  });
+  data.changes.filter(c=>c.do === "rewrite").forEach(c=>{
+    const n = S.nodes.get(c.node); if(!n || !c.body){ skipped.push(c); return; }
+    remember(n.id, "body"); setField(n, "body", c.body); reworded++;
+  });
+  patchApplied = refs;
+  patchUndo = {title:data.title || "huddle", made:day, at:nowISO(), created, prev};
+  patchSummary = "Added " + created.length + " note" + (created.length === 1 ? "" : "s")
+    + (retired ? ", retired " + retired : "") + (reworded ? ", reworded " + reworded : "")
+    + (skipped.length ? " (" + skipped.length + " skipped: already distilled or not found)" : "") + ".";
+  markDirty(); rebuild();
+}
+function patchUndoLast(){
+  const u = MISS && MISS.lastPatch; if(!u) return;
+  if(!confirm("Undo \u201c" + u.title + "\u201d? The " + u.created.length + " notes it added are removed (unless you've built on them) and anything it retired or reworded goes back.")) return;
+  let kept = 0;
+  u.created.forEach(id=>{
+    if(!S.nodes.has(id)) return;
+    if(childrenOf(id).length){ kept++; return; }
+    S.nodes.delete(id);
+    [...S.edges.values()].forEach(e=>{ if(e.from === id || e.to === id) S.edges.delete(e.id); });
+  });
+  Object.entries(u.prev || {}).forEach(([id, f])=>{ const n = S.nodes.get(id); if(n) Object.entries(f).forEach(([k, v])=>setField(n, k, v)); });
+  MISS.missions = MISS.missions.filter(m=>S.nodes.has(m.room));
+  MISS.lastPatch = null; missSave();
+  markDirty(); rebuild(); renderRoomSoon(); showList(false);
+  toast("Undone." + (kept ? " " + kept + " note" + (kept === 1 ? "" : "s") + " stayed because you'd added to them." : ""));
 }
 function missMove(k, to){
   const from = parentOf(k);
@@ -27439,8 +27571,18 @@ function dsPaint(){
     const sg = ds.mission.draft || [];
     el("dsBlocks").innerHTML = `<div class="ds-suggtop"><span>Claude's suggested note. Use what fits, then make it yours.</span>
         <button type="button" class="btn small primary" data-dsuseall="1">Use all of it</button></div>`
-      + sg.map((t, i)=>`<div class="ds-block sugg"><div class="ds-btext">${esc(t)}</div>
-        <div class="ds-bbar"><span class="ds-pnum">&para;${i + 1}</span><button type="button" data-dsuse="${i}" title="Add this paragraph to your draft">+ Use</button></div></div>`).join("");
+      + sg.map((t, i)=>{
+        /* the notes this paragraph was written from, so it can be checked against them */
+        const src = Object.entries(ds.mission.cards || {}).filter(([k, c])=>c.block === i && S.nodes.has(k));
+        const filed = new Set(ds.done.map(d=>d.id));
+        return `<div class="ds-block sugg"><div class="ds-btext">${esc(t)}</div>
+        ${src.length ? `<div class="ds-src"><span>From</span>${src.map(([k])=>`<button type="button" class="ds-srcchip${filed.has(k) ? " filed" : ""}${ds.srcOpen === k ? " on" : ""}" data-dssrc="${esc(k)}">${filed.has(k) ? "&#10003; " : ""}${esc(nodeName(k))}</button>`).join("")}</div>` : ""}
+        ${src.some(([k])=>k === ds.srcOpen) ? (()=>{ const n = S.nodes.get(ds.srcOpen), d = roomDay(n);
+          return `<div class="ds-srcbody"><div class="ds-meta">${d ? `<span>${esc(shortDay(d))}</span>` : ""}${(n.tags || []).map(x=>`<span class="tg">${esc(x)}</span>`).join("")}</div>
+            <div class="ds-body">${n.body ? noteToHtml(n.body, n) : `<p class="ds-empty">(no note, just the name)</p>`}</div>
+            ${ds.queue.includes(n.id) && ds.queue[0] !== n.id ? `<button type="button" class="btn small" data-dsfront="${esc(n.id)}">Deal with this card now</button>` : ""}</div>`; })() : ""}
+        <div class="ds-bbar"><span class="ds-pnum">&para;${i + 1}</span><button type="button" data-dsuse="${i}" title="Add this paragraph to your draft">+ Use</button></div></div>`;
+      }).join("");
   }
   /* the card */
   const n = dsCard();
@@ -27736,6 +27878,10 @@ function wireDistill(){
   });
   el("dsBlocks").addEventListener("click", ev=>{
     if(!ds) return;
+    const sc = ev.target.closest("[data-dssrc]");
+    if(sc){ ds.srcOpen = ds.srcOpen === sc.dataset.dssrc ? "" : sc.dataset.dssrc; dsPaint(); return; }
+    const fr = ev.target.closest("[data-dsfront]");
+    if(fr){ const k = fr.dataset.dsfront; ds.queue = [k].concat(ds.queue.filter(x=>x !== k)); ds.picking = false; ds.pick = new Set(); dsPaint(); return; }
     const use = ev.target.closest("[data-dsuse]"), all = ev.target.closest("[data-dsuseall]");
     if((use || all) && ds.mission){
       const sg = ds.mission.draft || [];
@@ -27930,7 +28076,10 @@ const HELP_TOPICS = [
     <ul>
       <li>A <b>missions file</b> (<i>distill-missions-&hellip;.json</i>) holds suggestions written from a copy of the workbook: for a room, the note I'd write and what I'd do with each loose card, plus anything worth checking. Load it from <b>Go to &rarr; Distill missions &rarr; Load a missions file</b>. It stays on this computer, in editing mode only, and never goes into the map or the workbook.</li>
       <li>Tap a mission (or the glowing &#10022; in its room) to open Distill with it. The yellow <b>Mission</b> box says what it's about and lists things to check, with <b>Do it</b> for a suggested move, rename or retire.</li>
-      <li><b>Suggested</b>, above your draft, shows the note paragraph by paragraph: <b>+ Use</b> one, or <b>Use all of it</b>, then reword it your way. Each card says what I'd do with it and why, and that button is ringed. Once its paragraph is in your draft, <b>Pull in</b> files the card there without adding the words twice. Nothing happens until you press the buttons and Save.</li>
+      <li><b>Suggested</b>, above your draft, shows the note paragraph by paragraph: <b>+ Use</b> one, or <b>Use all of it</b>, then reword it your way. Under each suggested paragraph, <b>From</b> lists the notes it was written from: tap one to read its original words, and <b>Deal with this card now</b> brings it to the front of the deck. Each card says what I'd do with it and why, and that button is ringed. Once its paragraph is in your draft, <b>Pull in</b> files the card there without adding the words twice. Nothing happens until you press the buttons and Save.</li>
+    </ul>
+    <ul>
+      <li><b>A huddle file</b> loads the same way (<b>Go to &rarr; Distill missions &rarr; Load a huddle or missions file</b>). It shows what it will do first: which notes go in which rooms, which old notes it retires, and any wording it updates. <b>Apply</b> does it all in one go. New notes are tagged and dated like any huddle note. <b>Undo &ldquo;Huddle &hellip;&rdquo;</b> in Go to takes it back out. Save the map afterwards as usual.</li>
     </ul>
     <h4>Changing your mind later</h4>
     <ul>
@@ -29735,7 +29884,8 @@ function renderListCore(){
         + ms.slice(0, 15).map(m=>'<button data-mission="' + esc(m.id) + '"><i>&#10022;</i><u>' + esc(m.title || nodeName(m.room)) + '</u><s>'
           + Object.keys(m.cards || {}).length + '</s></button>').join("")
         + (MISS && !ms.length ? '<p class="none">All missions in this file are done.</p>' : "")
-        + '<button class="lead" data-missload="1"><i>&#8679;</i><u>' + (MISS ? "Load a newer missions file" : "Load a missions file") + '</u></button>');
+        + '<button class="lead" data-missload="1"><i>&#8679;</i><u>Load a huddle or missions file</u></button>'
+        + (MISS && MISS.lastPatch ? '<button class="lead" data-patchundo="1"><i>&#8630;</i><u>Undo \u201c' + esc(MISS.lastPatch.title) + '\u201d</u></button>' : ""));
       if(waiting.length) out.push("<h5>Needs distilling</h5>" + waiting.map(w=>'<button data-distill="' + esc(w.id) + '"><i>&#9879;</i><u>'
         + esc(nodeName(w.id)) + '</u><s>' + w.k + '</s></button>').join(""));
     }
@@ -30156,6 +30306,7 @@ function wireRoom(){
     if(mz){ ev.stopPropagation(); const m = MISS && MISS.missions.find(x=>x.id === mz.dataset.mission);
       if(m){ showList(false); select(m.room); openDistill(m.room); } return; }
     if(ev.target.closest && ev.target.closest("[data-missload]")){ ev.stopPropagation(); missPick(); return; }
+    if(ev.target.closest && ev.target.closest("[data-patchundo]")){ ev.stopPropagation(); patchUndoLast(); return; }
     const dz = ev.target.closest && ev.target.closest("[data-distill]");
     if(dz){ ev.stopPropagation(); showList(false); select(dz.dataset.distill); openDistill(dz.dataset.distill); return; }
   }, true);
