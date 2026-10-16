@@ -4307,6 +4307,7 @@ dialog#patchDlg::backdrop{background:rgba(35,40,45,.42)}
 #pdBody li.gone{opacity:.5}
 .pd-lead{color:var(--graphite-60)}
 .pd-foot{display:flex;justify-content:flex-end;gap:8px;padding:10px 16px;border-top:1px solid var(--rule)}
+.trayclear{display:block;width:100%;margin:10px 0 4px;font-size:12px;color:var(--graphite-60)}
 </style>
 </head>
 <body>
@@ -8244,6 +8245,9 @@ function toSheets(){
     {key:"new_badge_image", value:S.meta.newBadgeImage || ""},
     /* teams that exist before anyone is on them */
     {key:"team_list", value:(S.teamList || []).join(", ")},
+    /* tray items somebody threw away, so a merge with an older copy of the
+       workbook can't bring them back */
+    {key:"inbox_gone", value:(S.inboxGone || []).slice(-2000).join(",")},
     /* the newest build anybody has been handed, so older copies can say so */
     {key:"copy_build", value:S.meta.copyBuild || ""},
     {key:"backdrop", value:S.meta.backdrop || ""},
@@ -8522,7 +8526,11 @@ function adoptModel(M, keepConnections){
     ? 62 : Number(M.settings.backdrop_floor);
   /* the severity artwork was written to the sheet but never read back, so it
      survived a save and vanished on the next open */
-  S.inbox = (M.inbox || []).slice();
+  S.inboxGone = String(M.settings.inbox_gone || "").split(",").map(x=>x.trim()).filter(Boolean);
+  {
+    const gone = new Set(S.inboxGone);
+    S.inbox = (M.inbox || []).filter(x=>!gone.has(x.id));
+  }
   trayToLatest();
   S.people = (M.people || []).slice();
   refreshWhoFromRoster();
@@ -8610,7 +8618,13 @@ function mergeModel(M){
     const have = new Set((mine || []).map(x=>x.id));
     (theirs || []).forEach(x=>{ if(!have.has(x.id)){ mine.push(x); have.add(x.id); } });
   };
-  S.inbox = S.inbox || []; addById(S.inbox, M.inbox);
+  /* thrown-away tray items stay thrown away, whichever copy threw them */
+  {
+    const gone = new Set((S.inboxGone || []).concat(String((M.settings || {}).inbox_gone || "").split(",").map(x=>x.trim()).filter(Boolean)));
+    S.inboxGone = [...gone];
+    S.inbox = (S.inbox || []).filter(x=>!gone.has(x.id));
+    addById(S.inbox, (M.inbox || []).filter(x=>!gone.has(x.id)));
+  }
   S.examples = S.examples || []; addById(S.examples, M.examples);
   S.shelves = S.shelves || []; addById(S.shelves, M.shelves);
   for(const e of S.edges.values()) ensureTagStyle(e.tag);
@@ -12193,6 +12207,7 @@ function addToTray(text){
 }
 function dropFromTray(id){
   S.inbox = S.inbox.filter(x=>x.id !== id);
+  S.inboxGone = (S.inboxGone || []).filter(x=>x !== id).concat(id);
   if(S.inboxArmed === id) S.inboxArmed = null;
   markDirty(); renderTray(); updateTrayCount(); updateTrayFlag();
 }
@@ -12381,8 +12396,19 @@ function renderTray(){
                     : `<p class="tocempty">Nothing waiting${here ? " in this one" : ""}.</p>`)
     + (planted.length ? `<details class="plantedfold"${S.trayDoneOpen ? " open" : ""}>
         <summary>${planted.length} planted — keep them for talking through</summary>
-        ${planted.map(x=>row(x, true)).join("")}</details>` : "");
+        ${planted.map(x=>row(x, true)).join("")}</details>` : "")
+    + (waiting.length > 1 ? `<button class="btn trayclear" data-traydropall="1">Throw away all ${waiting.length} waiting in ${esc(here || "loose notes")}</button>` : "");
 
+  const clr = box.querySelector("[data-traydropall]");
+  if(clr) clr.onclick = ()=>{
+    if(!confirm("Throw away all " + waiting.length + " waiting notes in " + (here || "loose notes") + "? Planted ones stay.")) return;
+    const ids = new Set(waiting.map(x=>x.id));
+    S.inbox = S.inbox.filter(x=>!ids.has(x.id));
+    S.inboxGone = (S.inboxGone || []).filter(x=>!ids.has(x)).concat([...ids]);
+    S.inboxArmed = null;
+    markDirty(); renderTray(); updateTrayCount(); updateTrayFlag();
+    toast("Thrown away. Save the map so other copies don't bring them back.");
+  };
   const fold = box.querySelector(".plantedfold");
   if(fold) fold.addEventListener("toggle", ()=>{ S.trayDoneOpen = fold.open; });
 
@@ -21153,7 +21179,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-10-15a";
+const APP_BUILD = "2026-10-15b";
 
 /* Reading that line back out of a copy of this file.
 
