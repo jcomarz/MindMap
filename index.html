@@ -11648,7 +11648,8 @@ function flowWords(n){
 function answerHits(terms){
   const want = terms.map(t=>String(t).toLowerCase().replace(/[*?]+$/, "")).filter(t=>t.length >= 2);
   if(!want.length) return [];
-  const has = hay=>{ const h = hay.toLowerCase(); return want.every(t=>h.includes(t)); };
+  const one = (h, t)=>termMatches(h, t) || (SEARCH_ALSO[t] || []).some(a=>h.includes(a));
+  const has = hay=>{ const h = String(hay).toLowerCase(); return want.every(t=>one(h, t)); };
   const out = [], seen = new Set();
   S.nodes.forEach((n, id)=>{
     if(n.status === "retired" || n.absorb || n.noSearch) return;
@@ -15246,6 +15247,7 @@ function searchTermsNow(){
 function termPattern(term){
   const safe = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const isCode = term.length <= 8 && /\d/.test(term) && /^[a-z0-9][a-z0-9./-]*$/i.test(term);
+  if(/^[a-z]{1,2}$/i.test(term)) return "(?<![a-z0-9])" + safe + "(?![a-z0-9])";
   return (S.searchExcludes && isCode) ? "(?<![a-z0-9])" + safe + "(?![a-z0-9])" : safe;
 }
 function markTerms(root, terms){
@@ -18498,12 +18500,19 @@ function searchable(text){
   return out;
 }
 /* a short code has to be a word of its own, not a piece of a longer number */
+/* the floor's shorthand: "no op" also finds "ordering provider" */
+const SEARCH_ALSO = {op:["ordering provider"], ops:["ordering providers"], tp:["transmission protocol"], tps:["transmission protocols"],
+  dob:["date of birth"], doc:["date of collection"], ocb:["buccal"], dh:["discard/hold", "discard hold"], "d/h":["discard/hold"],
+  pc:["positive control"], tc:["tissue culture"], de:["dna extraction"]};
 function termMatches(hay, term){
   if(!term) return true;
   /* with the filter off, a plain substring search is what you asked for */
   /* Only codes are held to whole words. A plain word like "stat" must still
      match inside "STATS", but 961 must not match inside 3562961. */
   const isCode = term.length <= 8 && /\d/.test(term) && /^[a-z0-9][a-z0-9./-]*$/i.test(term);
+  /* a one- or two-letter word ("no", "op", "tp") is held to whole words, or it
+     matches inside almost everything */
+  if(/^[a-z]{1,2}$/i.test(term)) return new RegExp("(^|[^a-z0-9])" + term + "($|[^a-z0-9])", "i").test(hay);
   if(S.searchExcludes && isCode){
     const safe = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     return new RegExp("(^|[^a-z0-9])" + safe + "($|[^a-z0-9])", "i").test(hay);
@@ -18781,7 +18790,7 @@ function runSearchCore(){
   const raw = terms.some(looksLikeNoise);
   const matches = hay => {
     const text = (raw ? String(hay) : searchable(hay)).toLowerCase();
-    return terms.every(t=>termMatches(text, t));
+    return terms.every(t=>termMatches(text, t) || (SEARCH_ALSO[t] || []).some(a=>text.includes(a)));
   };
 
   if(scope === "areas"){
@@ -21378,7 +21387,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-10-26e";
+const APP_BUILD = "2026-10-26f";
 
 /* Reading that line back out of a copy of this file.
 
