@@ -4306,6 +4306,7 @@ dialog#patchDlg::backdrop{background:rgba(35,40,45,.42)}
 #pdBody li q{font-family:var(--mono);font-size:12px;quotes:none}
 #pdBody li.gone{opacity:.5}
 .pd-lead{color:var(--graphite-60)}
+.pd-flow{font-size:11px;color:var(--blueprint);font-weight:600}
 .pd-foot{display:flex;justify-content:flex-end;gap:8px;padding:10px 16px;border-top:1px solid var(--rule)}
 .trayclear{display:block;width:100%;margin:10px 0 4px;font-size:12px;color:var(--graphite-60)}
 </style>
@@ -21179,7 +21180,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-10-15b";
+const APP_BUILD = "2026-10-26a";
 
 /* Reading that line back out of a copy of this file.
 
@@ -27340,11 +27341,12 @@ function patchPreview(data){
     const ch = data.changes;
     const adds = ch.filter(c=>c.do === "add"), rets = ch.filter(c=>c.do === "retire"), rews = ch.filter(c=>c.do === "rewrite");
     const groups = new Map();
-    adds.forEach(c=>{ const r = patchRoom(c); const k = r ? nodeName(r) : "(top of the map)"; if(!groups.has(k)) groups.set(k, []); groups.get(k).push(c); });
+    adds.forEach(c=>{ const isNew = typeof c.parent === "string" && c.parent.startsWith("@");
+      const r = isNew ? "" : patchRoom(c); const k = isNew ? (c.parentLabel || "a new room") + " (new)" : r ? nodeName(r) : "(top of the map)"; if(!groups.has(k)) groups.set(k, []); groups.get(k).push(c); });
     const nm = k=>S.nodes.has(k) ? nodeName(k) : null;
     el("pdTitle").textContent = data.title || "Huddle " + (data.made || "");
     el("pdBody").innerHTML = `<p class="pd-lead">${adds.length} note${adds.length === 1 ? "" : "s"} to add${rets.length ? ", " + rets.length + " to retire" : ""}${rews.length ? ", " + rews.length + " to reword" : ""}. Each new note is tagged and dated like a huddle note, so Distill and search treat it the same. Undo is in Go to.</p>
-      ${[...groups].map(([room, list])=>`<h4>&#10140; ${esc(room)}</h4><ul>${list.map(c=>`<li><b>${esc(c.label)}</b>${c.why ? `<i>${esc(c.why)}</i>` : ""}</li>`).join("")}</ul>`).join("")}
+      ${[...groups].map(([room, list])=>`<h4>&#10140; ${esc(room)}</h4><ul>${list.map(c=>`<li><b>${esc(c.label)}</b>${c.flow ? ' <span class="pd-flow">&#9671; flowchart</span>' : ""}${c.why ? `<i>${esc(c.why)}</i>` : ""}</li>`).join("")}</ul>`).join("")}
       ${rets.length ? `<h4>Retire</h4><ul>${rets.map(c=>`<li class="${nm(c.node) ? "" : "gone"}"><b>${esc(nm(c.node) || "(not in this map)")}</b><i>${esc(c.why || "")}</i></li>`).join("")}</ul>` : ""}
       ${rews.length ? `<h4>Reword</h4><ul>${rews.map(c=>`<li class="${nm(c.node) ? "" : "gone"}"><b>${esc(nm(c.node) || "(not in this map)")}</b> &rarr; <q>${esc(c.body)}</q><i>${esc(c.why || "")}</i></li>`).join("")}</ul>` : ""}`;
     el("pdNo").onclick = ()=>{ dlg.close(); res(false); };
@@ -27358,8 +27360,10 @@ function patchApply(data){
   const remember = (id, f)=>{ const n = S.nodes.get(id); prev[id] = prev[id] || {}; if(!(f in prev[id])) prev[id][f] = n[f]; };
   const day = data.made || todayISO();
   data.changes.filter(c=>c.do === "add").forEach(c=>{
-    const parent = patchRoom(c);
-    const n = newNode({label:c.label, body:c.body || "", tags:(c.tags || []).slice(), date:c.date || day, source:c.source || ""});
+    /* a parent can be another note this file adds, named by its @ref */
+    const parent = typeof c.parent === "string" && c.parent.startsWith("@") ? (refs[c.parent] || patchRoom(Object.assign({}, c, {parent:""}))) : patchRoom(c);
+    const n = newNode({label:c.label, body:c.body || "", tags:(c.tags || []).slice(), date:c.date || day, source:c.source || "",
+      flow:c.flow ? (typeof c.flow === "string" ? c.flow : JSON.stringify(c.flow)) : "", tableSort:!!c.tableSort});
     S.nodes.set(n.id, n); created.push(n.id);
     if(parent){ const e = newEdge({from:parent, to:n.id, link_type:"tree"}); S.edges.set(e.id, e); }
     if(c.ref) refs[c.ref] = n.id;
