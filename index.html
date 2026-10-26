@@ -4309,6 +4309,51 @@ dialog#patchDlg::backdrop{background:rgba(35,40,45,.42)}
 .pd-flow{font-size:11px;color:var(--blueprint);font-weight:600}
 .pd-foot{display:flex;justify-content:flex-end;gap:8px;padding:10px 16px;border-top:1px solid var(--rule)}
 .trayclear{display:block;width:100%;margin:10px 0 4px;font-size:12px;color:var(--graphite-60)}
+
+/* coloured table rows: {red} etc. at the start of the first cell */
+.notetable tr[class^="rt-"] td{color:var(--rt-ink)}
+.notetable tr[class^="rt-"]{background:var(--rt-bg)}
+.notetable tr.rt-red{--rt-bg:rgba(214,69,46,.14);--rt-ink:#9B2C1C}
+.notetable tr.rt-orange{--rt-bg:rgba(230,126,34,.16);--rt-ink:#8A4B0F}
+.notetable tr.rt-purple{--rt-bg:rgba(120,80,190,.16);--rt-ink:#4E2F8F}
+.notetable tr.rt-yellow{--rt-bg:rgba(230,190,30,.22);--rt-ink:#6B5300}
+.notetable tr.rt-green{--rt-bg:rgba(46,150,90,.16);--rt-ink:#1C6B40}
+.notetable tr.rt-blue{--rt-bg:rgba(52,120,210,.15);--rt-ink:#1F4E8F}
+.notetable tr.rt-pink{--rt-bg:rgba(225,100,160,.16);--rt-ink:#8F2D5E}
+.notetable tr.rt-teal{--rt-bg:rgba(30,160,150,.15);--rt-ink:#13665F}
+.notetable tr.rt-grey{--rt-bg:rgba(120,130,140,.14);--rt-ink:inherit}
+html[data-theme="dark"] .notetable tr.rt-red{--rt-bg:rgba(214,69,46,.28);--rt-ink:#FF9C88}
+html[data-theme="dark"] .notetable tr.rt-orange{--rt-bg:rgba(230,126,34,.28);--rt-ink:#FFC08A}
+html[data-theme="dark"] .notetable tr.rt-purple{--rt-bg:rgba(120,80,190,.32);--rt-ink:#CDB6FF}
+html[data-theme="dark"] .notetable tr.rt-yellow{--rt-bg:rgba(200,160,20,.28);--rt-ink:#FFE07A}
+html[data-theme="dark"] .notetable tr.rt-green{--rt-bg:rgba(46,150,90,.30);--rt-ink:#8FE0B0}
+html[data-theme="dark"] .notetable tr.rt-blue{--rt-bg:rgba(52,120,210,.30);--rt-ink:#A9C8FF}
+html[data-theme="dark"] .notetable tr.rt-pink{--rt-bg:rgba(225,100,160,.30);--rt-ink:#FFB3D6}
+html[data-theme="dark"] .notetable tr.rt-teal{--rt-bg:rgba(30,160,150,.30);--rt-ink:#8EE6DC}
+.notetable.wrapped th,.notetable.wrapped td{white-space:normal;overflow-wrap:break-word}
+.notetable.wrapped td:first-child{font-weight:600;min-width:9em}
+/* a room whose note is a table: the flowchart sits above it as a bar */
+.rv-flowbar{display:none}
+.rv-wallrow.stack{flex-direction:column;align-items:stretch;gap:0}
+.rv-wallrow.stack .rv-flow{width:auto;min-width:0;margin:10px 0 0;padding:6px 10px;display:block}
+.rv-wallrow.stack .rv-flow svg,.rv-wallrow.stack .rv-flow figcaption{display:none}
+.rv-wallrow.stack .rv-flowbar{display:flex;align-items:center;gap:10px;font:13px var(--sans)}
+.rv-flowbar span{flex:1;color:var(--rv-dim, var(--graphite-60))}
+.rv-flowwalk{border:1px solid var(--blueprint);background:var(--blueprint);color:#fff;border-radius:14px;padding:4px 12px;font:inherit;font-size:12.5px;cursor:pointer}
+.rv-wallrow.stack .rv-note{padding-top:8px}
+
+/* a narrow screen reads a wrapped table as cards, one row at a time */
+@media (max-width:640px){
+  .notetable.wrapped thead{display:none}
+  .notetable.wrapped tr{display:block;border-bottom:1px solid var(--rule)}
+  .notetable.wrapped td{display:block;border:0;padding:3px 10px}
+  .notetable.wrapped td:first-child{padding-top:8px;min-width:0}
+  .notetable.wrapped td:last-child{padding-bottom:8px}
+  .notetable.wrapped td:not(:first-child):not(:empty)::before{content:attr(data-h) " ";font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.04em;opacity:.7}
+  .notetable.wrapped td:empty{display:none}
+  .rv-flowbar span{display:none}
+  .rv-wallrow.stack .rv-flowbar{justify-content:space-between}
+}
 </style>
 </head>
 <body>
@@ -15663,11 +15708,16 @@ function noteToHtmlInner(text){
          && rows.every(r=>r.length === rows[0].length)){
         const head = rows[0], body = rows.slice(1);
         const sortable = !!(noteSortable && noteSortable.tableSort);
-        out.push(`<div class="tablewrap"><table class="notetable${sortable ? " sortable" : ""}">
+        /* a row whose first cell starts with {red}, {purple}… is tinted that colour;
+           a narrow table wraps its text so every word shows without scrolling */
+        const tint = r=>{ const m = /^\{(red|orange|purple|yellow|green|blue|pink|teal|grey|gray)\}\s*/i.exec(r[0] || "");
+          return m ? {cls:" class=\"rt-" + m[1].toLowerCase().replace("gray", "grey") + "\"", cells:[r[0].slice(m[0].length)].concat(r.slice(1))} : {cls:"", cells:r}; };
+        const wrapIt = head.length <= 5;
+        out.push(`<div class="tablewrap"><table class="notetable${sortable ? " sortable" : ""}${wrapIt ? " wrapped" : ""}">
           <thead><tr>${head.map((c, i)=>sortable
             ? `<th data-col="${i}" title="Sort by ${esc(c)}">${esc(c)}<span class="sortmark"></span></th>`
             : `<th>${esc(c)}</th>`).join("")}</tr></thead>
-          <tbody>${body.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join("")}</tr>`).join("")}</tbody>
+          <tbody>${body.map(r=>{ const t = tint(r); return `<tr${t.cls}>${t.cells.map((c, i)=>`<td data-h="${esc(head[i] || "")}">${esc(c)}</td>`).join("")}</tr>`; }).join("")}</tbody>
         </table></div>`);
         return;
       }
@@ -16325,7 +16375,10 @@ function paintRoomFlow(n){
   if(!d || !d.nodes.length){ box.hidden = true; box.innerHTML = ""; return false; }
   box.hidden = false;
   box.innerHTML = flowSVG(d, {animate:true, size:false})
-    + '<figcaption>Flowchart &middot; tap to open</figcaption>';
+    + '<figcaption>Flowchart &middot; tap to open</figcaption>'
+    + '<span class="rv-flowbar"><b>&#9671; Flowchart</b><span>Open it</span><button type="button" class="rv-flowwalk" data-flowwalk="1">Walk me through it</button></span>';
+  const wk = box.querySelector("[data-flowwalk]");
+  if(wk) wk.onclick = ev=>{ ev.stopPropagation(); openFlowView(n.id, true); };
   flowRiders(box.querySelector("svg"), true);
   /* the wall is measured again with it in place */
   requestAnimationFrame(()=>{ if(S.sel === n.id) fitWall(); });
@@ -16587,6 +16640,14 @@ function flowWalkTake(edgeId, byScan){
       if(said){ said.textContent = "\u201c" + w.scan + "\u201d \u2192 " + (String(e.t || "").trim() || "this way"); said.className = "fv-said hit"; }
       w.justMatched = "1";
     }
+    /* picked one of several answers and landed on a one-line label box that
+       just names that answer? it was the choice itself: go straight on */
+    {
+      const at = d.nodes.find(x=>x.id === w.at), outs = flowOutsOf(w.at), froms = flowOutsOf(w.trail[w.trail.length - 1].from);
+      if(at && at.s === "box" && froms.length > 1 && outs.length === 1 && !/\n/.test(String(at.t || "").trim())){
+        w.trail.push({from:w.at, edge:outs[0].id}); w.at = outs[0].b;
+      }
+    }
     flowWalkPaint();
     /* the same scan answers the next question too? keep going */
     if(byScan && w.scan){
@@ -16626,7 +16687,12 @@ function wireFlowView(){
   el("fvWalkEnd").onclick = flowWalkStop;
   el("fvBack").onclick = ()=>{
     const w = fv.walk; if(!w || !w.trail.length) return;
-    w.at = w.trail.pop().from; flowWalkPaint();
+    w.at = w.trail.pop().from;
+    /* back over a label box that was skipped on the way in */
+    const at = fv.d.nodes.find(x=>x.id === w.at);
+    if(w.trail.length && at && at.s === "box" && flowOutsOf(w.at).length === 1 && flowOutsOf(w.trail[w.trail.length - 1].from).length > 1
+       && !/\n/.test(String(at.t || "").trim())) w.at = w.trail.pop().from;
+    flowWalkPaint();
   };
   el("fvEdit").onclick = ()=>{ const id = fv.nodeId; d.close(); openFlowEditor(id); };
   el("fvWalkInput").addEventListener("keydown", ev=>{
@@ -21180,7 +21246,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-10-26a";
+const APP_BUILD = "2026-10-26c";
 
 /* Reading that line back out of a copy of this file.
 
@@ -25225,6 +25291,7 @@ function renderRoom(){
      line underneath already says what is in the room. */
   const hasFlow = paintRoomFlow(n);
   const row = document.querySelector(".rv-wallrow");
+  if(row) row.classList.toggle("stack", !!hasFlow && noteHasTable(n.body));
   if(row) row.hidden = !(words || art || hasFlow);
   el("rvBoard").dataset.bare = (words || art || hasFlow) ? "0" : "1";
 
