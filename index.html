@@ -4378,6 +4378,52 @@ html[data-theme="dark"] .ans-then>div:first-child{filter:brightness(1.6)}
 .ans-foot span{flex:1 1 100%;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ans-foot button{border:1px solid var(--rule);background:var(--paper);color:var(--graphite);border-radius:12px;padding:2px 9px;font:inherit;font-size:11.5px;cursor:pointer;white-space:nowrap}
 .ans-foot [data-answalk]{border-color:var(--blueprint);color:var(--blueprint);font-weight:600}
+
+/* table editor */
+.tbl-edit{display:inline-flex;align-items:center;gap:5px;margin:0 0 6px;border:1px solid var(--blueprint);background:var(--paper);color:var(--blueprint);
+  border-radius:12px;padding:3px 11px;font:600 12px var(--sans);cursor:pointer}
+.tbl-edit:hover{background:var(--blueprint);color:#fff}
+dialog#tableDlg{border:1px solid var(--graphite);border-radius:6px;padding:0;background:var(--paper);color:var(--graphite);
+  width:min(1100px,98vw);height:min(900px,94dvh);display:flex;flex-direction:column}
+dialog#tableDlg:not([open]){display:none}
+dialog#tableDlg::backdrop{background:rgba(35,40,45,.45)}
+@media (max-width:700px){ dialog#tableDlg{width:100vw;height:100dvh;max-height:none;border:0;border-radius:0} }
+.te-cols{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 14px;border-bottom:1px solid var(--rule);background:var(--paper-2)}
+.te-colhint{font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;color:var(--graphite-60)}
+.te-col{display:inline-flex;align-items:center;border:1px solid var(--rule);border-radius:5px;background:var(--paper)}
+.te-col input{border:0;background:none;padding:4px 6px;width:9em;font:600 12.5px var(--sans)}
+.te-col button,.te-addcol{border:0;background:none;color:var(--graphite-60);cursor:pointer;padding:3px 7px;font-size:14px}
+.te-addcol{border:1px dashed var(--rule);border-radius:5px;font-size:12px;color:var(--blueprint)}
+.te-body{flex:1;overflow-y:auto;padding:10px 14px;display:flex;flex-direction:column;gap:8px;max-height:none}
+.te-row{border:1px solid var(--rule);border-left:5px solid var(--rt-ink, var(--rule));border-radius:6px;padding:6px 8px 4px;background:var(--rt-bg, var(--paper))}
+.te-row.rt-red{--rt-bg:rgba(214,69,46,.10);--rt-ink:#C0392B}.te-row.rt-orange{--rt-bg:rgba(230,126,34,.12);--rt-ink:#C8661A}
+.te-row.rt-purple{--rt-bg:rgba(120,80,190,.12);--rt-ink:#6E4BB5}.te-row.rt-yellow{--rt-bg:rgba(230,190,30,.18);--rt-ink:#B08A00}
+.te-row.rt-green{--rt-bg:rgba(46,150,90,.12);--rt-ink:#25864F}.te-row.rt-blue{--rt-bg:rgba(52,120,210,.11);--rt-ink:#2D6CC0}
+.te-row.rt-pink{--rt-bg:rgba(225,100,160,.13);--rt-ink:#C2457F}.te-row.rt-teal{--rt-bg:rgba(30,160,150,.12);--rt-ink:#16857A}
+.te-row.rt-grey{--rt-bg:rgba(120,130,140,.10);--rt-ink:#7A848E}
+.te-rbar{display:flex;align-items:center;gap:4px;margin-bottom:4px}
+.te-rbar .grow{flex:1}
+.te-num{font:700 11px var(--mono);color:var(--graphite-60);min-width:1.6em}
+.te-rbar>button{border:1px solid var(--rule);background:var(--paper);color:var(--graphite);border-radius:5px;min-width:30px;height:28px;cursor:pointer}
+.te-rbar>button:disabled{opacity:.35}
+.te-swatches{display:inline-flex;gap:3px;flex-wrap:wrap}
+.te-sw{width:18px;height:18px;border-radius:50%;border:1px solid rgba(0,0,0,.25);cursor:pointer;padding:0}
+.te-sw.on{outline:2px solid var(--graphite);outline-offset:1px}
+.te-sw.sw-none{background:var(--paper);background-image:linear-gradient(45deg,transparent 45%,#C0392B 45%,#C0392B 55%,transparent 55%)}
+.te-sw.sw-red{background:#E06B5A}.te-sw.sw-orange{background:#F0A35E}.te-sw.sw-purple{background:#A88BD9}.te-sw.sw-yellow{background:#F2D354}
+.te-sw.sw-green{background:#7CC596}.te-sw.sw-blue{background:#7FA8E6}.te-sw.sw-pink{background:#EE9CC3}.te-sw.sw-teal{background:#6FCBC2}.te-sw.sw-grey{background:#B5BCC3}
+.te-cells{display:grid;grid-template-columns:repeat(var(--te-n,3), minmax(0,1fr));gap:6px}
+.te-cell{display:flex;flex-direction:column;gap:2px;margin:0}
+.te-cell>span{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:var(--rt-ink, var(--graphite-60))}
+.te-cell textarea{resize:vertical;min-height:34px;font:13px/1.4 var(--sans);padding:5px 7px;border:1px solid var(--rule);border-radius:4px;background:var(--paper);color:var(--graphite);overflow:hidden}
+.te-cell:first-child textarea{font-weight:600}
+.te-add{border:0;background:none;color:var(--blueprint);font:12px var(--sans);cursor:pointer;padding:3px 0;opacity:.75}
+.te-add:hover{opacity:1}
+.te-foot{display:flex;align-items:center;gap:8px;padding:10px 14px;border-top:1px solid var(--rule)}
+.te-foot .grow{flex:1}
+.te-foot .check{margin:0;font-size:12.5px}
+@media (max-width:700px){ .te-cells{grid-template-columns:1fr} .te-swatches{max-width:120px} .te-foot{flex-wrap:wrap} .te-foot .check{flex:1 1 100%} }
+.ds-body .tbl-edit,.peek-note .tbl-edit,.ds-srcbody .tbl-edit{display:none}
 </style>
 </head>
 <body>
@@ -15833,12 +15879,172 @@ function noteHasTable(text){
 /* Whose note is being rendered, so its own setting decides whether the
    columns can be sorted. */
 let noteSortable = null;
+
+/* ---------- editing a table in a note, cell by cell ----------
+   A table is written in the note as | a | b | lines, which is easy to keep
+   and awful to edit. This opens it as a form: one card per row, a box per
+   cell, a colour per row, rows added, moved, copied or removed. Saving writes
+   the | lines back in place of that one table; the rest of the note is
+   untouched. A room whose flowchart was built from the table (one question,
+   every row an answer) can have the chart rebuilt from it in the same go. */
+const TE_COLORS = ["", "red", "orange", "purple", "yellow", "green", "blue", "pink", "teal", "grey"];
+let te = null;
+function teBlocks(body){ return String(body || "").split(/\n{2,}/); }
+function teFind(body, ix){
+  const blocks = teBlocks(body); let k = -1;
+  for(let i = 0; i < blocks.length; i++){
+    const b = blocks[i];
+    if(!looksLikeTable(b)) continue;
+    const rows = parseTable(b);
+    if(rows.length >= 2 && rows[0].length >= 2 && rows.every(r=>r.length === rows[0].length)){ k++; if(k === ix) return {blocks, at:i, rows}; }
+  }
+  return null;
+}
+/* a chart made from a table: one question with a box per row, each leading on to its answer box */
+function teChartShape(n){
+  const d = flowOf(n); if(!d) return null;
+  const hub = d.nodes.find(x=>x.s === "diamond" && d.edges.filter(e=>e.a === x.id).length >= 2);
+  if(!hub) return null;
+  const outs = d.edges.filter(e=>e.a === hub.id);
+  const pairs = outs.map(e=>{ const a = d.nodes.find(x=>x.id === e.b); const o = a && d.edges.filter(x=>x.a === a.id);
+    return a && o && o.length === 1 ? {edge:e, ask:a, ans:d.nodes.find(x=>x.id === o[0].b)} : null; });
+  if(pairs.some(p=>!p || !p.ans || p.ask.s !== "box")) return null;
+  return {d, hub, pairs};
+}
+function openTableEditor(nodeId, ix){
+  if(!canEdit()){ toast("Switch to editing mode to change this table."); return; }
+  const n = S.nodes.get(nodeId); if(!n) return;
+  const f = teFind(n.body, ix); if(!f){ toast("Couldn't find that table in the note."); return; }
+  const tint = c=>{ const m = /^\{([a-z]+)\}\s*/i.exec(c || ""); return m && TE_COLORS.includes(m[1].toLowerCase()) ? [m[1].toLowerCase(), c.slice(m[0].length)] : ["", c]; };
+  te = {nodeId, ix, head:f.rows[0].slice(), rows:f.rows.slice(1).map(r=>{ const [col, first] = tint(r[0]); return {col, cells:[first].concat(r.slice(1))}; }),
+    shape:teChartShape(n), redraw:true, dirty:false};
+  let dlg = el("tableDlg");
+  if(!dlg){
+    dlg = document.createElement("dialog"); dlg.id = "tableDlg";
+    dlg.innerHTML = `<div class="dlg-head"><h2 id="teTitle">Edit table</h2></div>
+      <div class="te-cols" id="teCols"></div>
+      <div class="dlg-body te-body" id="teBody"></div>
+      <div class="te-foot"><label class="check" id="teRedrawWrap"><input type="checkbox" id="teRedraw" checked> Update this room's flowchart to match</label>
+        <span class="grow"></span><button class="btn" id="teCancel">Cancel</button><button class="btn primary" id="teSave">Save</button></div>`;
+    document.body.appendChild(dlg);
+    el("teCancel").onclick = ()=>{ if(te && te.dirty && !confirm("Leave without saving your changes to the table?")) return; dlg.close(); te = null; };
+    el("teSave").onclick = teSave;
+    dlg.addEventListener("cancel", ev=>{ ev.preventDefault(); el("teCancel").click(); });
+    dlg.addEventListener("input", ev=>{
+      if(!te) return;
+      const t = ev.target;
+      if(t.dataset.teh != null){ te.head[+t.dataset.teh] = t.value; te.dirty = true; teLabels(); }
+      if(t.dataset.ter != null){ te.rows[+t.dataset.ter].cells[+t.dataset.tec] = t.value; te.dirty = true; teGrow(t); }
+    });
+    dlg.addEventListener("click", ev=>{
+      if(!te) return;
+      const b = ev.target.closest("[data-teact]"); if(!b) return;
+      const act = b.dataset.teact, i = +b.dataset.i;
+      const blank = ()=>({col:"", cells:te.head.map(()=>"")});
+      if(act === "up" && i > 0) [te.rows[i - 1], te.rows[i]] = [te.rows[i], te.rows[i - 1]];
+      else if(act === "down" && i < te.rows.length - 1) [te.rows[i + 1], te.rows[i]] = [te.rows[i], te.rows[i + 1]];
+      else if(act === "dup") te.rows.splice(i + 1, 0, JSON.parse(JSON.stringify(te.rows[i])));
+      else if(act === "del"){ if(te.rows.length > 1 && (!te.rows[i].cells.some(c=>c.trim()) || confirm("Remove this row?"))) te.rows.splice(i, 1); else if(te.rows.length <= 1) return; }
+      else if(act === "add") te.rows.splice(i + 1, 0, blank());
+      else if(act === "col"){ te.rows[i].col = b.dataset.c; }
+      else if(act === "addcol"){ te.head.push("New column"); te.rows.forEach(r=>r.cells.push("")); }
+      else if(act === "delcol"){ if(te.head.length <= 2){ toast("A table needs at least two columns."); return; }
+        if(!confirm("Remove the column “" + te.head[i] + "” and everything in it?")) return;
+        te.head.splice(i, 1); te.rows.forEach(r=>r.cells.splice(i, 1)); }
+      else return;
+      te.dirty = true; tePaint();
+      if(act === "add" || act === "dup"){ const c = el("teBody").querySelector(`[data-ter="${i + 1}"]`); if(c){ c.focus(); c.scrollIntoView({block:"center"}); } }
+    });
+  }
+  el("teTitle").textContent = "Edit table · " + nodeName(nodeId);
+  el("teRedrawWrap").hidden = !te.shape;
+  el("teRedraw").checked = true;
+  tePaint();
+  dlg.showModal();
+  /* no keyboard popping up on a phone before anything is chosen */
+  if(document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  setTimeout(()=>el("teBody").querySelectorAll("textarea").forEach(teGrow), 30);
+}
+function teGrow(t){ t.style.height = "auto"; t.style.height = Math.min(220, t.scrollHeight + 2) + "px"; }
+function teLabels(){ el("teBody").querySelectorAll("[data-tel]").forEach(l=>{ l.textContent = te.head[+l.dataset.tel] || ""; }); }
+function tePaint(){
+  const h = te.head;
+  el("teCols").innerHTML = `<span class="te-colhint">Columns</span>` + h.map((c, i)=>`<span class="te-col"><input data-teh="${i}" value="${esc(c)}" aria-label="Column ${i + 1} name">
+      <button type="button" data-teact="delcol" data-i="${i}" title="Remove this column">&times;</button></span>`).join("")
+    + `<button type="button" class="te-addcol" data-teact="addcol">+ Column</button>`;
+  el("teBody").style.setProperty("--te-n", h.length);
+  el("teBody").innerHTML = te.rows.map((r, i)=>`<div class="te-row${r.col ? " rt-" + r.col : ""}">
+      <div class="te-rbar"><span class="te-num">${i + 1}</span>
+        <span class="te-swatches">${TE_COLORS.map(c=>`<button type="button" class="te-sw sw-${c || "none"}${r.col === c ? " on" : ""}" data-teact="col" data-i="${i}" data-c="${c}" title="${c ? c : "No colour"}"></button>`).join("")}</span>
+        <span class="grow"></span>
+        <button type="button" data-teact="up" data-i="${i}" title="Move up"${i ? "" : " disabled"}>&#8593;</button>
+        <button type="button" data-teact="down" data-i="${i}" title="Move down"${i < te.rows.length - 1 ? "" : " disabled"}>&#8595;</button>
+        <button type="button" data-teact="dup" data-i="${i}" title="Copy this row">&#10697;</button>
+        <button type="button" data-teact="del" data-i="${i}" title="Remove this row">&#10005;</button></div>
+      <div class="te-cells">${r.cells.map((c, j)=>`<label class="te-cell"><span data-tel="${j}">${esc(h[j] || "")}</span>
+        <textarea rows="1" data-ter="${i}" data-tec="${j}">${esc(c)}</textarea></label>`).join("")}</div>
+      <button type="button" class="te-add" data-teact="add" data-i="${i}">+ Row below</button>
+    </div>`).join("");
+  el("teBody").querySelectorAll("textarea").forEach(teGrow);
+}
+function teCell(c){ return String(c || "").replace(/\r?\n+/g, " ").replace(/\|/g, "/").trim(); }
+function teSave(){
+  if(!te) return;
+  const n = S.nodes.get(te.nodeId); if(!n){ el("tableDlg").close(); te = null; return; }
+  const f = teFind(n.body, te.ix);
+  if(!f){ toast("The note changed underneath; the table couldn't be found to save."); return; }
+  const rows = te.rows.filter(r=>r.cells.some(c=>teCell(c)));
+  const md = ["| " + te.head.map(teCell).join(" | ") + " |", "| " + te.head.map(()=>"---").join(" | ") + " |"]
+    .concat(rows.map(r=>"| " + r.cells.map((c, j)=>(j === 0 && r.col ? "{" + r.col + "} " : "") + teCell(c)).join(" | ") + " |")).join("\n");
+  f.blocks[f.at] = md;
+  setField(n, "body", f.blocks.join("\n\n"));
+  if(te.shape && el("teRedraw").checked) teRedrawFlow(n, rows);
+  markDirty(); rebuild(); renderRoomSoon();
+  if(typeof renderInspector === "function") try{ renderInspector(); }catch(e){}
+  el("tableDlg").close(); te = null;
+  toast("Table saved. Save the map to share it.");
+}
+/* lay the chart out again from the rows: question on the left, each row's first
+   cell as an answer, the rest of the row as what to do; scan words carried over */
+function teRedrawFlow(n, rows){
+  const {d, hub, pairs} = te.shape;
+  const words = new Map(pairs.map(p=>[String(p.ask.t).trim().toLowerCase(), p.edge.m || ""]));
+  const keep = new Set(["hub"]);
+  const head = te.head;
+  const then = r=>{
+    const mids = r.cells.slice(1, -1), last = r.cells[r.cells.length - 1];
+    const lineOne = head.length <= 3 ? teCell(r.cells[1]) : mids.map((c, j)=>teCell(c) ? head[j + 1].replace(/…$/, "") + ": " + teCell(c) : "").filter(Boolean).join(" · ");
+    const tail = head.length >= 3 && teCell(last) ? "\n" + head[head.length - 1].replace(/…$/, "") + ": " + teCell(last) : "";
+    return (lineOne || "") + tail;
+  };
+  const colr = c=>c ? c : "white";
+  const ROW = 118, IW = 330, IH = 96, TW = 470, IX = 380;
+  const nodes = [], edges = [];
+  const start = d.nodes.find(x=>/^\s*start\s*$/i.test(x.t));
+  const mid = (rows.length - 1) * ROW / 2;
+  if(start) nodes.push(Object.assign({}, start, {x:-330, y:Math.round(mid + 25)}));
+  nodes.push(Object.assign({}, hub, {x:-150, y:Math.round(mid - 45)}));
+  if(start){ const se = d.edges.find(e=>e.a === start.id && e.b === hub.id); if(se) edges.push(se); }
+  rows.forEach((r, i)=>{
+    const ask = teCell(r.cells[0]);
+    nodes.push({id:"i" + i, s:"box", x:IX, y:i * ROW, w:IW, h:IH, t:ask, c:colr(r.col), fs:13});
+    nodes.push({id:"t" + i, s:"box", x:IX + IW + 60, y:i * ROW, w:TW, h:IH, t:then(r), c:colr(r.col), fs:12});
+    edges.push({id:"ea" + i, a:hub.id, b:"i" + i, k:"straight", as:"r", bs:"l", m:words.get(ask.toLowerCase()) || ""});
+    edges.push({id:"eb" + i, a:"i" + i, b:"t" + i, k:"straight", as:"r", bs:"l"});
+  });
+  /* anything else on the chart that isn't part of the question (a footnote) stays where it was */
+  const used = new Set([hub.id].concat(start ? [start.id] : []).concat(pairs.flatMap(p=>[p.ask.id, p.ans.id])));
+  d.nodes.filter(x=>!used.has(x.id)).forEach(x=>nodes.push(Object.assign({}, x, x.y > 0 ? {y:rows.length * ROW + 10} : {})));
+  const out = {kind:"mindmap-flowchart", v:1, th:d.th || undefined, nodes, edges};
+  setField(n, "flow", JSON.stringify(out));
+}
 function noteToHtml(text, forNode){
   noteSortable = forNode || null;
   return noteToHtmlInner(text);
 }
 function noteToHtmlInner(text){
   const out = [];
+  let tableIx = 0;
   String(text||"").split(/\n{2,}/).forEach(block=>{
     if(looksLikeTable(block)){
       const rows = parseTable(block);
@@ -15851,6 +16057,9 @@ function noteToHtmlInner(text){
         const tint = r=>{ const m = /^\{(red|orange|purple|yellow|green|blue|pink|teal|grey|gray)\}\s*/i.exec(r[0] || "");
           return m ? {cls:" class=\"rt-" + m[1].toLowerCase().replace("gray", "grey") + "\"", cells:[r[0].slice(m[0].length)].concat(r.slice(1))} : {cls:"", cells:r}; };
         const wrapIt = head.length <= 5;
+        const ti = tableIx++;
+        if(noteSortable && noteSortable.id && typeof canEdit === "function" && canEdit())
+          out.push(`<button type="button" class="tbl-edit" data-tbledit="${esc(noteSortable.id + "|" + ti)}">&#9998; Edit this table</button>`);
         out.push(`<div class="tablewrap"><table class="notetable${sortable ? " sortable" : ""}${wrapIt ? " wrapped" : ""}">
           <thead><tr>${head.map((c, i)=>sortable
             ? `<th data-col="${i}" title="Sort by ${esc(c)}">${esc(c)}<span class="sortmark"></span></th>`
@@ -17946,7 +18155,7 @@ function renderInspector(){
           <button class="btn wide" id="fNoteOut">Move this note into its own file (${(n.body.length/1000).toFixed(0)}k characters)</button>
           <p class="fineprint" style="margin:5px 0 0">It goes in notes/ in the shared folder. It is still shown and
             searched in full; the workbook just stops carrying it.</p></div>` : ""}
-      ${noteHasTable(n.body) ? `<details class="tablepeek"><summary>Table preview</summary>
+      ${noteHasTable(n.body) ? `<button class="btn wide" type="button" data-tbledit="${esc(n.id)}|0" style="margin:-2px 0 6px">&#9998; Edit the table</button><details class="tablepeek"><summary>Table preview</summary>
         <div class="noteview">${noteToHtml(n.body, n)}</div></details>` : ""}
       <label class="field"><span>Type</span>
         <select id="fType">
@@ -21400,7 +21609,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-10-26h";
+const APP_BUILD = "2026-10-26i";
 
 /* Reading that line back out of a copy of this file.
 
@@ -28293,6 +28502,11 @@ function buttonHint(b){
 }
 const HINT_SEL = ".rvb, .mobile-tabs button, .whochip, .vistaswitch button, .rv-trail button, #rvStar";
 function wirePhoneBits(){
+  document.addEventListener("click", ev=>{
+    const b = ev.target.closest && ev.target.closest("[data-tbledit]"); if(!b) return;
+    ev.preventDefault(); ev.stopPropagation();
+    const [id, ix] = b.dataset.tbledit.split("|"); openTableEditor(id, +ix);
+  }, true);
   phoneLab();
   if(PHONE_Q.addEventListener) PHONE_Q.addEventListener("change", phoneLab);
   document.addEventListener("pointerdown", ev=>{
@@ -28458,6 +28672,7 @@ const HELP_TOPICS = [
   {id:"room", title:"Inside a room", body:`
     <h3>Inside a room</h3>
     <ul>
+      <li><b>Tables in a note</b>: in editing mode, <b>&#9998; Edit this table</b> above a table opens it as a form &mdash; a card per row, a box per cell, a colour per row (the dots), and buttons to add, move, copy or remove rows and columns. When the room's flowchart was made from the table, tick <b>Update this room's flowchart to match</b> and the chart follows your edits.</li>
       <li><b>Not sure what a button does?</b> On a phone or tablet, press and hold it: a little note says what it is, and letting go doesn't press it. With a mouse, rest the pointer on it. (Lab tools isn't on phones, since the work sites it opens can't be reached there.)</li>
       <li><b>Flowcharts</b>: some rooms have a flowchart on the wall. It starts out light or dark to match the room; the <b>Dark / Light</b> button (or the D key) flips just the chart. Tap it to open it full screen. <b>Walk me through it</b> starts at the beginning and asks each question in turn; tap the answer (or the next shape) and it takes you along that arrow. On a question you can also <b>scan or type</b> into the box (a tube, a label like ExtrDNA 08) and press Enter, or <b>pick from the list</b>: it takes the arrow that scan belongs to, and if the same scan answers the next question too it keeps going on its own. As you type, the answers that fit show as cards &mdash; with a picture of each when the chart has one &mdash; so typing <i>Xome</i> shows every Xome answer side by side; tap a card (or press Enter when only one is left) to take it, and the magnifier shows a picture full size. <b>Back</b> goes one step back. Scroll or pinch to zoom, drag to move around.</li>
       <li><b>&#10697; Copy lines</b> under the name are ready-made sentences (an issue note, a sample note). Tap one to copy it. One with a blank (<i>######</i>) asks you for the number first, offering the last accession from Lab tools. In editing mode, the <b>&#9998;</b> at the end of a chip opens it as a room, to edit, move or change it.</li>
