@@ -11660,7 +11660,7 @@ function answerHits(terms){
       d.nodes.forEach(dec=>{
         const os = outs(dec.id); if(os.length < 2) return;
         os.forEach(e=>{
-          if(per >= 4) return;
+          if(per >= 60) return;
           const tgt = d.nodes.find(x=>x.id === e.b); if(!tgt) return;
           const words = String(e.m || "").trim();
           if(words === "*") return;
@@ -11681,25 +11681,26 @@ function answerHits(terms){
           if(seen.has(key)) return; seen.add(key);
           out.push({id, kind:"flow", dec:dec.id, edge:e.id, ifText:ifShown, then:thenText || String(tgt.t || ""),
             tint:ANS_TINT.has(res.c) ? res.c : ANS_TINT.has(tgt.c) ? tgt.c : "",
-            strong:yn ? has(String(tgt.t || "")) : has(ifText + " " + words.replace(/\*/g, ""))});
+            strong:yn ? has(String(tgt.t || "")) : has(ifText + " " + words.replace(/\*/g, "")),
+            hay:(ifShown + " " + words + " " + thenText).toLowerCase()});
           per++;
         });
       });
     }
     if(!/\|/.test(n.body || "")) return;
     String(n.body).split(/\n{2,}/).forEach(block=>{
-      if(per >= 4 || !looksLikeTable(block)) return;
+      if(per >= 60 || !looksLikeTable(block)) return;
       const rows = parseTable(block); if(rows.length < 2) return;
       const head = rows[0];
       rows.slice(1).forEach(r=>{
-        if(per >= 4 || !has(r.join(" "))) return;
+        if(per >= 60 || !has(r.join(" "))) return;
         const m = /^\{([a-z]+)\}\s*/i.exec(r[0] || "");
         const first = m ? r[0].slice(m[0].length) : r[0];
         const key = id + "\u0001" + String(first).toLowerCase().replace(/\s+/g, " ").trim();
         if(seen.has(key) || [...seen].some(k=>k.startsWith(id + "\u0001") && String(first).toLowerCase().startsWith(k.split("\u0001")[1].replace(/…$/, "")))) return;
         seen.add(key);
         out.push({id, kind:"row", ifText:first, cells:r.slice(1).map((c, i)=>({h:head[i + 1] || "", c})).filter(x=>String(x.c).trim()),
-          tint:m && ANS_TINT.has(m[1].toLowerCase()) ? m[1].toLowerCase() : "", strong:has(first)});
+          tint:m && ANS_TINT.has(m[1].toLowerCase()) ? m[1].toLowerCase() : "", strong:has(first), hay:r.join(" ").toLowerCase()});
         per++;
       });
     });
@@ -11707,8 +11708,11 @@ function answerHits(terms){
   /* the ones whose question itself matched come first */
   const q = want.join(" ");
   const score = h=>{ const t = String(h.ifText).toLowerCase().replace(/\u2026$/, "").trim();
-    return (t === q ? 4 : t.startsWith(q) ? 3 : h.strong ? 2 : 0) + (h.kind === "flow" ? .5 : 0); };
-  return out.map((h, i)=>({h, i, s:score(h)})).sort((a, b)=>b.s - a.s || a.i - b.i).map(x=>x.h).slice(0, 8);
+    return (t === q ? 4 : t.startsWith(q) ? 3 : h.strong ? 2 : 0) + (want.length > 1 && String(h.hay || "").includes(q) ? 2.5 : 0) + (h.kind === "flow" ? .5 : 0); };
+  /* best first, then no more than four from any one room */
+  const each = new Map();
+  return out.map((h, i)=>({h, i, s:score(h)})).sort((a, b)=>b.s - a.s || a.i - b.i).map(x=>x.h)
+    .filter(h=>{ const c = (each.get(h.id) || 0) + 1; each.set(h.id, c); return c <= 4; }).slice(0, 8);
 }
 function answerCardsHTML(hits){
   if(!hits.length) return "";
@@ -21396,7 +21400,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-10-26g";
+const APP_BUILD = "2026-10-26h";
 
 /* Reading that line back out of a copy of this file.
 
@@ -27557,14 +27561,19 @@ function patchPreview(data){
     }
     const ch = data.changes;
     const adds = ch.filter(c=>c.do === "add"), rets = ch.filter(c=>c.do === "retire"), rews = ch.filter(c=>c.do === "rewrite");
+    const mvs = ch.filter(c=>c.do === "move"), abs = ch.filter(c=>c.do === "absorb"), rms = ch.filter(c=>c.do === "remove"), sets = ch.filter(c=>c.do === "set");
     const groups = new Map();
     adds.forEach(c=>{ const isNew = typeof c.parent === "string" && c.parent.startsWith("@");
       const r = isNew ? "" : patchRoom(c); const k = isNew ? (c.parentLabel || "a new room") + " (new)" : r ? nodeName(r) : "(top of the map)"; if(!groups.has(k)) groups.set(k, []); groups.get(k).push(c); });
     const nm = k=>S.nodes.has(k) ? nodeName(k) : null;
     el("pdTitle").textContent = data.title || "Huddle " + (data.made || "");
-    el("pdBody").innerHTML = `<p class="pd-lead">${adds.length} note${adds.length === 1 ? "" : "s"} to add${rets.length ? ", " + rets.length + " to retire" : ""}${rews.length ? ", " + rews.length + " to reword" : ""}. Each new note is tagged and dated like a huddle note, so Distill and search treat it the same. Undo is in Go to.</p>
+    el("pdBody").innerHTML = `<p class="pd-lead">${data.lead ? esc(data.lead) + " " : ""}${[adds.length ? adds.length + " note" + (adds.length === 1 ? "" : "s") + " to add" : "", rets.length ? rets.length + " to retire" : ""].filter(Boolean).join(", ")}${rews.length ? ", " + rews.length + " to reword" : ""}.${adds.length ? " Each new note is tagged and dated like a huddle note, so Distill and search treat it the same." : ""} Undo is in Go to.</p>
       ${[...groups].map(([room, list])=>`<h4>&#10140; ${esc(room)}</h4><ul>${list.map(c=>`<li><b>${esc(c.label)}</b>${c.flow ? ' <span class="pd-flow">&#9671; flowchart</span>' : ""}${c.why ? `<i>${esc(c.why)}</i>` : ""}</li>`).join("")}</ul>`).join("")}
       ${rets.length ? `<h4>Retire</h4><ul>${rets.map(c=>`<li class="${nm(c.node) ? "" : "gone"}"><b>${esc(nm(c.node) || "(not in this map)")}</b><i>${esc(c.why || "")}</i></li>`).join("")}</ul>` : ""}
+      ${abs.length ? `<h4>Fold in (${abs.length})</h4><ul>${abs.map(c=>`<li class="${nm(c.node) ? "" : "gone"}"><b>${esc(nm(c.node) || "(not in this map)")}</b> &rarr; ${esc(nm(c.into) || c.intoLabel || "")}<i>${esc(c.why || "")}</i></li>`).join("")}</ul>` : ""}
+      ${mvs.length ? `<h4>Move (${mvs.length})</h4><ul>${mvs.map(c=>`<li class="${nm(c.node) ? "" : "gone"}"><b>${esc(nm(c.node) || "(not in this map)")}</b> &rarr; ${esc(nm(c.to) || c.toLabel || "")}<i>${esc(c.why || "")}</i></li>`).join("")}</ul>` : ""}
+      ${sets.length ? `<h4>Update (${sets.length})</h4><ul>${sets.map(c=>`<li class="${nm(c.node) ? "" : "gone"}"><b>${esc(nm(c.node) || "(not in this map)")}</b><i>${esc(c.why || Object.keys(c.fields || {}).join(", "))}</i></li>`).join("")}</ul>` : ""}
+      ${rms.length ? `<h4>Remove duplicates (${rms.length})</h4><ul>${rms.map(c=>`<li class="${nm(c.node) ? "" : "gone"}"><b>${esc(nm(c.node) || "(not in this map)")}</b><i>${esc(c.why || "")}</i></li>`).join("")}</ul>` : ""}
       ${rews.length ? `<h4>Reword</h4><ul>${rews.map(c=>`<li class="${nm(c.node) ? "" : "gone"}"><b>${esc(nm(c.node) || "(not in this map)")}</b> &rarr; <q>${esc(c.body)}</q><i>${esc(c.why || "")}</i></li>`).join("")}</ul>` : ""}`;
     el("pdNo").onclick = ()=>{ dlg.close(); res(false); };
     el("pdYes").onclick = ()=>{ dlg.close(); patchApply(data); res(true); };
@@ -27600,11 +27609,43 @@ function patchApply(data){
     const n = S.nodes.get(c.node); if(!n || !c.body){ skipped.push(c); return; }
     remember(n.id, "body"); setField(n, "body", c.body); reworded++;
   });
+  /* merging: set a field, move a note, fold it into a room, or take out an exact duplicate */
+  const moves = [], removed = [];
+  let merged = 0;
+  data.changes.forEach(c=>{
+    const n = S.nodes.get(R(c.node));
+    if(c.do === "set"){
+      if(!n){ skipped.push(c); return; }
+      Object.entries(c.fields || {}).forEach(([f, v])=>{ remember(n.id, f); setField(n, f, f === "flow" && typeof v !== "string" ? JSON.stringify(v) : v); });
+    } else if(c.do === "move"){
+      const to = R(c.to);
+      if(!n || !S.nodes.has(to) || branchOf(n.id).has(to)){ skipped.push(c); return; }
+      const from = parentOf(n.id);
+      if(from === to) return;
+      [...S.edges.values()].forEach(e=>{ if(e.link_type === "tree" && e.to === n.id) S.edges.delete(e.id); });
+      const e = newEdge({from:to, to:n.id, link_type:"tree"}); S.edges.set(e.id, e);
+      logRev(n.id, "moved", from ? nodeName(from) : "top", nodeName(to), "functional");
+      moves.push({id:n.id, from:from || ""});
+    } else if(c.do === "absorb"){
+      const into = R(c.into);
+      if(!n || !S.nodes.has(into)){ skipped.push(c); return; }
+      ["absorb", "absorbTo", "absorbAt", "absorbQuote"].forEach(f=>remember(n.id, f));
+      setField(n, "absorb", c.how === "absorbed" ? "absorbed" : "covered");
+      setField(n, "absorbTo", into); setField(n, "absorbAt", day); setField(n, "absorbQuote", c.quote || "");
+      merged++;
+    } else if(c.do === "remove"){
+      if(!n || childrenOf(n.id).some(k=>!data.changes.some(x=>x.do === "remove" && R(x.node) === k))){ skipped.push(c); return; }
+      removed.push({node:JSON.parse(JSON.stringify(n)), edges:[...S.edges.values()].filter(e=>e.from === n.id || e.to === n.id).map(e=>JSON.parse(JSON.stringify(e)))});
+    }
+  });
+  removed.forEach(r=>{ S.nodes.delete(r.node.id); r.edges.forEach(e=>S.edges.delete(e.id)); });
   patchApplied = refs;
-  patchUndo = {title:data.title || "huddle", made:day, at:nowISO(), created, prev};
-  patchSummary = "Added " + created.length + " note" + (created.length === 1 ? "" : "s")
-    + (retired ? ", retired " + retired : "") + (reworded ? ", reworded " + reworded : "")
+  patchUndo = {title:data.title || "huddle", made:day, at:nowISO(), created, prev, moves, removed};
+  patchSummary = [created.length ? "added " + created.length + " note" + (created.length === 1 ? "" : "s") : "",
+      retired ? "retired " + retired : ""].filter(Boolean).join(", ") + (reworded ? ", reworded " + reworded : "")
+    + (merged ? ", merged " + merged : "") + (moves.length ? ", moved " + moves.length : "") + (removed.length ? ", removed " + removed.length + " duplicate" + (removed.length === 1 ? "" : "s") : "")
     + (skipped.length ? " (" + skipped.length + " skipped: already distilled or not found)" : "") + ".";
+  patchSummary = patchSummary.replace(/^, /, "").replace(/^./, c=>c.toUpperCase());
   markDirty(); rebuild();
 }
 function patchUndoLast(){
@@ -27616,6 +27657,12 @@ function patchUndoLast(){
     if(childrenOf(id).length){ kept++; return; }
     S.nodes.delete(id);
     [...S.edges.values()].forEach(e=>{ if(e.from === id || e.to === id) S.edges.delete(e.id); });
+  });
+  (u.removed || []).forEach(r=>{ if(!S.nodes.has(r.node.id)) S.nodes.set(r.node.id, r.node); r.edges.forEach(e=>{ if(!S.edges.has(e.id)) S.edges.set(e.id, e); }); });
+  (u.moves || []).slice().reverse().forEach(m=>{
+    if(!S.nodes.has(m.id)) return;
+    [...S.edges.values()].forEach(e=>{ if(e.link_type === "tree" && e.to === m.id) S.edges.delete(e.id); });
+    if(m.from && S.nodes.has(m.from)){ const e = newEdge({from:m.from, to:m.id, link_type:"tree"}); S.edges.set(e.id, e); }
   });
   Object.entries(u.prev || {}).forEach(([id, f])=>{ const n = S.nodes.get(id); if(n) Object.entries(f).forEach(([k, v])=>setField(n, k, v)); });
   MISS.missions = MISS.missions.filter(m=>S.nodes.has(m.room));
