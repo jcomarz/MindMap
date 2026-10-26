@@ -11634,6 +11634,17 @@ function renderResults(){ return withTreeIndex(renderResultsCore); }
    the answer itself — "Skin punch → PINK folder · Green (TC) bin" — with a
    button that opens the walk-through at that step, before the list of rooms. */
 const ANS_TINT = new Set(["red", "orange", "purple", "yellow", "green", "blue", "pink", "teal", "grey"]);
+/* everything written in a room's flowchart, so search finds the room by it */
+const flowWordsCache = new Map();
+function flowWords(n){
+  const raw = String(n && n.flow || ""); if(!raw) return "";
+  const hit = flowWordsCache.get(n.id);
+  if(hit && hit.raw === raw) return hit.words;
+  const d = flowParse(raw);
+  const words = d ? d.nodes.map(x=>x.t).concat(d.edges.map(e=>(e.t || "") + " " + String(e.m || "").replace(/\*/g, ""))).join(" ").replace(/\s+/g, " ") : "";
+  flowWordsCache.set(n.id, {raw, words});
+  return words;
+}
 function answerHits(terms){
   const want = terms.map(t=>String(t).toLowerCase().replace(/[*?]+$/, "")).filter(t=>t.length >= 2);
   if(!want.length) return [];
@@ -11656,13 +11667,20 @@ function answerHits(terms){
           let res = tgt;
           const next = outs(tgt.id);
           if(tgt.s === "box" && next.length === 1 && !/\n/.test(String(tgt.t || "").trim())) res = d.nodes.find(x=>x.id === next[0].b) || tgt;
-          if(/^(yes|no)$/i.test(String(e.t || "").trim())) return;      /* yes/no steps aren't answers on their own */
-          const thenText = res === tgt ? "" : String(res.t || "");
-          if(!has(ifText + " " + words.replace(/\*/g, "") + " " + thenText)) return;
-          const key = id + "\u0001" + ifText.toLowerCase();
+          /* a yes/no step: the answer is "question → YES/NO", and what it leads to */
+          const yn = /^(yes|no|y|n)$/i.test(String(e.t || "").trim());
+          let thenText = res === tgt ? "" : String(res.t || "");
+          let ifShown = ifText;
+          if(yn){
+            ifShown = String(dec.t || "").replace(/\s+/g, " ").trim() + " \u2192 " + String(e.t).trim().toUpperCase();
+            thenText = (tgt.s === "diamond" ? "Next: " : "") + String(tgt.t || "");
+            if(!has(ifShown + " " + thenText)) return;
+          } else if(!has(ifText + " " + words.replace(/\*/g, "") + " " + thenText)) return;
+          const key = id + "\u0001" + ifShown.toLowerCase();
           if(seen.has(key)) return; seen.add(key);
-          out.push({id, kind:"flow", dec:dec.id, edge:e.id, ifText, then:thenText || String(tgt.t || ""),
-            tint:ANS_TINT.has(res.c) ? res.c : ANS_TINT.has(tgt.c) ? tgt.c : "", strong:has(ifText + " " + words.replace(/\*/g, ""))});
+          out.push({id, kind:"flow", dec:dec.id, edge:e.id, ifText:ifShown, then:thenText || String(tgt.t || ""),
+            tint:ANS_TINT.has(res.c) ? res.c : ANS_TINT.has(tgt.c) ? tgt.c : "",
+            strong:yn ? has(String(tgt.t || "")) : has(ifText + " " + words.replace(/\*/g, ""))});
           per++;
         });
       });
@@ -11860,11 +11878,13 @@ function renderResultsCore(){
         && String(S.hitQuery || "").replace(/^\?+/, "").replace(/(^|\s)#\S*/g, " ").trim()
         ? `<div class="rp-dead">Nothing found for \u201c${esc(String(S.hitQuery).replace(/^\?+/, ""))}\u201d.<br>
             <button class="btn" id="resAsk">${canEdit() ? "Write it as a question" : "Ask this as a question"}</button></div>` : "";
-      const answers = (S.qOnly || S.copyOnly || !hasQuery) ? [] : answerHits(qTerms);
+      const typedTerms = S.typoFrom ? String(S.typoFrom).replace(/^\?+/, "").replace(/(^|\s)#[^\s#]*/g, " ").trim().split(/\s+/).filter(Boolean) : qTerms;
+      let answers = (S.qOnly || S.copyOnly || !hasQuery) ? [] : answerHits(typedTerms);
+      if(!answers.length && S.typoFrom && !(S.qOnly || S.copyOnly)) answers = answerHits(qTerms);
       el("tocResults").innerHTML = typoNote + tagStrip + answerCardsHTML(answers) + qToggle
         + (qs.length ? qs.slice(0, 60).map(qRow).join("") + (S.qOnly ? "" : `<div class="resq-sep"></div>`)
                      : (S.qOnly ? `<p class="tocempty">${S.questions.length ? "No question asked that way." : "There are no questions yet."}</p>` : ""))
-        + (dead ? "" : nodeRows) + dead;
+        + (dead && answers.length ? "" : dead ? "" : nodeRows) + (answers.length ? "" : dead);
       if(el("resNoFix")) el("resNoFix").onclick = ev=>{
         ev.stopPropagation();
         S.noTypoFix = S.typoFrom;
@@ -18801,7 +18821,7 @@ function runSearchCore(){
       if(!terms.length) return true;
       if(titleOnly) return matches([n.label, (n.tags||[]).join(" ")].join(" "));
       const hay = [n.label, n.body, n.trailIntro || "", n.trailCaption || "", n.id, n.type, n.status, (n.tags||[]).join(" "),
-        (n.image||"").startsWith("data:") ? "photo image" : (n.image||""), n.flow ? "flowchart" : ""].join(" ");
+        (n.image||"").startsWith("data:") ? "photo image" : (n.image||""), n.flow ? "flowchart " + flowWords(n) : ""].join(" ");
       if(viaQuestions.has(n.id) || matches(hay)) return true;
       /* the room's own search keywords, looked at as written */
       const kw = String(n.keywords || "").toLowerCase();
@@ -21358,7 +21378,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-10-26d";
+const APP_BUILD = "2026-10-26e";
 
 /* Reading that line back out of a copy of this file.
 
