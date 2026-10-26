@@ -4354,6 +4354,30 @@ html[data-theme="dark"] .notetable tr.rt-teal{--rt-bg:rgba(30,160,150,.30);--rt-
   .rv-flowbar span{display:none}
   .rv-wallrow.stack .rv-flowbar{justify-content:space-between}
 }
+
+/* answers at the top of the search results */
+.ans-wrap{display:flex;flex-direction:column;gap:6px;margin:4px 0 10px}
+.ans-head{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;font-weight:700;color:var(--graphite-60)}
+.ans-card{border:1px solid var(--rule);border-left:4px solid var(--rt-ink, var(--blueprint));border-radius:6px;padding:7px 10px;background:var(--rt-bg, var(--paper));color:var(--graphite)}
+.ans-card.rt-red{--rt-bg:rgba(214,69,46,.12);--rt-ink:#C0392B}
+.ans-card.rt-orange{--rt-bg:rgba(230,126,34,.14);--rt-ink:#C8661A}
+.ans-card.rt-purple{--rt-bg:rgba(120,80,190,.14);--rt-ink:#6E4BB5}
+.ans-card.rt-yellow{--rt-bg:rgba(230,190,30,.20);--rt-ink:#B08A00}
+.ans-card.rt-green{--rt-bg:rgba(46,150,90,.14);--rt-ink:#25864F}
+.ans-card.rt-blue{--rt-bg:rgba(52,120,210,.13);--rt-ink:#2D6CC0}
+.ans-card.rt-pink{--rt-bg:rgba(225,100,160,.15);--rt-ink:#C2457F}
+.ans-card.rt-teal{--rt-bg:rgba(30,160,150,.14);--rt-ink:#16857A}
+.ans-card.rt-grey{--rt-bg:rgba(120,130,140,.12);--rt-ink:#7A848E}
+html[data-theme="dark"] .ans-card{color:#E6EDF3}
+.ans-if{font-weight:700;font-size:13px}
+.ans-then{font-size:13px;margin-top:2px}
+.ans-then>div:first-child{font-weight:600;color:var(--rt-ink, inherit)}
+html[data-theme="dark"] .ans-then>div:first-child{filter:brightness(1.6)}
+.ans-more{font-size:12px;opacity:.85;margin-top:2px}
+.ans-foot{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:6px;font-size:11.5px;color:var(--graphite-60)}
+.ans-foot span{flex:1 1 100%;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ans-foot button{border:1px solid var(--rule);background:var(--paper);color:var(--graphite);border-radius:12px;padding:2px 9px;font:inherit;font-size:11.5px;cursor:pointer;white-space:nowrap}
+.ans-foot [data-answalk]{border-color:var(--blueprint);color:var(--blueprint);font-weight:600}
 </style>
 </head>
 <body>
@@ -11604,6 +11628,91 @@ function reorderSibling(moveId, targetId, after){
 /* The results list lives under the search box rather than in the side panel:
    it is a temporary thing you walk and dismiss. */
 function renderResults(){ return withTreeIndex(renderResultsCore); }
+
+/* ---------- answers straight in the search results ----------
+   A flowchart answer or a table row that matches what was typed is shown as
+   the answer itself — "Skin punch → PINK folder · Green (TC) bin" — with a
+   button that opens the walk-through at that step, before the list of rooms. */
+const ANS_TINT = new Set(["red", "orange", "purple", "yellow", "green", "blue", "pink", "teal", "grey"]);
+function answerHits(terms){
+  const want = terms.map(t=>String(t).toLowerCase().replace(/[*?]+$/, "")).filter(t=>t.length >= 2);
+  if(!want.length) return [];
+  const has = hay=>{ const h = hay.toLowerCase(); return want.every(t=>h.includes(t)); };
+  const out = [], seen = new Set();
+  S.nodes.forEach((n, id)=>{
+    if(n.status === "retired" || n.absorb || n.noSearch) return;
+    let per = 0;
+    const d = n.flow ? flowOf(n) : null;
+    if(d){
+      const outs = a=>d.edges.filter(e=>e.a === a);
+      d.nodes.forEach(dec=>{
+        const os = outs(dec.id); if(os.length < 2) return;
+        os.forEach(e=>{
+          if(per >= 4) return;
+          const tgt = d.nodes.find(x=>x.id === e.b); if(!tgt) return;
+          const words = String(e.m || "").trim();
+          if(words === "*") return;
+          const ifText = String(e.t || "").trim() && !/^(yes|no|y|n)$/i.test(String(e.t).trim()) ? String(e.t).trim() : flowFirstLine(tgt.t);
+          let res = tgt;
+          const next = outs(tgt.id);
+          if(tgt.s === "box" && next.length === 1 && !/\n/.test(String(tgt.t || "").trim())) res = d.nodes.find(x=>x.id === next[0].b) || tgt;
+          if(/^(yes|no)$/i.test(String(e.t || "").trim())) return;      /* yes/no steps aren't answers on their own */
+          const thenText = res === tgt ? "" : String(res.t || "");
+          if(!has(ifText + " " + words.replace(/\*/g, "") + " " + thenText)) return;
+          const key = id + "\u0001" + ifText.toLowerCase();
+          if(seen.has(key)) return; seen.add(key);
+          out.push({id, kind:"flow", dec:dec.id, edge:e.id, ifText, then:thenText || String(tgt.t || ""),
+            tint:ANS_TINT.has(res.c) ? res.c : ANS_TINT.has(tgt.c) ? tgt.c : "", strong:has(ifText + " " + words.replace(/\*/g, ""))});
+          per++;
+        });
+      });
+    }
+    if(!/\|/.test(n.body || "")) return;
+    String(n.body).split(/\n{2,}/).forEach(block=>{
+      if(per >= 4 || !looksLikeTable(block)) return;
+      const rows = parseTable(block); if(rows.length < 2) return;
+      const head = rows[0];
+      rows.slice(1).forEach(r=>{
+        if(per >= 4 || !has(r.join(" "))) return;
+        const m = /^\{([a-z]+)\}\s*/i.exec(r[0] || "");
+        const first = m ? r[0].slice(m[0].length) : r[0];
+        const key = id + "\u0001" + String(first).toLowerCase().replace(/\s+/g, " ").trim();
+        if(seen.has(key) || [...seen].some(k=>k.startsWith(id + "\u0001") && String(first).toLowerCase().startsWith(k.split("\u0001")[1].replace(/…$/, "")))) return;
+        seen.add(key);
+        out.push({id, kind:"row", ifText:first, cells:r.slice(1).map((c, i)=>({h:head[i + 1] || "", c})).filter(x=>String(x.c).trim()),
+          tint:m && ANS_TINT.has(m[1].toLowerCase()) ? m[1].toLowerCase() : "", strong:has(first)});
+        per++;
+      });
+    });
+  });
+  /* the ones whose question itself matched come first */
+  const q = want.join(" ");
+  const score = h=>{ const t = String(h.ifText).toLowerCase().replace(/\u2026$/, "").trim();
+    return (t === q ? 4 : t.startsWith(q) ? 3 : h.strong ? 2 : 0) + (h.kind === "flow" ? .5 : 0); };
+  return out.map((h, i)=>({h, i, s:score(h)})).sort((a, b)=>b.s - a.s || a.i - b.i).map(x=>x.h).slice(0, 8);
+}
+function answerCardsHTML(hits){
+  if(!hits.length) return "";
+  return `<div class="ans-wrap"><div class="ans-head">Answers</div>` + hits.map(h=>{
+    const where = esc(nodeName(h.id));
+    const thenLines = h.kind === "flow"
+      ? String(h.then).split("\n").map(x=>x.trim()).filter(Boolean)
+      : h.cells.map(x=>(x.h ? x.h.replace(/…$/, "") + ": " : "") + x.c);
+    return `<div class="ans-card${h.tint ? " rt-" + h.tint : ""}">
+      <div class="ans-if">${esc(h.ifText)}</div>
+      <div class="ans-then">${thenLines.map((l, i)=>`<div${i ? ' class="ans-more"' : ""}>${esc(l)}</div>`).join("")}</div>
+      <div class="ans-foot"><span>${h.kind === "flow" ? "&#9671; " : "&#9638; "}${where}</span>
+        ${h.kind === "flow" ? `<button type="button" data-answalk="${esc(h.id + "|" + h.dec + "|" + h.edge)}">Walk from here</button>` : ""}
+        <button type="button" data-ansgo="${esc(h.id)}">Open the room</button></div></div>`;
+  }).join("") + `</div>`;
+}
+function answerWalk(spec){
+  const [id, dec, edge] = spec.split("|");
+  if(!S.nodes.has(id)) return;
+  closeResults && closeResults();
+  openFlowView(id, true);
+  setTimeout(()=>{ if(fv.walk && fv.nodeId === id){ fv.walk.at = dec; fv.walk.trail = []; flowWalkTake(edge); } }, 450);
+}
 function renderResultsCore(){
   /* A separate, temporary list of whatever the search or the tag filter turned
      up, so the main outline is left alone and results are easy to walk. */
@@ -11751,7 +11860,8 @@ function renderResultsCore(){
         && String(S.hitQuery || "").replace(/^\?+/, "").replace(/(^|\s)#\S*/g, " ").trim()
         ? `<div class="rp-dead">Nothing found for \u201c${esc(String(S.hitQuery).replace(/^\?+/, ""))}\u201d.<br>
             <button class="btn" id="resAsk">${canEdit() ? "Write it as a question" : "Ask this as a question"}</button></div>` : "";
-      el("tocResults").innerHTML = typoNote + tagStrip + qToggle
+      const answers = (S.qOnly || S.copyOnly || !hasQuery) ? [] : answerHits(qTerms);
+      el("tocResults").innerHTML = typoNote + tagStrip + answerCardsHTML(answers) + qToggle
         + (qs.length ? qs.slice(0, 60).map(qRow).join("") + (S.qOnly ? "" : `<div class="resq-sep"></div>`)
                      : (S.qOnly ? `<p class="tocempty">${S.questions.length ? "No question asked that way." : "There are no questions yet."}</p>` : ""))
         + (dead ? "" : nodeRows) + dead;
@@ -12102,6 +12212,8 @@ function resKindHTML(n){
 function bindResultRows(){
   const root = el("resultsPop");
   if(!root) return;
+  root.querySelectorAll("[data-answalk]").forEach(b=>{ b.onclick = ev=>{ ev.stopPropagation(); answerWalk(b.dataset.answalk); }; });
+  root.querySelectorAll("[data-ansgo]").forEach(b=>{ b.onclick = ev=>{ ev.stopPropagation(); const id = b.dataset.ansgo; if(!S.nodes.has(id)) return; if(inRoom()) arriveAt(id); else pickNode(id); }; });
   root.querySelectorAll("[data-rescopy]").forEach(b=>{
     b.onclick = ev=>{ ev.stopPropagation(); copyLine(S.nodes.get(b.dataset.rescopy)); };
   });
@@ -18587,7 +18699,7 @@ function correctTerm(t){
 /* the sentence in a note that made it a match, so the right one can be
    picked from the list without opening it */
 function snippetFor(n, terms){
-  const body = String((n && n.body) || "");
+  const body = String((n && n.body) || "").replace(/\{(red|orange|purple|yellow|green|blue|pink|teal|grey|gray)\}\s*/gi, "");
   if(!body || !terms.length) return "";
   const label = String(n.label || "").toLowerCase();
   if(terms.every(t=>label.includes(t))) return "";
@@ -21246,7 +21358,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-10-26c";
+const APP_BUILD = "2026-10-26d";
 
 /* Reading that line back out of a copy of this file.
 
@@ -28142,6 +28254,7 @@ const HELP_TOPICS = [
   {id:"search", title:"Finding things", body:`
     <h3>Finding things</h3>
     <p class="lead">The search box at the bottom finds rooms by their name, their note, their tags, and words added just for searching.</p>
+    <p><b>Answers</b> come first when what you typed matches a flowchart answer or a row of a table in a note: type <i>skin punch</i> and you see "Pink folder · Green (TC) bin" straight away, coloured like the row. <b>Walk from here</b> opens that flowchart at that step; <b>Open the room</b> takes you to it.</p>
     <ol>
       <li>Tap the search box (or press <kbd>/</kbd>). Before you type, it shows what you searched lately, your bookmarks and the rooms you visit most.</li>
       <li>Type a word, a code, or an accession number. The list fills as you type.</li>
