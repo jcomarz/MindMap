@@ -4424,6 +4424,10 @@ dialog#tableDlg::backdrop{background:rgba(35,40,45,.45)}
 .te-foot .check{margin:0;font-size:12.5px}
 @media (max-width:700px){ .te-cells{grid-template-columns:1fr} .te-swatches{max-width:120px} .te-foot{flex-wrap:wrap} .te-foot .check{flex:1 1 100%} }
 .ds-body .tbl-edit,.peek-note .tbl-edit,.ds-srcbody .tbl-edit{display:none}
+
+/* an open History drawer takes its room from the note, which scrolls; nothing on the wall spills over it */
+.rv-wallrow{overflow:hidden;min-height:80px}
+.rv-histlist{max-height:min(30vh,240px)}
 </style>
 </head>
 <body>
@@ -21609,7 +21613,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-10-26i";
+const APP_BUILD = "2026-10-26j";
 
 /* Reading that line back out of a copy of this file.
 
