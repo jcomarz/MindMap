@@ -1537,6 +1537,38 @@ html[data-theme="dark"] #roomView[data-skin="plain"]{
 .rv-qs{display:flex;gap:5px;flex-wrap:wrap;align-items:center;padding:0 14px 8px;flex:0 0 auto}
 .rv-lines{display:flex;gap:6px;flex-wrap:wrap;padding:0 14px 8px;flex:0 0 auto}
 .rv-lines[hidden]{display:none}
+.rv-cites{display:flex;gap:6px;flex-wrap:wrap;padding:0 14px 8px;flex:0 0 auto}
+.rv-cites[hidden]{display:none}
+.ds-cites{padding:6px 0 0}
+.rv-cite{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--graphite);border-radius:4px;background:var(--paper);color:var(--graphite);
+  font:inherit;font-size:12px;font-weight:600;padding:3px 9px;cursor:pointer;font-variant-numeric:tabular-nums}
+.rv-cite .ic{opacity:.65;font-weight:700}
+.rv-cite i{font-style:normal;font-weight:500;opacity:.7}
+.rv-cite b{font-size:10px;text-transform:uppercase;letter-spacing:.04em;background:var(--flag,#b42318);color:#fff;border-radius:3px;padding:0 4px}
+.rv-cite.old{border-style:dashed}
+.rv-cite:hover{background:var(--graphite);color:var(--paper)}
+.rv-citeedit{border:1px dashed var(--graphite);border-radius:4px;background:none;color:var(--graphite);font:inherit;font-size:12px;padding:3px 9px;cursor:pointer;opacity:.7}
+dialog#citeDlg{border:1px solid var(--graphite);border-radius:6px;padding:0;background:var(--paper);color:var(--graphite);width:min(620px,96vw);max-height:88dvh;display:flex;flex-direction:column}
+dialog#citeDlg:not([open]){display:none}
+dialog#citeDlg::backdrop{background:rgba(35,40,45,.42)}
+#citeDlg .cd-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;padding:14px 16px 8px;border-bottom:1px solid rgba(0,0,0,.08)}
+#citeDlg .cd-eyebrow{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;opacity:.7}
+#citeDlg h3{margin:2px 0 0;font-size:17px}
+#citeDlg .cd-body{overflow:auto;padding:10px 16px;display:grid;gap:10px}
+#citeDlg .cd-meta{font-size:12px;opacity:.75}
+#citeDlg .cd-text{margin:4px 0 0;padding:8px 12px;border-left:3px solid var(--graphite);white-space:pre-wrap;font-size:14px;line-height:1.5;user-select:text}
+#citeDlg .cd-newer .cd-text{border-left-color:var(--flag,#b42318)}
+#citeDlg .cd-warn{color:var(--flag,#b42318);font-size:13px;margin:0}
+#citeDlg .cd-ok{font-size:13px;opacity:.8;margin:0}
+#citeDlg .cd-used{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px}
+#citeDlg .cd-foot{display:flex;justify-content:flex-end;gap:8px;padding:10px 16px;border-top:1px solid rgba(0,0,0,.08)}
+.sop-wrap{display:grid;gap:6px;margin:8px 0;padding-top:6px;border-top:1px dashed rgba(0,0,0,.18)}
+.sop-hit{display:grid;gap:2px;text-align:left;border:1px solid rgba(0,0,0,.14);border-radius:5px;background:var(--paper);color:inherit;font:inherit;padding:7px 10px;cursor:pointer}
+.sop-hit:hover{border-color:var(--graphite)}
+.sop-hit .sop-ref{font-size:11.5px;font-weight:700;letter-spacing:.02em}
+.sop-hit .sop-ref i{font-style:normal;font-weight:500;opacity:.7}
+.sop-hit b{font-size:13px}
+.sop-hit .sop-snip{font-size:12.5px;opacity:.85}
 .rv-line{display:inline-flex;align-items:center;gap:6px;max-width:100%;border:1px solid var(--blueprint);border-radius:14px;
   background:var(--blueprint-soft);color:var(--blueprint);font:inherit;font-size:12.5px;font-weight:600;padding:4px 11px 4px 8px;cursor:copy;
   -webkit-touch-callout:none;user-select:none}
@@ -4971,6 +5003,7 @@ dialog#tableDlg::backdrop{background:rgba(35,40,45,.45)}
               <button class="rv-star" id="rvStar" hidden title="Bookmark this room" aria-label="Bookmark this room">&#9734;</button>
             </div>
             <div class="rv-tags" id="rvTags" hidden></div>
+            <div class="rv-cites" id="rvCites" hidden aria-label="SOP sections this stands on: tap one for the wording"></div>
             <div class="rv-role" id="rvRole" hidden></div>
             <div class="rv-qs" id="rvQs" hidden></div>
             <div class="rv-lines" id="rvLines" hidden aria-label="Copy lines: tap one to copy it"></div>
@@ -6281,7 +6314,7 @@ function newNode(o={}){
     flow:"", source:"",
     /* role: "copy" (a copy line) or "room" (kept as a subtopic); absorb: "absorbed"
        or "covered" once Distill has folded it into its parent */
-    role:"", absorb:"", absorbTo:"", absorbAt:"", absorbQuote:"", distilledAt:"",
+    role:"", absorb:"", absorbTo:"", absorbAt:"", absorbQuote:"", distilledAt:"", cite:"",
     created:nowISO(), modified:nowISO(),
     rev:1, author:S.meta.author, x:null, y:null, pinned:false, collapsed:false
   }, o);
@@ -8238,7 +8271,8 @@ function seed(){
    Kept human-readable so the workbook stands on its own.
    ===================================================================== */
 const HDR = {
-  Nodes:["node_id","label","body","type","tags","status","flag","image","image_h","created","modified","rev","edit","author","badge","badge_at","badge_image","superseded_by","table_sort","order","date","collect","collect_goal","backdrop","backdrop_floor","backdrop_salt","spots","x","y","pinned","parent_id","depth","path","no_search","keywords","body_file","trail_intro","trail_add","trail_hide","trail_date","trail_caption","flow","source","role","absorb","absorb_to","absorb_at","absorb_quote","distilled_at"],
+  Nodes:["node_id","label","body","type","tags","status","flag","image","image_h","created","modified","rev","edit","author","badge","badge_at","badge_image","superseded_by","table_sort","order","date","collect","collect_goal","backdrop","backdrop_floor","backdrop_salt","spots","x","y","pinned","parent_id","depth","path","no_search","keywords","body_file","trail_intro","trail_add","trail_hide","trail_date","trail_caption","flow","source","role","absorb","absorb_to","absorb_at","absorb_quote","distilled_at","cite"],
+  SOPs:["sop_id","sop","title","version","effective","section","heading","text","fp","file"],
   Links:["edge_id","from_id","to_id","link_type","tag","label","condition","route","from_side","to_side","bow","color","line_style","width","arrow"],
   Revisions:["rev_id","node_id","timestamp","author","field","class","note","folded","old_value","new_value"],
   TagStyles:["tag","color","line_style","width","arrow","applies_to"],
@@ -8277,7 +8311,7 @@ function toSheets(){
     trail_date:n.trailDate || "", trail_caption:n.trailCaption || "",
     flow:n.flow || "", source:n.source || "",
     role:n.role || "", absorb:n.absorb || "", absorb_to:n.absorbTo || "", absorb_at:n.absorbAt || "",
-    absorb_quote:n.absorbQuote || "", distilled_at:n.distilledAt || "",
+    absorb_quote:n.absorbQuote || "", distilled_at:n.distilledAt || "", cite:n.cite || "",
     tags:(n.tags||[]).join(", "), status:n.status, flag:n.flag||"",
     image:n.image||"", image_h:n.image?(n.imageH||120):"",
     backdrop:n.backdrop||"", backdrop_floor:n.backdropFloor === "" || n.backdropFloor == null
@@ -8386,6 +8420,7 @@ function toSheets(){
              first:x.first || "", login:x.login || "", initials:x.initials || "",
              teams:(x.teams || []).join(", "),
              active:x.active === false ? "no" : "yes"})),
+           SOPs:(S.sops || []).map(r=>Object.assign({}, r)),
            Overflow:[], Sync:sync };
 }
 function round(v){ return v==null?"":Math.round(v*10)/10; }
@@ -8402,7 +8437,7 @@ function exportXlsx(){
   }
   const wb = buildWorkbook();
   const safe = (S.meta.title||"mindmap").replace(/[^\w\- ]+/g,"").trim().replace(/\s+/g,"-");
-  XLSX.writeFile(wb, safe + "-" + new Date().toISOString().slice(0,10) + ".xlsx");
+  XLSX.writeFile(wb, safe + "-" + new Date().toISOString().slice(0,10) + ".xlsx", {compression:true});
   saveNow(true);
   writeLinkedFile(true);
   markClean();
@@ -8418,7 +8453,8 @@ function tablesToModel(t){
   const M = { nodes:new Map(), edges:new Map(), revisions:[], tagStyles:new Map(),
               connections:[], areas:new Map(), bookmarks:[],
               suggestions:[], checkItems:[], checkoffs:[], examples:[], shelves:[], settings:{},
-              questions:[], pins:[], inbox:[], people:[] };
+              questions:[], pins:[], inbox:[], people:[], sops:[] };
+  (t.SOPs || []).forEach(r=>{ const row = sopRowFrom(r); if(row) M.sops.push(row); });
 
   (t.People || []).forEach(r=>{
     if(!String(r.name||"").trim()) return;
@@ -8448,7 +8484,7 @@ function tablesToModel(t){
       trailCaption:String(r.trail_caption||""),
       flow:String(r.flow||""), source:String(r.source||""),
       role:String(r.role||""), absorb:String(r.absorb||""), absorbTo:String(r.absorb_to||""),
-      absorbAt:String(r.absorb_at||""), absorbQuote:String(r.absorb_quote||""), distilledAt:String(r.distilled_at||""),
+      absorbAt:String(r.absorb_at||""), absorbQuote:String(r.absorb_quote||""), distilledAt:String(r.distilled_at||""), cite:String(r.cite||"").trim(),
       type:String(r.type||"step"),
       tags:String(r.tags||"").split(",").map(x=>x.trim()).filter(Boolean),
       status:String(r.status||"active").toLowerCase(), flag:String(r.flag||""),
@@ -8653,6 +8689,7 @@ function adoptModel(M, keepConnections){
   }
   trayToLatest();
   S.people = (M.people || []).slice();
+  S.sops = (M.sops || []).slice(); sopIndexDirty = true;
   refreshWhoFromRoster();
   S.meta.sevArt = {};
   SEVERITIES.forEach(sv=>{
@@ -8734,6 +8771,13 @@ function mergeModel(M){
   const teamsNow = new Set((S.teamList || []).map(t=>t.toLowerCase()));
   S.teamList = (S.teamList || []).concat(String((M.settings || {}).team_list || "").split(",")
     .map(t=>t.trim()).filter(t=>t && !teamsNow.has(t.toLowerCase())));
+  /* SOP sections: one row per SOP, version and section; anything new is added */
+  {
+    const have = new Set((S.sops || []).map(r=>r.sop_id));
+    S.sops = S.sops || [];
+    (M.sops || []).forEach(r=>{ if(!have.has(r.sop_id)){ S.sops.push(r); have.add(r.sop_id); } });
+    sopIndexDirty = true;
+  }
   const addById = (mine, theirs)=>{
     const have = new Set((mine || []).map(x=>x.id));
     (theirs || []).forEach(x=>{ if(!have.has(x.id)){ mine.push(x); have.add(x.id); } });
@@ -8965,7 +9009,7 @@ function importXlsx(file, done){
 function copyTsv(){
   const d = toSheets();
   let out = "";
-  for(const name of ["Nodes","Links","Areas","Bookmarks","Questions","QuestionPins","Suggestions","CheckItems","Checkoffs","Examples","Shelves","Revisions","TagStyles","Settings","People","Inbox","Overflow","Sync"]){
+  for(const name of ["Nodes","Links","Areas","Bookmarks","Questions","QuestionPins","Suggestions","CheckItems","Checkoffs","Examples","Shelves","Revisions","TagStyles","Settings","People","Inbox","SOPs","Overflow","Sync"]){
     if(!(d[name]||[]).length && name!=="Nodes" && name!=="Links") continue;
     out += "### " + name + "\n" + HDR[name].join("\t") + "\n";
     for(const row of d[name]) out += HDR[name].map(h=>String(row[h]??"").replace(/[\t\n]/g," ")).join("\t") + "\n";
@@ -11936,10 +11980,14 @@ function renderResultsCore(){
       const typedTerms = S.typoFrom ? String(S.typoFrom).replace(/^\?+/, "").replace(/(^|\s)#[^\s#]*/g, " ").trim().split(/\s+/).filter(Boolean) : qTerms;
       let answers = (S.qOnly || S.copyOnly || !hasQuery) ? [] : answerHits(typedTerms);
       if(!answers.length && S.typoFrom && !(S.qOnly || S.copyOnly)) answers = answerHits(qTerms);
+      const sopRes = (S.qOnly || S.copyOnly || !hasQuery) ? {hits:[], full:true} : sopHits(typedTerms);
+      const sopHtml = sopHitsHTML(sopRes, typedTerms);
       el("tocResults").innerHTML = typoNote + tagStrip + answerCardsHTML(answers) + qToggle
         + (qs.length ? qs.slice(0, 60).map(qRow).join("") + (S.qOnly ? "" : `<div class="resq-sep"></div>`)
                      : (S.qOnly ? `<p class="tocempty">${S.questions.length ? "No question asked that way." : "There are no questions yet."}</p>` : ""))
-        + (dead && answers.length ? "" : dead ? "" : nodeRows) + (answers.length ? "" : dead);
+        + (dead && (answers.length || sopRes.hits.length) ? "" : dead ? "" : nodeRows) + sopHtml + (answers.length || sopRes.hits.length ? "" : dead);
+      el("tocResults").querySelectorAll("[data-sopcite]").forEach(b=>b.onclick = ev=>{ ev.stopPropagation(); openCite(b.dataset.sopcite); });
+      if(el("resSopFull")) el("resSopFull").onclick = ev=>{ ev.stopPropagation(); sopFullPick(); };
       if(el("resNoFix")) el("resNoFix").onclick = ev=>{
         ev.stopPropagation();
         S.noTypoFix = S.typoFrom;
@@ -20119,7 +20167,7 @@ const SHEET_CELL = 45000, XLSX_CELL = 32000;
 const ID_COL = {Nodes:"node_id", Links:"edge_id", Areas:"area_id", Bookmarks:"bookmark_id",
   Questions:"question_id", QuestionPins:"pin_id", Suggestions:"suggestion_id",
   CheckItems:"item_id", Checkoffs:"check_id", Examples:"example_id", Shelves:"shelf_id",
-  Revisions:"rev_id", Settings:"key",
+  Revisions:"rev_id", Settings:"key", SOPs:"sop_id",
   Sync:"name", TagStyles:"tag"};
 
 const MAX_PARTS = 12;   // roughly half a megabyte in one field
@@ -20234,12 +20282,14 @@ function buildWorkbookFrom(data){
     Shelves:[14,24,16,60,30,19,8],
     Settings:[14,44],
     Inbox:[14,60,19,16,22,14,19,8,40],
+    SOPs:[26,12,34,8,11,14,34,90,12,30],
     People:[14,30,12,20,8,30,7],
     Overflow:[16,14,14,6,70]
   };
-  for(const name of ["Nodes","Links","Areas","Bookmarks","Questions","QuestionPins","Suggestions","CheckItems","Checkoffs","Examples","Shelves","Revisions","TagStyles","Settings","People","Inbox","Overflow","Sync"]){
+  for(const name of ["Nodes","Links","Areas","Bookmarks","Questions","QuestionPins","Suggestions","CheckItems","Checkoffs","Examples","Shelves","Revisions","TagStyles","Settings","People","Inbox","SOPs","Overflow","Sync"]){
     if(name === "Sync" && !data.Sync.length) continue;
     if(name === "Overflow" && !(data.Overflow||[]).length) continue;
+    if(name === "SOPs" && !(data.SOPs||[]).length) continue;
     const ws = XLSX.utils.json_to_sheet(data[name], {header:HDR[name]});
     ws["!cols"] = (widths[name] || cols.map(()=>14)).map(w=>({wch:w}));
     ws["!autofilter"] = {ref: XLSX.utils.encode_range({s:{r:0,c:0},e:{r:Math.max(data[name].length,1), c:HDR[name].length-1}})};
@@ -20316,7 +20366,7 @@ async function writeLinkedFile(force){
         if(r && (r.added || r.updated)) toast("Brought in " + (r.added + r.updated) + " change" + (r.added + r.updated === 1 ? "" : "s") + " written into " + (fileName || "the file") + " from outside, before saving.");
       }
     }catch(e){ /* unreadable mid-sync: write as before */ }
-    const out = XLSX.write(buildWorkbook(), {bookType:"xlsx", type:"array"});
+    const out = XLSX.write(buildWorkbook(), {bookType:"xlsx", type:"array", compression:true});
     const w = await fileHandle.createWritable();
     await w.write(new Blob([out]));
     await w.close();
@@ -21369,7 +21419,7 @@ function downloadFeedback(){
   const only = onlyMine(toSheets(), S.who);
   const rows = SHARED_TABLES.reduce((a, n)=>a + only[n].length, 0);
   if(!rows){ toast("Nothing to send yet."); return; }
-  const out = XLSX.write(buildWorkbookFrom(only), {bookType:"xlsx", type:"array"});
+  const out = XLSX.write(buildWorkbookFrom(only), {bookType:"xlsx", type:"array", compression:true});
   const url = URL.createObjectURL(new Blob([out],
     {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));
   const a = document.createElement("a");
@@ -21493,7 +21543,7 @@ async function sendContributions(){
       const rows = SHARED_TABLES.reduce((a, n)=>a + only[n].length, 0);
       const h = await target.dir.getFileHandle(target.name, {create:true});
       const w = await h.createWritable();
-      await w.write(new Blob([XLSX.write(buildWorkbookFrom(only), {bookType:"xlsx", type:"array"})]));
+      await w.write(new Blob([XLSX.write(buildWorkbookFrom(only), {bookType:"xlsx", type:"array", compression:true})]));
       await w.close();
       sayWorkbookState("Saved to " + target.where + " at "
         + new Date().toLocaleTimeString() + ", " + rows + " item" + (rows===1?"":"s"));
@@ -21530,7 +21580,7 @@ async function sendContributions(){
     });
 
     /* everything else in the file is left exactly as it was found */
-    const out = XLSX.write(buildWorkbookFrom(t), {bookType:"xlsx", type:"array"});
+    const out = XLSX.write(buildWorkbookFrom(t), {bookType:"xlsx", type:"array", compression:true});
     const w = await bookHandle.createWritable();
     await w.write(new Blob([out]));
     await w.close();
@@ -21613,7 +21663,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-10-26j";
+const APP_BUILD = "2026-11-03b";
 
 /* Reading that line back out of a copy of this file.
 
@@ -25327,6 +25377,200 @@ function historyBadge(n){
   if(n.absorb === "covered") return "covered" + (n.absorbAt ? " " + shortDay(String(n.absorbAt).slice(0, 10)) : "");
   return "";
 }
+/* =====================================================================
+   SOP CITATIONS
+   A note can cite SOP sections ("102632.103 §8.1.8.1 v20"). The cited
+   section's own wording lives on the workbook's SOPs sheet, one row per
+   SOP, version and section, so a note keeps its floor wording and the
+   proof is one tap away. Old versions stay, so an old citation still
+   shows what it cited; a newer version is pointed out.
+   A full-text library (every section of every SOP) can be loaded from a
+   file in the shared folder; it stays in this browser and only feeds search.
+   ===================================================================== */
+let sopIndexDirty = true, sopIdx = null, sopFull = null, sopFullTried = false;
+const SOP_FULL_KEY = "sopfull:v1";
+function sopRowFrom(r){
+  const sop = String(r.sop || "").trim(), section = String(r.section || "").trim();
+  if(!sop || !section) return null;
+  const version = String(r.version || "").trim().replace(/^v?/i, "v");
+  return {sop_id:String(r.sop_id || (sop + "|" + version + "|" + section)), sop, title:String(r.title || ""),
+    version, effective:String(r.effective || "").slice(0, 10), section, heading:String(r.heading || ""),
+    text:String(r.text || ""), fp:String(r.fp || ""), file:String(r.file || "")};
+}
+function sopVerNum(v){ return Number(String(v || "").replace(/\D/g, "")) || 0; }
+function sopIndex(){
+  if(sopIdx && !sopIndexDirty) return sopIdx;
+  const latest = {}, bySec = {}, title = {};
+  (S.sops || []).forEach(r=>{
+    const cur = latest[r.sop];
+    if(!cur || sopVerNum(r.version) > sopVerNum(cur.version) || (sopVerNum(r.version) === sopVerNum(cur.version) && r.effective > cur.effective))
+      latest[r.sop] = {version:r.version, effective:r.effective, title:r.title};
+    (bySec[r.sop + "|" + r.section] = bySec[r.sop + "|" + r.section] || []).push(r);
+    if(r.title) title[r.sop] = r.title;
+  });
+  Object.values(bySec).forEach(list=>list.sort((a, b)=>sopVerNum(b.version) - sopVerNum(a.version)));
+  sopIdx = {latest, bySec, title}; sopIndexDirty = false;
+  return sopIdx;
+}
+/* "102632.103 §8.1.8.1 v20; 102632.99 §6.1 v22" */
+function parseCites(str){
+  return String(str || "").split(/\s*;\s*/).map(x=>{
+    const m = /^\s*(\d{4,}\.\d+)\s*§\s*(.+?)(?:\s+v(\d+))?\s*$/i.exec(x);
+    return m ? {sop:m[1], section:m[2].trim(), version:m[3] ? "v" + m[3] : "", raw:x.trim()} : null;
+  }).filter(Boolean);
+}
+function citeKey(c){ return c.sop + "|" + c.section + "|" + c.version; }
+function citeRow(c){
+  const list = sopIndex().bySec[c.sop + "|" + c.section] || [];
+  const hit = list.find(r=>r.version === c.version) || (c.version ? null : list[0]);
+  if(hit) return hit;
+  /* not on the SOPs sheet: the full-text library on this device may have it */
+  const full = sopFull ? sopFull.sections.filter(r=>r.sop === c.sop && r.section === c.section) : [];
+  return full.find(r=>r.version === c.version) || (c.version ? null : full[0]) || null;
+}
+function citeShort(c){ return "SOP " + c.sop.replace(/^\d+\./, "") + " §" + c.section; }
+/* what a room stands on: its own citations, and those of the cards folded into it */
+function citesOf(id){
+  const n = S.nodes.get(id); if(!n) return [];
+  const all = parseCites(n.cite);
+  try{ historyOf(id).forEach(k=>{ const h = S.nodes.get(k); if(h && h.absorb) parseCites(h.cite).forEach(c=>all.push(c)); }); }catch(e){}
+  const seen = new Set();
+  return all.filter(c=>{ const k = citeKey(c); if(seen.has(k)) return false; seen.add(k); return true; });
+}
+function citeIsOld(c){
+  const L = sopIndex().latest[c.sop];
+  return !!(L && c.version && sopVerNum(L.version) > sopVerNum(c.version));
+}
+function paintRoomCites(id){
+  const box = el("rvCites"); if(!box) return;
+  const cs = id ? citesOf(id) : [];
+  const n = id && S.nodes.get(id);
+  box.hidden = !cs.length && !(canEdit() && n && (S.sops || []).length);
+  box.innerHTML = cs.map(c=>`<button type="button" class="rv-cite${citeIsOld(c) ? " old" : ""}" data-cite="${esc(c.raw)}" title="${esc(c.raw + (citeIsOld(c) ? " — a newer version of this SOP is loaded" : ""))}">
+      <span class="ic" aria-hidden="true">&sect;</span>${esc(citeShort(c))}${c.version ? `<i>${esc(c.version)}</i>` : ""}${citeIsOld(c) ? '<b aria-label="newer version loaded">new ver</b>' : ""}</button>`).join("")
+    + (canEdit() && n ? `<button type="button" class="rv-citeedit" id="rvCiteEdit" title="Which SOP sections this note stands on">${cs.length ? "&#9998;" : "+ SOP source"}</button>` : "");
+  box.querySelectorAll("[data-cite]").forEach(b=>b.onclick = ()=>openCite(b.dataset.cite, id));
+  const ed = el("rvCiteEdit");
+  if(ed) ed.onclick = ()=>{
+    const v = prompt("SOP sections this note stands on, separated by ;\nFor example: 102632.103 §8.1.8.1 v20; 102632.99 §6.1 v22", n.cite || "");
+    if(v == null) return;
+    setField(n, "cite", v.trim()); markDirty(); renderRoomSoon();
+  };
+}
+function sopTitle(sop){ return sopIndex().title[sop] || ""; }
+function citeLine(r){ return "SOP " + r.sop + (r.title ? " " + r.title : "") + " " + r.version + (r.effective ? " (effective " + r.effective + ")" : "") + ", §" + r.section; }
+function ensureCiteDlg(){
+  let d = el("citeDlg");
+  if(d) return d;
+  d = document.createElement("dialog"); d.id = "citeDlg";
+  d.innerHTML = `<div class="cd-head"><div><div class="cd-eyebrow" id="cdEye"></div><h3 id="cdTitle"></h3></div><button class="btn small" id="cdClose" aria-label="Close">&times;</button></div>
+    <div class="cd-body" id="cdBody"></div>
+    <div class="cd-foot"><button class="btn small" id="cdCopyRef">Copy the citation</button><button class="btn small primary" id="cdCopy">Copy section + citation</button></div>`;
+  document.body.appendChild(d);
+  el("cdClose").onclick = ()=>d.close();
+  d.addEventListener("click", ev=>{ if(ev.target === d) d.close(); });
+  return d;
+}
+function openCite(raw, fromRoom){
+  const c = parseCites(raw)[0]; if(!c) return;
+  const d = ensureCiteDlg();
+  const r = citeRow(c);
+  const list = sopIndex().bySec[c.sop + "|" + c.section] || [];
+  const L = sopIndex().latest[c.sop];
+  const newer = r && L && sopVerNum(L.version) > sopVerNum(r.version) ? list.find(x=>x.version === L.version) : null;
+  el("cdEye").textContent = "SOP " + c.sop + (sopTitle(c.sop) ? " · " + sopTitle(c.sop) : "");
+  el("cdTitle").textContent = "§" + c.section + (r && r.heading ? " " + r.heading : "");
+  const cited = r ? `<div class="cd-meta">${esc(r.version)}${r.effective ? " · effective " + esc(r.effective) : ""}${r.file ? " · " + esc(r.file) : ""}</div><blockquote class="cd-text">${esc(r.text)}</blockquote>`
+    : `<p class="cd-warn">The SOPs sheet has no text for ${esc(c.raw)}. Load the SOP update that carries it, or fix the citation.</p>`;
+  let later = "";
+  if(newer){
+    const same = newer.fp && r.fp ? newer.fp === r.fp : String(newer.text).trim() === String(r.text).trim();
+    later = same ? `<p class="cd-ok">Unchanged in ${esc(newer.version)} (effective ${esc(newer.effective)}).</p>`
+      : `<div class="cd-newer"><div class="cd-meta"><b>Changed in ${esc(newer.version)}</b> · effective ${esc(newer.effective)}</div><blockquote class="cd-text">${esc(newer.text)}</blockquote></div>`;
+  } else if(r && L && sopVerNum(L.version) > sopVerNum(r.version)){
+    later = `<p class="cd-warn">SOP ${esc(c.sop)} is now ${esc(L.version)} (effective ${esc(L.effective)}) and this section isn't in it under the same number. It may have moved or been removed.</p>`;
+  }
+  const users = [...S.nodes.values()].filter(n=>n.status !== "retired" && parseCites(n.cite).some(x=>x.sop === c.sop && x.section === c.section)).slice(0, 8);
+  const used = users.length ? `<div class="cd-used"><span>Cited by</span>${users.map(n=>`<button type="button" class="rp-tag" data-cdgo="${esc(n.id)}">${esc(nodeName(n.id))}</button>`).join("")}</div>` : "";
+  el("cdBody").innerHTML = cited + later + used;
+  el("cdBody").querySelectorAll("[data-cdgo]").forEach(b=>b.onclick = ()=>{
+    d.close();
+    const id = b.dataset.cdgo, n = S.nodes.get(id);
+    const room = n && (n.absorb || !childrenOf(id).length) && parentOf(id) ? parentOf(id) : id;
+    try{ closeResults && closeResults(); }catch(e){}
+    if(typeof roomGo === "function") roomGo(room, "in"); else select(room);
+  });
+  const copy = txt=>{ (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(()=>toast("Copied")).catch(()=>toast("The browser blocked copying")); };
+  el("cdCopyRef").onclick = ()=>copy(r ? citeLine(r) : c.raw);
+  el("cdCopy").onclick = ()=>copy(r ? "“" + String(r.text).trim() + "”\n— " + citeLine(r) : c.raw);
+  el("cdCopy").disabled = !r;
+  if(!d.open) d.showModal();
+}
+/* ---- search: cited sections always, the full text once it is loaded ---- */
+async function sopFullLoad(){
+  if(sopFull || sopFullTried) return sopFull;
+  sopFullTried = true;
+  try{ sopFull = (await Store.getKey(SOP_FULL_KEY)) || null; }catch(e){ sopFull = null; }
+  if(sopFull) runSearch();
+  return sopFull;
+}
+function sopFullPick(){
+  const inp = document.createElement("input");
+  inp.type = "file"; inp.accept = ".json,application/json";
+  inp.onchange = async ()=>{
+    const f = inp.files && inp.files[0]; if(!f) return;
+    let data; try{ data = JSON.parse(await f.text()); }catch(e){ toast("That file isn't an SOP library."); return; }
+    if(!data || data.kind !== "mindmap-sop-library" || !Array.isArray(data.sections)){ toast("That file isn't an SOP library."); return; }
+    sopFull = {made:data.made || "", sops:data.sops || [], sections:data.sections.map(r=>sopRowFrom(r)).filter(Boolean)};
+    try{ await Store.putKey(SOP_FULL_KEY, sopFull); }catch(e){}
+    toast(sopFull.sections.length + " SOP sections searchable on this device.");
+    runSearch();
+  };
+  inp.click();
+}
+function sopHits(terms){
+  const want = terms.map(t=>String(t).toLowerCase().replace(/[*?]+$/, "")).filter(t=>t.length >= 2);
+  if(!want.length) return {hits:[], full:!!sopFull};
+  if(!sopFull && !sopFullTried) sopFullLoad();
+  const idx = sopIndex();
+  /* only the newest version of each section, cited rows first, then the full text */
+  const rows = [], seen = new Set();
+  const take = r=>{ const L = idx.latest[r.sop]; const k = r.sop + "|" + r.section;
+    if(seen.has(k)) return; if(L && r.version && sopVerNum(r.version) < sopVerNum(L.version) && (idx.bySec[k] || []).some(x=>x.version === L.version)) return;
+    seen.add(k); rows.push(r); };
+  (S.sops || []).slice().sort((a, b)=>sopVerNum(b.version) - sopVerNum(a.version)).forEach(take);
+  if(sopFull) sopFull.sections.slice().sort((a, b)=>sopVerNum(b.version) - sopVerNum(a.version)).forEach(take);
+  const one = (h, t)=>termMatches(h, t) || (SEARCH_ALSO[t] || []).some(a=>h.includes(a));
+  const q = want.join(" ");
+  const out = [];
+  rows.forEach(r=>{
+    const h = (r.heading + " " + r.text).toLowerCase();
+    if(!want.every(t=>one(h, t))) return;
+    const score = (h.includes(q) ? 3 : 0) + (String(r.heading).toLowerCase().includes(want[0]) ? 1 : 0);
+    out.push({r, score});
+  });
+  out.sort((a, b)=>b.score - a.score);
+  return {hits:out.slice(0, 5).map(x=>x.r), more:Math.max(0, out.length - 5), full:!!sopFull};
+}
+function sopSnippet(text, terms){
+  const t = String(text || "").replace(/\s+/g, " ").trim();
+  const lo = t.toLowerCase();
+  let at = -1; terms.some(w=>{ at = lo.indexOf(String(w).toLowerCase()); return at >= 0; });
+  const from = Math.max(0, at - 70);
+  return (from ? "…" : "") + t.slice(from, from + 220) + (from + 220 < t.length ? "…" : "");
+}
+function sopHitsHTML(res, terms){
+  const libNote = (S.sops || []).length || res.full ? "" : "";
+  if(!res.hits.length && !(S.sops || []).length && !res.full) return libNote;
+  const btn = res.full ? "" : `<button type="button" class="rp-tag" id="resSopFull" title="Pick the SOP library file from the shared folder; it stays on this device">Search all SOP text too</button>`;
+  if(!res.hits.length) return btn ? `<div class="sop-wrap"><div class="ans-head">In the SOPs</div><p class="tocempty">Nothing in the cited sections.</p>${btn}</div>` : "";
+  return `<div class="sop-wrap"><div class="ans-head">In the SOPs</div>` + res.hits.map(r=>{
+    const raw = r.sop + " §" + r.section + " " + r.version;
+    return `<button type="button" class="sop-hit" data-sopcite="${esc(raw)}"><span class="sop-ref">SOP ${esc(r.sop.replace(/^\d+\./, ""))} §${esc(r.section)} <i>${esc(r.version)}</i></span>
+      ${r.heading ? `<b>${esc(r.heading)}</b>` : ""}<span class="sop-snip">${esc(sopSnippet(r.text, terms))}</span></button>`;
+  }).join("") + (res.more ? `<p class="tocempty">${res.more} more; add a word to narrow it.</p>` : "") + btn + `</div>`;
+}
+
 function paintRoomLines(id){
   const box = el("rvLines");
   if(!box) return;
@@ -25495,7 +25739,7 @@ function renderRoom(){
   if(wipeTags){ wipeTags.hidden = true; wipeTags.innerHTML = ""; }
   const wipeQs = el("rvQs");
   if(wipeQs){ wipeQs.hidden = true; wipeQs.innerHTML = ""; }
-  ["rvLines", "rvHist", "rvRole"].forEach(k=>{ const w = el(k); if(w){ w.hidden = true; w.innerHTML = ""; } });
+  ["rvLines", "rvHist", "rvRole", "rvCites"].forEach(k=>{ const w = el(k); if(w){ w.hidden = true; w.innerHTML = ""; } });
   if(el("rvPast")) el("rvPast").hidden = true;
   if(el("rvDistill")) el("rvDistill").hidden = true;
   paintStar("");
@@ -25666,6 +25910,7 @@ function renderRoom(){
   /* the questions this room answers, so a reader knows they are in the right place */
   paintRoomQuestions(id);
   paintRoomLines(id);
+  paintRoomCites(id);
   paintRoomRole(id);
   paintRoomHistory(id);
   const tags = (n.tags || []).filter(Boolean);
@@ -27774,6 +28019,7 @@ function patchPreview(data){
     }
     const ch = data.changes;
     const adds = ch.filter(c=>c.do === "add"), rets = ch.filter(c=>c.do === "retire"), rews = ch.filter(c=>c.do === "rewrite");
+    const tds = ch.filter(c=>c.do === "traydrop"), tps = adds.filter(c=>c.tray);
     const mvs = ch.filter(c=>c.do === "move"), abs = ch.filter(c=>c.do === "absorb"), rms = ch.filter(c=>c.do === "remove"), sets = ch.filter(c=>c.do === "set");
     const groups = new Map();
     adds.forEach(c=>{ const isNew = typeof c.parent === "string" && c.parent.startsWith("@");
@@ -27782,7 +28028,9 @@ function patchPreview(data){
     el("pdTitle").textContent = data.title || "Huddle " + (data.made || "");
     el("pdBody").innerHTML = `<p class="pd-lead">${data.lead ? esc(data.lead) + " " : ""}${[adds.length ? adds.length + " note" + (adds.length === 1 ? "" : "s") + " to add" : "", rets.length ? rets.length + " to retire" : ""].filter(Boolean).join(", ")}${rews.length ? ", " + rews.length + " to reword" : ""}.${adds.length ? " Each new note is tagged and dated like a huddle note, so Distill and search treat it the same." : ""} Undo is in Go to.</p>
       ${[...groups].map(([room, list])=>`<h4>&#10140; ${esc(room)}</h4><ul>${list.map(c=>`<li><b>${esc(c.label)}</b>${c.flow ? ' <span class="pd-flow">&#9671; flowchart</span>' : ""}${c.why ? `<i>${esc(c.why)}</i>` : ""}</li>`).join("")}</ul>`).join("")}
+      ${ch.some(c=>c.do === "sops") ? `<h4>SOP sections for citations</h4><ul><li><b>${ch.filter(c=>c.do === "sops").reduce((a, c)=>a + (c.rows || []).length, 0)} sections</b><i>added to the SOPs sheet so each cited note can show the SOP's own wording; rows already there are kept</i></li></ul>` : ""}
       ${rets.length ? `<h4>Retire</h4><ul>${rets.map(c=>`<li class="${nm(c.node) ? "" : "gone"}"><b>${esc(nm(c.node) || "(not in this map)")}</b><i>${esc(c.why || "")}</i></li>`).join("")}</ul>` : ""}
+      ${tps.length || tds.length ? `<h4>Your tray</h4><ul>${tps.map(c=>`<li><b>${esc(c.label)}</b> &rarr; ${esc(c.parentLabel || "")}<i>planted from the tray</i></li>`).join("")}${tds.map(c=>`<li class="gone"><b>${esc(String(c.text || c.tray).slice(0, 80))}</b><i>${esc(c.why || "cleared")}</i></li>`).join("")}</ul>` : ""}
       ${abs.length ? `<h4>Fold in (${abs.length})</h4><ul>${abs.map(c=>`<li class="${nm(c.node) ? "" : "gone"}"><b>${esc(nm(c.node) || "(not in this map)")}</b> &rarr; ${esc(nm(c.into) || c.intoLabel || "")}<i>${esc(c.why || "")}</i></li>`).join("")}</ul>` : ""}
       ${mvs.length ? `<h4>Move (${mvs.length})</h4><ul>${mvs.map(c=>`<li class="${nm(c.node) ? "" : "gone"}"><b>${esc(nm(c.node) || "(not in this map)")}</b> &rarr; ${esc(nm(c.to) || c.toLabel || "")}<i>${esc(c.why || "")}</i></li>`).join("")}</ul>` : ""}
       ${sets.length ? `<h4>Update (${sets.length})</h4><ul>${sets.map(c=>`<li class="${nm(c.node) ? "" : "gone"}"><b>${esc(nm(c.node) || "(not in this map)")}</b><i>${esc(c.why || Object.keys(c.fields || {}).join(", "))}</i></li>`).join("")}</ul>` : ""}
@@ -27795,17 +28043,30 @@ function patchPreview(data){
   });
 }
 function patchApply(data){
-  const refs = {}, created = [], prev = {}, skipped = [];
+  const refs = {}, created = [], prev = {}, skipped = [], trayPlanted = [], trayDropped = [];
   const remember = (id, f)=>{ const n = S.nodes.get(id); prev[id] = prev[id] || {}; if(!(f in prev[id])) prev[id][f] = n[f]; };
   const day = data.made || todayISO();
+  /* SOP sections the file's notes cite: added to the SOPs sheet (a row already
+     there for the same SOP, version and section is left as it is) */
+  const sopsBefore = (S.sops || []).slice();
+  let sopRows = 0;
+  data.changes.filter(c=>c.do === "sops").forEach(c=>{
+    S.sops = S.sops || [];
+    const have = new Set(S.sops.map(r=>r.sop_id));
+    (c.rows || []).forEach(r0=>{ const r = sopRowFrom(r0); if(r && !have.has(r.sop_id)){ S.sops.push(r); have.add(r.sop_id); sopRows++; } });
+  });
+  if(sopRows) sopIndexDirty = true;
   data.changes.filter(c=>c.do === "add").forEach(c=>{
     /* a parent can be another note this file adds, named by its @ref */
     const parent = typeof c.parent === "string" && c.parent.startsWith("@") ? (refs[c.parent] || patchRoom(Object.assign({}, c, {parent:""}))) : patchRoom(c);
     const n = newNode({label:c.label, body:c.body || "", tags:(c.tags || []).slice(), date:c.date || day, source:c.source || "",
-      flow:c.flow ? (typeof c.flow === "string" ? c.flow : JSON.stringify(c.flow)) : "", tableSort:!!c.tableSort});
+      flow:c.flow ? (typeof c.flow === "string" ? c.flow : JSON.stringify(c.flow)) : "", tableSort:!!c.tableSort, cite:c.cite || ""});
     S.nodes.set(n.id, n); created.push(n.id);
     if(parent){ const e = newEdge({from:parent, to:n.id, link_type:"tree"}); S.edges.set(e.id, e); }
     if(c.ref) refs[c.ref] = n.id;
+    /* a tray note this file places: marked planted, pointing at its new room */
+    if(c.tray){ const it = (S.inbox || []).find(x=>x.id === c.tray);
+      if(it && !it.node){ trayPlanted.push({id:it.id}); it.node = n.id; it.plantedAt = nowISO(); it.how = "child"; } }
     logRev(n.id, "added", "", "from " + (data.title || "huddle"), "functional");
   });
   const R = k=>typeof k === "string" && k.startsWith("@") ? refs[k] || "" : k;
@@ -27834,11 +28095,13 @@ function patchApply(data){
       const to = R(c.to);
       if(!n || !S.nodes.has(to) || branchOf(n.id).has(to)){ skipped.push(c); return; }
       const from = parentOf(n.id);
-      if(from === to) return;
-      [...S.edges.values()].forEach(e=>{ if(e.link_type === "tree" && e.to === n.id) S.edges.delete(e.id); });
+      const ins = [...S.edges.values()].filter(e=>e.link_type === "tree" && e.to === n.id);
+      if(from === to && ins.length === 1) return;
+      /* a note hanging from two rooms ends up under just the one named */
+      ins.forEach(e=>S.edges.delete(e.id));
       const e = newEdge({from:to, to:n.id, link_type:"tree"}); S.edges.set(e.id, e);
       logRev(n.id, "moved", from ? nodeName(from) : "top", nodeName(to), "functional");
-      moves.push({id:n.id, from:from || ""});
+      moves.push({id:n.id, from:from || "", froms:ins.map(e=>e.from)});
     } else if(c.do === "absorb"){
       const into = R(c.into);
       if(!n || !S.nodes.has(into)){ skipped.push(c); return; }
@@ -27852,11 +28115,20 @@ function patchApply(data){
     }
   });
   removed.forEach(r=>{ S.nodes.delete(r.node.id); r.edges.forEach(e=>S.edges.delete(e.id)); });
+  /* tray notes that were tests or are already in the map: thrown away, remembered as gone */
+  data.changes.filter(c=>c.do === "traydrop").forEach(c=>{
+    const it = (S.inbox || []).find(x=>x.id === c.tray); if(!it){ skipped.push(c); return; }
+    trayDropped.push(JSON.parse(JSON.stringify(it)));
+    S.inbox = S.inbox.filter(x=>x.id !== c.tray);
+    S.inboxGone = (S.inboxGone || []).filter(x=>x !== c.tray).concat(c.tray);
+  });
+  if(trayPlanted.length || trayDropped.length){ try{ renderTray(); updateTrayCount(); }catch(e){} }
   patchApplied = refs;
-  patchUndo = {title:data.title || "huddle", made:day, at:nowISO(), created, prev, moves, removed};
+  patchUndo = {title:data.title || "huddle", made:day, at:nowISO(), created, prev, moves, removed, trayPlanted, trayDropped, sopsBefore:sopRows ? sopsBefore : null};
   patchSummary = [created.length ? "added " + created.length + " note" + (created.length === 1 ? "" : "s") : "",
       retired ? "retired " + retired : ""].filter(Boolean).join(", ") + (reworded ? ", reworded " + reworded : "")
-    + (merged ? ", merged " + merged : "") + (moves.length ? ", moved " + moves.length : "") + (removed.length ? ", removed " + removed.length + " duplicate" + (removed.length === 1 ? "" : "s") : "")
+    + (merged ? ", merged " + merged : "") + (trayPlanted.length ? ", planted " + trayPlanted.length + " tray note" + (trayPlanted.length === 1 ? "" : "s") : "")
+    + (trayDropped.length ? ", cleared " + trayDropped.length + " from the tray" : "") + (sopRows ? ", " + sopRows + " SOP section" + (sopRows === 1 ? "" : "s") + " for citations" : "") + (moves.length ? ", moved " + moves.length : "") + (removed.length ? ", removed " + removed.length + " duplicate" + (removed.length === 1 ? "" : "s") : "")
     + (skipped.length ? " (" + skipped.length + " skipped: already distilled or not found)" : "") + ".";
   patchSummary = patchSummary.replace(/^, /, "").replace(/^./, c=>c.toUpperCase());
   markDirty(); rebuild();
@@ -27865,17 +28137,22 @@ function patchUndoLast(){
   const u = MISS && MISS.lastPatch; if(!u) return;
   if(!confirm("Undo \u201c" + u.title + "\u201d? The " + u.created.length + " notes it added are removed (unless you've built on them) and anything it retired or reworded goes back.")) return;
   let kept = 0;
-  u.created.forEach(id=>{
+  /* newest first, so a room this file added goes after the notes it added inside it */
+  u.created.slice().reverse().forEach(id=>{
     if(!S.nodes.has(id)) return;
     if(childrenOf(id).length){ kept++; return; }
     S.nodes.delete(id);
     [...S.edges.values()].forEach(e=>{ if(e.from === id || e.to === id) S.edges.delete(e.id); });
   });
+  (u.trayPlanted || []).forEach(t=>{ const it = (S.inbox || []).find(x=>x.id === t.id); if(it){ it.node = ""; it.plantedAt = ""; it.how = ""; } });
+  (u.trayDropped || []).forEach(it=>{ if(!(S.inbox || []).some(x=>x.id === it.id)){ S.inbox.push(it); S.inboxGone = (S.inboxGone || []).filter(x=>x !== it.id); } });
+  try{ renderTray(); updateTrayCount(); }catch(e){}
+  if(u.sopsBefore){ S.sops = u.sopsBefore.slice(); sopIndexDirty = true; }
   (u.removed || []).forEach(r=>{ if(!S.nodes.has(r.node.id)) S.nodes.set(r.node.id, r.node); r.edges.forEach(e=>{ if(!S.edges.has(e.id)) S.edges.set(e.id, e); }); });
   (u.moves || []).slice().reverse().forEach(m=>{
     if(!S.nodes.has(m.id)) return;
     [...S.edges.values()].forEach(e=>{ if(e.link_type === "tree" && e.to === m.id) S.edges.delete(e.id); });
-    if(m.from && S.nodes.has(m.from)){ const e = newEdge({from:m.from, to:m.id, link_type:"tree"}); S.edges.set(e.id, e); }
+    (m.froms && m.froms.length ? m.froms : [m.from]).filter(f=>f && S.nodes.has(f)).forEach(f=>{ const e = newEdge({from:f, to:m.id, link_type:"tree"}); S.edges.set(e.id, e); });
   });
   Object.entries(u.prev || {}).forEach(([id, f])=>{ const n = S.nodes.get(id); if(n) Object.entries(f).forEach(([k, v])=>setField(n, k, v)); });
   MISS.missions = MISS.missions.filter(m=>S.nodes.has(m.room));
@@ -28120,6 +28397,7 @@ function dsPaint(){
       ${ds.picking
         ? `<div class="ds-chips">${sent.map((x, i)=>`<button type="button" class="ds-chip${ds.pick.has(i) ? " on" : ""}" data-sent="${i}">${esc(x)}</button>`).join("")}</div>`
         : `<div class="ds-body">${n.body ? noteToHtml(n.body, n) : `<p class="ds-empty">(no note, just the name)</p>`}</div>`}
+      ${parseCites(n.cite).length ? `<div class="rv-cites ds-cites">${parseCites(n.cite).map(c=>`<button type="button" class="rv-cite" data-dscite="${esc(c.raw)}" title="The SOP's own wording"><span class="ic">&sect;</span>${esc(citeShort(c))}${c.version ? `<i>${esc(c.version)}</i>` : ""}</button>`).join("")}</div>` : ""}
       ${sent.length > 1 ? `<button type="button" class="ds-pickbtn" data-dspick="1">${ds.picking ? "Use the whole card" : "Pick sentences"}</button>` : ""}
       ${target >= 0 ? `<p class="ds-target">${ds.sel >= 0 ? "Goes with the block you picked" : "Closest block"}: <i>${esc(ds.blocks[target].text.slice(0, 90))}</i></p>` : ""}
       ${conflict.length ? `<div class="ds-conflict"><b>&#9888; Says something different from the draft</b>
@@ -28133,6 +28411,7 @@ function dsPaint(){
   const sgc = missCard(n);
   el("dsActs").querySelectorAll("[data-dsact]").forEach(b=>b.classList.toggle("sugg", !!sgc && sgc.act === b.dataset.dsact));
   ds.conflict = conflict.length ? {block:target, list:conflict} : null;
+  deck.querySelectorAll("[data-dscite]").forEach(b=>b.onclick = ev=>{ ev.stopPropagation(); openCite(b.dataset.dscite); });
   dsWireSwipe();
 }
 function dsApplyConflict(useCard){
@@ -28592,7 +28871,9 @@ const HELP_TOPICS = [
       <li><b>Suggested</b>, above your draft, shows the note paragraph by paragraph: <b>+ Use</b> one, or <b>Use all of it</b>, then reword it your way. Under each suggested paragraph, <b>From</b> lists the notes it was written from: tap one to read its original words, and <b>Deal with this card now</b> brings it to the front of the deck. Each card says what I'd do with it and why, and that button is ringed. Once its paragraph is in your draft, <b>Pull in</b> files the card there without adding the words twice. Nothing happens until you press the buttons and Save.</li>
     </ul>
     <ul>
-      <li><b>A huddle file</b> loads the same way (<b>Go to &rarr; Distill missions &rarr; Load a huddle or missions file</b>). It shows what it will do first: which notes go in which rooms, which old notes it retires, and any wording it updates. <b>Apply</b> does it all in one go. New notes are tagged and dated like any huddle note. <b>Undo &ldquo;Huddle &hellip;&rdquo;</b> in Go to takes it back out. Save the map afterwards as usual.</li>
+      <li><b>A huddle file</b> loads the same way (<b>Go to &rarr; Distill missions &rarr; Load a huddle or missions file</b>). It shows what it will do first: which notes go in which rooms, which old notes it retires, and any wording it updates. <b>Apply</b> does it all in one go. New notes are tagged and dated like any huddle note. <b>Undo &ldquo;Huddle &hellip;&rdquo;</b> in Go to takes it back out. A file can also plant notes from your tray into the rooms they belong in (they show as planted, linked to the new note) and clear test items from the tray; Undo puts those back too. Save the map afterwards as usual.</li>
+      <li><b>SOP sources.</b> A note can stand on SOP sections: the <b>&sect; SOP 103 &sect;8.1.8.1</b> chips under a room's name. Tap one to read the SOP's own wording for that section, with its version and effective date, and copy it with the citation as proof. A room also shows the sources of the cards folded into it. When a newer version of that SOP is loaded, the chip says <b>new ver</b> and the window shows whether the section changed. The cited sections live on the workbook's <b>SOPs</b> sheet. In editing mode, &#9998; next to the chips (or <b>+ SOP source</b>) changes which sections a note cites.</li>
+      <li><b>Searching the SOPs.</b> Search shows matching cited sections under <b>In the SOPs</b>, below your own notes. <b>Search all SOP text too</b> takes the SOP library file from the shared folder and keeps it on this device, so every section of every SOP turns up in search.</li>
     </ul>
     <h4>Changing your mind later</h4>
     <ul>
@@ -28862,6 +29143,8 @@ function tourSteps(){
       target:()=>el("inspector")},
     {title:"Distill", text:"When a room has loose notes \u2014 huddle reminders, Teams posts \u2014 Distill deals them out as cards: pull one into the note, mark it covered or outdated, keep it as a copy line, or keep it as a room. Nothing is deleted; each keeps its date and tags.",
       target:()=>el("rvDistill"), skipIf:()=>!el("rvDistill") || el("rvDistill").hidden},
+    {title:"SOP sources", text:"A \u00a7 chip under a room's name is an SOP section the note stands on. Tap it for the SOP's own wording, version and date, and copy it as proof. \u201cnew ver\u201d means a newer version of that SOP has been loaded since.",
+      target:()=>el("rvCites"), skipIf:()=>!el("rvCites") || el("rvCites").hidden || !el("rvCites").querySelector(".rv-cite")},
     {title:"Lab tools", text:"Lab tools writes your review lines, issue lines and #snitch entries as you fill in the boxes. What you type is kept on this computer only, so a closed page loses nothing.",
       target:()=>el("rvLab"), skipIf:()=>!el("rvLab") || el("rvLab").hidden},
     {title:"Help any time", text:"That's it. The ? Help button has all of this, every shortcut, and this tour.",
@@ -29539,6 +29822,7 @@ function paintThings(ids){
 
   field.innerHTML = ids.map((k, i)=>{
     const n = S.nodes.get(k);
+    if(!n) return "";   /* gone since the floor was gathered (an undo, say) */
     const deep = t.kids.get(k) || 0;
     const mk = roomMark(k, t);
     const sd = rvSeed(k);
