@@ -6055,8 +6055,8 @@ dialog#tableDlg::backdrop{background:rgba(35,40,45,.45)}
  */
 var TOKEN        = 'change-me';                // full access: reads and rewrites the map
 var VIEWER_TOKEN = '';                         // hand this one out: read, and add suggestions only
-var BUILD = 'b7';                              // lets the app confirm which version is deployed
-var TABS  = ['Nodes','Links','Areas','Bookmarks','Questions','QuestionPins','Suggestions','CheckItems','Checkoffs','Examples','Shelves','Revisions','TagStyles','Settings','People','Inbox','Overflow'];
+var BUILD = 'b8';                              // lets the app confirm which version is deployed
+var TABS  = ['Nodes','Links','Areas','Bookmarks','Questions','QuestionPins','Suggestions','CheckItems','Checkoffs','Examples','Shelves','Revisions','TagStyles','Settings','People','Inbox','SOPs','Overflow'];
 
 function doGet(e)  { return handle(e, null); }
 function doPost(e) { return handle(e, JSON.parse((e.postData && e.postData.contents) || '{}')); }
@@ -21663,7 +21663,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-11-03b";
+const APP_BUILD = "2026-11-03c";
 
 /* Reading that line back out of a copy of this file.
 
@@ -23670,12 +23670,12 @@ async function openSnapshots(){
     b.onclick = async ()=>{
       const r = await load(b.dataset.xlsxSnap);
       if(!r) return;
-      const keep = {nodes:S.nodes, edges:S.edges, revisions:S.revisions, tagStyles:S.tagStyles, title:S.meta.title};
+      const keep = {nodes:S.nodes, edges:S.edges, revisions:S.revisions, tagStyles:S.tagStyles, title:S.meta.title, sops:S.sops};
       const M = tablesToModel(r.tables || {});
       adoptModel(M, true); S.meta.title = r.title || S.meta.title;
       exportXlsx();
       S.nodes = keep.nodes; S.edges = keep.edges; S.revisions = keep.revisions;
-      S.tagStyles = keep.tagStyles; S.meta.title = keep.title;
+      S.tagStyles = keep.tagStyles; S.meta.title = keep.title; S.sops = keep.sops; sopIndexDirty = true;
       rebuild();
     };
   });
@@ -24592,7 +24592,7 @@ function tokenHint(err, res){
   if(res && res.deployed === "placeholder")
     return "The deployed script still has the placeholder token. Editing the code is not "
          + "enough — Deploy \u2192 Manage deployments \u2192 edit \u2192 Version: New version.";
-  if(res && res.build && res.build !== "b6")
+  if(res && res.build && bridgeBuildNum(res.build) < 6)
     return "An older copy of the script is live. Copy the bridge script again, paste it over, "
          + "then deploy a New version. Use Test this connection to confirm.";
   if(err && /token/i.test(String(err)))
@@ -24602,13 +24602,16 @@ function tokenHint(err, res){
 }
 
 /* Ask the sheet which build of the script is live, without needing a token. */
+/* "b8" -> 8; b6 brought the Overflow tab, b8 the SOPs tab */
+function bridgeBuildNum(b){ return Number(String(b || "").replace(/\D/g, "")) || 0; }
 async function scriptIsCurrent(conn){
   try{
     const u = new URL((conn.endpoint||"").trim());
     u.searchParams.set("action", "ping");
     const r = await fetchWithTimeout(u.toString(), {method:"GET", redirect:"follow"}, 12000);
     const j = await r.json();
-    return j && j.build === "b6";
+    conn._build = j && j.build ? bridgeBuildNum(j.build) : 0;
+    return j && bridgeBuildNum(j.build) >= 6;
   }catch(e){ return true; }   // unreachable: let the write speak for itself
 }
 
@@ -24646,7 +24649,10 @@ async function runSync(kind){
             + only.Questions.length + " question(s)");
     } else if(kind === "push"){
       const owner = await Store.ownerOfTarget(targetOf(conn));
-      if(owner && owner.mapKey && owner.mapKey !== S.meta.key){
+      /* opening the workbook from a file gives the map a fresh key, so the same
+         map by name is the same map: no need to ask */
+      if(owner && owner.mapKey && owner.mapKey !== S.meta.key
+         && String(owner.title || "").trim().toLowerCase() !== String(S.meta.title || "").trim().toLowerCase()){
         const ok = confirm(
           "Those sheet tabs were last written by a different map:\n\n"
           + "    " + (owner.title || "Untitled map") + "\n\n"
@@ -24663,6 +24669,11 @@ async function runSync(kind){
       /* an older bridge silently drops tabs it does not know, which is how the
          tray and the roster went missing without a word */
       const carriesAll = await scriptIsCurrent(conn);
+      if(carriesAll && (t.SOPs || []).length && conn._build && conn._build < 8){
+        const ok = confirm("The script deployed on this sheet doesn't know the SOPs tab yet, so the SOP sections your notes cite would not be saved in the sheet.\n\n"
+          + "Copy the bridge script again (Manage sheets), paste it over, and deploy a New version first.\n\nPush anyway?");
+        if(!ok){ el("syncNote").textContent = "Push cancelled. Update the bridge script, then push."; return; }
+      }
       if(!carriesAll && ((t.Inbox || []).length || (t.People || []).length)){
         toast("The live script is an older one and will drop the tray and the roster. "
             + "Copy the bridge script again and deploy a New version.");
@@ -24696,7 +24707,11 @@ async function runSync(kind){
       const M = tablesToModel(res.tables || {});
       if(!M.nodes.size){ toast("That sheet has no rows on a Nodes tab yet. Push first."); }
       else if(kind === "pull"){
+        /* a sheet written by an older bridge has no SOPs tab: keep the SOP sections
+           this map already has rather than losing every citation's wording */
+        const keepSops = (S.sops || []).slice();
         adoptModel(M, true);
+        if(!(M.sops || []).length && keepSops.length){ S.sops = keepSops; sopIndexDirty = true; }
         if(res.name) S.meta.title = res.name;
         markClean(); rebuild(); fitView(0.96, 0.6);
         toast("Pulled " + S.nodes.size + " nodes");
@@ -24819,7 +24834,7 @@ function renderConnList(){
           say(`<span style="color:var(--flag)">${esc(nonJsonHint(text))}</span>`);
           return;
         }
-        if(res.build !== "b6"){
+        if(bridgeBuildNum(res.build) < 6){
           say(`<span style="color:var(--flag)">An older copy of the script is live${res.build?" (build "+esc(res.build)+")":""}.
             Long notes and images cannot round-trip until it is updated, because the Overflow
             tab is missing. Apps Script keeps serving the version you deployed, not the code
