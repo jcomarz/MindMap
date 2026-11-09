@@ -8402,6 +8402,7 @@ function toSheets(){
     /* tray items somebody threw away, so a merge with an older copy of the
        workbook can't bring them back */
     {key:"inbox_gone", value:(S.inboxGone || []).slice(-2000).join(",")},
+    {key:"applied_files", value:(S.appliedFiles || []).slice(-300).join("\n")},
     /* the newest build anybody has been handed, so older copies can say so */
     {key:"copy_build", value:S.meta.copyBuild || ""},
     {key:"backdrop", value:S.meta.backdrop || ""},
@@ -8683,6 +8684,7 @@ function adoptModel(M, keepConnections){
   /* the severity artwork was written to the sheet but never read back, so it
      survived a save and vanished on the next open */
   S.inboxGone = String(M.settings.inbox_gone || "").split(",").map(x=>x.trim()).filter(Boolean);
+  S.appliedFiles = String(M.settings.applied_files || "").split("\n").map(x=>x.trim()).filter(Boolean);
   {
     const gone = new Set(S.inboxGone);
     S.inbox = (M.inbox || []).filter(x=>!gone.has(x.id));
@@ -8790,6 +8792,7 @@ function mergeModel(M){
     addById(S.inbox, (M.inbox || []).filter(x=>!gone.has(x.id)));
   }
   S.examples = S.examples || []; addById(S.examples, M.examples);
+  S.appliedFiles = [...new Set((S.appliedFiles || []).concat(String((M.settings || {}).applied_files || "").split("\n").map(x=>x.trim()).filter(Boolean)))];
   S.shelves = S.shelves || []; addById(S.shelves, M.shelves);
   for(const e of S.edges.values()) ensureTagStyle(e.tag);
   return {added, updated, kept, linksAdded, revsAdded, peopleAdded};
@@ -21663,7 +21666,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-11-09b";
+const APP_BUILD = "2026-11-09c";
 
 /* Reading that line back out of a copy of this file.
 
@@ -27984,7 +27987,14 @@ async function missImport(file){
   let data;
   try{ data = JSON.parse(await file.text()); }catch(e){ toast("That file isn't a missions file (it isn't JSON)."); return; }
   if(!data || data.kind !== "mindmap-distill-missions" || !Array.isArray(data.missions || [])){ toast("That file isn't a missions file."); return; }
-  if(Array.isArray(data.changes) && data.changes.length){
+  let skipChanges = false;
+  /* a file whose changes are already in this map: applying it again would add
+     every note a second time */
+  if(Array.isArray(data.changes) && data.changes.length && (S.appliedFiles || []).includes(patchKey(data))){
+    if(!confirm("\u201c" + (data.title || "This file") + "\u201d has already been applied to this map, so applying it again would add every note a second time.\n\nOK loads just its missions. Cancel stops.")){ toast("Nothing was changed."); return; }
+    skipChanges = true; patchApplied = {};
+  }
+  if(!skipChanges && Array.isArray(data.changes) && data.changes.length){
     const ok = await patchPreview(data);
     if(!ok){ toast("Nothing was changed."); return; }
   }
@@ -28067,6 +28077,7 @@ function patchPreview(data){
     dlg.showModal();
   });
 }
+function patchKey(data){ return String(data.made || "") + " | " + String(data.title || ""); }
 function patchApply(data){
   const refs = {}, created = [], prev = {}, skipped = [], trayPlanted = [], trayDropped = [];
   const remember = (id, f)=>{ const n = S.nodes.get(id); prev[id] = prev[id] || {}; if(!(f in prev[id])) prev[id][f] = n[f]; };
@@ -28149,7 +28160,8 @@ function patchApply(data){
   });
   if(trayPlanted.length || trayDropped.length){ try{ renderTray(); updateTrayCount(); }catch(e){} }
   patchApplied = refs;
-  patchUndo = {title:data.title || "huddle", made:day, at:nowISO(), created, prev, moves, removed, trayPlanted, trayDropped, sopsBefore:sopRows ? sopsBefore : null};
+  S.appliedFiles = (S.appliedFiles || []).filter(k=>k !== patchKey(data)).concat(patchKey(data));
+  patchUndo = {title:data.title || "huddle", made:day, at:nowISO(), created, prev, moves, removed, trayPlanted, trayDropped, sopsBefore:sopRows ? sopsBefore : null, key:patchKey(data)};
   patchSummary = [created.length ? "added " + created.length + " note" + (created.length === 1 ? "" : "s") : "",
       retired ? "retired " + retired : ""].filter(Boolean).join(", ") + (reworded ? ", reworded " + reworded : "")
     + (merged ? ", merged " + merged : "") + (trayPlanted.length ? ", planted " + trayPlanted.length + " tray note" + (trayPlanted.length === 1 ? "" : "s") : "")
@@ -28173,6 +28185,7 @@ function patchUndoLast(){
   (u.trayDropped || []).forEach(it=>{ if(!(S.inbox || []).some(x=>x.id === it.id)){ S.inbox.push(it); S.inboxGone = (S.inboxGone || []).filter(x=>x !== it.id); } });
   try{ renderTray(); updateTrayCount(); }catch(e){}
   if(u.sopsBefore){ S.sops = u.sopsBefore.slice(); sopIndexDirty = true; }
+  if(u.key) S.appliedFiles = (S.appliedFiles || []).filter(k=>k !== u.key);
   (u.removed || []).forEach(r=>{ if(!S.nodes.has(r.node.id)) S.nodes.set(r.node.id, r.node); r.edges.forEach(e=>{ if(!S.edges.has(e.id)) S.edges.set(e.id, e); }); });
   (u.moves || []).slice().reverse().forEach(m=>{
     if(!S.nodes.has(m.id)) return;
@@ -28896,7 +28909,7 @@ const HELP_TOPICS = [
       <li><b>Suggested</b>, above your draft, shows the note paragraph by paragraph: <b>+ Use</b> one, or <b>Use all of it</b>, then reword it your way. Under each suggested paragraph, <b>From</b> lists the notes it was written from: tap one to read its original words, and <b>Deal with this card now</b> brings it to the front of the deck. Each card says what I'd do with it and why, and that button is ringed. Once its paragraph is in your draft, <b>Pull in</b> files the card there without adding the words twice. Nothing happens until you press the buttons and Save.</li>
     </ul>
     <ul>
-      <li><b>A huddle file</b> loads the same way (<b>Go to &rarr; Distill missions &rarr; Load a huddle or missions file</b>). It shows what it will do first: which notes go in which rooms, which old notes it retires, and any wording it updates. <b>Apply</b> does it all in one go. New notes are tagged and dated like any huddle note. <b>Undo &ldquo;Huddle &hellip;&rdquo;</b> in Go to takes it back out. A file can also plant notes from your tray into the rooms they belong in (they show as planted, linked to the new note) and clear test items from the tray; Undo puts those back too. Save the map afterwards as usual.</li>
+      <li><b>A huddle file</b> loads the same way (<b>Go to &rarr; Distill missions &rarr; Load a huddle or missions file</b>). It shows what it will do first: which notes go in which rooms, which old notes it retires, and any wording it updates. <b>Apply</b> does it all in one go. New notes are tagged and dated like any huddle note. <b>Undo &ldquo;Huddle &hellip;&rdquo;</b> in Go to takes it back out. The map remembers which files it has applied, so loading the same file again only loads its missions instead of adding every note twice. A file can also plant notes from your tray into the rooms they belong in (they show as planted, linked to the new note) and clear test items from the tray; Undo puts those back too. Save the map afterwards as usual.</li>
       <li><b>SOP sources.</b> A note can stand on SOP sections: the <b>&sect; SOP 103 &sect;8.1.8.1</b> chips under a room's name. Tap one to read the SOP's own wording for that section, with its version and effective date, and copy it with the citation as proof. A room also shows the sources of the cards folded into it. When a newer version of that SOP is loaded, the chip says <b>new ver</b> and the window shows whether the section changed. The cited sections live on the workbook's <b>SOPs</b> sheet. In editing mode, &#9998; next to the chips (or <b>+ SOP source</b>) changes which sections a note cites.</li>
       <li><b>Searching the SOPs.</b> Search shows matching cited sections under <b>In the SOPs</b>, below your own notes. <b>Search all SOP text too</b> takes the SOP library file from the shared folder and keeps it on this device, so every section of every SOP turns up in search.</li>
     </ul>
