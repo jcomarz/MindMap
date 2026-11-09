@@ -21663,7 +21663,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-11-03c";
+const APP_BUILD = "2026-11-09a";
 
 /* Reading that line back out of a copy of this file.
 
@@ -24791,11 +24791,12 @@ function renderConnList(){
     const slot = box.querySelector(`[data-owner="${i}"]`);
     if(!slot) return;
     if(!(c.endpoint||"").trim()){
-      slot.textContent = "Thirteen tabs are used, from Nodes and Links through to Overflow.";
+      slot.textContent = "Eighteen tabs are used, from Nodes and Links through to SOPs and Overflow.";
       return;
     }
     const owner = await Store.ownerOfTarget(targetOf(c));
-    if(owner && owner.mapKey && owner.mapKey !== S.meta.key){
+    if(owner && owner.mapKey && owner.mapKey !== S.meta.key
+       && String(owner.title || "").trim().toLowerCase() !== String(S.meta.title || "").trim().toLowerCase()){
       slot.innerHTML = `<span style="color:var(--flag)">These tabs are already used by
         \u201c${esc(owner.title || "another map")}\u201d. Set a tab prefix below to keep both
         maps in the same spreadsheet, or point this one at a different Spreadsheet ID.</span>`;
@@ -25547,25 +25548,34 @@ function sopHits(terms){
   const want = terms.map(t=>String(t).toLowerCase().replace(/[*?]+$/, "")).filter(t=>t.length >= 2);
   if(!want.length) return {hits:[], full:!!sopFull};
   if(!sopFull && !sopFullTried) sopFullLoad();
-  const idx = sopIndex();
-  /* only the newest version of each section, cited rows first, then the full text */
-  const rows = [], seen = new Set();
-  const take = r=>{ const L = idx.latest[r.sop]; const k = r.sop + "|" + r.section;
-    if(seen.has(k)) return; if(L && r.version && sopVerNum(r.version) < sopVerNum(L.version) && (idx.bySec[k] || []).some(x=>x.version === L.version)) return;
-    seen.add(k); rows.push(r); };
-  (S.sops || []).slice().sort((a, b)=>sopVerNum(b.version) - sopVerNum(a.version)).forEach(take);
-  if(sopFull) sopFull.sections.slice().sort((a, b)=>sopVerNum(b.version) - sopVerNum(a.version)).forEach(take);
+  const rows = sopSearchRows();
   const one = (h, t)=>termMatches(h, t) || (SEARCH_ALSO[t] || []).some(a=>h.includes(a));
   const q = want.join(" ");
   const out = [];
   rows.forEach(r=>{
-    const h = (r.heading + " " + r.text).toLowerCase();
+    const h = r._h || (r._h = (r.heading + " " + r.text).toLowerCase());
     if(!want.every(t=>one(h, t))) return;
     const score = (h.includes(q) ? 3 : 0) + (String(r.heading).toLowerCase().includes(want[0]) ? 1 : 0);
     out.push({r, score});
   });
   out.sort((a, b)=>b.score - a.score);
   return {hits:out.slice(0, 5).map(x=>x.r), more:Math.max(0, out.length - 5), full:!!sopFull};
+}
+/* the rows search looks through, worked out once and again only when the SOP
+   sections change: the newest version of each section, cited rows first */
+let sopRowsCache = null, sopRowsKey = "";
+function sopSearchRows(){
+  const key = (S.sops || []).length + "|" + (sopFull ? sopFull.sections.length : 0) + "|" + (sopIndexDirty ? "d" : "");
+  if(sopRowsCache && key === sopRowsKey && !sopIndexDirty) return sopRowsCache;
+  const idx = sopIndex();
+  const rows = [], seen = new Set();
+  const take = r=>{ const L = idx.latest[r.sop]; const k = r.sop + "|" + r.section;
+    if(seen.has(k)) return; if(L && r.version && sopVerNum(r.version) < sopVerNum(L.version) && (idx.bySec[k] || []).some(x=>x.version === L.version)) return;
+    seen.add(k); rows.push(r); };
+  (S.sops || []).slice().sort((a, b)=>sopVerNum(b.version) - sopVerNum(a.version)).forEach(take);
+  if(sopFull) sopFull.sections.slice().sort((a, b)=>sopVerNum(b.version) - sopVerNum(a.version)).forEach(take);
+  sopRowsCache = rows; sopRowsKey = (S.sops || []).length + "|" + (sopFull ? sopFull.sections.length : 0) + "|";
+  return rows;
 }
 function sopSnippet(text, terms){
   const t = String(text || "").replace(/\s+/g, " ").trim();
@@ -28854,7 +28864,7 @@ const HELP_TOPICS = [
     <p><b>Answers</b> come first when what you typed matches a flowchart answer or a row of a table in a note: type <i>skin punch</i> and you see "Pink folder · Green (TC) bin" straight away, coloured like the row. <b>Walk from here</b> opens that flowchart at that step; <b>Open the room</b> takes you to it.</p>
     <ol>
       <li>Tap the search box (or press <kbd>/</kbd>). Before you type, it shows what you searched lately, your bookmarks and the rooms you visit most.</li>
-      <li>Type a word, a code, or an accession number. The list fills as you type.</li>
+      <li>Type a word, a code, or an accession number. The list fills in when you finish a word (a space), press Enter, or pause; it doesn't search between letters.</li>
       <li>The grey line under a result shows <b>why</b> it matched &mdash; the sentence from its note.</li>
       <li>Tap a result to go there, or press <kbd>Enter</kbd> for the top one.</li>
     </ol>
@@ -31852,19 +31862,36 @@ async function boot(){
   el("whoClose").onclick = ()=>el("whoDlg").close();
   /* Wait until the typing stops. Searching between keystrokes meant the map
      was rebuilt for half-finished words nobody was looking for. */
-  let searchPending = null;
+  /* A search runs when a word is finished, not between letters: on a space,
+     Enter, or leaving the box, and otherwise only once the typing has really
+     paused. Searching "fet", "feta", "fetal" one after another kept the page
+     busy for words nobody was looking for. The same text is never searched
+     twice in a row, so "fetal" then a space doesn't search again. */
+  let searchPending = null, searchedQ = null;
+  const qNow = ()=>(el("mq").value || el("q").value || "").replace(/\s+/g, " ").trim().toLowerCase();
+  const searchRun = ()=>{
+    clearTimeout(searchPending); searchPending = null;
+    const q = qNow();
+    if(q === searchedQ) return;
+    searchedQ = q; runSearch();
+  };
   const searchNow = ()=>{
-    clearTimeout(searchPending);
-    /* In the room a search is cheap — nothing but the room is redrawn — and
-       somebody there is usually after one thing, fast. The drawing, where a
-       search reflows the whole map, keeps the longer wait. */
-    searchPending = setTimeout(()=>{ searchPending = null; runSearch(); },
-      typeof inRoom === "function" && inRoom() ? 280 : 650);
-    if(el("hitCount")) el("hitCount").textContent = "…";
+    clearTimeout(searchPending); searchPending = null;
+    const raw = el("mq").value || el("q").value || "";
+    const q = qNow();
+    if(q === searchedQ){ if(el("hitCount") && el("hitCount").textContent === "\u2026") el("hitCount").textContent = ""; return; }
+    if(!q || /\s$/.test(raw)){ searchRun(); return; }      /* cleared, or a word just finished */
+    /* one letter finds everything; wait longer before bothering */
+    const wait = q.length < 2 ? 1400 : (typeof inRoom === "function" && inRoom() ? 750 : 950);
+    searchPending = setTimeout(searchRun, wait);
+    if(el("hitCount")) el("hitCount").textContent = "\u2026";
   };
   const searchAtOnce = ()=>{
-    clearTimeout(searchPending); searchPending = null; runSearch();
+    clearTimeout(searchPending); searchPending = null; searchedQ = qNow(); runSearch();
   };
+  /* anything else that searches (a tag picked, a room changed) makes the next
+     typed search count as new */
+  window.searchForget = ()=>{ searchedQ = null; };
   el("q").addEventListener("input", ()=>{ el("mq").value = el("q").value; searchNow(); });
   el("mq").addEventListener("input", ()=>{ el("q").value = el("mq").value; searchNow(); });
   /* the list closes when you tap into the room; tapping back into the box
@@ -31905,7 +31932,7 @@ async function boot(){
     if(ev.key === "Enter"){ ev.preventDefault(); searchAtOnce(); } });
   ["q","mq"].forEach(id=>{
     const box = el(id);
-    if(box) box.addEventListener("blur", ()=>{ if(searchPending) searchAtOnce(); });
+    if(box) box.addEventListener("blur", ()=>{ if(searchPending) searchRun(); });
   });
   el("searchScope").addEventListener("change", ()=>{
     S.searchScope = el("searchScope").value;
