@@ -21666,7 +21666,7 @@ async function choosePictureFolder(){
    behaves like nothing, so it is thrown away rather than believed. */
 /* Which copy of this file is running. When something behaves differently on
    two machines this is the first thing worth checking. */
-const APP_BUILD = "2026-11-09c";
+const APP_BUILD = "2026-11-24b";
 
 /* Reading that line back out of a copy of this file.
 
@@ -21971,6 +21971,21 @@ async function shutHello(done){
 
 /* The one button. Everything it does has to happen inside this click, because
    a browser will only put the folder question to somebody who asked for it. */
+/* A step that never answers (a browser question nobody saw, OneDrive still
+   fetching a file) must not hold the welcome forever: each wait is capped,
+   says what it is probably waiting on, and the way out shows. */
+function helloWithin(p, ms, fallback){
+  return Promise.race([Promise.resolve(p).catch(()=>fallback), new Promise(r=>setTimeout(()=>r(fallback), ms))]);
+}
+function helloSlow(which, note, ms){
+  return setTimeout(()=>{
+    const li = document.querySelector('#helloSteps li[data-step="' + which + '"]');
+    if(li && li.classList.contains("doing")){
+      helloStep(which, "doing", note);
+      el("helloSkip").hidden = false;
+    }
+  }, ms);
+}
 async function helloGo(){
   const go = el("helloGo");
   go.disabled = true; go.textContent = "One moment\u2026";
@@ -21996,13 +22011,14 @@ async function helloGo(){
 
   /* 1 — the folder */
   helloStep("folder", "doing");
+  const slowFolder = helloSlow("folder", "your browser may be asking: look at the top of the window, by the address bar", 3500);
   let reach = false;
   try{
     if(heldFolders().length){
       for(const f of heldFolders()){
-        if(await folderSays(f.h, f.mode, true) === "granted") reach = true;
+        if(await helloWithin(folderSays(f.h, f.mode, true), 25000, "timeout") === "granted") reach = true;
         else if(f.mode === "readwrite"
-          && await folderSays(f.h, "read", true) === "granted") reach = true;
+          && await helloWithin(folderSays(f.h, "read", true), 15000, "timeout") === "granted") reach = true;
       }
     }
     if(!reach){
@@ -22020,6 +22036,7 @@ async function helloGo(){
       }
     }
   }catch(e){ /* they changed their mind at the picker */ }
+  clearTimeout(slowFolder);
   helloStep("folder", reach ? "done" : "missed",
     reach ? (picDir && picDir.name || "linked") : "not linked");
   if(!reach){
@@ -22037,7 +22054,9 @@ async function helloGo(){
         const found = await findWorkbookIn(bookDir);
         if(found){ bookHandle = found; await rememberHandle("bookHandle", found); }
       }
-      if(bookHandle) got = await readRememberedWorkbook(true);
+      const slowBook = helloSlow("book", "still reading; OneDrive may be downloading the workbook", 8000);
+      if(bookHandle) got = await helloWithin(readRememberedWorkbook(true), 120000, false);
+      clearTimeout(slowBook);
     }catch(e){}
     /* the name was typed before the list was known: match it to somebody now */
     if(S.who && !S.whoKey && helloRoster().length){
@@ -22079,8 +22098,10 @@ async function helloGo(){
       try{ if(u && String(u).startsWith("blob:")) URL.revokeObjectURL(u); }catch(e){}
     }
     picCache.clear(); bdLive.clear(); bdPool = null; bdWarmed.clear();
-    await warmPictures(true);
-    pool = await backdropPool(true);
+    const slowPics = helloSlow("pics", "still loading; OneDrive may be downloading pictures", 8000);
+    await helloWithin(warmPictures(true), 60000, null);
+    pool = (await helloWithin(backdropPool(true), 30000, [])) || [];
+    clearTimeout(slowPics);
   }catch(e){}
   /* a folder full of pictures and no backdrop chosen: choose one for them,
      in their own copy, because that is plainly what the folder is for */
@@ -22088,12 +22109,14 @@ async function helloGo(){
   helloStep("pics", pool.length || picCache.size ? "done" : "missed",
     pool.length ? pool.length + " backdrops" : picCache.size ? picCache.size + " pictures" : "none found");
 
-  try{ await loadNoteFiles(); }catch(e){}
+  try{ await helloWithin(loadNoteFiles(), 30000, null); }catch(e){}
 
   /* 3 — everybody else */
   helloStep("sync", "doing");
   let added = 0;
-  try{ if(canCatchUp()) added = await catchUp(true); }catch(e){}
+  const slowSync = helloSlow("sync", "still reading everybody's files", 8000);
+  try{ if(canCatchUp()) added = (await helloWithin(catchUp(true), 60000, 0)) || 0; }catch(e){}
+  clearTimeout(slowSync);
   helloStep("sync", "done", canCatchUp()
     ? (added ? added + " new" : "up to date") : "nothing to read");
 
@@ -22376,6 +22399,7 @@ function crumbNotice(){
   try{ sessionStorage.removeItem(CRUMB_KEY); }catch(e){}
   const last = trail[trail.length - 1];
   if(!last || last.phase === "idle") return;
+  if(last.phase === "read" && last.step) picSkipAdd(last.step);
   const say = {
     scan:"listing the folder", read:"reading pictures", decode:"shrinking a picture",
     book:"reading the workbook", catchup:"reading everyone's files", hello:"setting up"
@@ -22394,7 +22418,8 @@ function crumbNotice(){
   box.innerHTML = "<div><b>The last visit stopped while " + esc(say) + ".</b> "
     + esc(last.step || "") + " — " + esc(String(last.files)) + " file" + (last.files === 1 ? "" : "s")
     + " read, " + esc(String(last.decoding)) + " being shrunk at the time"
-    + (last.heap ? ", script memory " + esc(last.heap) : "") + ".</div>"
+    + (last.heap ? ", script memory " + esc(last.heap) : "") + "."
+    + (last.phase === "read" ? " That picture is skipped for now. If this keeps happening, check that OneDrive is running and signed in, and open the file in File Explorer once." : "") + "</div>"
     + '<div style="margin-top:8px;display:flex;gap:8px;justify-content:flex-end">'
     + '<button class="btn" id="crumbCopy">Copy the details</button>'
     + '<button class="btn" id="crumbShut">Dismiss</button></div>';
@@ -22430,6 +22455,8 @@ function picInLine(job){
   return next;
 }
 
+function picSkip(){ try{ return JSON.parse(sessionStorage.getItem("mm-pic-skip") || "[]"); }catch(e){ return []; } }
+function picSkipAdd(path){ try{ const l = picSkip(); if(!l.includes(path)){ l.push(path); sessionStorage.setItem("mm-pic-skip", JSON.stringify(l.slice(-50))); } }catch(e){} }
 async function picRead(path){
   if(picCache.has(path)) return picCache.get(path);
   if(picPending.has(path)) return picPending.get(path);
@@ -22443,14 +22470,20 @@ async function picRead(path){
       }
     }catch(e){}
     if(!picDir && !bookDir) return "";
+    /* the file the last visit got stuck on is left alone for the rest of
+       this visit: reading it again would only get stuck again */
+    if(picSkip().includes(path)) return "";
     let f = null;
     crumbNow.files++;
     crumb("read", path);
-    try{ f = await fileFromFolder(path); }catch(e){}
+    /* OneDrive fetching an online-only file it can't get would otherwise hold
+       this (and every picture queued behind it) forever */
+    try{ f = await helloWithin(fileFromFolder(path), 20000, null); }catch(e){}
+    if(!f) picSkipAdd(path);
     if(!f){ folderMissed(); crumbIdle("missing " + path); return ""; }
     crumbNow.bytes += f.size || 0;
     let keep = f;
-    try{ keep = await bdShrink(f); }catch(e){}
+    try{ keep = (await helloWithin(bdShrink(f), 20000, null)) || f; }catch(e){}
     /* whatever came back has to be something the browser will make an address
        for; anything else is dropped rather than allowed to throw and take the
        rest of the queue with it */
